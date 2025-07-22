@@ -1,6 +1,6 @@
 import { TempoInit } from "@/components/tempo-init";
 import { Toaster } from "@/components/ui/toaster";
-import { ThemeProvider } from "next-themes";
+// import { ThemeProvider } from "next-themes";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
@@ -23,16 +23,16 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <Script src="https://api.tempo.build/proxy-asset?url=https://storage.googleapis.com/tempo-public-assets/error-handling.js" />
       <body className={inter.className}>
-        <ThemeProvider
+        {/* <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-        >
+        > */}
           {children}
           <Toaster />
           <TempoInit />
-        </ThemeProvider>
+        {/* </ThemeProvider> */}
       </body>
     </html>
   );

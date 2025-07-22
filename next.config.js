@@ -3,6 +3,10 @@
 const nextConfig = {
     images: {
         domains: ['images.unsplash.com'],
+    },
+    swcMinify: false,
+    experimental: {
+        forceSwcTransforms: false,
     }
 };
 
