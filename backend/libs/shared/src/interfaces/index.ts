@@ -225,33 +225,12 @@ export enum ResourceType {
   API_CALL = 'API_CALL',
 }
 
-export enum EventPriority {
-  HIGH = 'HIGH',
-  MEDIUM = 'MEDIUM',
-  LOW = 'LOW',
-}
+import { EventPriority as EnumEventPriority, EventTargetType as EnumEventTargetType, EventPriority, EventTargetType, WebSocketEventType, EventType } from '../enums'; // Import enums directly from the enums file
+export { EnumEventPriority as EventPriority, EnumEventTargetType as EventTargetType };
 
-export enum EventTargetType {
-  ALL = 'ALL',
-  TENANT = 'TENANT',
-  USER = 'USER',
-  FLOW = 'FLOW',
-}
-
-export enum EventType {
-  AGENT_EXECUTION = 'AGENT_EXECUTION',
-  TOOL_EXECUTION = 'TOOL_EXECUTION',
-  WORKFLOW_EXECUTION = 'WORKFLOW_EXECUTION',
-  SYSTEM_NOTIFICATION = 'SYSTEM_NOTIFICATION',
-  USER_ACTION = 'USER_ACTION',
-}
-
-export enum WebSocketEventType {
-  CONNECTION = 'CONNECTION',
-  SUBSCRIPTION = 'SUBSCRIPTION',
-  MESSAGE = 'MESSAGE',
-  HEARTBEAT = 'HEARTBEAT',
-}
+// Use the enums from @shared/enums instead
+import { EventType as EnumEventType, WebSocketEventType as EnumWebSocketEventType } from '../enums';
+export { EnumEventType as EventType, EnumWebSocketEventType as WebSocketEventType };
 
 export interface IJwtPayload {
   sub: string;

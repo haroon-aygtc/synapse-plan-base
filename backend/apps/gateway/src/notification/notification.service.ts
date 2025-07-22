@@ -284,7 +284,7 @@ export class NotificationService {
       await this.notificationRepository.save(notification);
 
     // Send real-time update
-    await this.webSocketService.sendNotificationUpdate(organizationId, userId, {
+    await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
       type: 'notification_read',
       notificationId: id,
       readAt: notification.readAt,
@@ -309,7 +309,7 @@ export class NotificationService {
     );
 
     // Send real-time update
-    await this.webSocketService.sendNotificationUpdate(organizationId, userId, {
+    await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
       type: 'all_notifications_read',
       timestamp: new Date(),
     });
@@ -566,7 +566,7 @@ export class NotificationService {
       where.createdAt = Between(startDate, endDate) as any;
     }
 
-    const [totalSent, notifications] =
+    const [notifications, totalSent] =
       await this.notificationRepository.findAndCount({
         where,
         relations: ['deliveries'],

@@ -52,6 +52,7 @@ export enum EventType {
 
   // Notification Events
   NOTIFICATION_SENT = 'notification.sent',
+  NOTIFICATION_READ = 'notification.read',
   NOTIFICATION_FAILED = 'notification.failed',
 
   // System Events

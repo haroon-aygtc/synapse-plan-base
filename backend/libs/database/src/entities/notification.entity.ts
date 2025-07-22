@@ -127,7 +127,7 @@ export class Notification extends BaseEntity {
   @JoinColumn({ name: 'templateId' })
   template: NotificationTemplate;
 
-  @OneToMany(() => NotificationDelivery, (delivery) => delivery.notification)
+  @OneToMany(() => NotificationDelivery, (delivery) => delivery.notification, { cascade: true })
   deliveries: NotificationDelivery[];
 
   // Helper methods
