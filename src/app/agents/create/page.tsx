@@ -805,7 +805,7 @@ export default function AgentCreatePage() {
   };
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={0}>
       <div
         id="main-container"
         className="container mx-auto py-8 bg-background relative"
@@ -1312,7 +1312,7 @@ export default function AgentCreatePage() {
                       if (onboardingState.showContextualHelp) {
                         generateContextualHint(
                           "agent-name",
-                          document.getElementById("agent-name-input"),
+                          document.getElementById("agent-name-input") ?? undefined,
                         );
                       }
                     }}
@@ -1368,7 +1368,7 @@ export default function AgentCreatePage() {
                       if (onboardingState.showContextualHelp) {
                         generateContextualHint(
                           "agent-description",
-                          document.getElementById("agent-description-input"),
+                          document.getElementById("agent-description-input") ?? undefined,
                         );
                       }
                     }}
@@ -1703,12 +1703,13 @@ export default function AgentCreatePage() {
                             variant="ghost"
                             size="sm"
                             className="h-6 w-6 p-0"
-                            onClick={(e) =>
+                            onClick={() => {
+                              const element = document.getElementById("temperature");
                               generateContextualHint(
                                 "temperature-slider",
-                                e.currentTarget,
-                              )
-                            }
+                                element ?? undefined,
+                              );
+                            }}
                           >
                             <HelpCircle className="h-3 w-3" />
                           </Button>
@@ -1761,12 +1762,13 @@ export default function AgentCreatePage() {
                             variant="ghost"
                             size="sm"
                             className="h-6 w-6 p-0"
-                            onClick={(e) =>
+                            onClick={() => {
+                              const element = document.getElementById("memory-toggle");
                               generateContextualHint(
                                 "memory-toggle",
-                                e.currentTarget,
-                              )
-                            }
+                                element ?? undefined,
+                              );
+                            }}
                           >
                             <HelpCircle className="h-3 w-3" />
                           </Button>
