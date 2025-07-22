@@ -286,6 +286,122 @@ export class WebSocketGatewayImpl
     }
   }
 
+  private validateEventSubscription(
+    eventType: string,
+    userId: string,
+    organizationId: string,
+    role: string,
+  ): {
+    allowed: boolean;
+    reason?: string;
+    permissions?: string[];
+  } {
+    const permissions: string[] = [];
+
+    // Parse event type for validation
+    const [category, ...eventParts] = eventType.split(':');
+    const eventName = eventParts.join(':');
+
+    switch (category) {
+      case 'NODE_MOVED':
+      case 'NODE_CREATED':
+      case 'NODE_DELETED':
+      case 'NODE_UPDATED':
+        // Flow/canvas events - all authenticated users can subscribe
+        permissions.push('read');
+        if (role !== 'VIEWER') {
+          permissions.push('write');
+        }
+        return { allowed: true, permissions };
+
+      case 'AGENT_EXECUTION':
+      case 'TOOL_EXECUTION':
+      case 'WORKFLOW_EXECUTION':
+        // Execution events - all users can subscribe to their org's events
+        permissions.push('read');
+        return { allowed: true, permissions };
+
+      case 'SYSTEM_NOTIFICATION':
+      case 'RESOURCE_UPDATE':
+      case 'STATS_UPDATE':
+        // System events - all authenticated users
+        permissions.push('read');
+        return { allowed: true, permissions };
+
+      case 'ADMIN_EVENT':
+      case 'BILLING_UPDATE':
+        // Admin-only events
+        if (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN') {
+          permissions.push('read', 'admin');
+          return { allowed: true, permissions };
+        }
+        return { allowed: false, reason: 'Admin access required' };
+
+      case 'USER_ACTIVITY':
+        // User can subscribe to their own activity or admins to any
+        if (eventName === userId || role === 'ORG_ADMIN' || role === 'SUPER_ADMIN') {
+          permissions.push('read');
+          return { allowed: true, permissions };
+        }
+        return { allowed: false, reason: 'Can only subscribe to your own user activity' };
+
+      case 'FLOW':
+        // Flow-specific events - validate flow access
+        permissions.push('read');
+        if (role !== 'VIEWER') {
+          permissions.push('write');
+        }
+        return { allowed: true, permissions };
+
+      default:
+        // Custom or unknown event types - allow with basic permissions
+        permissions.push('read');
+        return { allowed: true, permissions };
+    }
+  }
+
+  private validateEventPublishing(
+    eventType: string,
+    targetType: string,
+    userId: string,
+    organizationId: string,
+    role: string,
+  ): {
+    allowed: boolean;
+    reason?: string;
+  } {
+    const [category] = eventType.split(':');
+
+    // System events can only be published by the system or admins
+    if (['SYSTEM_NOTIFICATION', 'RESOURCE_UPDATE', 'STATS_UPDATE'].includes(category)) {
+      if (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN') {
+        return { allowed: true };
+      }
+      return { allowed: false, reason: 'System events require admin privileges' };
+    }
+
+    // Admin events require admin role
+    if (['ADMIN_EVENT', 'BILLING_UPDATE'].includes(category)) {
+      if (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN') {
+        return { allowed: true };
+      }
+      return { allowed: false, reason: 'Admin events require admin privileges' };
+    }
+
+    // Viewers cannot publish most events
+    if (role === 'VIEWER') {
+      return { allowed: false, reason: 'Viewers cannot publish events' };
+    }
+
+    // Cross-tenant publishing not allowed
+    if (targetType === 'tenant' && organizationId) {
+      return { allowed: true };
+    }
+
+    // Default allow for other event types
+    return { allowed: true };
+  }
+
   private validateRoomAccess(
     room: string,
     userId: string,

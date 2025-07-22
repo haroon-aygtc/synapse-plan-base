@@ -377,9 +377,9 @@ const DashboardOverview = () => {
       wsService.connect(token);
     }
 
-    // Subscribe to real-time updates
-    const unsubscribeActivity = wsService.on(
-      'activity_update',
+    // Subscribe to real-time updates using new subscription system
+    const unsubscribeActivity = wsService.subscribe(
+      'ACTIVITY_UPDATE',
       (newActivity: ActivityItem) => {
         setDashboardData((prev) => {
           if (!prev) return prev;
@@ -389,10 +389,11 @@ const DashboardOverview = () => {
           };
         });
       },
+      { targetType: 'tenant', autoResubscribe: true },
     );
 
-    const unsubscribeStats = wsService.on(
-      'stats_update',
+    const unsubscribeStats = wsService.subscribe(
+      'STATS_UPDATE',
       (newStats: Partial<DashboardStats>) => {
         setDashboardData((prev) => {
           if (!prev) return prev;
@@ -402,10 +403,11 @@ const DashboardOverview = () => {
           };
         });
       },
+      { targetType: 'tenant', autoResubscribe: true },
     );
 
-    const unsubscribeResource = wsService.on(
-      'resource_update',
+    const unsubscribeResource = wsService.subscribe(
+      'RESOURCE_UPDATE',
       (newUsage: Partial<ResourceUsage>) => {
         setDashboardData((prev) => {
           if (!prev) return prev;
@@ -415,12 +417,62 @@ const DashboardOverview = () => {
           };
         });
       },
+      { targetType: 'tenant', autoResubscribe: true },
+    );
+
+    // Subscribe to agent execution updates
+    const unsubscribeAgentExecution = wsService.subscribe(
+      'AGENT_EXECUTION',
+      (executionData: any) => {
+        console.log('Agent execution update:', executionData);
+        // Handle agent execution updates
+        setDashboardData((prev) => {
+          if (!prev) return prev;
+          // Update relevant stats or activities based on execution data
+          return prev;
+        });
+      },
+      { targetType: 'tenant', autoResubscribe: true },
+    );
+
+    // Subscribe to workflow execution updates
+    const unsubscribeWorkflowExecution = wsService.subscribe(
+      'WORKFLOW_EXECUTION',
+      (executionData: any) => {
+        console.log('Workflow execution update:', executionData);
+        // Handle workflow execution updates
+      },
+      { targetType: 'tenant', autoResubscribe: true },
+    );
+
+    // Subscribe to tool execution updates
+    const unsubscribeToolExecution = wsService.subscribe(
+      'TOOL_EXECUTION',
+      (executionData: any) => {
+        console.log('Tool execution update:', executionData);
+        // Handle tool execution updates
+      },
+      { targetType: 'tenant', autoResubscribe: true },
+    );
+
+    // Subscribe to system notifications
+    const unsubscribeSystemNotifications = wsService.subscribe(
+      'SYSTEM_NOTIFICATION',
+      (notification: any) => {
+        console.log('System notification:', notification);
+        // Handle system notifications (could show toast, etc.)
+      },
+      { targetType: 'tenant', autoResubscribe: true },
     );
 
     return () => {
       unsubscribeActivity();
       unsubscribeStats();
       unsubscribeResource();
+      unsubscribeAgentExecution();
+      unsubscribeWorkflowExecution();
+      unsubscribeToolExecution();
+      unsubscribeSystemNotifications();
       wsService.disconnect();
     };
   }, [isAuthenticated, user]);
@@ -518,6 +570,7 @@ const DashboardOverview = () => {
                 className="h-8 rounded-md border border-input bg-background px-3 py-1 text-xs"
                 value={timeFilter}
                 onChange={(e) => handleTimeFilterChange(e.target.value)}
+                title="Time filter"
               >
                 <option value="today">Today</option>
                 <option value="yesterday">Yesterday</option>

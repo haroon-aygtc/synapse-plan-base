@@ -325,6 +325,234 @@ export class ConnectionService {
     }
   }
 
+  // Subscription Management Methods
+  async subscribeToEvent(connectionId: string, eventType: string): Promise<boolean> {
+    const connection = this.connections.get(connectionId);
+    const subscription = this.subscriptions.get(connectionId);
+    
+    if (!connection || !subscription) {
+      this.logger.warn(`Cannot subscribe: Connection ${connectionId} not found`);
+      return false;
+    }
+
+    // Add to local subscription tracking
+    connection.subscriptions?.add(eventType);
+    subscription.eventTypes.add(eventType);
+    subscription.lastActivity = new Date();
+
+    // Add to event-based lookup
+    if (!this.eventSubscriptions.has(eventType)) {
+      this.eventSubscriptions.set(eventType, new Set());
+    }
+    this.eventSubscriptions.get(eventType)!.add(connectionId);
+
+    // Store in Redis for multi-instance support
+    await this.redis.sadd(
+      `${this.REDIS_SUBSCRIPTION_PREFIX}${eventType}:${connection.organizationId}`,
+      connectionId,
+    );
+    await this.redis.hset(
+      `${this.REDIS_SUBSCRIPTION_PREFIX}${connectionId}`,
+      eventType,
+      new Date().toISOString(),
+    );
+
+    this.logger.debug(
+      `Connection ${connectionId} subscribed to event: ${eventType}`,
+    );
+    return true;
+  }
+
+  async unsubscribeFromEvent(connectionId: string, eventType: string): Promise<boolean> {
+    const connection = this.connections.get(connectionId);
+    const subscription = this.subscriptions.get(connectionId);
+    
+    if (!connection || !subscription) {
+      return false;
+    }
+
+    // Remove from local tracking
+    connection.subscriptions?.delete(eventType);
+    subscription.eventTypes.delete(eventType);
+    subscription.lastActivity = new Date();
+
+    // Remove from event-based lookup
+    this.eventSubscriptions.get(eventType)?.delete(connectionId);
+    if (this.eventSubscriptions.get(eventType)?.size === 0) {
+      this.eventSubscriptions.delete(eventType);
+    }
+
+    // Remove from Redis
+    await this.redis.srem(
+      `${this.REDIS_SUBSCRIPTION_PREFIX}${eventType}:${connection.organizationId}`,
+      connectionId,
+    );
+    await this.redis.hdel(
+      `${this.REDIS_SUBSCRIPTION_PREFIX}${connectionId}`,
+      eventType,
+    );
+
+    this.logger.debug(
+      `Connection ${connectionId} unsubscribed from event: ${eventType}`,
+    );
+    return true;
+  }
+
+  async unsubscribeFromAllEvents(connectionId: string): Promise<void> {
+    const subscription = this.subscriptions.get(connectionId);
+    if (!subscription) return;
+
+    const eventTypes = Array.from(subscription.eventTypes);
+    for (const eventType of eventTypes) {
+      await this.unsubscribeFromEvent(connectionId, eventType);
+    }
+  }
+
+  getSubscribersForEvent(eventType: string, organizationId?: string): string[] {
+    const subscribers = this.eventSubscriptions.get(eventType) || new Set();
+    
+    if (!organizationId) {
+      return Array.from(subscribers);
+    }
+
+    // Filter by organization
+    return Array.from(subscribers).filter(connectionId => {
+      const connection = this.connections.get(connectionId);
+      return connection?.organizationId === organizationId;
+    });
+  }
+
+  async getSubscribersForEventFromRedis(
+    eventType: string,
+    organizationId: string,
+  ): Promise<string[]> {
+    try {
+      return await this.redis.smembers(
+        `${this.REDIS_SUBSCRIPTION_PREFIX}${eventType}:${organizationId}`,
+      );
+    } catch (error) {
+      this.logger.error(`Error getting Redis subscribers: ${error.message}`);
+      return [];
+    }
+  }
+
+  getConnectionSubscriptions(connectionId: string): string[] {
+    const subscription = this.subscriptions.get(connectionId);
+    return subscription ? Array.from(subscription.eventTypes) : [];
+  }
+
+  // Event Publishing with Targeting
+  async publishEvent(
+    eventType: string,
+    payload: any,
+    targeting: EventTargeting,
+  ): Promise<void> {
+    const message = this.createMessage(
+      eventType,
+      payload,
+      targeting.type === 'user' ? targeting.targetId : undefined,
+      targeting.organizationId,
+      targeting.type,
+      targeting.targetId,
+    );
+
+    // Publish to Redis for multi-instance broadcasting
+    await this.redis.publish(
+      `${this.REDIS_EVENT_PREFIX}${eventType}`,
+      JSON.stringify({ message, targeting }),
+    );
+
+    // Also handle locally for current instance
+    await this.handleEventPublication(eventType, message, targeting);
+  }
+
+  private async handleEventPublication(
+    eventType: string,
+    message: MessageProtocol,
+    targeting: EventTargeting,
+  ): Promise<void> {
+    let targetConnections: string[] = [];
+
+    switch (targeting.type) {
+      case 'all':
+        targetConnections = this.getSubscribersForEvent(eventType);
+        break;
+      case 'tenant':
+        targetConnections = this.getSubscribersForEvent(eventType, targeting.organizationId);
+        break;
+      case 'user':
+        if (targeting.targetId) {
+          const userConnections = await this.getConnectionsByUserId(targeting.targetId);
+          targetConnections = userConnections.filter(connId => {
+            const connection = this.connections.get(connId);
+            return connection?.subscriptions?.has(eventType);
+          });
+        }
+        break;
+      case 'flow':
+        // For flow-specific targeting, we'd need additional logic
+        // This could involve checking flow participants or specific room memberships
+        targetConnections = this.getSubscribersForEvent(`flow:${targeting.targetId}`, targeting.organizationId);
+        break;
+    }
+
+    // Emit to target connections (this would be handled by WebSocketService)
+    this.logger.debug(
+      `Publishing event ${eventType} to ${targetConnections.length} connections`,
+    );
+  }
+
+  private async setupRedisSubscriptions(): Promise<void> {
+    try {
+      // Subscribe to Redis pub/sub for multi-instance event broadcasting
+      const subscriber = this.redis.duplicate();
+      await subscriber.psubscribe(`${this.REDIS_EVENT_PREFIX}*`);
+      
+      subscriber.on('pmessage', async (pattern, channel, message) => {
+        try {
+          const { message: eventMessage, targeting } = JSON.parse(message);
+          const eventType = channel.replace(this.REDIS_EVENT_PREFIX, '');
+          await this.handleEventPublication(eventType, eventMessage, targeting);
+        } catch (error) {
+          this.logger.error(`Error handling Redis event: ${error.message}`);
+        }
+      });
+
+      this.logger.log('Redis event subscriptions established');
+    } catch (error) {
+      this.logger.error(`Error setting up Redis subscriptions: ${error.message}`);
+    }
+  }
+
+  // Statistics and Monitoring
+  getSubscriptionStats(): {
+    totalSubscriptions: number;
+    subscriptionsByEvent: Record<string, number>;
+    subscriptionsByOrg: Record<string, number>;
+    activeSubscribers: number;
+  } {
+    const subscriptionsByEvent: Record<string, number> = {};
+    const subscriptionsByOrg: Record<string, number> = {};
+    let totalSubscriptions = 0;
+
+    for (const [eventType, subscribers] of this.eventSubscriptions) {
+      subscriptionsByEvent[eventType] = subscribers.size;
+      totalSubscriptions += subscribers.size;
+    }
+
+    for (const subscription of this.subscriptions.values()) {
+      subscriptionsByOrg[subscription.organizationId] = 
+        (subscriptionsByOrg[subscription.organizationId] || 0) + subscription.eventTypes.size;
+    }
+
+    return {
+      totalSubscriptions,
+      subscriptionsByEvent,
+      subscriptionsByOrg,
+      activeSubscribers: this.subscriptions.size,
+    };
+  }
+
   onModuleDestroy(): void {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);

@@ -175,6 +175,109 @@ export class WebSocketService {
     });
   }
 
+  // Publish event with targeting
+  async publishEvent(
+    eventType: string,
+    payload: any,
+    targetType: 'all' | 'tenant' | 'user' | 'flow' = 'tenant',
+    targetId?: string,
+    organizationId?: string,
+  ): Promise<void> {
+    if (!this.server) {
+      this.logger.warn('WebSocket server not initialized');
+      return;
+    }
+
+    // Use connection service for proper targeting and Redis pub/sub
+    await this.connectionService.publishEvent(eventType, payload, {
+      type: targetType,
+      targetId,
+      organizationId: organizationId || '',
+    });
+
+    this.logger.debug(
+      `Published event ${eventType} with targeting: ${targetType}${targetId ? `:${targetId}` : ''}`,
+    );
+  }
+
+  // Broadcast to event subscribers
+  async broadcastToSubscribers(
+    eventType: string,
+    payload: any,
+    organizationId?: string,
+  ): Promise<void> {
+    if (!this.server) {
+      this.logger.warn('WebSocket server not initialized');
+      return;
+    }
+
+    const subscribers = this.connectionService.getSubscribersForEvent(
+      eventType,
+      organizationId,
+    );
+
+    if (subscribers.length === 0) {
+      this.logger.debug(`No subscribers found for event: ${eventType}`);
+      return;
+    }
+
+    const message = this.connectionService.createMessage(
+      eventType,
+      payload,
+      undefined,
+      organizationId,
+    );
+
+    // Emit to each subscriber's socket
+    for (const connectionId of subscribers) {
+      const connection = this.connectionService.getConnectionBySocketId(connectionId);
+      if (connection) {
+        // Find socket by connection info and emit
+        this.server.to(`user:${connection.userId}`).emit('message', message);
+      }
+    }
+
+    this.logger.debug(
+      `Broadcasted event ${eventType} to ${subscribers.length} subscribers`,
+    );
+  }
+
+  // Send targeted event to specific flow participants
+  async sendFlowEvent(
+    flowId: string,
+    eventType: string,
+    payload: any,
+    organizationId: string,
+  ): Promise<void> {
+    const flowEventType = `FLOW:${flowId}:${eventType}`;
+    await this.publishEvent(
+      flowEventType,
+      { ...payload, flowId },
+      'flow',
+      flowId,
+      organizationId,
+    );
+  }
+
+  // Send node-specific events (for canvas/flow updates)
+  async sendNodeEvent(
+    nodeId: string,
+    eventType: 'NODE_MOVED' | 'NODE_CREATED' | 'NODE_DELETED' | 'NODE_UPDATED',
+    payload: any,
+    organizationId: string,
+    flowId?: string,
+  ): Promise<void> {
+    const nodeEventType = flowId ? `${eventType}:${flowId}:${nodeId}` : `${eventType}:${nodeId}`;
+    
+    await this.publishEvent(
+      nodeEventType,
+      { ...payload, nodeId, flowId },
+      'tenant',
+      undefined,
+      organizationId,
+    );
+  }
+
   // Get connection statistics
   getConnectionStats(): {
     totalConnections: number;

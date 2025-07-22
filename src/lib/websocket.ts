@@ -19,9 +19,25 @@ export interface MessageProtocol {
   organizationId?: string;
 }
 
+export interface SubscriptionOptions {
+  targetType?: 'all' | 'tenant' | 'user' | 'flow';
+  targetId?: string;
+  autoResubscribe?: boolean;
+}
+
+export interface EventSubscription {
+  eventType: string;
+  callback: (data: any) => void;
+  options: SubscriptionOptions;
+  subscribedAt: Date;
+  isActive: boolean;
+}
+
 class WebSocketService {
   private socket: Socket | null = null;
   private listeners: Map<string, Array<(data: any) => void>> = new Map();
+  private subscriptions: Map<string, EventSubscription> = new Map();
+  private pendingSubscriptions: Set<string> = new Set();
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
@@ -54,9 +70,13 @@ class WebSocketService {
       },
       transports: ['websocket', 'polling'],
       timeout: 20000,
-      pingTimeout: 60000,
-      pingInterval: 25000,
+      autoConnect: true,
       forceNew: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      randomizationFactor: 0.5,
     });
 
     this.setupEventHandlers();
@@ -75,6 +95,7 @@ class WebSocketService {
       });
       this.startHeartbeat();
       this.emit('connection_established', { connected: true });
+      this.resubscribeToEvents();
     });
 
     this.socket.on('disconnect', (reason: any) => {
@@ -325,6 +346,144 @@ class WebSocketService {
 
   getConnectionState(): ConnectionState {
     return { ...this.connectionState };
+  }
+
+  // Event Subscription Management
+  subscribe(
+    eventType: string,
+    callback: (data: any) => void,
+    options: SubscriptionOptions = {},
+  ): () => void {
+    const subscriptionId = `${eventType}_${Date.now()}_${Math.random()}`;
+    
+    const subscription: EventSubscription = {
+      eventType,
+      callback,
+      options: {
+        targetType: 'tenant',
+        autoResubscribe: true,
+        ...options,
+      },
+      subscribedAt: new Date(),
+      isActive: false,
+    };
+
+    this.subscriptions.set(subscriptionId, subscription);
+    
+    // Also add to regular listeners for backward compatibility
+    this.on(eventType, callback);
+
+    // Send subscription request to server
+    this.sendSubscriptionRequest(eventType, options);
+
+    // Return unsubscribe function
+    return () => {
+      this.unsubscribe(subscriptionId);
+    };
+  }
+
+  private sendSubscriptionRequest(
+    eventType: string,
+    options: SubscriptionOptions,
+  ): void {
+    if (!this.socket?.connected) {
+      console.warn('Cannot subscribe: WebSocket not connected');
+      return;
+    }
+
+    if (this.pendingSubscriptions.has(eventType)) {
+      console.log(`Subscription already pending for: ${eventType}`);
+      return;
+    }
+
+    this.pendingSubscriptions.add(eventType);
+    
+    this.socket.emit('subscribe_event', {
+      eventType,
+      targetType: options.targetType || 'tenant',
+      targetId: options.targetId,
+    });
+
+    console.log(`Subscribing to event: ${eventType}`);
+  }
+
+  unsubscribe(subscriptionId: string): void {
+    const subscription = this.subscriptions.get(subscriptionId);
+    if (!subscription) return;
+
+    // Remove from local listeners
+    const eventListeners = this.listeners.get(subscription.eventType);
+    if (eventListeners) {
+      const index = eventListeners.indexOf(subscription.callback);
+      if (index > -1) {
+        eventListeners.splice(index, 1);
+      }
+    }
+
+    // Send unsubscription request to server
+    if (this.socket?.connected && subscription.isActive) {
+      this.socket.emit('unsubscribe_event', {
+        eventType: subscription.eventType,
+      });
+    }
+
+    this.subscriptions.delete(subscriptionId);
+    console.log(`Unsubscribed from: ${subscription.eventType}`);
+  }
+
+  private unsubscribeFromAllEvents(): void {
+    for (const [subscriptionId, subscription] of Array.from(this.subscriptions.entries())) {
+      if (this.socket?.connected && subscription.isActive) {
+        this.socket.emit('unsubscribe_event', {
+          eventType: subscription.eventType,
+        });
+      }
+    }
+  }
+
+  private resubscribeToEvents(): void {
+    for (const subscription of Array.from(this.subscriptions.values())) {
+      if (subscription.options.autoResubscribe !== false) {
+        this.sendSubscriptionRequest(subscription.eventType, subscription.options);
+      }
+    }
+  }
+
+  // Publish event to other clients
+  publishEvent(
+    eventType: string,
+    payload: any,
+    targetType: 'all' | 'tenant' | 'user' | 'flow' = 'tenant',
+    targetId?: string,
+  ): void {
+    if (!this.socket?.connected) {
+      console.warn('Cannot publish event: WebSocket not connected');
+      return;
+    }
+
+    this.socket.emit('publish_event', {
+      eventType,
+      payload,
+      targetType,
+      targetId,
+    });
+
+    console.log(`Published event: ${eventType} to ${targetType}${targetId ? `:${targetId}` : ''}`);
+  }
+
+  // Get current subscriptions
+  getSubscriptions(): EventSubscription[] {
+    return Array.from(this.subscriptions.values());
+  }
+
+  // Get subscription statistics
+  getSubscriptionStats(): void {
+    if (!this.socket?.connected) {
+      console.warn('Cannot get subscription stats: WebSocket not connected');
+      return;
+    }
+
+    this.socket.emit('get_subscription_stats');
   }
 
   // Force reconnection with new token
