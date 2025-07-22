@@ -85,8 +85,8 @@ export default function AgentCreatePage() {
   const [temperature, setTemperature] = useState([
     agentConfiguration.temperature || 0.7,
   ]);
-  const [memoryEnabled, setMemoryEnabled] = useState(
-    agentConfiguration.memoryEnabled || true,
+  const [memoryEnabled, setMemoryEnabled] = useState<boolean>(
+    agentConfiguration.memoryEnabled ?? true,
   );
   const [contextWindow, setContextWindow] = useState([
     agentConfiguration.contextWindow || 10,
@@ -119,7 +119,7 @@ export default function AgentCreatePage() {
     if (newConfig.temperature !== undefined)
       setTemperature([newConfig.temperature]);
     if (newConfig.memoryEnabled !== undefined)
-      setMemoryEnabled(newConfig.memoryEnabled);
+      setMemoryEnabled(newConfig.memoryEnabled ?? true);
     if (newConfig.contextWindow !== undefined)
       setContextWindow([newConfig.contextWindow]);
   };

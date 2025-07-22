@@ -12,6 +12,8 @@ import { newsletterSchema, type NewsletterFormData } from "@/lib/validations";
 import { useToast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 
+declare module "lucide-react";
+
 const NewsletterSection = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
