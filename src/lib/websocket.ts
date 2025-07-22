@@ -618,24 +618,25 @@ class WebSocketService {
   }
 }
 
-export const wsService = new WebSocketService();
+  // Handle subscription confirmations and errors
+  private handleSubscriptionResponse(eventType: string, success: boolean): void {
+    this.pendingSubscriptions.delete(eventType);
+    
+    // Update subscription status
+    for (const subscription of this.subscriptions.values()) {
+      if (subscription.eventType === eventType) {
+        subscription.isActive = success;
+      }
+    }
 
-// Handle subscription confirmations and errors
-private handleSubscriptionResponse(eventType: string, success: boolean): void {
-  this.pendingSubscriptions.delete(eventType);
-  
-  // Update subscription status
-  for (const subscription of this.subscriptions.values()) {
-    if (subscription.eventType === eventType) {
-      subscription.isActive = success;
+    if (success) {
+      console.log(`Successfully subscribed to: ${eventType}`);
+      this.emit('subscription_confirmed', { eventType, success });
+    } else {
+      console.warn(`Failed to subscribe to: ${eventType}`);
+      this.emit('subscription_error', { eventType, success });
     }
   }
-
-  if (success) {
-    console.log(`Successfully subscribed to: ${eventType}`);
-    this.emit('subscription_confirmed', { eventType, success });
-  } else {
-    console.warn(`Failed to subscribe to: ${eventType}`);
-    this.emit('subscription_error', { eventType, success });
-  }
 }
+
+export const wsService = new WebSocketService();
