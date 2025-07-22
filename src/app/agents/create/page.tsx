@@ -148,6 +148,7 @@ export default function AgentCreatePage() {
   const [isFirstVisit, setIsFirstVisit] = useState(true);
   const [tutorialProgress, setTutorialProgress] = useState(0);
   const [currentHint, setCurrentHint] = useState<ContextualHint | null>(null);
+  const [showTutorialOverlay, setShowTutorialOverlay] = useState(false);
 
   const [agentConfiguration, setAgentConfiguration] = useState<
     Partial<AgentConfiguration>
