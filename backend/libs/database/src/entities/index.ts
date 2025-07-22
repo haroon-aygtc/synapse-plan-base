@@ -18,3 +18,7 @@ export {
 } from './message-tracking-info.entity';
 export { EventLog } from './event-log.entity';
 export { Subscription } from './subscription.entity';
+export { Notification } from './notification.entity';
+export { NotificationTemplate } from './notification-template.entity';
+export { NotificationPreference } from './notification-preference.entity';
+export { NotificationDelivery } from './notification-delivery.entity';
