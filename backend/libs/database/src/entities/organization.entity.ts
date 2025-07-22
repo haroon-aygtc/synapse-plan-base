@@ -4,6 +4,7 @@ import { User } from './user.entity';
 import { Agent } from './agent.entity';
 import { Tool } from './tool.entity';
 import { Workflow } from './workflow.entity';
+import { Session } from './session.entity';
 import { SubscriptionPlan } from '@shared/interfaces';
 
 @Entity('organizations')
@@ -51,4 +52,7 @@ export class Organization extends BaseEntity {
 
   @OneToMany(() => Workflow, (workflow) => workflow.organization)
   workflows: Workflow[];
+
+  @OneToMany(() => Session, (session) => session.organization)
+  sessions: Session[];
 }

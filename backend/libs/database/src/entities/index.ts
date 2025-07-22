@@ -7,6 +7,7 @@ export { Tool } from './tool.entity';
 export { ToolExecution } from './tool-execution.entity';
 export { Workflow } from './workflow.entity';
 export { WorkflowExecution } from './workflow-execution.entity';
+export { Session } from './session.entity';
 export {
   ConnectionStats,
   ConnectionStatsEntity,
