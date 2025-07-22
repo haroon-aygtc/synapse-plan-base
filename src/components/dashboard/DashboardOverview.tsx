@@ -1,21 +1,30 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Bot, Cog, FileText, LineChart, Zap } from "lucide-react";
+import {
+  Activity,
+  Bot,
+  Cog,
+  FileText,
+  LineChart,
+  Zap,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import QuickAccessPanel from "./QuickAccessPanel";
-
-interface ActivityItem {
-  id: string;
-  type: "agent" | "workflow" | "tool" | "system";
-  title: string;
-  status: "completed" | "in_progress" | "failed";
-  timestamp: string;
-  duration?: string;
-  message?: string;
-}
+import { useAuth } from "@/hooks/useAuth";
+import { apiClient } from "@/lib/api";
+import { wsService } from "@/lib/websocket";
+import {
+  DashboardData,
+  ActivityItem,
+  DashboardStats,
+  type ResourceUsage,
+} from "@/types/dashboard";
 
 interface StatsCardProps {
   title: string;
@@ -26,6 +35,7 @@ interface StatsCardProps {
     value: number;
     isPositive: boolean;
   };
+  isLoading?: boolean;
 }
 
 const StatsCard = ({
@@ -34,19 +44,30 @@ const StatsCard = ({
   description,
   icon,
   trend,
+  isLoading = false,
 }: StatsCardProps) => {
   return (
     <Card className="bg-background">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <div className="h-4 w-4 text-muted-foreground">{icon}</div>
+        <div className="h-4 w-4 text-muted-foreground">
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+        </div>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-2xl font-bold">
+          {isLoading ? (
+            <div className="h-8 w-16 bg-muted animate-pulse rounded" />
+          ) : (
+            value
+          )}
+        </div>
         <p className="text-xs text-muted-foreground">{description}</p>
-        {trend && (
+        {trend && !isLoading && (
           <div
-            className={`mt-2 flex items-center text-xs ${trend.isPositive ? "text-green-500" : "text-red-500"}`}
+            className={`mt-2 flex items-center text-xs ${
+              trend.isPositive ? "text-green-500" : "text-red-500"
+            }`}
           >
             {trend.isPositive ? "↑" : "↓"} {trend.value}%
             <span className="text-muted-foreground ml-1">
@@ -59,7 +80,53 @@ const StatsCard = ({
   );
 };
 
-const ActivityFeed = ({ activities }: { activities: ActivityItem[] }) => {
+const ActivityFeed = ({
+  activities,
+  isLoading,
+  error,
+}: {
+  activities: ActivityItem[];
+  isLoading: boolean;
+  error: string | null;
+}) => {
+  if (error) {
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>Failed to load activities: {error}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={i}
+            className="flex items-start space-x-4 rounded-md border p-3 bg-background"
+          >
+            <div className="rounded-full p-2 bg-muted animate-pulse w-10 h-10" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+              <div className="h-3 bg-muted animate-pulse rounded w-1/2" />
+              <div className="h-3 bg-muted animate-pulse rounded w-1/4" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (activities.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
+        <p>No recent activities</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       {activities.map((activity) => (
@@ -80,7 +147,13 @@ const ActivityFeed = ({ activities }: { activities: ActivityItem[] }) => {
                 {activity.message || `${activity.type} execution`}
               </p>
               <span
-                className={`text-xs px-2 py-0.5 rounded-full ${activity.status === "completed" ? "bg-green-100 text-green-800" : activity.status === "in_progress" ? "bg-blue-100 text-blue-800" : "bg-red-100 text-red-800"}`}
+                className={`text-xs px-2 py-0.5 rounded-full ${
+                  activity.status === "completed"
+                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                    : activity.status === "in_progress"
+                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                      : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                }`}
               >
                 {activity.status === "completed"
                   ? "Completed"
@@ -100,39 +173,111 @@ const ActivityFeed = ({ activities }: { activities: ActivityItem[] }) => {
   );
 };
 
-const ResourceUsage = () => {
+const ResourceUsage = ({
+  usage,
+  isLoading,
+  error,
+}: {
+  usage: ResourceUsage | null;
+  isLoading: boolean;
+  error: string | null;
+}) => {
+  if (error) {
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Failed to load resource usage: {error}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (isLoading || !usage) {
+    return (
+      <div className="space-y-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="h-4 bg-muted animate-pulse rounded w-1/3" />
+              <div className="h-4 bg-muted animate-pulse rounded w-1/4" />
+            </div>
+            <div className="h-2 bg-muted animate-pulse rounded" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const calculatePercentage = (used: number, limit: number) => {
+    return limit > 0 ? (used / limit) * 100 : 0;
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Agent Executions</span>
-          <span className="text-sm text-muted-foreground">2,450 / 5,000</span>
+          <span className="text-sm text-muted-foreground">
+            {usage.agentExecutions.used.toLocaleString()} /{" "}
+            {usage.agentExecutions.limit.toLocaleString()}
+          </span>
         </div>
-        <Progress value={49} className="h-2" />
+        <Progress
+          value={calculatePercentage(
+            usage.agentExecutions.used,
+            usage.agentExecutions.limit,
+          )}
+          className="h-2"
+        />
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Tool Executions</span>
-          <span className="text-sm text-muted-foreground">1,280 / 10,000</span>
+          <span className="text-sm text-muted-foreground">
+            {usage.toolExecutions.used.toLocaleString()} /{" "}
+            {usage.toolExecutions.limit.toLocaleString()}
+          </span>
         </div>
-        <Progress value={12.8} className="h-2" />
+        <Progress
+          value={calculatePercentage(
+            usage.toolExecutions.used,
+            usage.toolExecutions.limit,
+          )}
+          className="h-2"
+        />
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Knowledge Base Storage</span>
-          <span className="text-sm text-muted-foreground">1.2 GB / 5 GB</span>
+          <span className="text-sm text-muted-foreground">
+            {usage.knowledgeStorage.used.toFixed(1)} GB /{" "}
+            {usage.knowledgeStorage.limit} GB
+          </span>
         </div>
-        <Progress value={24} className="h-2" />
+        <Progress
+          value={calculatePercentage(
+            usage.knowledgeStorage.used,
+            usage.knowledgeStorage.limit,
+          )}
+          className="h-2"
+        />
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">API Calls</span>
-          <span className="text-sm text-muted-foreground">8,920 / 50,000</span>
+          <span className="text-sm text-muted-foreground">
+            {usage.apiCalls.used.toLocaleString()} /{" "}
+            {usage.apiCalls.limit.toLocaleString()}
+          </span>
         </div>
-        <Progress value={17.8} className="h-2" />
+        <Progress
+          value={calculatePercentage(usage.apiCalls.used, usage.apiCalls.limit)}
+          className="h-2"
+        />
       </div>
 
       <div className="mt-6 space-y-2">
@@ -140,19 +285,25 @@ const ResourceUsage = () => {
         <div className="rounded-md border p-4 bg-background">
           <div className="flex items-center justify-between">
             <span className="text-sm">Current Plan</span>
-            <span className="text-sm font-medium">Professional</span>
+            <span className="text-sm font-medium">
+              {usage.billing.currentPlan}
+            </span>
           </div>
           <div className="flex items-center justify-between mt-2">
             <span className="text-sm">Billing Period</span>
-            <span className="text-sm">May 1 - May 31, 2023</span>
+            <span className="text-sm">{usage.billing.billingPeriod}</span>
           </div>
           <div className="flex items-center justify-between mt-2">
             <span className="text-sm">Current Usage</span>
-            <span className="text-sm font-medium">$124.50</span>
+            <span className="text-sm font-medium">
+              ${usage.billing.currentUsage.toFixed(2)}
+            </span>
           </div>
           <div className="flex items-center justify-between mt-2">
             <span className="text-sm">Projected Total</span>
-            <span className="text-sm font-medium">$189.00</span>
+            <span className="text-sm font-medium">
+              ${usage.billing.projectedTotal.toFixed(2)}
+            </span>
           </div>
         </div>
       </div>
@@ -161,82 +312,189 @@ const ResourceUsage = () => {
 };
 
 const DashboardOverview = () => {
-  // Mock data for the dashboard
-  const recentActivities: ActivityItem[] = [
-    {
-      id: "1",
-      type: "agent",
-      title: "Customer Support Agent",
-      status: "completed",
-      timestamp: "2 minutes ago",
-      duration: "3.2s",
-      message: "Resolved customer inquiry about billing",
-    },
-    {
-      id: "2",
-      type: "workflow",
-      title: "Order Processing Workflow",
-      status: "in_progress",
-      timestamp: "15 minutes ago",
-      message: "Processing new order #12345",
-    },
-    {
-      id: "3",
-      type: "tool",
-      title: "Email Notification Tool",
-      status: "completed",
-      timestamp: "1 hour ago",
-      duration: "1.5s",
-      message: "Sent order confirmation email",
-    },
-    {
-      id: "4",
-      type: "agent",
-      title: "Data Analysis Agent",
-      status: "failed",
-      timestamp: "2 hours ago",
-      message: "Error processing sales data",
-    },
-    {
-      id: "5",
-      type: "system",
-      title: "System Notification",
-      status: "completed",
-      timestamp: "3 hours ago",
-      message: "Automatic backup completed",
-    },
-  ];
+  const { user, isAuthenticated } = useAuth();
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(
+    null,
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [timeFilter, setTimeFilter] = useState("today");
+
+  const fetchDashboardData = useCallback(async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const [statsResponse, activitiesResponse, usageResponse] =
+        await Promise.all([
+          apiClient.get<DashboardStats>(
+            `/dashboard/stats?period=${timeFilter}`,
+          ),
+          apiClient.get<ActivityItem[]>(
+            `/dashboard/activities?period=${timeFilter}&limit=10`,
+          ),
+          apiClient.get<ResourceUsage>("/dashboard/usage"),
+        ]);
+
+      if (
+        statsResponse.success &&
+        activitiesResponse.success &&
+        usageResponse.success
+      ) {
+        setDashboardData({
+          stats: statsResponse.data!,
+          activities: activitiesResponse.data!,
+          resourceUsage: usageResponse.data!,
+        });
+      } else {
+        throw new Error("Failed to fetch dashboard data");
+      }
+    } catch (err: any) {
+      console.error("Dashboard data fetch error:", err);
+      setError(err.message || "Failed to load dashboard data");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated, timeFilter]);
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  // WebSocket connection and real-time updates
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("accessToken")
+        : null;
+    if (token) {
+      wsService.connect(token);
+    }
+
+    // Subscribe to real-time updates
+    const unsubscribeActivity = wsService.on(
+      "activity_update",
+      (newActivity: ActivityItem) => {
+        setDashboardData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            activities: [newActivity, ...prev.activities.slice(0, 9)], // Keep only 10 most recent
+          };
+        });
+      },
+    );
+
+    const unsubscribeStats = wsService.on(
+      "stats_update",
+      (newStats: Partial<DashboardStats>) => {
+        setDashboardData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            stats: { ...prev.stats, ...newStats },
+          };
+        });
+      },
+    );
+
+    const unsubscribeResource = wsService.on(
+      "resource_update",
+      (newUsage: Partial<ResourceUsage>) => {
+        setDashboardData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            resourceUsage: { ...prev.resourceUsage, ...newUsage },
+          };
+        });
+      },
+    );
+
+    return () => {
+      unsubscribeActivity();
+      unsubscribeStats();
+      unsubscribeResource();
+      wsService.disconnect();
+    };
+  }, [isAuthenticated, user]);
+
+  // Show loading state for unauthenticated users
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleTimeFilterChange = (value: string) => {
+    setTimeFilter(value);
+  };
 
   return (
     <div className="flex flex-col space-y-6 bg-muted/40 p-6 rounded-lg">
+      {error && (
+        <Alert className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <button
+              onClick={fetchDashboardData}
+              className="ml-2 underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Active Agents"
-          value="24"
+          value={dashboardData?.stats.activeAgents.count.toString() || "0"}
           description="Total active AI agents"
           icon={<Bot size={16} />}
-          trend={{ value: 12, isPositive: true }}
+          trend={dashboardData?.stats.activeAgents.trend}
+          isLoading={isLoading}
         />
         <StatsCard
           title="Tool Executions"
-          value="1,280"
-          description="This month with $45.20 cost"
+          value={
+            dashboardData?.stats.toolExecutions.count.toLocaleString() || "0"
+          }
+          description={`This month with $${dashboardData?.stats.toolExecutions.cost.toFixed(2) || "0.00"} cost`}
           icon={<Cog size={16} />}
-          trend={{ value: 8, isPositive: true }}
+          trend={dashboardData?.stats.toolExecutions.trend}
+          isLoading={isLoading}
         />
         <StatsCard
           title="Workflow Completions"
-          value="342"
-          description="95.8% success rate"
+          value={
+            dashboardData?.stats.workflowCompletions.count.toString() || "0"
+          }
+          description={`${dashboardData?.stats.workflowCompletions.successRate.toFixed(1) || "0.0"}% success rate`}
           icon={<Activity size={16} />}
-          trend={{ value: 3, isPositive: false }}
+          trend={dashboardData?.stats.workflowCompletions.trend}
+          isLoading={isLoading}
         />
         <StatsCard
           title="Knowledge Base"
-          value="156"
-          description="Documents with 432 searches"
+          value={
+            dashboardData?.stats.knowledgeBase.documentCount.toString() || "0"
+          }
+          description={`Documents with ${dashboardData?.stats.knowledgeBase.searchCount || 0} searches`}
           icon={<FileText size={16} />}
-          trend={{ value: 24, isPositive: true }}
+          trend={dashboardData?.stats.knowledgeBase.trend}
+          isLoading={isLoading}
         />
       </div>
 
@@ -248,7 +506,11 @@ const DashboardOverview = () => {
                 <TabsTrigger value="activity">Activity Feed</TabsTrigger>
                 <TabsTrigger value="analytics">Analytics</TabsTrigger>
               </TabsList>
-              <select className="h-8 rounded-md border border-input bg-background px-3 py-1 text-xs">
+              <select
+                className="h-8 rounded-md border border-input bg-background px-3 py-1 text-xs"
+                value={timeFilter}
+                onChange={(e) => handleTimeFilterChange(e.target.value)}
+              >
                 <option value="today">Today</option>
                 <option value="yesterday">Yesterday</option>
                 <option value="week">This Week</option>
@@ -256,7 +518,11 @@ const DashboardOverview = () => {
               </select>
             </div>
             <TabsContent value="activity" className="mt-4 space-y-4">
-              <ActivityFeed activities={recentActivities} />
+              <ActivityFeed
+                activities={dashboardData?.activities || []}
+                isLoading={isLoading}
+                error={error}
+              />
             </TabsContent>
             <TabsContent value="analytics" className="mt-4">
               <Card className="bg-background">
@@ -264,14 +530,23 @@ const DashboardOverview = () => {
                   <CardTitle>Performance Analytics</CardTitle>
                 </CardHeader>
                 <CardContent className="h-[300px] flex items-center justify-center">
-                  <div className="flex flex-col items-center text-center text-muted-foreground">
-                    <LineChart className="h-16 w-16 mb-2" />
-                    <p>Analytics visualization would appear here</p>
-                    <p className="text-sm">
-                      Showing agent performance, tool usage, and workflow
-                      efficiency
-                    </p>
-                  </div>
+                  {isLoading ? (
+                    <div className="flex flex-col items-center text-center">
+                      <Loader2 className="h-16 w-16 mb-2 animate-spin text-muted-foreground" />
+                      <p className="text-muted-foreground">
+                        Loading analytics...
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center text-center text-muted-foreground">
+                      <LineChart className="h-16 w-16 mb-2" />
+                      <p>Analytics visualization would appear here</p>
+                      <p className="text-sm">
+                        Showing agent performance, tool usage, and workflow
+                        efficiency
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -288,7 +563,11 @@ const DashboardOverview = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ResourceUsage />
+              <ResourceUsage
+                usage={dashboardData?.resourceUsage || null}
+                isLoading={isLoading}
+                error={error}
+              />
             </CardContent>
           </Card>
         </div>

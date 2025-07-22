@@ -57,38 +57,14 @@ services:
       DATABASE_NAME: synapseai
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: redis123
-      # Monitoring and Logging
-      SERVICE_NAME: synapseai-tool
-      SERVICE_VERSION: 1.0.0
-      LOG_LEVEL: info
-      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
-      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+      REDIS_PASSWORD: redis123  
       JWT_SECRET: ${JWT_SECRET:-$(openssl rand -hex 64)}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-$(openssl rand -hex 64)}
       JWT_ISSUER: synapseai
       JWT_AUDIENCE: synapseai-users
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
-      # Monitoring and Logging
-      SERVICE_NAME: synapseai-auth
-      SERVICE_VERSION: 1.0.0
-      LOG_LEVEL: info
-      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
-      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
-      JWT_EXPIRES_IN: 24h
-      JWT_REFRESH_EXPIRES_IN: 7d
       FRONTEND_URL: http://localhost:3000
-      # Monitoring and Logging
-      SERVICE_NAME: synapseai-gateway
-      SERVICE_VERSION: 1.0.0
-      LOG_LEVEL: info
-      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
-      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
-      DATADOG_APP_KEY: ${DATADOG_APP_KEY:-}
-      DD_TRACE_ENABLED: ${DD_TRACE_ENABLED:-false}
-      DD_LOGS_ENABLED: ${DD_LOGS_ENABLED:-false}
-      DD_APM_ENABLED: ${DD_APM_ENABLED:-false}
     depends_on:
       postgres:
         condition: service_healthy
@@ -159,19 +135,8 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: redis123
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      # Monitoring and Logging
-      SERVICE_NAME: synapseai-knowledge
-      SERVICE_VERSION: 1.0.0
-      LOG_LEVEL: info
-      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
-      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      # Monitoring and Logging
-      SERVICE_NAME: synapseai-agent
-      SERVICE_VERSION: 1.0.0
-      LOG_LEVEL: info
-      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
-      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+      ANTHROPIC_MODEL: claude-3-5-sonnet-20240620
     depends_on:
       postgres:
         condition: service_healthy
@@ -230,12 +195,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: redis123
-      # Monitoring and Logging
-      SERVICE_NAME: synapseai-workflow
-      SERVICE_VERSION: 1.0.0
-      LOG_LEVEL: info
-      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
-      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -299,12 +258,6 @@ services:
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASS: ${SMTP_PASS}
-      # Monitoring and Logging
-      SERVICE_NAME: synapseai-notification
-      SERVICE_VERSION: 1.0.0
-      LOG_LEVEL: info
-      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
-      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -336,12 +289,6 @@ services:
       REDIS_PASSWORD: redis123
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      # Monitoring and Logging
-      SERVICE_NAME: synapseai-billing
-      SERVICE_VERSION: 1.0.0
-      LOG_LEVEL: info
-      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
-      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -371,12 +318,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: redis123
-      # Monitoring and Logging
-      SERVICE_NAME: synapseai-analytics
-      SERVICE_VERSION: 1.0.0
-      LOG_LEVEL: info
-      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
-      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

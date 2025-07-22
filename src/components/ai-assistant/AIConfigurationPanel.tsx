@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -21,6 +21,7 @@ import {
   Lightbulb,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   Loader2,
   Wand2,
   Brain,
@@ -33,6 +34,7 @@ import {
   type AgentConfiguration,
   type IntentAnalysis,
   type ConfigurationSuggestion,
+  type SemanticAnalysis,
 } from "@/lib/ai-assistant";
 
 interface AIConfigurationPanelProps {
@@ -85,9 +87,19 @@ export default function AIConfigurationPanel({
       setSuggestions(configSuggestions);
 
       // Apply smart defaults based on analysis
+      // Create a mock semantic analysis since we don't have real NLP processing
+      const mockSemanticAnalysis: SemanticAnalysis = {
+        entities: [],
+        intents: [],
+        sentiment: { score: 0, label: "neutral" },
+        keywords: userInput.toLowerCase().split(/\s+/),
+        complexity: 0.5,
+        domain: "general"
+      };
+      
       const smartDefaults = aiAssistant.generateSmartDefaults(
-        analysis.category,
-        analysis.suggestedPersonality,
+        analysis,
+        mockSemanticAnalysis,
       );
 
       clearInterval(progressInterval);
@@ -120,7 +132,7 @@ export default function AIConfigurationPanel({
     };
     onConfigurationUpdate(newConfig);
     setAppliedSuggestions(
-      (prev) => new Set([...prev, suggestion.field as string]),
+      (prev) => new Set([...Array.from(prev), suggestion.field as string]),
     );
   };
 
@@ -160,7 +172,7 @@ export default function AIConfigurationPanel({
       <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-secondary/5">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <Sparkles color="hsl(var(--primary))" size={20} />
             AI Configuration Assistant
             <Badge variant="secondary" className="ml-2">
               {userExperience}
@@ -418,13 +430,26 @@ export default function AIConfigurationPanel({
         </CardContent>
       </Card>
 
-      {/* Configuration Validation */}
+      {/* Enhanced Configuration Validation */}
       {Object.keys(currentConfiguration).length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-600" />
               Configuration Status
+              <Badge variant="outline" className="ml-2">
+                {(() => {
+                  const validation =
+                    aiAssistant.validateConfiguration(currentConfiguration);
+                  return validation.readinessScore >= 80
+                    ? "Ready"
+                    : validation.readinessScore >= 60
+                      ? "Good"
+                      : validation.readinessScore >= 40
+                        ? "Needs Work"
+                        : "Incomplete";
+                })()}
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -432,20 +457,52 @@ export default function AIConfigurationPanel({
               const validation =
                 aiAssistant.validateConfiguration(currentConfiguration);
               return (
-                <div className="space-y-2">
-                  {validation.isValid ? (
-                    <Alert>
-                      <CheckCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Your agent configuration looks good! Ready to proceed.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
+                <div className="space-y-4">
+                  {/* Readiness Score */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-sm font-medium">
+                        Readiness Score
+                      </Label>
+                      <span className="text-sm font-medium">
+                        {validation.readinessScore || 0}/100
+                      </span>
+                    </div>
+                    <Progress
+                      value={validation.readinessScore || 0}
+                      className="h-2"
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Incomplete</span>
+                      <span>Production Ready</span>
+                    </div>
+                  </div>
+
+                  {/* Completeness */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-sm font-medium">
+                        Configuration Completeness
+                      </Label>
+                      <span className="text-sm font-medium">
+                        {validation.completeness || 0}%
+                      </span>
+                    </div>
+                    <Progress
+                      value={validation.completeness || 0}
+                      className="h-2"
+                    />
+                  </div>
+
+                  <Separator />
+
+                  {/* Errors */}
+                  {validation.errors && validation.errors.length > 0 && (
                     <Alert variant="destructive">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
                         <div className="space-y-1">
-                          <p>Please address these issues:</p>
+                          <p className="font-medium">Critical Issues:</p>
                           <ul className="list-disc list-inside text-sm">
                             {validation.errors.map((error, index) => (
                               <li key={index}>{error}</li>
@@ -455,6 +512,56 @@ export default function AIConfigurationPanel({
                       </AlertDescription>
                     </Alert>
                   )}
+
+                  {/* Warnings */}
+                  {validation.warnings && validation.warnings.length > 0 && (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        <div className="space-y-1">
+                          <p className="font-medium">Warnings:</p>
+                          <ul className="list-disc list-inside text-sm">
+                            {validation.warnings.map((warning, index) => (
+                              <li key={index}>{warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Suggestions */}
+                  {validation.suggestions &&
+                    validation.suggestions.length > 0 && (
+                      <Alert>
+                        <Lightbulb className="h-4 w-4" />
+                        <AlertDescription>
+                          <div className="space-y-1">
+                            <p className="font-medium">Suggestions:</p>
+                            <ul className="list-disc list-inside text-sm">
+                              {validation.suggestions.map(
+                                (suggestion, index) => (
+                                  <li key={index}>{suggestion}</li>
+                                ),
+                              )}
+                            </ul>
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                  {/* Success State */}
+                  {validation.isValid &&
+                    (validation.readinessScore || 0) >= 80 && (
+                      <Alert>
+                        <CheckCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Excellent!</strong> Your agent configuration
+                          is production-ready. All requirements are met and best
+                          practices are followed.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                 </div>
               );
             })()}

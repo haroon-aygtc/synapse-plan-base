@@ -288,12 +288,62 @@ const nodeTypes: NodeTypes = {
   workflow: WorkflowNode,
 };
 
-// Grid snap utility
+// Grid snap utility with enhanced precision
 const GRID_SIZE = 20;
-const snapToGrid = (x: number, y: number): [number, number] => {
-  const snappedX = Math.round(x / GRID_SIZE) * GRID_SIZE;
-  const snappedY = Math.round(y / GRID_SIZE) * GRID_SIZE;
+const FINE_GRID_SIZE = 5;
+const snapToGrid = (
+  x: number,
+  y: number,
+  useFineGrid = false,
+): [number, number] => {
+  const gridSize = useFineGrid ? FINE_GRID_SIZE : GRID_SIZE;
+  const snappedX = Math.round(x / gridSize) * gridSize;
+  const snappedY = Math.round(y / gridSize) * gridSize;
   return [snappedX, snappedY];
+};
+
+// Enhanced connection validation
+const validateConnection = (
+  source: Node<NodeData>,
+  target: Node<NodeData>,
+): boolean => {
+  // Prevent self-connections
+  if (source.id === target.id) return false;
+
+  // Validate connection logic based on node types
+  const validConnections: Record<string, string[]> = {
+    agent: ["tool", "knowledge", "workflow"],
+    tool: ["agent", "workflow"],
+    knowledge: ["agent", "workflow"],
+    workflow: ["agent", "tool", "knowledge"],
+  };
+
+  return (
+    validConnections[source.data.type]?.includes(target.data.type) || false
+  );
+};
+
+// Node positioning utilities
+const getOptimalPosition = (
+  existingNodes: Node[],
+  nodeType: string,
+): { x: number; y: number } => {
+  const typePositions: Record<string, { x: number; y: number }> = {
+    agent: { x: 100, y: 200 },
+    tool: { x: 400, y: 100 },
+    knowledge: { x: 400, y: 300 },
+    workflow: { x: 700, y: 200 },
+  };
+
+  const basePosition = typePositions[nodeType] || { x: 300, y: 200 };
+  const sameTypeNodes = existingNodes.filter((node) => node.type === nodeType);
+
+  // Offset new nodes of the same type
+  const offset = sameTypeNodes.length * 50;
+  return {
+    x: basePosition.x + offset,
+    y: basePosition.y + (sameTypeNodes.length % 2 === 0 ? 0 : 100),
+  };
 };
 
 interface VisualAgentBuilderProps {
@@ -312,11 +362,22 @@ function VisualBuilderFlow({
   const [selectedNode, setSelectedNode] = useState<Node<NodeData> | null>(null);
   const [isGridVisible, setIsGridVisible] = useState(true);
   const [snapToGridEnabled, setSnapToGridEnabled] = useState(true);
+  const [useFineGrid, setUseFineGrid] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [executionState, setExecutionState] = useState<
     "idle" | "running" | "paused"
   >("idle");
+  const [connectionMode, setConnectionMode] = useState<"auto" | "manual">(
+    "auto",
+  );
+  const [selectedNodeType, setSelectedNodeType] = useState<string | null>(null);
+  const [canvasHistory, setCanvasHistory] = useState<
+    Array<{ nodes: Node[]; edges: Edge[] }>
+  >([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [draggedNodeType, setDraggedNodeType] = useState<string | null>(null);
   const nodeIdCounter = useRef(0);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   // Initialize with a default agent node
   useEffect(() => {
@@ -341,8 +402,30 @@ function VisualBuilderFlow({
 
   const onConnect = useCallback(
     (params: Connection) => {
+      if (!params.source || !params.target) return;
+
+      const sourceNode = nodes.find((n) => n.id === params.source);
+      const targetNode = nodes.find((n) => n.id === params.target);
+
+      if (!sourceNode || !targetNode) return;
+
+      // Validate connection
+      if (!validateConnection(sourceNode, targetNode)) {
+        console.warn(
+          `Invalid connection: ${sourceNode.data.type} -> ${targetNode.data.type}`,
+        );
+        return;
+      }
+
+      // Check for existing connection
+      const existingEdge = edges.find(
+        (e) => e.source === params.source && e.target === params.target,
+      );
+      if (existingEdge) return;
+
       const edge = {
         ...params,
+        id: `edge-${params.source}-${params.target}`,
         type: "smoothstep",
         animated: true,
         markerEnd: {
@@ -355,22 +438,34 @@ function VisualBuilderFlow({
           stroke: "#6366f1",
           strokeWidth: 2,
         },
+        data: {
+          sourceType: sourceNode.data.type,
+          targetType: targetNode.data.type,
+          createdAt: Date.now(),
+        },
       };
+
       setEdges((eds) => addEdge(edge, eds));
+      saveToHistory();
     },
-    [setEdges],
+    [setEdges, nodes, edges],
   );
 
   const onNodeDragStop = useCallback(
     (event: React.MouseEvent, node: Node) => {
       if (snapToGridEnabled) {
-        const [x, y] = snapToGrid(node.position.x, node.position.y);
+        const [x, y] = snapToGrid(
+          node.position.x,
+          node.position.y,
+          useFineGrid,
+        );
         setNodes((nds) =>
           nds.map((n) => (n.id === node.id ? { ...n, position: { x, y } } : n)),
         );
       }
+      saveToHistory();
     },
-    [snapToGridEnabled, setNodes],
+    [snapToGridEnabled, useFineGrid, setNodes],
   );
 
   const onNodeClick = useCallback(
@@ -381,15 +476,22 @@ function VisualBuilderFlow({
   );
 
   const addNode = useCallback(
-    (nodeType: string, nodeData: Partial<NodeData>) => {
+    (
+      nodeType: string,
+      nodeData: Partial<NodeData>,
+      customPosition?: { x: number; y: number },
+    ) => {
       const id = `${nodeType}-${++nodeIdCounter.current}`;
-      const position = reactFlowInstance.project({
-        x: Math.random() * 400 + 100,
-        y: Math.random() * 400 + 100,
-      });
+
+      let position;
+      if (customPosition) {
+        position = customPosition;
+      } else {
+        position = getOptimalPosition(nodes, nodeType);
+      }
 
       const [x, y] = snapToGridEnabled
-        ? snapToGrid(position.x, position.y)
+        ? snapToGrid(position.x, position.y, useFineGrid)
         : [position.x, position.y];
 
       const newNode: Node<NodeData> = {
@@ -397,7 +499,7 @@ function VisualBuilderFlow({
         type: nodeType,
         position: { x, y },
         data: {
-          label: `New ${nodeType}`,
+          label: `New ${nodeType.charAt(0).toUpperCase() + nodeType.slice(1)}`,
           type: nodeType as any,
           isConfigured: false,
           isActive: false,
@@ -405,11 +507,48 @@ function VisualBuilderFlow({
         } as NodeData,
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
+        draggable: true,
+        selectable: true,
       };
 
       setNodes((nds) => [...nds, newNode]);
+      saveToHistory();
+
+      // Auto-connect if in auto mode and there's a selected node
+      if (
+        connectionMode === "auto" &&
+        selectedNode &&
+        validateConnection(selectedNode, newNode)
+      ) {
+        const edge = {
+          id: `edge-${selectedNode.id}-${id}`,
+          source: selectedNode.id,
+          target: id,
+          type: "smoothstep",
+          animated: true,
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 20,
+            height: 20,
+            color: "#6366f1",
+          },
+          style: {
+            stroke: "#6366f1",
+            strokeWidth: 2,
+          },
+        };
+        setEdges((eds) => [...eds, edge]);
+      }
     },
-    [reactFlowInstance, snapToGridEnabled, setNodes],
+    [
+      nodes,
+      snapToGridEnabled,
+      useFineGrid,
+      setNodes,
+      connectionMode,
+      selectedNode,
+      setEdges,
+    ],
   );
 
   const deleteNode = useCallback(
@@ -508,6 +647,62 @@ function VisualBuilderFlow({
     nodeIdCounter.current = 0;
   }, [setNodes, setEdges]);
 
+  // History management
+  const saveToHistory = useCallback(() => {
+    const newState = { nodes: [...nodes], edges: [...edges] };
+    const newHistory = canvasHistory.slice(0, historyIndex + 1);
+    newHistory.push(newState);
+    setCanvasHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  }, [nodes, edges, canvasHistory, historyIndex]);
+
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      const prevState = canvasHistory[historyIndex - 1];
+      setNodes(prevState.nodes);
+      setEdges(prevState.edges);
+      setHistoryIndex(historyIndex - 1);
+    }
+  }, [historyIndex, canvasHistory, setNodes, setEdges]);
+
+  const redo = useCallback(() => {
+    if (historyIndex < canvasHistory.length - 1) {
+      const nextState = canvasHistory[historyIndex + 1];
+      setNodes(nextState.nodes);
+      setEdges(nextState.edges);
+      setHistoryIndex(historyIndex + 1);
+    }
+  }, [historyIndex, canvasHistory, setNodes, setEdges]);
+
+  // Drag and drop from palette
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      const nodeType = event.dataTransfer.getData("application/reactflow");
+      if (!nodeType) return;
+
+      const bounds = canvasRef.current?.getBoundingClientRect();
+      if (!bounds) return;
+
+      const position = reactFlowInstance.project({
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      });
+
+      const nodeData = JSON.parse(
+        event.dataTransfer.getData("application/nodedata") || "{}",
+      );
+      addNode(nodeType, nodeData, position);
+    },
+    [reactFlowInstance, addNode],
+  );
+
   const saveConfiguration = useCallback(() => {
     const configuration = {
       nodes: nodes.map((node) => ({
@@ -521,11 +716,19 @@ function VisualBuilderFlow({
         source: edge.source,
         target: edge.target,
         type: edge.type,
+        data: edge.data,
       })),
+      metadata: {
+        createdAt: Date.now(),
+        version: "1.0",
+        gridSize: useFineGrid ? FINE_GRID_SIZE : GRID_SIZE,
+        snapEnabled: snapToGridEnabled,
+      },
     };
     console.log("Saving configuration:", configuration);
     // In a real implementation, this would save to a backend
-  }, [nodes, edges]);
+    return configuration;
+  }, [nodes, edges, useFineGrid, snapToGridEnabled]);
 
   return (
     <div className="h-full w-full bg-background">
@@ -572,7 +775,7 @@ function VisualBuilderFlow({
 
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant={isGridVisible ? "default" : "outline"}
             size="sm"
             onClick={() => setIsGridVisible(!isGridVisible)}
           >
@@ -580,7 +783,7 @@ function VisualBuilderFlow({
             Grid
           </Button>
           <Button
-            variant="outline"
+            variant={snapToGridEnabled ? "default" : "outline"}
             size="sm"
             onClick={() => setSnapToGridEnabled(!snapToGridEnabled)}
           >
@@ -588,7 +791,24 @@ function VisualBuilderFlow({
             Snap
           </Button>
           <Button
-            variant="outline"
+            variant={useFineGrid ? "default" : "outline"}
+            size="sm"
+            onClick={() => setUseFineGrid(!useFineGrid)}
+            disabled={!snapToGridEnabled}
+          >
+            Fine Grid
+          </Button>
+          <Button
+            variant={connectionMode === "auto" ? "default" : "outline"}
+            size="sm"
+            onClick={() =>
+              setConnectionMode(connectionMode === "auto" ? "manual" : "auto")
+            }
+          >
+            Auto Connect
+          </Button>
+          <Button
+            variant={isPreviewMode ? "default" : "outline"}
             size="sm"
             onClick={() => setIsPreviewMode(!isPreviewMode)}
           >
@@ -623,6 +843,23 @@ function VisualBuilderFlow({
             Stop
           </Button>
           <Separator orientation="vertical" className="h-6" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={undo}
+            disabled={historyIndex <= 0}
+          >
+            <RotateCcw className="h-4 w-4 mr-1" />
+            Undo
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={redo}
+            disabled={historyIndex >= canvasHistory.length - 1}
+          >
+            Redo
+          </Button>
           <Button variant="outline" size="sm" onClick={saveConfiguration}>
             <Save className="h-4 w-4 mr-1" />
             Save
@@ -636,7 +873,7 @@ function VisualBuilderFlow({
 
       {/* Main Canvas */}
       <div className="flex h-[calc(100%-80px)]">
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" ref={canvasRef}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -645,38 +882,79 @@ function VisualBuilderFlow({
             onConnect={onConnect}
             onNodeDragStop={onNodeDragStop}
             onNodeClick={onNodeClick}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
             nodeTypes={nodeTypes}
             fitView
             snapToGrid={snapToGridEnabled}
-            snapGrid={[GRID_SIZE, GRID_SIZE]}
+            snapGrid={[
+              useFineGrid ? FINE_GRID_SIZE : GRID_SIZE,
+              useFineGrid ? FINE_GRID_SIZE : GRID_SIZE,
+            ]}
             className="bg-background"
+            deleteKeyCode={["Backspace", "Delete"]}
+            multiSelectionKeyCode={["Meta", "Ctrl"]}
+            selectionKeyCode={["Shift"]}
+            panOnScroll
+            panOnScrollSpeed={0.5}
+            zoomOnScroll
+            zoomOnPinch
+            preventScrolling={false}
           >
             <Background
               variant={BackgroundVariant.Dots}
-              gap={GRID_SIZE}
-              size={1}
+              gap={useFineGrid ? FINE_GRID_SIZE : GRID_SIZE}
+              size={useFineGrid ? 0.5 : 1}
               style={{
-                opacity: isGridVisible ? 0.5 : 0,
+                opacity: isGridVisible ? (useFineGrid ? 0.3 : 0.5) : 0,
               }}
             />
-            <Controls />
+            <Controls
+              showZoom
+              showFitView
+              showInteractive
+              position="bottom-right"
+            />
             <MiniMap
               nodeColor={(node) => {
-                switch (node.type) {
-                  case "agent":
-                    return "#6366f1";
-                  case "tool":
-                    return "#2563eb";
-                  case "knowledge":
-                    return "#9333ea";
-                  case "workflow":
-                    return "#ea580c";
-                  default:
-                    return "#64748b";
-                }
+                const colors = {
+                  agent: "#6366f1",
+                  tool: "#2563eb",
+                  knowledge: "#9333ea",
+                  workflow: "#ea580c",
+                };
+                return colors[node.type as keyof typeof colors] || "#64748b";
               }}
+              nodeStrokeColor={(node) => {
+                return node.selected ? "#ff0000" : "transparent";
+              }}
+              nodeStrokeWidth={2}
               className="bg-background border border-border"
+              pannable
+              zoomable
+              position="bottom-left"
             />
+
+            {/* Connection Guide Overlay */}
+            {selectedNode && connectionMode === "manual" && (
+              <div className="absolute top-4 left-4 bg-background/90 backdrop-blur-sm border rounded-lg p-3 shadow-lg">
+                <div className="text-sm font-medium mb-2">Connection Mode</div>
+                <div className="text-xs text-muted-foreground">
+                  Selected: {selectedNode.data.label}
+                  <br />
+                  Click another node to connect
+                </div>
+              </div>
+            )}
+
+            {/* Canvas Statistics */}
+            <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm border rounded-lg p-3 shadow-lg">
+              <div className="text-xs text-muted-foreground space-y-1">
+                <div>Nodes: {nodes.length}</div>
+                <div>Connections: {edges.length}</div>
+                <div>Grid: {useFineGrid ? FINE_GRID_SIZE : GRID_SIZE}px</div>
+              </div>
+            </div>
           </ReactFlow>
         </div>
 

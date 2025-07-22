@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -64,6 +64,9 @@ interface ComponentPaletteProps {
   currentConfiguration?: Partial<AgentConfiguration>;
   userExperience?: "beginner" | "intermediate" | "advanced";
   searchContext?: string;
+  canvasNodes?: any[];
+  canvasEdges?: any[];
+  onDragStart?: (nodeType: string, nodeData: any) => void;
 }
 
 const COMPONENT_TEMPLATES: ComponentTemplate[] = [
@@ -341,6 +344,9 @@ export default function ComponentPalette({
   currentConfiguration,
   userExperience = "intermediate",
   searchContext = "",
+  canvasNodes = [],
+  canvasEdges = [],
+  onDragStart,
 }: ComponentPaletteProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -348,19 +354,141 @@ export default function ComponentPalette({
   const [aiSuggestions, setAiSuggestions] = useState<ComponentTemplate[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showOnlyRecommended, setShowOnlyRecommended] = useState(false);
+  const [contextualSuggestions, setContextualSuggestions] = useState<
+    ComponentTemplate[]
+  >([]);
+  const [canvasAnalysis, setCanvasAnalysis] = useState<{
+    missingConnections: string[];
+    suggestedNodes: string[];
+    flowCompleteness: number;
+  }>({ missingConnections: [], suggestedNodes: [], flowCompleteness: 0 });
+
+  // Analyze canvas structure for contextual suggestions
+  const analyzeCanvasStructure = useCallback(() => {
+    const nodeTypes = canvasNodes.map((node) => node.data?.type || node.type);
+    const nodeTypeCounts = nodeTypes.reduce(
+      (acc, type) => {
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const missingConnections: string[] = [];
+    const suggestedNodes: string[] = [];
+
+    // Analyze flow completeness
+    const hasAgent = nodeTypes.includes("agent");
+    const hasTools = nodeTypes.includes("tool");
+    const hasKnowledge = nodeTypes.includes("knowledge");
+    const hasWorkflow = nodeTypes.includes("workflow");
+
+    let completeness = 0;
+    if (hasAgent) completeness += 25;
+    if (hasTools) completeness += 25;
+    if (hasKnowledge) completeness += 25;
+    if (hasWorkflow) completeness += 25;
+
+    // Suggest missing components based on existing ones
+    if (hasAgent && !hasTools) {
+      suggestedNodes.push("tool");
+      missingConnections.push("Agent needs tools to perform actions");
+    }
+
+    if (hasAgent && !hasKnowledge) {
+      suggestedNodes.push("knowledge");
+      missingConnections.push("Agent could benefit from knowledge sources");
+    }
+
+    if ((hasAgent || hasTools) && !hasWorkflow) {
+      suggestedNodes.push("workflow");
+      missingConnections.push(
+        "Consider adding workflows to orchestrate components",
+      );
+    }
+
+    // Check for isolated nodes (nodes without connections)
+    const connectedNodeIds = new Set([
+      ...canvasEdges.map((edge) => edge.source),
+      ...canvasEdges.map((edge) => edge.target),
+    ]);
+
+    const isolatedNodes = canvasNodes.filter(
+      (node) => !connectedNodeIds.has(node.id),
+    );
+    if (isolatedNodes.length > 0) {
+      missingConnections.push(
+        `${isolatedNodes.length} isolated node(s) need connections`,
+      );
+    }
+
+    setCanvasAnalysis({
+      missingConnections,
+      suggestedNodes,
+      flowCompleteness: completeness,
+    });
+  }, [canvasNodes, canvasEdges]);
+
+  // Generate contextual suggestions based on canvas analysis
+  useEffect(() => {
+    analyzeCanvasStructure();
+
+    const contextualTemplates = COMPONENT_TEMPLATES.map((template) => {
+      let contextScore = 0;
+      let isContextual = false;
+
+      // Boost score for suggested node types
+      if (canvasAnalysis.suggestedNodes.includes(template.category)) {
+        contextScore += 0.8;
+        isContextual = true;
+      }
+
+      // Boost score for complementary components
+      const nodeTypes = canvasNodes.map((node) => node.data?.type || node.type);
+      if (nodeTypes.includes("agent") && template.category === "tool") {
+        contextScore += 0.6;
+        isContextual = true;
+      }
+
+      if (nodeTypes.includes("tool") && template.category === "workflow") {
+        contextScore += 0.5;
+        isContextual = true;
+      }
+
+      return {
+        ...template,
+        contextScore,
+        isContextual,
+      };
+    })
+      .filter((t) => t.isContextual && t.contextScore > 0.3)
+      .sort((a, b) => (b.contextScore || 0) - (a.contextScore || 0))
+      .slice(0, 4);
+
+    setContextualSuggestions(contextualTemplates);
+  }, [canvasNodes, canvasEdges, canvasAnalysis.suggestedNodes]);
 
   // Generate AI suggestions based on current configuration and context
   useEffect(() => {
     const generateSuggestions = async () => {
-      if (!currentConfiguration || !searchContext) return;
+      if (!currentConfiguration && !searchContext && canvasNodes.length === 0)
+        return;
 
       setIsLoadingSuggestions(true);
       try {
-        const analysis = await aiAssistant.analyzeIntent(searchContext);
-        const suggestions = await aiAssistant.generateConfigurationSuggestions(
-          searchContext,
-          currentConfiguration,
-        );
+        let analysis: any = { category: "other", suggestedCapabilities: [] };
+        let suggestions: any[] = [];
+
+        if (searchContext) {
+          analysis = await aiAssistant.analyzeIntent(searchContext);
+        }
+
+        if (currentConfiguration) {
+          suggestions = await aiAssistant.generateConfigurationSuggestions(
+            searchContext || currentConfiguration.description || "",
+            currentConfiguration,
+          );
+        }
 
         // Map AI suggestions to component templates
         const suggestedTemplates = COMPONENT_TEMPLATES.map((template) => {
@@ -381,7 +509,7 @@ export default function ComponentPalette({
           // Check if template matches suggested capabilities
           if (analysis.suggestedCapabilities) {
             const capabilityMatch = analysis.suggestedCapabilities.some(
-              (capability) =>
+              (capability: string) =>
                 template.tags.some((tag) => capability.includes(tag)),
             );
             if (capabilityMatch) {
@@ -423,7 +551,7 @@ export default function ComponentPalette({
     };
 
     generateSuggestions();
-  }, [currentConfiguration, searchContext]);
+  }, [currentConfiguration, searchContext, canvasNodes.length]);
 
   // Filter templates based on search and filters
   const filteredTemplates = COMPONENT_TEMPLATES.filter((template) => {
@@ -465,8 +593,25 @@ export default function ComponentPalette({
   });
 
   const displayTemplates = showOnlyRecommended
-    ? aiSuggestions
+    ? [...contextualSuggestions, ...aiSuggestions].slice(0, 8)
     : sortedTemplates;
+
+  // Handle drag start for drag-and-drop
+  const handleDragStart = (
+    event: React.DragEvent,
+    template: ComponentTemplate,
+  ) => {
+    event.dataTransfer.setData("application/reactflow", template.category);
+    event.dataTransfer.setData(
+      "application/nodedata",
+      JSON.stringify(template.config),
+    );
+    event.dataTransfer.effectAllowed = "move";
+
+    if (onDragStart) {
+      onDragStart(template.category, template.config);
+    }
+  };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -502,14 +647,31 @@ export default function ComponentPalette({
         <CardTitle className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" />
           Component Palette
-          {aiSuggestions.length > 0 && (
-            <Badge variant="secondary" className="ml-2">
-              {aiSuggestions.length} AI suggestions
-            </Badge>
-          )}
+          <div className="flex gap-1 ml-auto">
+            {contextualSuggestions.length > 0 && (
+              <Badge variant="default" className="text-xs">
+                {contextualSuggestions.length} contextual
+              </Badge>
+            )}
+            {aiSuggestions.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {aiSuggestions.length} AI
+              </Badge>
+            )}
+          </div>
         </CardTitle>
         <CardDescription>
           Drag and drop components to build your agent workflow
+          {canvasAnalysis.flowCompleteness < 100 && (
+            <div className="mt-2 text-xs">
+              Flow completeness: {canvasAnalysis.flowCompleteness}%
+              {canvasAnalysis.missingConnections.length > 0 && (
+                <div className="mt-1 text-amber-600">
+                  • {canvasAnalysis.missingConnections[0]}
+                </div>
+              )}
+            </div>
+          )}
         </CardDescription>
       </CardHeader>
 
@@ -531,10 +693,12 @@ export default function ComponentPalette({
               variant={showOnlyRecommended ? "default" : "outline"}
               size="sm"
               onClick={() => setShowOnlyRecommended(!showOnlyRecommended)}
-              disabled={aiSuggestions.length === 0}
+              disabled={
+                aiSuggestions.length === 0 && contextualSuggestions.length === 0
+              }
             >
               <Star className="h-4 w-4 mr-1" />
-              AI Recommended
+              Smart Suggestions
             </Button>
             <Button
               variant="outline"
@@ -599,18 +763,28 @@ export default function ComponentPalette({
                   const isAISuggested = aiSuggestions.some(
                     (s) => s.id === template.id,
                   );
+                  const isContextual = contextualSuggestions.some(
+                    (s) => s.id === template.id,
+                  );
                   const confidence = aiSuggestions.find(
                     (s) => s.id === template.id,
                   )?.confidence;
+                  const contextScore = contextualSuggestions.find(
+                    (s) => s.id === template.id,
+                  )?.contextScore;  
 
                   return (
                     <Card
                       key={template.id}
                       className={`cursor-pointer transition-all hover:shadow-md ${
-                        isAISuggested
-                          ? "ring-2 ring-primary/20 bg-primary/5"
-                          : ""
+                        isContextual
+                          ? "ring-2 ring-green-200 bg-green-50"
+                          : isAISuggested
+                            ? "ring-2 ring-primary/20 bg-primary/5"
+                            : ""
                       }`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, template)}
                       onClick={() => onAddComponent(template)}
                     >
                       <CardContent className="p-4">
@@ -625,7 +799,17 @@ export default function ComponentPalette({
                               <h4 className="font-medium text-sm truncate">
                                 {template.name}
                               </h4>
-                              {isAISuggested && (
+                              {isContextual && (
+                                <Badge
+                                  variant="default"
+                                  className="text-xs flex items-center gap-1 bg-green-600"
+                                >
+                                  <Target className="h-3 w-3" />
+                                  {contextScore &&
+                                    `${Math.round(contextScore * 100)}%`}
+                                </Badge>
+                              )}
+                              {isAISuggested && !isContextual && (
                                 <Badge
                                   variant="secondary"
                                   className="text-xs flex items-center gap-1"
