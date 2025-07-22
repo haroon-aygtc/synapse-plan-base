@@ -39,11 +39,15 @@ import {
   Wand2,
 } from "lucide-react";
 import AIConfigurationPanel from "@/components/ai-assistant/AIConfigurationPanel";
+import VisualAgentBuilder from "@/components/agent-builder/VisualAgentBuilder";
+import ComponentPalette from "@/components/agent-builder/ComponentPalette";
 import { type AgentConfiguration } from "@/lib/ai-assistant";
 
 export default function AgentCreatePage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [showAIAssistant, setShowAIAssistant] = useState(true);
+  const [showVisualBuilder, setShowVisualBuilder] = useState(false);
+  const [showComponentPalette, setShowComponentPalette] = useState(false);
   const [userExperience, setUserExperience] = useState<
     "beginner" | "intermediate" | "advanced"
   >("intermediate");
@@ -130,6 +134,11 @@ export default function AgentCreatePage() {
     console.log("Testing agent...");
   };
 
+  const handleAddComponent = (template: any) => {
+    console.log("Adding component:", template);
+    // In a real implementation, this would add the component to the visual builder
+  };
+
   return (
     <div className="container mx-auto py-8 bg-background">
       <div className="flex items-center mb-6">
@@ -151,6 +160,20 @@ export default function AgentCreatePage() {
           >
             <Wand2 className="mr-2 h-4 w-4" />
             AI Assistant
+          </Button>
+          <Button
+            variant={showVisualBuilder ? "default" : "outline"}
+            onClick={() => setShowVisualBuilder(!showVisualBuilder)}
+          >
+            <Bot className="mr-2 h-4 w-4" />
+            Visual Builder
+          </Button>
+          <Button
+            variant={showComponentPalette ? "default" : "outline"}
+            onClick={() => setShowComponentPalette(!showComponentPalette)}
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            Components
           </Button>
           <Select
             value={userExperience}
@@ -213,6 +236,44 @@ export default function AgentCreatePage() {
             userExperience={userExperience}
             currentStep={currentStep}
           />
+        </div>
+      )}
+
+      {/* Visual Agent Builder */}
+      {showVisualBuilder && (
+        <div className="mb-8">
+          <VisualAgentBuilder
+            onConfigurationUpdate={handleConfigurationUpdate}
+            currentConfiguration={agentConfiguration}
+          />
+        </div>
+      )}
+
+      {/* Component Palette */}
+      {showComponentPalette && (
+        <div className="mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              {showVisualBuilder ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Visual Builder is active. Components can be dragged directly
+                  onto the canvas.
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Enable Visual Builder to see component interactions.
+                </div>
+              )}
+            </div>
+            <div>
+              <ComponentPalette
+                onAddComponent={handleAddComponent}
+                currentConfiguration={agentConfiguration}
+                userExperience={userExperience}
+                searchContext={agentConfiguration.description || ""}
+              />
+            </div>
+          </div>
         </div>
       )}
 

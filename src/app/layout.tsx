@@ -1,4 +1,6 @@
 import { TempoInit } from "@/components/tempo-init";
+import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "next-themes";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
@@ -7,8 +9,9 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Tempo - Modern SaaS Starter",
-  description: "A modern full-stack starter template powered by Next.js",
+  title: "SynapseAI - Revolutionary AI Orchestration Platform",
+  description:
+    "Build intelligent AI workflows in minutes with our no-code platform. Create agents, tools, and workflows with revolutionary UX.",
 };
 
 export default function RootLayout({
@@ -20,8 +23,16 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <Script src="https://api.tempo.build/proxy-asset?url=https://storage.googleapis.com/tempo-public-assets/error-handling.js" />
       <body className={inter.className}>
-        {children}
-        <TempoInit />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster />
+          <TempoInit />
+        </ThemeProvider>
       </body>
     </html>
   );
