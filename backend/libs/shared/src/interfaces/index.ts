@@ -10,6 +10,10 @@ export interface IUser {
   updatedAt: Date;
 }
 
+export interface IUserWithOrg extends IUser {
+  organization: IOrganization;
+}
+
 export interface IOrganization {
   id: string;
   name: string;
@@ -18,6 +22,8 @@ export interface IOrganization {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  settings?: Record<string, any>;
+  quotas?: Record<string, number>;
 }
 
 export interface IAgent {
@@ -104,6 +110,34 @@ export enum ResourceType {
   KNOWLEDGE_SEARCH = 'KNOWLEDGE_SEARCH',
   STORAGE = 'STORAGE',
   API_CALL = 'API_CALL',
+}
+
+export enum EventPriority {
+  HIGH = 'HIGH',
+  MEDIUM = 'MEDIUM',
+  LOW = 'LOW',
+}
+
+export enum EventTargetType {
+  ALL = 'ALL',
+  TENANT = 'TENANT',
+  USER = 'USER',
+  FLOW = 'FLOW',
+}
+
+export enum EventType {
+  AGENT_EXECUTION = 'AGENT_EXECUTION',
+  TOOL_EXECUTION = 'TOOL_EXECUTION',
+  WORKFLOW_EXECUTION = 'WORKFLOW_EXECUTION',
+  SYSTEM_NOTIFICATION = 'SYSTEM_NOTIFICATION',
+  USER_ACTION = 'USER_ACTION',
+}
+
+export enum WebSocketEventType {
+  CONNECTION = 'CONNECTION',
+  SUBSCRIPTION = 'SUBSCRIPTION',
+  MESSAGE = 'MESSAGE',
+  HEARTBEAT = 'HEARTBEAT',
 }
 
 export interface IJwtPayload {

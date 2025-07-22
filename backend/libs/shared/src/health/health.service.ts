@@ -5,7 +5,7 @@ import { InjectConnection } from '@nestjs/typeorm';
 import { CustomLoggerService } from '../logger/logger.service';
 import { MonitoringService } from '../monitoring/monitoring.service';
 import { HealthStatus } from '../enums';
-import * as Redis from 'ioredis';
+import IORedis from 'ioredis';
 
 interface HealthCheckResult {
   status: HealthStatus;
@@ -51,7 +51,7 @@ interface HealthCheckResult {
 
 @Injectable()
 export class HealthService {
-  private redis: Redis;
+  private redis: IORedis;
   private serviceName: string;
   private serviceVersion: string;
   private environment: string;
@@ -76,11 +76,10 @@ export class HealthService {
       const redisPort = this.configService.get('REDIS_PORT', 6379);
       const redisPassword = this.configService.get('REDIS_PASSWORD');
 
-      this.redis = new Redis({
+      this.redis = new IORedis({
         host: redisHost,
         port: redisPort,
         password: redisPassword,
-        retryDelayOnFailover: 100,
         maxRetriesPerRequest: 3,
         lazyConnect: true,
       });

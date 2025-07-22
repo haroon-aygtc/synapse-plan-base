@@ -319,6 +319,7 @@ class WebSocketService {
 
   disconnect() {
     this.stopHeartbeat();
+    this.unsubscribeFromAllEvents();
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
@@ -616,14 +617,14 @@ class WebSocketService {
       hasValidToken: token ? this.isTokenValid(token) : false,
     };
   }
-}
+
 
   // Handle subscription confirmations and errors
   private handleSubscriptionResponse(eventType: string, success: boolean): void {
     this.pendingSubscriptions.delete(eventType);
     
     // Update subscription status
-    for (const subscription of this.subscriptions.values()) {
+    for (const subscription of Array.from(this.subscriptions.values())) {
       if (subscription.eventType === eventType) {
         subscription.isActive = success;
       }

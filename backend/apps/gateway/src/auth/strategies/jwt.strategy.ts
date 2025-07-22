@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../user.service';
-import { IJwtPayload, IUser } from '@shared/interfaces';
+import { IJwtPayload, IUser, IUserWithOrg } from '@shared/interfaces';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -18,7 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: IJwtPayload): Promise<IUser> {
+  async validate(payload: IJwtPayload): Promise<IUserWithOrg> {
     const user = await this.userService.findById(payload.sub);
 
     if (!user) {
@@ -30,10 +30,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     // Check if organization is active
-    if (user.organization && !user.organization.isActive) {
+    const userWithOrg = user as IUserWithOrg;
+    if (userWithOrg.organization && !userWithOrg.organization.isActive) {
       throw new UnauthorizedException('Organization is deactivated');
     }
 
-    return user;
+    return userWithOrg;
   }
 }

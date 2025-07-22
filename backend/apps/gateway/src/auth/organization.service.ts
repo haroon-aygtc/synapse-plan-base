@@ -18,6 +18,9 @@ interface CreateOrganizationData {
   website?: string;
   logo?: string;
   plan?: SubscriptionPlan;
+  settings?: Record<string, any>;
+  quotas?: Record<string, number>;
+  isActive?: boolean;
 }
 
 interface UpdateOrganizationData {
