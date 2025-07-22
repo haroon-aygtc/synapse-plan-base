@@ -1,0 +1,384 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: synapseai-postgres
+    environment:
+      POSTGRES_DB: synapseai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - synapseai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cluster
+  redis:
+    image: redis:7-alpine
+    container_name: synapseai-redis
+    command: redis-server --appendonly yes --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - synapseai-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # API Gateway
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    container_name: synapseai-gateway
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: synapseai
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      # Monitoring and Logging
+      SERVICE_NAME: synapseai-tool
+      SERVICE_VERSION: 1.0.0
+      LOG_LEVEL: info
+      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
+      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      # Monitoring and Logging
+      SERVICE_NAME: synapseai-auth
+      SERVICE_VERSION: 1.0.0
+      LOG_LEVEL: info
+      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
+      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+      JWT_EXPIRES_IN: 24h
+      JWT_REFRESH_EXPIRES_IN: 7d
+      FRONTEND_URL: http://localhost:3000
+      # Monitoring and Logging
+      SERVICE_NAME: synapseai-gateway
+      SERVICE_VERSION: 1.0.0
+      LOG_LEVEL: info
+      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
+      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+      DATADOG_APP_KEY: ${DATADOG_APP_KEY:-}
+      DD_TRACE_ENABLED: ${DD_TRACE_ENABLED:-false}
+      DD_LOGS_ENABLED: ${DD_LOGS_ENABLED:-false}
+      DD_APM_ENABLED: ${DD_APM_ENABLED:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - synapseai-network
+    volumes:
+      - ./apps/gateway:/app/apps/gateway
+      - ./libs:/app/libs
+      - /app/node_modules
+    command: npm run start:dev
+
+  # Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+      args:
+        SERVICE_NAME: auth-service
+    container_name: synapseai-auth
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: synapseai
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - synapseai-network
+
+  # Agent Service
+  agent-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+      args:
+        SERVICE_NAME: agent-service
+    container_name: synapseai-agent
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: development
+      PORT: 3003
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: synapseai
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      # Monitoring and Logging
+      SERVICE_NAME: synapseai-knowledge
+      SERVICE_VERSION: 1.0.0
+      LOG_LEVEL: info
+      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
+      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      # Monitoring and Logging
+      SERVICE_NAME: synapseai-agent
+      SERVICE_VERSION: 1.0.0
+      LOG_LEVEL: info
+      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
+      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - synapseai-network
+
+  # Tool Service
+  tool-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+      args:
+        SERVICE_NAME: tool-service
+    container_name: synapseai-tool
+    ports:
+      - "3004:3004"
+    environment:
+      NODE_ENV: development
+      PORT: 3004
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: synapseai
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - synapseai-network
+
+  # Workflow Service
+  workflow-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+      args:
+        SERVICE_NAME: workflow-service
+    container_name: synapseai-workflow
+    ports:
+      - "3005:3005"
+    environment:
+      NODE_ENV: development
+      PORT: 3005
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: synapseai
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      # Monitoring and Logging
+      SERVICE_NAME: synapseai-workflow
+      SERVICE_VERSION: 1.0.0
+      LOG_LEVEL: info
+      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
+      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - synapseai-network
+
+  # Knowledge Service
+  knowledge-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+      args:
+        SERVICE_NAME: knowledge-service
+    container_name: synapseai-knowledge
+    ports:
+      - "3006:3006"
+    environment:
+      NODE_ENV: development
+      PORT: 3006
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: synapseai
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - synapseai-network
+
+  # Notification Service
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+      args:
+        SERVICE_NAME: notification-service
+    container_name: synapseai-notification
+    ports:
+      - "3007:3007"
+    environment:
+      NODE_ENV: development
+      PORT: 3007
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: synapseai
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      # Monitoring and Logging
+      SERVICE_NAME: synapseai-notification
+      SERVICE_VERSION: 1.0.0
+      LOG_LEVEL: info
+      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
+      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - synapseai-network
+
+  # Billing Service
+  billing-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+      args:
+        SERVICE_NAME: billing-service
+    container_name: synapseai-billing
+    ports:
+      - "3008:3008"
+    environment:
+      NODE_ENV: development
+      PORT: 3008
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: synapseai
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      # Monitoring and Logging
+      SERVICE_NAME: synapseai-billing
+      SERVICE_VERSION: 1.0.0
+      LOG_LEVEL: info
+      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
+      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - synapseai-network
+
+  # Analytics Service
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+      args:
+        SERVICE_NAME: analytics-service
+    container_name: synapseai-analytics
+    ports:
+      - "3009:3009"
+    environment:
+      NODE_ENV: development
+      PORT: 3009
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: synapseai
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: redis123
+      # Monitoring and Logging
+      SERVICE_NAME: synapseai-analytics
+      SERVICE_VERSION: 1.0.0
+      LOG_LEVEL: info
+      DATADOG_ENABLED: ${DATADOG_ENABLED:-false}
+      DATADOG_API_KEY: ${DATADOG_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - synapseai-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  synapseai-network:
+    driver: bridge
