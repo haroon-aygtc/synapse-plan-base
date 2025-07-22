@@ -1,28 +1,31 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState } from 'react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { loginSchema, type LoginFormData } from "@/lib/validations";
-import { useToast } from "@/components/ui/use-toast";
-import { Eye, EyeOff, Zap, ArrowLeft } from "lucide-react";
-import { motion } from "framer-motion";
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { loginSchema, type LoginFormData } from '@/lib/validations';
+import { useToast } from '@/components/ui/use-toast';
+import { authService } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, Zap, ArrowLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const {
     register,
@@ -34,21 +37,33 @@ const LoginPage = () => {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully signed in.",
+      const result = await authService.login({
+        email: data.email,
+        password: data.password,
       });
 
-      // Redirect to dashboard
-      window.location.href = "/dashboard";
-    } catch (error) {
+      if (result.success) {
+        toast({
+          title: 'Welcome back!',
+          description: 'You have successfully signed in.',
+        });
+
+        // Redirect to dashboard
+        router.push('/dashboard');
+      } else {
+        toast({
+          title: 'Sign in failed',
+          description:
+            result.error || 'Please check your credentials and try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
       toast({
-        title: "Sign in failed",
-        description: "Please check your credentials and try again.",
-        variant: "destructive",
+        title: 'Sign in failed',
+        description:
+          error.message || 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
       });
     }
   };
@@ -141,7 +156,7 @@ const LoginPage = () => {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
-                    {...register("email")}
+                    {...register('email')}
                     id="email"
                     type="email"
                     placeholder="Enter your email"
@@ -158,9 +173,9 @@ const LoginPage = () => {
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
                     <Input
-                      {...register("password")}
+                      {...register('password')}
                       id="password"
-                      type={showPassword ? "text" : "password"}
+                      type={showPassword ? 'text' : 'password'}
                       placeholder="Enter your password"
                       disabled={isSubmitting}
                     />
@@ -199,7 +214,7 @@ const LoginPage = () => {
                   className="w-full"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Signing in..." : "Sign In"}
+                  {isSubmitting ? 'Signing in...' : 'Sign In'}
                 </Button>
               </form>
 
@@ -251,7 +266,7 @@ const LoginPage = () => {
               </div>
 
               <p className="mt-6 text-center text-sm text-muted-foreground">
-                Don't have an account?{" "}
+                Don't have an account?{' '}
                 <Link
                   href="/auth/register"
                   className="text-primary hover:underline"

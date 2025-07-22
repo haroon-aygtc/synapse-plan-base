@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, ArrowRight } from "lucide-react";
-import { motion } from "framer-motion";
+// import { motion } from "framer-motion";
 import Link from "next/link";
 
 const AboutSection = () => {
@@ -29,12 +29,7 @@ const AboutSection = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           {/* Left Column - Content */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-          >
+          <div>
             <Badge variant="secondary" className="mb-4">
               Why Choose SynapseAI
             </Badge>
@@ -54,17 +49,10 @@ const AboutSection = () => {
 
             <div className="space-y-4 mb-8">
               {benefits.map((benefit, index) => (
-                <motion.div
-                  key={benefit}
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                  className="flex items-center space-x-3"
-                >
+                <div key={benefit} className="flex items-center space-x-3">
                   <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
                   <span className="text-muted-foreground">{benefit}</span>
-                </motion.div>
+                </div>
               ))}
             </div>
 
@@ -74,10 +62,10 @@ const AboutSection = () => {
                 <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-          </motion.div>
+          </div>
 
           {/* Right Column - Stats Cards */}
-          <motion.div
+          <div
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
@@ -89,21 +77,14 @@ const AboutSection = () => {
               <CardContent className="p-0">
                 <div className="grid grid-cols-2 gap-6">
                   {stats.map((stat, index) => (
-                    <motion.div
-                      key={stat.label}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.4, delay: index * 0.1 }}
-                      viewport={{ once: true }}
-                      className="text-center"
-                    >
+                    <div key={stat.label} className="text-center">
                       <div className="text-2xl sm:text-3xl font-bold text-primary mb-1">
                         {stat.value}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {stat.label}
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
               </CardContent>
@@ -148,7 +129,7 @@ const AboutSection = () => {
                 </div>
               </CardContent>
             </Card>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>

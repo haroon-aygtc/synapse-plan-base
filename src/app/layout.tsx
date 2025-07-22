@@ -31,8 +31,8 @@ export default function RootLayout({
         >
           {children}
           <Toaster />
-          <TempoInit />
         </ThemeProvider>
+        <TempoInit />
       </body>
     </html>
   );

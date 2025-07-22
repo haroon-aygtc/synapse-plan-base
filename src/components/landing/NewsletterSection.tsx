@@ -10,7 +10,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { newsletterSchema, type NewsletterFormData } from "@/lib/validations";
 import { useToast } from "@/components/ui/use-toast";
-import { motion } from "framer-motion";
+// import { motion } from "framer-motion";
 
 declare module "lucide-react";
 
@@ -52,13 +52,7 @@ const NewsletterSection = () => {
   return (
     <section className="py-24">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="max-w-4xl mx-auto"
-        >
+        <div className="max-w-4xl mx-auto">
           <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
             <CardContent className="p-8 sm:p-12">
               <div className="text-center mb-8">
@@ -113,12 +107,7 @@ const NewsletterSection = () => {
                   </p>
                 </form>
               ) : (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.5 }}
-                  className="text-center"
-                >
+                <div className="text-center">
                   <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                     <CheckCircle className="w-8 h-8 text-green-600" />
                   </div>
@@ -129,7 +118,7 @@ const NewsletterSection = () => {
                     Thank you for subscribing. Check your email for a
                     confirmation message.
                   </p>
-                </motion.div>
+                </div>
               )}
 
               {/* Benefits */}
@@ -159,7 +148,7 @@ const NewsletterSection = () => {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </div>
       </div>
     </section>
   );
