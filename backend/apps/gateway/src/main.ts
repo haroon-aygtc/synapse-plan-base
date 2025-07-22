@@ -5,6 +5,8 @@ import { ConfigService } from '@nestjs/config';
 import * as helmet from 'helmet';
 import * as compression from 'compression';
 import * as morgan from 'morgan';
+import * as cookieParser from 'cookie-parser';
+import * as csurf from 'csurf';
 import { GatewayModule } from './gateway.module';
 import { AllExceptionsFilter } from '@shared/filters';
 import {
@@ -34,8 +36,33 @@ async function bootstrap() {
   app.useLogger(customLogger);
 
   // Security
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
   app.use(compression());
+  app.use(cookieParser());
+
+  // CSRF Protection (only for non-API routes)
+  const csrfProtection = csurf({
+    cookie: {
+      httpOnly: true,
+      secure: configService.get('NODE_ENV') === 'production',
+      sameSite: 'strict',
+    },
+  });
+
+  // Apply CSRF protection to specific routes
+  app.use('/api/auth/csrf-token', csrfProtection);
 
   // DataDog middleware
   app.use(datadogMiddleware());
@@ -57,6 +84,9 @@ async function bootstrap() {
   app.enableCors({
     origin: configService.get('FRONTEND_URL', 'http://localhost:3000'),
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+    exposedHeaders: ['X-CSRF-Token'],
   });
 
   // Global pipes

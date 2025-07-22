@@ -37,7 +37,7 @@ export class AuthService {
       this.configService.get('JWT_REFRESH_EXPIRES_IN', '7d'),
     );
     this.accessTokenTTL = this.parseTimeToSeconds(
-      this.configService.get('JWT_EXPIRES_IN', '24h'),
+      this.configService.get('JWT_EXPIRES_IN', '15m'),
     );
     this.maxFailedAttempts = this.configService.get(
       'MAX_FAILED_LOGIN_ATTEMPTS',
@@ -198,7 +198,9 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.configService.get('JWT_EXPIRES_IN', '24h'),
+      expiresIn: this.configService.get('JWT_EXPIRES_IN', '15m'),
+      issuer: this.configService.get('JWT_ISSUER', 'synapseai'),
+      audience: this.configService.get('JWT_AUDIENCE', 'synapseai-users'),
     });
 
     const refreshToken = this.jwtService.sign(payload, {
@@ -207,6 +209,8 @@ export class AuthService {
         this.configService.get('JWT_SECRET'),
       ),
       expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN', '7d'),
+      issuer: this.configService.get('JWT_ISSUER', 'synapseai'),
+      audience: this.configService.get('JWT_AUDIENCE', 'synapseai-users'),
     });
 
     // Store refresh token in cache
@@ -223,7 +227,7 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: this.configService.get('JWT_EXPIRES_IN', '24h'),
+      expiresIn: this.configService.get('JWT_EXPIRES_IN', '15m'),
       tokenType: 'Bearer',
     };
   }

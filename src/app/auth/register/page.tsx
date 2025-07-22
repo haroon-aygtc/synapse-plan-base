@@ -1,31 +1,34 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState } from 'react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { registerSchema, type RegisterFormData } from "@/lib/validations";
-import { useToast } from "@/components/ui/use-toast";
-import { Eye, EyeOff, Zap, ArrowLeft, CheckCircle } from "lucide-react";
-import { motion } from "framer-motion";
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { registerSchema, type RegisterFormData } from '@/lib/validations';
+import { useToast } from '@/components/ui/use-toast';
+import { authService } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
+import { Eye, EyeOff, Zap, ArrowLeft, CheckCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const RegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const {
     register,
@@ -38,29 +41,47 @@ const RegisterPage = () => {
   const onSubmit = async (data: RegisterFormData) => {
     if (!agreedToTerms) {
       toast({
-        title: "Terms required",
-        description: "Please agree to the terms and conditions to continue.",
-        variant: "destructive",
+        title: 'Terms required',
+        description: 'Please agree to the terms and conditions to continue.',
+        variant: 'destructive',
       });
       return;
     }
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Split the name into first and last name
+      const nameParts = data.name.trim().split(' ');
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.slice(1).join(' ') || '';
 
-      toast({
-        title: "Account created successfully!",
-        description: "Welcome to SynapseAI. Let's get you started.",
+      const result = await authService.register({
+        email: data.email,
+        password: data.password,
+        firstName,
+        lastName,
       });
 
-      // Redirect to dashboard
-      window.location.href = "/dashboard";
-    } catch (error) {
+      if (result.success) {
+        toast({
+          title: 'Account created successfully!',
+          description: "Welcome to SynapseAI. Let's get you started.",
+        });
+
+        // Redirect to dashboard
+        router.push('/dashboard');
+      } else {
+        toast({
+          title: 'Registration failed',
+          description: result.error || 'Please try again later.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
       toast({
-        title: "Registration failed",
-        description: "Please try again later.",
-        variant: "destructive",
+        title: 'Registration failed',
+        description:
+          error.message || 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
       });
     }
   };
@@ -153,7 +174,7 @@ const RegisterPage = () => {
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
-                    {...register("name")}
+                    {...register('name')}
                     id="name"
                     type="text"
                     placeholder="Enter your full name"
@@ -169,7 +190,7 @@ const RegisterPage = () => {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
-                    {...register("email")}
+                    {...register('email')}
                     id="email"
                     type="email"
                     placeholder="Enter your email"
@@ -186,9 +207,9 @@ const RegisterPage = () => {
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
                     <Input
-                      {...register("password")}
+                      {...register('password')}
                       id="password"
-                      type={showPassword ? "text" : "password"}
+                      type={showPassword ? 'text' : 'password'}
                       placeholder="Create a password"
                       disabled={isSubmitting}
                     />
@@ -217,9 +238,9 @@ const RegisterPage = () => {
                   <Label htmlFor="confirmPassword">Confirm Password</Label>
                   <div className="relative">
                     <Input
-                      {...register("confirmPassword")}
+                      {...register('confirmPassword')}
                       id="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
+                      type={showConfirmPassword ? 'text' : 'password'}
                       placeholder="Confirm your password"
                       disabled={isSubmitting}
                     />
@@ -255,14 +276,14 @@ const RegisterPage = () => {
                     }
                   />
                   <Label htmlFor="terms" className="text-sm">
-                    I agree to the{" "}
+                    I agree to the{' '}
                     <Link
                       href="/terms"
                       className="text-primary hover:underline"
                     >
                       Terms of Service
-                    </Link>{" "}
-                    and{" "}
+                    </Link>{' '}
+                    and{' '}
                     <Link
                       href="/privacy"
                       className="text-primary hover:underline"
@@ -277,7 +298,7 @@ const RegisterPage = () => {
                   className="w-full"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Creating account..." : "Create Account"}
+                  {isSubmitting ? 'Creating account...' : 'Create Account'}
                 </Button>
               </form>
 
@@ -329,7 +350,7 @@ const RegisterPage = () => {
               </div>
 
               <p className="mt-6 text-center text-sm text-muted-foreground">
-                Already have an account?{" "}
+                Already have an account?{' '}
                 <Link
                   href="/auth/login"
                   className="text-primary hover:underline"
