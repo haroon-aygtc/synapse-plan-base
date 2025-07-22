@@ -14,9 +14,10 @@ import * as crypto from 'crypto';
 import { UserService } from './user.service';
 import { OrganizationService } from './organization.service';
 import { RegisterDto, LoginDto } from './dto';
-import { IJwtPayload, IUser } from '@shared/interfaces';
+import { IJwtPayload, IUser, ISession } from '@shared/interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EventType } from '@shared/enums';
+import { SessionService } from '../session/session.service';
 
 @Injectable()
 export class AuthService {
@@ -32,6 +33,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly sessionService: SessionService,
   ) {
     this.refreshTokenTTL = this.parseTimeToSeconds(
       this.configService.get('JWT_REFRESH_EXPIRES_IN', '7d'),
@@ -88,14 +90,44 @@ export class AuthService {
     };
   }
 
-  async login(user: IUser) {
+  async login(user: IUser, userAgent?: string, ipAddress?: string) {
     const tokens = await this.generateTokens(user);
+
+    // Create session with context
+    const session = await this.sessionService.createSession({
+      userId: user.id,
+      organizationId: user.organizationId,
+      context: {
+        loginTime: new Date(),
+        authMethod: 'password',
+        userAgent,
+        ipAddress,
+      },
+      metadata: {
+        loginSource: 'web',
+        tokenVersion: 1,
+      },
+      userAgent,
+      ipAddress,
+      permissions: {
+        canCreateAgents: true,
+        canCreateTools: true,
+        canCreateWorkflows: user.role !== 'VIEWER',
+        canAccessKnowledge: true,
+        canApproveHITL: user.role !== 'VIEWER',
+      },
+      isRecoverable: true,
+    });
 
     // Update last login
     await this.userService.updateLastLogin(user.id);
 
     return {
       user: this.sanitizeUser(user),
+      session: {
+        sessionToken: session.sessionToken,
+        expiresAt: session.expiresAt,
+      },
       ...tokens,
     };
   }
@@ -132,10 +164,18 @@ export class AuthService {
     return user;
   }
 
-  async logout(userId: string, accessToken?: string) {
+  async logout(userId: string, accessToken?: string, sessionToken?: string) {
     // Blacklist the current access token
     if (accessToken) {
       await this.blacklistToken(accessToken);
+    }
+
+    // Destroy session if provided
+    if (sessionToken) {
+      await this.sessionService.destroySession(sessionToken);
+    } else {
+      // Destroy all user sessions
+      await this.sessionService.destroyUserSessions(userId);
     }
 
     // Invalidate all refresh tokens for the user

@@ -11,6 +11,7 @@ import { Organization } from './organization.entity';
 import { Agent } from './agent.entity';
 import { Tool } from './tool.entity';
 import { Workflow } from './workflow.entity';
+import { Session } from './session.entity';
 import { UserRole } from '@shared/interfaces';
 
 @Entity('users')
@@ -72,6 +73,9 @@ export class User extends BaseEntity {
 
   @OneToMany(() => Workflow, (workflow) => workflow.user)
   workflows: Workflow[];
+
+  @OneToMany(() => Session, (session) => session.user)
+  sessions: Session[];
 
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`;

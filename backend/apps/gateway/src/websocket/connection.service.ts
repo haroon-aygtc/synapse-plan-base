@@ -25,6 +25,7 @@ import {
   IConnectionStats,
   IEventReplay,
   ICrossModuleEvent,
+  ISessionContext,
 } from '@shared/interfaces';
 import {
   EventType,
@@ -43,6 +44,7 @@ export class ConnectionService implements OnModuleDestroy {
   private socketToConnection = new Map<string, string>();
   private subscriptions = new Map<string, ISubscriptionInfo>();
   private eventSubscriptions = new Map<string, Set<string>>();
+  private sessionContexts = new Map<string, ISessionContext>();
   private readonly heartbeatInterval = 30000; // 30 seconds
   private readonly connectionTimeout = 60000; // 60 seconds
   private heartbeatTimer: NodeJS.Timeout;
@@ -118,6 +120,16 @@ export class ConnectionService implements OnModuleDestroy {
       86400,
     ); // 24 hours
 
+    // Initialize session context for cross-module communication
+    const sessionContext: ISessionContext = {
+      userId,
+      organizationId,
+      sessionId: connectionId, // Use connection ID as session ID for WebSocket sessions
+      permissions: {},
+      crossModuleData: {},
+    };
+    this.sessionContexts.set(connectionId, sessionContext);
+
     // Track connection stats
     await this.updateConnectionStats('connect', organizationId, role);
 
@@ -150,6 +162,7 @@ export class ConnectionService implements OnModuleDestroy {
       this.connections.delete(connectionId);
       this.socketToConnection.delete(socketId);
       this.subscriptions.delete(connectionId);
+      this.sessionContexts.delete(connectionId);
 
       // Remove from Redis
       await this.redis.del(`${this.REDIS_CONNECTION_PREFIX}${connectionId}`);
@@ -969,10 +982,15 @@ export class ConnectionService implements OnModuleDestroy {
     }
   }
 
-  // Cross-Module Event Routing
+  // Cross-Module Event Routing with Session Context
   async routeCrossModuleEvent(
     crossModuleEvent: ICrossModuleEvent,
   ): Promise<void> {
+    // Enrich event with session context if available
+    const sessionContext = crossModuleEvent.context.sessionId
+      ? this.sessionContexts.get(crossModuleEvent.context.sessionId)
+      : null;
+
     const eventPublication: IEventPublication = {
       eventId: uuidv4(),
       eventType: crossModuleEvent.eventType,
@@ -980,7 +998,10 @@ export class ConnectionService implements OnModuleDestroy {
       targetModule: crossModuleEvent.targetModule,
       payload: {
         ...crossModuleEvent.payload,
-        context: crossModuleEvent.context,
+        context: {
+          ...crossModuleEvent.context,
+          sessionContext,
+        },
         metadata: crossModuleEvent.metadata,
       },
       targeting: {
@@ -994,9 +1015,77 @@ export class ConnectionService implements OnModuleDestroy {
 
     await this.publishEvent(eventPublication);
 
+    // Update session context with cross-module interaction
+    if (sessionContext) {
+      sessionContext.crossModuleData = {
+        ...sessionContext.crossModuleData,
+        [`${crossModuleEvent.sourceModule}_to_${crossModuleEvent.targetModule}`]:
+          {
+            eventType: crossModuleEvent.eventType,
+            timestamp: new Date(),
+            payload: crossModuleEvent.payload,
+          },
+      };
+      this.sessionContexts.set(
+        crossModuleEvent.context.sessionId,
+        sessionContext,
+      );
+    }
+
     this.logger.debug(
       `Cross-module event routed: ${crossModuleEvent.sourceModule} -> ${crossModuleEvent.targetModule} (${crossModuleEvent.eventType})`,
     );
+  }
+
+  // Session Context Management
+  getSessionContext(connectionId: string): ISessionContext | null {
+    return this.sessionContexts.get(connectionId) || null;
+  }
+
+  updateSessionContext(
+    connectionId: string,
+    updates: Partial<ISessionContext>,
+  ): void {
+    const existing = this.sessionContexts.get(connectionId);
+    if (existing) {
+      const updated = { ...existing, ...updates };
+      this.sessionContexts.set(connectionId, updated);
+
+      // Emit session context update event
+      this.eventEmitter.emit('session.context.updated', {
+        connectionId,
+        sessionContext: updated,
+        timestamp: new Date(),
+      });
+    }
+  }
+
+  propagateSessionUpdate(
+    sessionId: string,
+    moduleType: 'agent' | 'tool' | 'workflow' | 'knowledge' | 'hitl',
+    contextUpdate: Record<string, any>,
+  ): void {
+    const sessionContext = this.sessionContexts.get(sessionId);
+    if (sessionContext) {
+      // Update specific module context
+      const contextKey = `${moduleType}Context`;
+      sessionContext.crossModuleData[contextKey] = {
+        ...sessionContext.crossModuleData[contextKey],
+        ...contextUpdate,
+        lastUpdate: new Date(),
+      };
+
+      this.sessionContexts.set(sessionId, sessionContext);
+
+      // Broadcast update to all connections for this session
+      this.eventEmitter.emit('session.cross.module.update', {
+        sessionId,
+        moduleType,
+        contextUpdate,
+        sessionContext,
+        timestamp: new Date(),
+      });
+    }
   }
 
   // Validation Methods

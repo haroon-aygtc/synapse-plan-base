@@ -169,3 +169,17 @@ export enum ConnectionStatus {
   ERROR = 'error',
   RECONNECTING = 'reconnecting',
 }
+
+export enum SessionEventType {
+  SESSION_CREATED = 'session.created',
+  SESSION_UPDATED = 'session.updated',
+  SESSION_EXPIRED = 'session.expired',
+  SESSION_DESTROYED = 'session.destroyed',
+  SESSION_CONTEXT_UPDATED = 'session.context.updated',
+  SESSION_MEMORY_WARNING = 'session.memory.warning',
+  SESSION_MEMORY_LIMIT_EXCEEDED = 'session.memory.limit.exceeded',
+  SESSION_CROSS_MODULE_UPDATE = 'session.cross.module.update',
+  SESSION_RECOVERY_INITIATED = 'session.recovery.initiated',
+  SESSION_RECOVERY_COMPLETED = 'session.recovery.completed',
+  SESSION_ANALYTICS_UPDATE = 'session.analytics.update',
+}
