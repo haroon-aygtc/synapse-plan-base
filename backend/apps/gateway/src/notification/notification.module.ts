@@ -13,10 +13,16 @@ import { NotificationService } from './notification.service';
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { NotificationSchedulerService } from './notification-scheduler.service';
 import { NotificationController } from './notification.controller';
-import { WebSocketModule } from '../websocket/websocket.module';
+import { WebsocketModule } from '../websocket/websocket.module';
+import { PushDeliveryProvider } from './providers/push-delivery.provider';
+import { EmailDeliveryProvider } from './providers/email-delivery.provider';
+import { SmsDeliveryProvider } from './providers/sms-delivery.provider';
+import { WebhookDeliveryProvider } from './providers/webhook-delivery.provider';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule,
     TypeOrmModule.forFeature([
       Notification,
       NotificationTemplate,
@@ -26,13 +32,17 @@ import { WebSocketModule } from '../websocket/websocket.module';
       Organization,
     ]),
     ScheduleModule.forRoot(),
-    WebSocketModule,
+    WebsocketModule,
   ],
   controllers: [NotificationController],
   providers: [
     NotificationService,
     NotificationDeliveryService,
     NotificationSchedulerService,
+    EmailDeliveryProvider,
+    SmsDeliveryProvider,
+    WebhookDeliveryProvider,
+    PushDeliveryProvider,
   ],
   exports: [
     NotificationService,

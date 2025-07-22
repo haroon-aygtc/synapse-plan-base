@@ -49,11 +49,13 @@ import { UserRole } from '@shared/interfaces';
       @Request() req: any,
     ) {
       try {
-        const notification = await this.notificationService.createNotification({
-          ...createNotificationDto,
-          userId: createNotificationDto.userId || req.user.id,
-          organizationId: req.user.organizationId,
-        });
+        const notification = await this.notificationService.createNotification(
+          {
+            ...createNotificationDto,
+            userId: createNotificationDto.userId || req.user.id,
+          },
+          req.user.organizationId
+        );
   
         return {
           success: true,
@@ -83,7 +85,7 @@ import { UserRole } from '@shared/interfaces';
       @Query('unreadOnly') unreadOnly?: boolean,
     ) {
       try {
-        const result = await this.notificationService.getNotificationsForUser(
+        const result = await this.notificationService.getNotifications(
           req.user.id,
           req.user.organizationId,
           {
@@ -99,10 +101,10 @@ import { UserRole } from '@shared/interfaces';
           success: true,
           data: result.notifications,
           pagination: {
-            page: result.page,
-            limit: result.limit,
+            page,
+            limit,
             total: result.total,
-            totalPages: result.totalPages,
+            totalPages: Math.ceil(result.total / limit),
           },
           message: 'Notifications retrieved successfully',
         };
@@ -148,7 +150,7 @@ import { UserRole } from '@shared/interfaces';
     @ApiResponse({ status: 200, description: 'Notification marked as read' })
     async markAsRead(@Param('id') id: string, @Request() req: any) {
       try {
-        await this.notificationService.markAsRead(id, req.user.id);
+        await this.notificationService.markAsRead(id, req.user.id, req.user.organizationId);
   
         return {
           success: true,
@@ -197,7 +199,7 @@ import { UserRole } from '@shared/interfaces';
     @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
     async deleteNotification(@Param('id') id: string, @Request() req: any) {
       try {
-        await this.notificationService.deleteNotification(id, req.user.organizationId);
+        await this.notificationService.deleteNotification(id, req.user.id, req.user.organizationId);
   
         return {
           success: true,
@@ -224,11 +226,11 @@ import { UserRole } from '@shared/interfaces';
       @Request() req: any,
     ) {
       try {
-        const template = await this.notificationService.createTemplate({
-          ...createTemplateDto,
-          organizationId: req.user.organizationId,
-          createdBy: req.user.id,
-        });
+        const template = await this.notificationService.createTemplate(
+          createTemplateDto,
+          req.user.organizationId,
+          req.user.id
+        );
   
         return {
           success: true,
@@ -288,11 +290,9 @@ import { UserRole } from '@shared/interfaces';
       try {
         const template = await this.notificationService.updateTemplate(
           id,
-          {
-            ...updateTemplateDto,
-            updatedBy: req.user.id,
-          },
+          updateTemplateDto,
           req.user.organizationId,
+          req.user.id
         );
   
         return {
@@ -320,11 +320,11 @@ import { UserRole } from '@shared/interfaces';
       @Request() req: any,
     ) {
       try {
-        const preference = await this.notificationService.createOrUpdatePreference({
-          ...preferenceDto,
-          userId: req.user.id,
-          organizationId: req.user.organizationId,
-        });
+        const preference = await this.notificationService.createOrUpdatePreference(
+          preferenceDto,
+          req.user.id,
+          req.user.organizationId
+        );
   
         return {
           success: true,
@@ -381,6 +381,7 @@ import { UserRole } from '@shared/interfaces';
           id,
           updatePreferenceDto,
           req.user.id,
+          req.user.organizationId
         );
   
         return {
@@ -406,7 +407,8 @@ import { UserRole } from '@shared/interfaces';
     @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
     async getDeliveryStats(@Request() req: any) {
       try {
-        const stats = await this.notificationService.getDeliveryStats(
+        // Use getNotificationStats instead as getDeliveryStats doesn't exist
+        const stats = await this.notificationService.getNotificationStats(
           req.user.organizationId,
         );
   
@@ -480,16 +482,18 @@ import { UserRole } from '@shared/interfaces';
     @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.DEVELOPER)
     async sendTestNotification(@Request() req: any) {
       try {
-        const notification = await this.notificationService.createNotification({
-          title: 'Test Notification',
-          message: 'This is a test notification from the SynapseAI platform.',
-          type: NotificationType.IN_APP,
-          priority: NotificationPriority.MEDIUM,
-          userId: req.user.id,
-          organizationId: req.user.organizationId,
-          eventType: 'test',
-          sourceModule: 'notification-system',
-        });
+        const notification = await this.notificationService.createNotification(
+          {
+            title: 'Test Notification',
+            message: 'This is a test notification from the SynapseAI platform.',
+            type: NotificationType.IN_APP,
+            priority: NotificationPriority.MEDIUM,
+            userId: req.user.id,
+            eventType: 'test',
+            sourceModule: 'notification-system',
+          },
+          req.user.organizationId
+        );
   
         return {
           success: true,

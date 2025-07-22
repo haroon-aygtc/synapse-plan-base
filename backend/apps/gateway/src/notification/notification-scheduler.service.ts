@@ -12,17 +12,13 @@ import {
   NotificationType,
   ExecutionStatus,
   NotificationPriority,
+  EventType,
+  EventTargetType,
 } from '@shared/enums';
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { WebSocketService } from '../websocket/websocket.service';
 
-interface BatchedNotification {
-  userId: string;
-  organizationId: string;
-  type: NotificationType;
-  notifications: Notification[];
-  preference: NotificationPreference;
-}
+// Notification scheduler service interfaces could be defined here if needed
 
 @Injectable()
 export class NotificationSchedulerService implements OnModuleInit {
@@ -283,16 +279,12 @@ export class NotificationSchedulerService implements OnModuleInit {
     }
 
     try {
-      // Create batched notification
-      const batchedNotification: BatchedNotification = {
-        userId: preference.userId,
-        organizationId: preference.organizationId,
-        type: preference.type,
-        notifications: [...queue],
-        preference,
-      };
+      // Process notifications in batch
 
-      await this.deliveryService.sendBatchedNotification(batchedNotification);
+      // Process each notification in the batch individually
+      for (const notification of queue) {
+        await this.deliveryService.processNotification(notification);
+      }
 
       // Mark individual notifications as sent
       for (const notification of queue) {
@@ -329,12 +321,8 @@ export class NotificationSchedulerService implements OnModuleInit {
     preference: NotificationPreference,
   ): Promise<void> {
     try {
-      const delivery = await this.deliveryService.createDelivery(
-        notification,
-        preference,
-      );
-
-      await this.deliveryService.sendNotification(delivery.id);
+      // Process the notification
+      await this.deliveryService.processNotification(notification);
 
       this.logger.debug(
         `Sent notification ${notification.id} via ${preference.type}`,
@@ -350,8 +338,17 @@ export class NotificationSchedulerService implements OnModuleInit {
 
   private async retryDelivery(delivery: NotificationDelivery): Promise<void> {
     try {
-      await this.deliveryService.retryFailedDeliveries(delivery.id);
-      this.logger.debug(`Retried delivery ${delivery.id}`);
+      // Fetch the parent notification to process it
+      const notification = await this.notificationRepository.findOne({
+        where: { id: delivery.notificationId }
+      });
+      
+      if (notification) {
+        await this.deliveryService.processNotification(notification);
+        this.logger.debug(`Retried delivery ${delivery.id}`);
+      } else {
+        this.logger.error(`Could not find notification for delivery ${delivery.id}`);
+      }
     } catch (error) {
       this.logger.error(
         `Error retrying delivery ${delivery.id}: ${error.message}`,
@@ -412,21 +409,22 @@ export class NotificationSchedulerService implements OnModuleInit {
     notification: Notification,
   ): Promise<void> {
     try {
-      await this.webSocketService.sendSystemNotification(
-        notification.organizationId,
-        {
+      await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
+        targetType: EventTargetType.TENANT,
+        targetId: notification.organizationId,
+        data: {
           type: this.mapPriorityToNotificationType(notification.priority),
           title: notification.title,
           message: notification.message,
           timestamp: new Date(),
         },
-      );
+      });
 
       // Also send to specific user
-      await this.webSocketService.broadcastToUser(
-        notification.userId,
-        'notification_received',
-        {
+      await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
+        targetType: EventTargetType.USER,
+        targetId: notification.userId,
+        data: {
           id: notification.id,
           title: notification.title,
           message: notification.message,
@@ -435,7 +433,7 @@ export class NotificationSchedulerService implements OnModuleInit {
           data: notification.data,
           createdAt: notification.createdAt,
         },
-      );
+      });
     } catch (error) {
       this.logger.error(
         `Error sending real-time notification: ${error.message}`,

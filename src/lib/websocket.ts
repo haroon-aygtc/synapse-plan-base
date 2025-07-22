@@ -2,6 +2,7 @@
 
 import { io, Socket } from 'socket.io-client';
 import { ActivityItem } from '@/types/dashboard';
+import { useState, useEffect, useCallback } from 'react';
 
 export interface ConnectionState {
   status: 'connecting' | 'connected' | 'disconnected' | 'error';
@@ -641,3 +642,74 @@ class WebSocketService {
 }
 
 export const wsService = new WebSocketService();
+
+// React hook for using WebSocket in components
+export function useWebSocket() {
+  const [connectionState, setConnectionState] = useState<ConnectionState>(
+    wsService.getConnectionState()
+  );
+
+  // Connect to WebSocket on component mount
+  useEffect(() => {
+    if (!wsService.isConnected()) {
+      wsService.connect();
+    }
+
+    // Subscribe to connection state changes
+    const unsubscribe = wsService.onConnectionStateChange(setConnectionState);
+
+    // Cleanup on unmount
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Subscribe to events
+  const subscribe = useCallback(
+    (eventType: string, callback: (data: any) => void, options: SubscriptionOptions = {}) => {
+      return wsService.subscribe(eventType, callback, options);
+    },
+    []
+  );
+
+  // Publish events
+  const publish = useCallback(
+    (
+      eventType: string,
+      payload: any,
+      targetType: 'all' | 'tenant' | 'user' | 'flow' = 'tenant',
+      targetId?: string
+    ) => {
+      wsService.publishEvent(eventType, payload, targetType, targetId);
+    },
+    []
+  );
+
+  // Send message
+  const sendMessage = useCallback(
+    (event: string, payload: any, targetUserId?: string, targetOrganizationId?: string) => {
+      wsService.sendMessage(event, payload, targetUserId, targetOrganizationId);
+    },
+    []
+  );
+
+  // Join room
+  const joinRoom = useCallback((room: string) => {
+    wsService.joinRoom(room);
+  }, []);
+
+  // Leave room
+  const leaveRoom = useCallback((room: string) => {
+    wsService.leaveRoom(room);
+  }, []);
+
+  return {
+    isConnected: wsService.isConnected(),
+    connectionState,
+    subscribe,
+    publish,
+    sendMessage,
+    joinRoom,
+    leaveRoom,
+  };
+}

@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Notification, NotificationDelivery } from '@database/entities';
-import { NotificationType, ExecutionStatus, EventType } from '@shared/enums';
+import { NotificationType, ExecutionStatus, EventType, EventTargetType } from '@shared/enums';
 import { EmailDeliveryProvider } from './providers/email-delivery.provider';
 import { SmsDeliveryProvider } from './providers/sms-delivery.provider';
 import { WebhookDeliveryProvider } from './providers/webhook-delivery.provider';
@@ -64,16 +64,16 @@ export class NotificationDeliveryService {
       await this.notificationRepository.save(notification);
 
       // Send real-time update
-      await this.webSocketService.sendNotificationUpdate(
-        notification.organizationId,
-        notification.userId,
-        {
+      await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
+        targetType: EventTargetType.USER,
+        targetId: notification.userId,
+        data: {
           type: 'notification_processed',
           notificationId: notification.id,
           status: notification.status,
           deliveryCount: deliveries.length,
         },
-      );
+      });
 
       // Emit completion event
       this.eventEmitter.emit(EventType.NOTIFICATION_SENT, {
@@ -194,10 +194,10 @@ export class NotificationDeliveryService {
 
       case NotificationType.IN_APP:
         // In-app notifications are delivered via WebSocket
-        await this.webSocketService.sendNotificationUpdate(
-          notification.organizationId,
-          notification.userId,
-          {
+        await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
+          targetType: EventTargetType.USER,
+          targetId: notification.userId,
+          data: {
             type: 'new_notification',
             notification: {
               id: notification.id,
@@ -208,7 +208,7 @@ export class NotificationDeliveryService {
               data: notification.data,
             },
           },
-        );
+        });
 
         // Create a delivery record for tracking
         const inAppDelivery = this.deliveryRepository.create({
