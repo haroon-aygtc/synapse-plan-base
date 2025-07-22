@@ -4,11 +4,13 @@ import { Socket } from 'socket.io';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
+import { ConnectionStats, MessageTrackingInfo } from '@database/entities';
 
 export interface ConnectionInfo {
   id: string;
   userId: string;
   organizationId: string;
+  role?: string;
   connectedAt: Date;
   lastHeartbeat: Date;
   userAgent?: string;
@@ -182,28 +184,145 @@ export class ConnectionService {
     }
   }
 
-  getConnectionStats(): {
-    totalConnections: number;
-    connectionsByOrg: Record<string, number>;
-    averageConnectionTime: number;
-  } {
+  async trackConnection(
+    userId: string,
+    organizationId: string,
+    role?: string,
+  ): Promise<void> {
+    try {
+      const connectionId = await this.addConnection(
+        this.socket,
+        userId,
+        organizationId,
+      );
+
+      await this.updateConnectionStats('connect', organizationId, role);
+    } catch (error) {
+      this.logger.error(`Error tracking connection: ${error.message}`);
+    }
+  }
+
+  async trackDisconnection(
+    userId: string,
+    organizationId: string,
+    role?: string,
+  ): Promise<void> {
+    try {
+      await this.updateConnectionStats('disconnect', organizationId, role);
+    } catch (error) {
+      this.logger.error(`Error tracking disconnection: ${error.message}`);
+    }
+  }   
+
+  
+  getConnectionStats(): ConnectionStats {
     const connections = this.getActiveConnections();
     const now = new Date();
     const connectionsByOrg: Record<string, number> = {};
+    const connectionsByRole: Record<string, number> = {};
     let totalConnectionTime = 0;
 
     connections.forEach((conn) => {
       connectionsByOrg[conn.organizationId] =
         (connectionsByOrg[conn.organizationId] || 0) + 1;
+      
+      if (conn.role) {
+        connectionsByRole[conn.role] =
+          (connectionsByRole[conn.role] || 0) + 1;
+      }
+      
       totalConnectionTime += now.getTime() - conn.connectedAt.getTime();
     });
 
     return {
       totalConnections: connections.length,
       connectionsByOrg,
+      connectionsByRole,
       averageConnectionTime:
         connections.length > 0 ? totalConnectionTime / connections.length : 0,
+      peakConnections: this.getPeakConnections(),
+      messagesPerMinute: this.getMessagesPerMinute(),
     };
+  }
+
+  private getPeakConnections(): number {
+    // This would typically be calculated from connection tracking data
+    // For now, return 0 as a placeholder
+    return 0;
+  }
+
+  private getMessagesPerMinute(): number {
+    // This would typically be calculated from message tracking data
+    // For now, return 0 as a placeholder
+    return 0;
+  }
+
+  async validateUserInOrganization(
+    userId: string,
+    organizationId: string,
+  ): Promise<boolean> {
+    try {
+      // Check if user has any active connections in the specified organization
+      const userConnections = await this.redis.smembers(`ws:user:${userId}`);
+      
+      for (const connectionId of userConnections) {
+        const connectionData = await this.redis.hget('ws:connections', connectionId);
+        if (connectionData) {
+          const connection: ConnectionInfo = JSON.parse(connectionData);
+          if (connection.organizationId === organizationId) {
+            return true;
+          }
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      this.logger.error(`Error validating user in organization: ${error.message}`);
+      return false;
+    }
+  }
+
+  async trackMessage(messageInfo: MessageTrackingInfo): Promise<void> {
+    try {
+      const key = `ws:messages:${messageInfo.organizationId}:${new Date().toISOString().slice(0, 16)}`; // Per minute
+      await this.redis.incr(key);
+      await this.redis.expire(key, 3600); // Keep for 1 hour
+      
+      // Store detailed message info for analytics (optional)
+      const detailKey = `ws:message_details:${messageInfo.organizationId}`;
+      await this.redis.lpush(detailKey, JSON.stringify(messageInfo));
+      await this.redis.ltrim(detailKey, 0, 999); // Keep last 1000 messages
+      await this.redis.expire(detailKey, 86400); // Keep for 24 hours
+    } catch (error) {
+      this.logger.error(`Error tracking message: ${error.message}`);
+    }
+  }
+
+  private async updateConnectionStats(
+    action: 'connect' | 'disconnect',
+    organizationId: string,
+    role?: string,
+  ): Promise<void> {
+    try {
+      const timestamp = new Date().toISOString().slice(0, 16); // Per minute
+      const key = `ws:stats:${organizationId}:${timestamp}`;
+      
+      if (action === 'connect') {
+        await this.redis.hincrby(key, 'connections', 1);
+        if (role) {
+          await this.redis.hincrby(key, `role:${role}`, 1);
+        }
+      } else {
+        await this.redis.hincrby(key, 'disconnections', 1);
+        if (role) {
+          await this.redis.hincrby(key, `role:${role}`, -1);
+        }
+      }
+      
+      await this.redis.expire(key, 86400); // Keep for 24 hours
+    } catch (error) {
+      this.logger.error(`Error updating connection stats: ${error.message}`);
+    }
   }
 
   onModuleDestroy(): void {

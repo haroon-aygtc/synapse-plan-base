@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, ArrowRight } from "lucide-react";
-// import { motion } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
 
 const AboutSection = () => {
@@ -65,7 +65,7 @@ const AboutSection = () => {
           </div>
 
           {/* Right Column - Stats Cards */}
-          <div
+          <motion.div
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
@@ -129,7 +129,7 @@ const AboutSection = () => {
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>

@@ -242,42 +242,124 @@ export class WebSocketGatewayImpl
     @MessageBody() data: { room: string },
   ): Promise<void> {
     try {
-      const { userId, organizationId } = client.data;
+      const { userId, organizationId, role } = client.data;
 
       if (!userId || !organizationId) {
-        client.emit('error', { message: 'Unauthorized' });
+        client.emit('error', { message: 'Unauthorized - missing authentication data' });
         return;
       }
 
-      // Validate room access (implement your business logic here)
-      const allowedRooms = [
-        `user:${userId}`,
-        `org:${organizationId}`,
-        `agent:${organizationId}`,
-        `workflow:${organizationId}`,
-        `tool:${organizationId}`,
-      ];
-
-      if (
-        allowedRooms.some((room) => data.room.startsWith(room.split(':')[0]))
-      ) {
-        await client.join(data.room);
-
-        const response = this.connectionService.createMessage(
-          'room_joined',
-          { room: data.room },
-          userId,
-          organizationId,
-        );
-
-        client.emit('message', response);
-        this.logger.debug(`Client ${client.id} joined room: ${data.room}`);
-      } else {
-        client.emit('error', { message: 'Room access denied' });
+      // Enhanced room access validation with tenant filtering
+      const roomValidation = this.validateRoomAccess(data.room, userId, organizationId, role);
+      
+      if (!roomValidation.allowed) {
+        this.logger.warn(`Room access denied for user ${userId}: ${data.room} - ${roomValidation.reason}`);
+        client.emit('error', { 
+          message: 'Room access denied',
+          reason: roomValidation.reason,
+          code: 'ROOM_ACCESS_DENIED'
+        });
+        return;
       }
+
+      await client.join(data.room);
+
+      const response = this.connectionService.createMessage(
+        'room_joined',
+        { 
+          room: data.room,
+          permissions: roomValidation.permissions,
+          joinedAt: new Date().toISOString(),
+        },
+        userId,
+        organizationId,
+      );
+
+      client.emit('message', response);
+      this.logger.debug(`Client ${client.id} joined room: ${data.room} with permissions: ${JSON.stringify(roomValidation.permissions)}`);
     } catch (error) {
       this.logger.error(`Join room error: ${error.message}`, error.stack);
-      client.emit('error', { message: 'Failed to join room' });
+      client.emit('error', { 
+        message: 'Failed to join room',
+        code: 'ROOM_JOIN_ERROR'
+      });
+    }
+  }
+
+  private validateRoomAccess(
+    room: string,
+    userId: string,
+    organizationId: string,
+    role: string,
+  ): {
+    allowed: boolean;
+    reason?: string;
+    permissions?: string[];
+  } {
+    const [roomType, roomOrgId, ...roomParams] = room.split(':');
+
+    // Ensure room belongs to user's organization (tenant filtering)
+    if (roomOrgId && roomOrgId !== organizationId) {
+      return {
+        allowed: false,
+        reason: 'Cross-tenant room access not allowed',
+      };
+    }
+
+    const permissions: string[] = [];
+
+    switch (roomType) {
+      case 'user':
+        // Users can only join their own user room
+        if (roomParams[0] === userId) {
+          permissions.push('read', 'write');
+          return { allowed: true, permissions };
+        }
+        return { allowed: false, reason: 'Can only join your own user room' };
+
+      case 'org':
+        // All authenticated users can join their org room
+        if (roomOrgId === organizationId) {
+          permissions.push('read', 'write');
+          return { allowed: true, permissions };
+        }
+        return { allowed: false, reason: 'Organization mismatch' };
+
+      case 'agent':
+      case 'workflow':
+      case 'tool':
+      case 'knowledge':
+        // Resource rooms within organization
+        if (roomOrgId === organizationId) {
+          permissions.push('read');
+          if (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN' || role === 'DEVELOPER') {
+            permissions.push('write');
+          }
+          return { allowed: true, permissions };
+        }
+        return { allowed: false, reason: 'Resource not in your organization' };
+
+      case 'admin':
+        // Admin rooms - restricted access
+        if (roomOrgId === organizationId && (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN')) {
+          permissions.push('read', 'write', 'admin');
+          return { allowed: true, permissions };
+        }
+        return { allowed: false, reason: 'Admin access required' };
+
+      case 'execution':
+        // Execution monitoring rooms
+        if (roomOrgId === organizationId) {
+          permissions.push('read');
+          if (role !== 'VIEWER') {
+            permissions.push('write');
+          }
+          return { allowed: true, permissions };
+        }
+        return { allowed: false, reason: 'Execution room not in your organization' };
+
+      default:
+        return { allowed: false, reason: 'Unknown room type' };
     }
   }
 

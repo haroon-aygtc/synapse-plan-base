@@ -327,11 +327,60 @@ class WebSocketService {
     return { ...this.connectionState };
   }
 
-  // Force reconnection
-  forceReconnect() {
+  // Force reconnection with new token
+  forceReconnect(newToken?: string) {
     this.disconnect();
     this.reconnectAttempts = 0;
-    setTimeout(() => this.connect(), 1000);
+    
+    // Update token if provided
+    if (newToken && typeof window !== 'undefined') {
+      localStorage.setItem('accessToken', newToken);
+    }
+    
+    setTimeout(() => this.connect(newToken), 1000);
+  }
+
+  // Handle authentication changes (token refresh, login, logout)
+  handleAuthChange(newToken?: string) {
+    if (newToken) {
+      // New token provided - reconnect with new token
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('accessToken', newToken);
+      }
+      this.forceReconnect(newToken);
+    } else {
+      // No token (logout) - disconnect
+      this.disconnect();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+      }
+    }
+  }
+
+  // Check if current token is valid
+  private isTokenValid(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const now = Date.now() / 1000;
+      return payload.exp > now;
+    } catch {
+      return false;
+    }
+  }
+
+  // Get connection metadata
+  getConnectionMetadata(): {
+    isConnected: boolean;
+    connectionState: ConnectionState;
+    hasValidToken: boolean;
+  } {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    return {
+      isConnected: this.isConnected(),
+      connectionState: this.getConnectionState(),
+      hasValidToken: token ? this.isTokenValid(token) : false,
+    };
   }
 }
 

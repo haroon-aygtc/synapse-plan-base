@@ -7,3 +7,5 @@ export { Tool } from './tool.entity';
 export { ToolExecution } from './tool-execution.entity';
 export { Workflow } from './workflow.entity';
 export { WorkflowExecution } from './workflow-execution.entity';
+export { ConnectionStats } from './connection-stats.entity';
+export { MessageTrackingInfo } from './message-tracking-info.entity';
