@@ -2,17 +2,33 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { WebSocketGatewayImpl } from './websocket.gateway';
 import { ConnectionService } from './connection.service';
 import { WebSocketService } from './websocket.service';
-import { User, Organization } from '@database/entities';
-import { UserService } from '../user.service';
+import {
+  User,
+  Organization,
+  ConnectionStatsEntity,
+  MessageTrackingEntity,
+  EventLog,
+  Subscription,
+} from '@database/entities';
+import { UserService } from '../auth/user.service';
 
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([User, Organization]),
+    EventEmitterModule,
+    TypeOrmModule.forFeature([
+      User,
+      Organization,
+      ConnectionStatsEntity,
+      MessageTrackingEntity,
+      EventLog,
+      Subscription,
+    ]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -45,7 +61,12 @@ import { UserService } from '../user.service';
       }),
     }),
   ],
-  providers: [WebSocketGatewayImpl, ConnectionService, WebSocketService, UserService],
+  providers: [
+    WebSocketGatewayImpl,
+    ConnectionService,
+    WebSocketService,
+    UserService,
+  ],
   exports: [WebSocketService, ConnectionService],
 })
 export class WebsocketModule {}

@@ -102,3 +102,70 @@ export enum HealthStatus {
   DEGRADED = 'DEGRADED',
   UNHEALTHY = 'UNHEALTHY',
 }
+
+export enum WebSocketEventType {
+  // Connection Events
+  CONNECTION_ESTABLISHED = 'connection.established',
+  CONNECTION_LOST = 'connection.lost',
+  HEARTBEAT = 'heartbeat',
+  HEARTBEAT_ACK = 'heartbeat.ack',
+
+  // Subscription Events
+  SUBSCRIBE_EVENT = 'subscribe.event',
+  UNSUBSCRIBE_EVENT = 'unsubscribe.event',
+  SUBSCRIPTION_CONFIRMED = 'subscription.confirmed',
+  SUBSCRIPTION_ERROR = 'subscription.error',
+
+  // Publishing Events
+  PUBLISH_EVENT = 'publish.event',
+  EVENT_PUBLISHED = 'event.published',
+
+  // Room Events
+  JOIN_ROOM = 'join.room',
+  LEAVE_ROOM = 'leave.room',
+  ROOM_JOINED = 'room.joined',
+  ROOM_LEFT = 'room.left',
+
+  // Stats Events
+  CONNECTION_STATS_UPDATE = 'connection.stats.update',
+  SUBSCRIPTION_STATS_UPDATE = 'subscription.stats.update',
+
+  // Flow Events
+  NODE_MOVED = 'node.moved',
+  NODE_CREATED = 'node.created',
+  NODE_DELETED = 'node.deleted',
+  NODE_UPDATED = 'node.updated',
+
+  // Cross-Module Events
+  AGENT_TOOL_CALL = 'agent.tool.call',
+  TOOL_AGENT_RESPONSE = 'tool.agent.response',
+  WORKFLOW_AGENT_EXECUTE = 'workflow.agent.execute',
+  WORKFLOW_TOOL_EXECUTE = 'workflow.tool.execute',
+  WORKFLOW_HITL_REQUEST = 'workflow.hitl.request',
+  HITL_WORKFLOW_RESPONSE = 'hitl.workflow.response',
+  KNOWLEDGE_AGENT_SEARCH = 'knowledge.agent.search',
+  KNOWLEDGE_SEARCH_RESULT = 'knowledge.search.result',
+}
+
+export enum EventTargetType {
+  ALL = 'all',
+  TENANT = 'tenant',
+  USER = 'user',
+  FLOW = 'flow',
+  ROOM = 'room',
+}
+
+export enum EventPriority {
+  LOW = 'low',
+  NORMAL = 'normal',
+  HIGH = 'high',
+  CRITICAL = 'critical',
+}
+
+export enum ConnectionStatus {
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+  DISCONNECTED = 'disconnected',
+  ERROR = 'error',
+  RECONNECTING = 'reconnecting',
+}

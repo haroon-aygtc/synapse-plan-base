@@ -379,7 +379,7 @@ const DashboardOverview = () => {
 
     // Subscribe to real-time updates using new subscription system
     const unsubscribeActivity = wsService.subscribe(
-      'ACTIVITY_UPDATE',
+      'activity_update',
       (newActivity: ActivityItem) => {
         setDashboardData((prev) => {
           if (!prev) return prev;
@@ -393,7 +393,7 @@ const DashboardOverview = () => {
     );
 
     const unsubscribeStats = wsService.subscribe(
-      'STATS_UPDATE',
+      'stats_update',
       (newStats: Partial<DashboardStats>) => {
         setDashboardData((prev) => {
           if (!prev) return prev;
@@ -407,7 +407,7 @@ const DashboardOverview = () => {
     );
 
     const unsubscribeResource = wsService.subscribe(
-      'RESOURCE_UPDATE',
+      'resource_update',
       (newUsage: Partial<ResourceUsage>) => {
         setDashboardData((prev) => {
           if (!prev) return prev;
@@ -422,7 +422,7 @@ const DashboardOverview = () => {
 
     // Subscribe to agent execution updates
     const unsubscribeAgentExecution = wsService.subscribe(
-      'AGENT_EXECUTION',
+      'agent_execution_update',
       (executionData: any) => {
         console.log('Agent execution update:', executionData);
         // Handle agent execution updates
@@ -437,7 +437,7 @@ const DashboardOverview = () => {
 
     // Subscribe to workflow execution updates
     const unsubscribeWorkflowExecution = wsService.subscribe(
-      'WORKFLOW_EXECUTION',
+      'workflow_execution_update',
       (executionData: any) => {
         console.log('Workflow execution update:', executionData);
         // Handle workflow execution updates
@@ -447,7 +447,7 @@ const DashboardOverview = () => {
 
     // Subscribe to tool execution updates
     const unsubscribeToolExecution = wsService.subscribe(
-      'TOOL_EXECUTION',
+      'tool_execution_update',
       (executionData: any) => {
         console.log('Tool execution update:', executionData);
         // Handle tool execution updates
@@ -457,10 +457,20 @@ const DashboardOverview = () => {
 
     // Subscribe to system notifications
     const unsubscribeSystemNotifications = wsService.subscribe(
-      'SYSTEM_NOTIFICATION',
+      'system_notification',
       (notification: any) => {
         console.log('System notification:', notification);
         // Handle system notifications (could show toast, etc.)
+      },
+      { targetType: 'tenant', autoResubscribe: true },
+    );
+
+    // Subscribe to connection statistics updates
+    const unsubscribeConnectionStats = wsService.subscribe(
+      'connection_stats_update',
+      (stats: any) => {
+        console.log('Connection stats update:', stats);
+        // Handle connection statistics updates
       },
       { targetType: 'tenant', autoResubscribe: true },
     );
@@ -473,6 +483,7 @@ const DashboardOverview = () => {
       unsubscribeWorkflowExecution();
       unsubscribeToolExecution();
       unsubscribeSystemNotifications();
+      unsubscribeConnectionStats();
       wsService.disconnect();
     };
   }, [isAuthenticated, user]);

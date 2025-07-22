@@ -1,13 +1,33 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Server } from 'socket.io';
 import { ConnectionService, MessageProtocol } from './connection.service';
+import {
+  IEventPublication,
+  ICrossModuleEvent,
+  IEventTargeting,
+} from '@shared/interfaces';
+import {
+  EventType,
+  WebSocketEventType,
+  EventTargetType,
+  EventPriority,
+} from '@shared/enums';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
-export class WebSocketService {
+export class WebSocketService implements OnModuleInit {
   private readonly logger = new Logger(WebSocketService.name);
   private server: Server;
 
-  constructor(private readonly connectionService: ConnectionService) {}
+  constructor(
+    private readonly connectionService: ConnectionService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  onModuleInit() {
+    this.logger.log('WebSocket Service initialized');
+  }
 
   setServer(server: Server): void {
     this.server = server;
@@ -190,7 +210,7 @@ export class WebSocketService {
 
     // Use connection service for proper targeting and Redis pub/sub
     await this.connectionService.publishEvent(eventType, payload, {
-      type: targetType,
+      type: targetType as EventTargetType,
       targetId,
       organizationId: organizationId || '',
     });
@@ -198,6 +218,73 @@ export class WebSocketService {
     this.logger.debug(
       `Published event ${eventType} with targeting: ${targetType}${targetId ? `:${targetId}` : ''}`,
     );
+  }
+
+  // Handle internal event publishing from connection service
+  @OnEvent('websocket.publish')
+  async handleEventPublication(data: {
+    eventPublication: IEventPublication;
+    message: MessageProtocol;
+    targetConnections: string[];
+  }): Promise<void> {
+    if (!this.server) {
+      this.logger.warn(
+        'WebSocket server not initialized for event publication',
+      );
+      return;
+    }
+
+    const { message, targetConnections } = data;
+    let deliveredCount = 0;
+
+    // Send to each target connection
+    for (const connectionId of targetConnections) {
+      const connection =
+        this.connectionService.getConnectionBySocketId(connectionId);
+      if (connection) {
+        try {
+          // Send to user's room
+          this.server.to(`user:${connection.userId}`).emit('message', message);
+          deliveredCount++;
+        } catch (error) {
+          this.logger.error(
+            `Failed to deliver message to connection ${connectionId}: ${error.message}`,
+          );
+        }
+      }
+    }
+
+    this.logger.debug(
+      `Event ${data.eventPublication.eventType} delivered to ${deliveredCount}/${targetConnections.length} connections`,
+    );
+  }
+
+  // Cross-module event routing
+  async routeCrossModuleEvent(
+    sourceModule: string,
+    targetModule: string,
+    eventType: EventType | WebSocketEventType,
+    payload: any,
+    context: {
+      userId: string;
+      organizationId: string;
+      sessionId?: string;
+      workflowId?: string;
+      agentId?: string;
+      toolId?: string;
+    },
+    metadata?: Record<string, any>,
+  ): Promise<void> {
+    const crossModuleEvent: ICrossModuleEvent = {
+      sourceModule,
+      targetModule,
+      eventType,
+      payload,
+      context,
+      metadata,
+    };
+
+    await this.connectionService.routeCrossModuleEvent(crossModuleEvent);
   }
 
   // Broadcast to event subscribers
@@ -230,7 +317,8 @@ export class WebSocketService {
 
     // Emit to each subscriber's socket
     for (const connectionId of subscribers) {
-      const connection = this.connectionService.getConnectionBySocketId(connectionId);
+      const connection =
+        this.connectionService.getConnectionBySocketId(connectionId);
       if (connection) {
         // Find socket by connection info and emit
         this.server.to(`user:${connection.userId}`).emit('message', message);
@@ -267,8 +355,10 @@ export class WebSocketService {
     organizationId: string,
     flowId?: string,
   ): Promise<void> {
-    const nodeEventType = flowId ? `${eventType}:${flowId}:${nodeId}` : `${eventType}:${nodeId}`;
-    
+    const nodeEventType = flowId
+      ? `${eventType}:${flowId}:${nodeId}`
+      : `${eventType}:${nodeId}`;
+
     await this.publishEvent(
       nodeEventType,
       { ...payload, nodeId, flowId },

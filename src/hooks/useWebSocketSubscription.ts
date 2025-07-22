@@ -93,34 +93,43 @@ export function useWebSocketSubscriptions(
 ) {
   const { isAuthenticated } = useAuth();
   const unsubscribersRef = useRef<Array<() => void>>([]);
+  const subscriptionsRef = useRef(subscriptions);
+  const globalOptionsRef = useRef(globalOptions);
+
+  // Update refs when values change
+  useEffect(() => {
+    subscriptionsRef.current = subscriptions;
+  }, [subscriptions]);
+
+  useEffect(() => {
+    globalOptionsRef.current = globalOptions;
+  }, [globalOptions]);
 
   const subscribeAll = useCallback(() => {
-    if (!isAuthenticated || globalOptions.enabled === false) {
+    if (!isAuthenticated || globalOptionsRef.current.enabled === false) {
       return;
     }
 
     // Unsubscribe from all previous subscriptions
-    unsubscribersRef.current.forEach(unsubscribe => unsubscribe());
+    unsubscribersRef.current.forEach((unsubscribe) => unsubscribe());
     unsubscribersRef.current = [];
 
     // Create new subscriptions
-    subscriptions.forEach(({ eventType, callback, options = {} }) => {
-      const unsubscribe = wsService.subscribe(
-        eventType,
-        callback,
-        {
+    subscriptionsRef.current.forEach(
+      ({ eventType, callback, options = {} }) => {
+        const unsubscribe = wsService.subscribe(eventType, callback, {
           targetType: 'tenant',
           autoResubscribe: true,
-          ...globalOptions,
+          ...globalOptionsRef.current,
           ...options,
-        },
-      );
-      unsubscribersRef.current.push(unsubscribe);
-    });
-  }, [subscriptions, isAuthenticated, globalOptions]);
+        });
+        unsubscribersRef.current.push(unsubscribe);
+      },
+    );
+  }, [isAuthenticated]);
 
   const unsubscribeAll = useCallback(() => {
-    unsubscribersRef.current.forEach(unsubscribe => unsubscribe());
+    unsubscribersRef.current.forEach((unsubscribe) => unsubscribe());
     unsubscribersRef.current = [];
   }, []);
 
@@ -176,7 +185,7 @@ export function useFlowSubscription(
   callback: (eventType: string, data: any) => void,
   options: UseWebSocketSubscriptionOptions = {},
 ) {
-  const subscriptions = eventTypes.map(eventType => ({
+  const subscriptions = eventTypes.map((eventType) => ({
     eventType: `FLOW:${flowId}:${eventType}`,
     callback: (data: any) => callback(eventType, data),
     options,
@@ -193,16 +202,21 @@ export function useFlowSubscription(
  */
 export function useNodeSubscription(
   nodeId: string,
-  eventTypes: ('NODE_MOVED' | 'NODE_CREATED' | 'NODE_DELETED' | 'NODE_UPDATED')[],
+  eventTypes: (
+    | 'NODE_MOVED'
+    | 'NODE_CREATED'
+    | 'NODE_DELETED'
+    | 'NODE_UPDATED'
+  )[],
   callback: (eventType: string, data: any) => void,
   flowId?: string,
   options: UseWebSocketSubscriptionOptions = {},
 ) {
-  const subscriptions = eventTypes.map(eventType => {
-    const fullEventType = flowId 
+  const subscriptions = eventTypes.map((eventType) => {
+    const fullEventType = flowId
       ? `${eventType}:${flowId}:${nodeId}`
       : `${eventType}:${nodeId}`;
-    
+
     return {
       eventType: fullEventType,
       callback: (data: any) => callback(eventType, data),

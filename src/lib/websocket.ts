@@ -139,6 +139,57 @@ class WebSocketService {
         const latency = Date.now() - this.lastPingTime;
         this.updateConnectionState({ latency });
       }
+      if (this.heartbeatTimeout) {
+        clearTimeout(this.heartbeatTimeout);
+        this.heartbeatTimeout = null;
+      }
+    });
+
+    // Handle subscription confirmations
+    this.socket.on('subscription_confirmed', (data: any) => {
+      this.handleSubscriptionResponse(data.eventType, true);
+    });
+
+    this.socket.on('subscription_error', (data: any) => {
+      this.handleSubscriptionResponse(data.eventType, false);
+    });
+
+    // Handle unsubscription confirmations
+    this.socket.on('unsubscription_confirmed', (data: any) => {
+      console.log(`Unsubscription confirmed for: ${data.eventType}`);
+    });
+
+    // Handle event publication confirmations
+    this.socket.on('event_published', (data: any) => {
+      console.log(`Event published: ${data.eventType} (ID: ${data.eventId})`);
+      this.emit('event_published', data);
+    });
+
+    // Handle connection statistics
+    this.socket.on('connection_stats', (data: any) => {
+      this.emit('connection_stats', data);
+    });
+
+    // Handle subscription statistics
+    this.socket.on('subscription_stats', (data: any) => {
+      this.emit('subscription_stats', data);
+    });
+
+    // Handle room join/leave confirmations
+    this.socket.on('room_joined', (data: any) => {
+      console.log(`Joined room: ${data.room}`);
+      this.emit('room_joined', data);
+    });
+
+    this.socket.on('room_left', (data: any) => {
+      console.log(`Left room: ${data.room}`);
+      this.emit('room_left', data);
+    });
+
+    // Handle errors
+    this.socket.on('error', (error: any) => {
+      console.error('WebSocket error:', error);
+      this.emit('websocket_error', error);
     });
   }
 
@@ -178,6 +229,30 @@ class WebSocketService {
         break;
       case 'connection_stats_update':
         this.emit('connection_stats_update', payload);
+        break;
+      case 'subscription_confirmed':
+        this.handleSubscriptionResponse(payload.eventType, true);
+        break;
+      case 'subscription_error':
+        this.handleSubscriptionResponse(payload.eventType, false);
+        break;
+      case 'unsubscription_confirmed':
+        console.log(`Unsubscription confirmed for: ${payload.eventType}`);
+        break;
+      case 'event_published':
+        this.emit('event_published', payload);
+        break;
+      case 'connection_stats':
+        this.emit('connection_stats', payload);
+        break;
+      case 'subscription_stats':
+        this.emit('subscription_stats', payload);
+        break;
+      case 'room_joined':
+        this.emit('room_joined', payload);
+        break;
+      case 'room_left':
+        this.emit('room_left', payload);
         break;
       default:
         this.emit(event, payload);
@@ -544,3 +619,23 @@ class WebSocketService {
 }
 
 export const wsService = new WebSocketService();
+
+// Handle subscription confirmations and errors
+private handleSubscriptionResponse(eventType: string, success: boolean): void {
+  this.pendingSubscriptions.delete(eventType);
+  
+  // Update subscription status
+  for (const subscription of this.subscriptions.values()) {
+    if (subscription.eventType === eventType) {
+      subscription.isActive = success;
+    }
+  }
+
+  if (success) {
+    console.log(`Successfully subscribed to: ${eventType}`);
+    this.emit('subscription_confirmed', { eventType, success });
+  } else {
+    console.warn(`Failed to subscribe to: ${eventType}`);
+    this.emit('subscription_error', { eventType, success });
+  }
+}

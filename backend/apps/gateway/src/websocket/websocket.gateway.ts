@@ -75,7 +75,7 @@ export class WebSocketGatewayImpl
 
       // Verify JWT token
       const payload = await this.jwtService.verifyAsync(token);
-      const { userId, organizationId } = payload;
+      const { sub: userId, organizationId, role } = payload;
 
       if (!userId || !organizationId) {
         this.logger.warn(`Connection rejected: Invalid token payload`);
@@ -88,6 +88,7 @@ export class WebSocketGatewayImpl
         client,
         userId,
         organizationId,
+        role,
       );
 
       // Store user info in socket
@@ -95,11 +96,15 @@ export class WebSocketGatewayImpl
         userId,
         organizationId,
         connectionId,
+        role,
       };
 
       // Join user and organization rooms
       await client.join(`user:${userId}`);
       await client.join(`org:${organizationId}`);
+      if (role) {
+        await client.join(`role:${role}:${organizationId}`);
+      }
 
       // Send connection confirmation
       const confirmationMessage = this.connectionService.createMessage(
@@ -108,7 +113,14 @@ export class WebSocketGatewayImpl
           connectionId,
           userId,
           organizationId,
+          role,
           serverTime: new Date().toISOString(),
+          capabilities: {
+            eventSubscription: true,
+            eventPublishing: role !== 'VIEWER',
+            crossModuleEvents: true,
+            eventReplay: ['ORG_ADMIN', 'SUPER_ADMIN'].includes(role),
+          },
         },
         userId,
         organizationId,
@@ -128,7 +140,7 @@ export class WebSocketGatewayImpl
       this.server.to(`org:${organizationId}`).emit('message', statsMessage);
 
       this.logger.log(
-        `Client connected: ${client.id} (User: ${userId}, Org: ${organizationId})`,
+        `Client connected: ${client.id} (User: ${userId}, Org: ${organizationId}, Role: ${role})`,
       );
     } catch (error) {
       this.logger.error(`Connection error: ${error.message}`, error.stack);
@@ -245,19 +257,28 @@ export class WebSocketGatewayImpl
       const { userId, organizationId, role } = client.data;
 
       if (!userId || !organizationId) {
-        client.emit('error', { message: 'Unauthorized - missing authentication data' });
+        client.emit('error', {
+          message: 'Unauthorized - missing authentication data',
+        });
         return;
       }
 
       // Enhanced room access validation with tenant filtering
-      const roomValidation = this.validateRoomAccess(data.room, userId, organizationId, role);
-      
+      const roomValidation = this.validateRoomAccess(
+        data.room,
+        userId,
+        organizationId,
+        role,
+      );
+
       if (!roomValidation.allowed) {
-        this.logger.warn(`Room access denied for user ${userId}: ${data.room} - ${roomValidation.reason}`);
-        client.emit('error', { 
+        this.logger.warn(
+          `Room access denied for user ${userId}: ${data.room} - ${roomValidation.reason}`,
+        );
+        client.emit('error', {
           message: 'Room access denied',
           reason: roomValidation.reason,
-          code: 'ROOM_ACCESS_DENIED'
+          code: 'ROOM_ACCESS_DENIED',
         });
         return;
       }
@@ -266,7 +287,7 @@ export class WebSocketGatewayImpl
 
       const response = this.connectionService.createMessage(
         'room_joined',
-        { 
+        {
           room: data.room,
           permissions: roomValidation.permissions,
           joinedAt: new Date().toISOString(),
@@ -276,12 +297,14 @@ export class WebSocketGatewayImpl
       );
 
       client.emit('message', response);
-      this.logger.debug(`Client ${client.id} joined room: ${data.room} with permissions: ${JSON.stringify(roomValidation.permissions)}`);
+      this.logger.debug(
+        `Client ${client.id} joined room: ${data.room} with permissions: ${JSON.stringify(roomValidation.permissions)}`,
+      );
     } catch (error) {
       this.logger.error(`Join room error: ${error.message}`, error.stack);
-      client.emit('error', { 
+      client.emit('error', {
         message: 'Failed to join room',
-        code: 'ROOM_JOIN_ERROR'
+        code: 'ROOM_JOIN_ERROR',
       });
     }
   }
@@ -339,11 +362,18 @@ export class WebSocketGatewayImpl
 
       case 'USER_ACTIVITY':
         // User can subscribe to their own activity or admins to any
-        if (eventName === userId || role === 'ORG_ADMIN' || role === 'SUPER_ADMIN') {
+        if (
+          eventName === userId ||
+          role === 'ORG_ADMIN' ||
+          role === 'SUPER_ADMIN'
+        ) {
           permissions.push('read');
           return { allowed: true, permissions };
         }
-        return { allowed: false, reason: 'Can only subscribe to your own user activity' };
+        return {
+          allowed: false,
+          reason: 'Can only subscribe to your own user activity',
+        };
 
       case 'FLOW':
         // Flow-specific events - validate flow access
@@ -373,11 +403,18 @@ export class WebSocketGatewayImpl
     const [category] = eventType.split(':');
 
     // System events can only be published by the system or admins
-    if (['SYSTEM_NOTIFICATION', 'RESOURCE_UPDATE', 'STATS_UPDATE'].includes(category)) {
+    if (
+      ['SYSTEM_NOTIFICATION', 'RESOURCE_UPDATE', 'STATS_UPDATE'].includes(
+        category,
+      )
+    ) {
       if (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN') {
         return { allowed: true };
       }
-      return { allowed: false, reason: 'System events require admin privileges' };
+      return {
+        allowed: false,
+        reason: 'System events require admin privileges',
+      };
     }
 
     // Admin events require admin role
@@ -385,7 +422,10 @@ export class WebSocketGatewayImpl
       if (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN') {
         return { allowed: true };
       }
-      return { allowed: false, reason: 'Admin events require admin privileges' };
+      return {
+        allowed: false,
+        reason: 'Admin events require admin privileges',
+      };
     }
 
     // Viewers cannot publish most events
@@ -448,7 +488,11 @@ export class WebSocketGatewayImpl
         // Resource rooms within organization
         if (roomOrgId === organizationId) {
           permissions.push('read');
-          if (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN' || role === 'DEVELOPER') {
+          if (
+            role === 'ORG_ADMIN' ||
+            role === 'SUPER_ADMIN' ||
+            role === 'DEVELOPER'
+          ) {
             permissions.push('write');
           }
           return { allowed: true, permissions };
@@ -457,7 +501,10 @@ export class WebSocketGatewayImpl
 
       case 'admin':
         // Admin rooms - restricted access
-        if (roomOrgId === organizationId && (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN')) {
+        if (
+          roomOrgId === organizationId &&
+          (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN')
+        ) {
           permissions.push('read', 'write', 'admin');
           return { allowed: true, permissions };
         }
@@ -472,7 +519,10 @@ export class WebSocketGatewayImpl
           }
           return { allowed: true, permissions };
         }
-        return { allowed: false, reason: 'Execution room not in your organization' };
+        return {
+          allowed: false,
+          reason: 'Execution room not in your organization',
+        };
 
       default:
         return { allowed: false, reason: 'Unknown room type' };
@@ -501,6 +551,194 @@ export class WebSocketGatewayImpl
     }
   }
 
+  @SubscribeMessage('subscribe_event')
+  async handleSubscribeEvent(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      eventType: string;
+      targetType?: string;
+      targetId?: string;
+      filters?: Record<string, any>;
+    },
+  ): Promise<void> {
+    try {
+      const { userId, organizationId, connectionId, role } = client.data;
+
+      if (!userId || !organizationId || !connectionId) {
+        client.emit('error', {
+          message: 'Unauthorized',
+          code: 'AUTH_REQUIRED',
+        });
+        return;
+      }
+
+      const success = await this.connectionService.subscribeToEvent(
+        connectionId,
+        data.eventType,
+        (data.targetType as any) || 'tenant',
+        data.targetId,
+        data.filters,
+      );
+
+      const response = this.connectionService.createMessage(
+        success ? 'subscription_confirmed' : 'subscription_error',
+        {
+          eventType: data.eventType,
+          targetType: data.targetType,
+          targetId: data.targetId,
+          success,
+          timestamp: new Date().toISOString(),
+        },
+        userId,
+        organizationId,
+      );
+
+      client.emit('message', response);
+
+      if (success) {
+        this.logger.debug(
+          `Client ${client.id} subscribed to event: ${data.eventType}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(`Subscribe event error: ${error.message}`, error.stack);
+      client.emit('error', {
+        message: 'Subscription failed',
+        code: 'SUBSCRIPTION_ERROR',
+      });
+    }
+  }
+
+  @SubscribeMessage('unsubscribe_event')
+  async handleUnsubscribeEvent(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { eventType: string },
+  ): Promise<void> {
+    try {
+      const { userId, organizationId, connectionId } = client.data;
+
+      if (!userId || !organizationId || !connectionId) {
+        client.emit('error', {
+          message: 'Unauthorized',
+          code: 'AUTH_REQUIRED',
+        });
+        return;
+      }
+
+      const success = await this.connectionService.unsubscribeFromEvent(
+        connectionId,
+        data.eventType,
+      );
+
+      const response = this.connectionService.createMessage(
+        'unsubscription_confirmed',
+        {
+          eventType: data.eventType,
+          success,
+          timestamp: new Date().toISOString(),
+        },
+        userId,
+        organizationId,
+      );
+
+      client.emit('message', response);
+
+      this.logger.debug(
+        `Client ${client.id} unsubscribed from event: ${data.eventType}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Unsubscribe event error: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  @SubscribeMessage('publish_event')
+  async handlePublishEvent(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      eventType: string;
+      payload: any;
+      targetType?: string;
+      targetId?: string;
+      priority?: string;
+      correlationId?: string;
+    },
+  ): Promise<void> {
+    try {
+      const { userId, organizationId, role } = client.data;
+
+      if (!userId || !organizationId) {
+        client.emit('error', {
+          message: 'Unauthorized',
+          code: 'AUTH_REQUIRED',
+        });
+        return;
+      }
+
+      // Validate publishing permissions
+      const canPublish = this.validateEventPublishing(
+        data.eventType,
+        data.targetType || 'tenant',
+        userId,
+        organizationId,
+        role,
+      );
+
+      if (!canPublish.allowed) {
+        client.emit('error', {
+          message: 'Publishing denied',
+          reason: canPublish.reason,
+          code: 'PUBLISH_DENIED',
+        });
+        return;
+      }
+
+      const eventPublication = {
+        eventId: this.connectionService.createMessage('', {}).messageId,
+        eventType: data.eventType,
+        sourceModule: 'websocket',
+        payload: data.payload,
+        targeting: {
+          type: (data.targetType as any) || 'tenant',
+          organizationId,
+          targetId: data.targetId,
+        },
+        priority: (data.priority as any) || 'normal',
+        correlationId: data.correlationId,
+        timestamp: new Date(),
+      };
+
+      await this.connectionService.publishEvent(eventPublication);
+
+      const response = this.connectionService.createMessage(
+        'event_published',
+        {
+          eventId: eventPublication.eventId,
+          eventType: data.eventType,
+          timestamp: new Date().toISOString(),
+        },
+        userId,
+        organizationId,
+      );
+
+      client.emit('message', response);
+
+      this.logger.debug(
+        `Client ${client.id} published event: ${data.eventType}`,
+      );
+    } catch (error) {
+      this.logger.error(`Publish event error: ${error.message}`, error.stack);
+      client.emit('error', {
+        message: 'Publishing failed',
+        code: 'PUBLISH_ERROR',
+      });
+    }
+  }
+
   @SubscribeMessage('get_connection_stats')
   async handleGetConnectionStats(
     @ConnectedSocket() client: Socket,
@@ -524,6 +762,106 @@ export class WebSocketGatewayImpl
       client.emit('message', response);
     } catch (error) {
       this.logger.error(`Get stats error: ${error.message}`, error.stack);
+    }
+  }
+
+  @SubscribeMessage('get_subscription_stats')
+  async handleGetSubscriptionStats(
+    @ConnectedSocket() client: Socket,
+  ): Promise<void> {
+    try {
+      const { userId, organizationId, role } = client.data;
+
+      if (!userId || !organizationId) {
+        client.emit('error', { message: 'Unauthorized' });
+        return;
+      }
+
+      // Only admins can view detailed subscription stats
+      if (!['ORG_ADMIN', 'SUPER_ADMIN'].includes(role)) {
+        client.emit('error', { message: 'Admin access required' });
+        return;
+      }
+
+      const subscriptionStats = this.connectionService.getSubscriptionStats();
+      const response = this.connectionService.createMessage(
+        'subscription_stats',
+        subscriptionStats,
+        userId,
+        organizationId,
+      );
+
+      client.emit('message', response);
+    } catch (error) {
+      this.logger.error(
+        `Get subscription stats error: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  @SubscribeMessage('replay_events')
+  async handleReplayEvents(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      fromTimestamp: string;
+      toTimestamp?: string;
+      eventTypes?: string[];
+      userId?: string;
+      correlationId?: string;
+      maxEvents?: number;
+    },
+  ): Promise<void> {
+    try {
+      const { userId, organizationId, role } = client.data;
+
+      if (!userId || !organizationId) {
+        client.emit('error', { message: 'Unauthorized' });
+        return;
+      }
+
+      // Only admins can replay events
+      if (!['ORG_ADMIN', 'SUPER_ADMIN'].includes(role)) {
+        client.emit('error', {
+          message: 'Admin access required for event replay',
+        });
+        return;
+      }
+
+      const replayRequest = {
+        fromTimestamp: new Date(data.fromTimestamp),
+        toTimestamp: data.toTimestamp ? new Date(data.toTimestamp) : undefined,
+        eventTypes: data.eventTypes,
+        organizationId,
+        userId: data.userId,
+        correlationId: data.correlationId,
+        maxEvents: data.maxEvents || 1000,
+      };
+
+      await this.connectionService.replayEvents(replayRequest);
+
+      const response = this.connectionService.createMessage(
+        'event_replay_started',
+        {
+          replayRequest,
+          timestamp: new Date().toISOString(),
+        },
+        userId,
+        organizationId,
+      );
+
+      client.emit('message', response);
+
+      this.logger.log(
+        `Event replay initiated by user ${userId} for organization ${organizationId}`,
+      );
+    } catch (error) {
+      this.logger.error(`Event replay error: ${error.message}`, error.stack);
+      client.emit('error', {
+        message: 'Event replay failed',
+        code: 'REPLAY_ERROR',
+      });
     }
   }
 }
