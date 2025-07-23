@@ -2,12 +2,11 @@ import {
   IsString,
   IsOptional,
   IsObject,
-  IsArray,
   IsEnum,
-  IsNumber,
-  Min,
-  Max,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum TestType {
@@ -42,19 +41,16 @@ export class TestAgentDto {
 }
 
 export class BatchTestAgentDto {
-  @ApiProperty({ description: 'Array of test cases' })
+  @ApiProperty({ description: 'Array of test cases', type: [TestAgentDto] })
   @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TestAgentDto)
   testCases: TestAgentDto[];
 
   @ApiPropertyOptional({
     description: 'Maximum concurrent tests',
     default: 5,
-    minimum: 1,
-    maximum: 20,
   })
   @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(20)
   maxConcurrency?: number;
 }
