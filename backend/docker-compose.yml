@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database with production optimizations
   postgres:
     image: postgres:15-alpine
     container_name: synapseai-postgres
@@ -9,35 +9,180 @@ services:
       POSTGRES_DB: synapseai
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      # Performance tuning
+      POSTGRES_SHARED_PRELOAD_LIBRARIES: pg_stat_statements
+      POSTGRES_MAX_CONNECTIONS: 200
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+      POSTGRES_MAINTENANCE_WORK_MEM: 64MB
+      POSTGRES_CHECKPOINT_COMPLETION_TARGET: 0.9
+      POSTGRES_WAL_BUFFERS: 16MB
+      POSTGRES_DEFAULT_STATISTICS_TARGET: 100
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./scripts/postgresql.conf:/etc/postgresql/postgresql.conf
+    command: [
+      "postgres",
+      "-c", "config_file=/etc/postgresql/postgresql.conf",
+      "-c", "log_statement=all",
+      "-c", "log_min_duration_statement=1000",
+      "-c", "log_line_prefix=%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h ",
+      "-c", "log_checkpoints=on",
+      "-c", "log_connections=on",
+      "-c", "log_disconnections=on",
+      "-c", "log_lock_waits=on"
+    ]
     networks:
       - synapseai-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d synapseai"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
-  # Redis Cluster
+  # Redis Cluster with production optimizations
   redis:
     image: redis:7-alpine
     container_name: synapseai-redis
-    command: redis-server --appendonly yes --requirepass redis123
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass redis123
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 300
+      --timeout 0
+      --tcp-backlog 511
+      --databases 16
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --rdbcompression yes
+      --rdbchecksum yes
+      --stop-writes-on-bgsave-error yes
+      --lazyfree-lazy-eviction yes
+      --lazyfree-lazy-expire yes
+      --lazyfree-lazy-server-del yes
+      --replica-lazy-flush yes
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+      - ./scripts/redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - synapseai-network
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
+      start_period: 10s
+
+  # Redis Sentinel for high availability (production)
+  redis-sentinel:
+    image: redis:7-alpine
+    container_name: synapseai-redis-sentinel
+    command: >
+      redis-sentinel /usr/local/etc/redis/sentinel.conf
+      --sentinel
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./scripts/sentinel.conf:/usr/local/etc/redis/sentinel.conf
+    networks:
+      - synapseai-network
+    depends_on:
+      - redis
+    profiles:
+      - production
+
+  # Monitoring and observability
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: synapseai-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - synapseai-network
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: synapseai-grafana
+    ports:
+      - "3010:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - synapseai-network
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+  # Log aggregation
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: synapseai-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - synapseai-network
+    profiles:
+      - logging
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: synapseai-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - synapseai-network
+    depends_on:
+      - elasticsearch
+    profiles:
+      - logging
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: synapseai-logstash
+    volumes:
+      - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline
+      - ./monitoring/logstash/config:/usr/share/logstash/config
+    networks:
+      - synapseai-network
+    depends_on:
+      - elasticsearch
+    profiles:
+      - logging
 
   # API Gateway
   gateway:
@@ -328,8 +473,19 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
 
 networks:
   synapseai-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

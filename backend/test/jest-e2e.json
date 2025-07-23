@@ -1,0 +1,18 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapping": {
+    "^@shared/(.*)$": "<rootDir>/../libs/shared/src/$1",
+    "^@database/(.*)$": "<rootDir>/../libs/database/src/$1"
+  },
+  "setupFilesAfterEnv": ["<rootDir>/setup.ts"],
+  "testTimeout": 60000,
+  "maxWorkers": 1,
+  "forceExit": true,
+  "detectOpenHandles": true
+}
