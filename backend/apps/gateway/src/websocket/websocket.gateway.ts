@@ -145,6 +145,7 @@ export class WebSocketGatewayImpl
     private readonly configService: ConfigService,
     private readonly connectionService: ConnectionService,
     private readonly websocketService: WebSocketService,
+    private readonly apxSchemaService: APXSchemaService,
   ) {
     this.initializeMessageSchemas();
   }

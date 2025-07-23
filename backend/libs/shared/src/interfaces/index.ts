@@ -261,6 +261,7 @@ export interface IPaginatedResponse<T = any> extends IApiResponse<T[]> {
 
 export * from './websocket.interface';
 export * from './session.interface';
+export * from './apix-protocol.interface';
 
 // JWT and Auth interfaces
 export interface IJwtPayload {

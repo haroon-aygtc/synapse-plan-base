@@ -7,6 +7,7 @@ import { RedisModule } from '@nestjs-modules/ioredis';
 import { WebSocketGatewayImpl } from './websocket.gateway';
 import { ConnectionService } from './connection.service';
 import { WebSocketService } from './websocket.service';
+import { APXSchemaService } from './apix-schema.service';
 import {
   User,
   Organization,
@@ -65,6 +66,7 @@ import { UserService } from '../auth/user.service';
     WebSocketGatewayImpl,
     ConnectionService,
     WebSocketService,
+    APXSchemaService,
     UserService,
   ],
   exports: [WebSocketService, ConnectionService],
