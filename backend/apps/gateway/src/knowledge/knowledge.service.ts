@@ -1,3 +1,4 @@
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -340,6 +341,25 @@ export class KnowledgeService {
         return 'Completed';
       default:
         return 'Pending';
+    }
+  }
+
+  private getFileType(filename: string): string {
+    const extension = filename.split('.').pop()?.toLowerCase();
+    
+    switch (extension) {
+      case 'pdf':
+        return 'pdf';
+      case 'doc':
+      case 'docx':
+        return 'document';
+      case 'txt':
+      case 'md':
+      case 'markdown':
+        return 'text';
+      // ... more file types
+      default:
+        return 'unknown';
     }
   }
 }

@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Socket } from 'socket.io';
-import { InjectRedis } from '@nestjs-modules/ioredis';
+import { Inject } from '@nestjs/common';
 import Redis from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -34,8 +34,8 @@ import {
   EventPriority,
 } from '@shared/enums';
 
-export interface ConnectionInfo extends IConnectionInfo {}
-export interface MessageProtocol extends IWebSocketMessage {}
+export interface ConnectionInfo extends IConnectionInfo { }
+export interface MessageProtocol extends IWebSocketMessage { }
 
 @Injectable()
 export class ConnectionService implements OnModuleDestroy {
@@ -57,7 +57,7 @@ export class ConnectionService implements OnModuleDestroy {
 
   constructor(
     private readonly configService: ConfigService,
-    @InjectRedis() private readonly redis: Redis,
+    @Inject('REDIS_CLIENT') private readonly redis: Redis,
     @InjectRepository(ConnectionStatsEntity)
     private readonly connectionStatsRepository: Repository<ConnectionStatsEntity>,
     @InjectRepository(MessageTrackingEntity)
@@ -1020,11 +1020,11 @@ export class ConnectionService implements OnModuleDestroy {
       sessionContext.crossModuleData = {
         ...sessionContext.crossModuleData,
         [`${crossModuleEvent.sourceModule}_to_${crossModuleEvent.targetModule}`]:
-          {
-            eventType: crossModuleEvent.eventType,
-            timestamp: new Date(),
-            payload: crossModuleEvent.payload,
-          },
+        {
+          eventType: crossModuleEvent.eventType,
+          timestamp: new Date(),
+          payload: crossModuleEvent.payload,
+        },
       };
       this.sessionContexts.set(
         crossModuleEvent.context.sessionId,

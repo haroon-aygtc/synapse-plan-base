@@ -7,7 +7,7 @@ import { SynapseAI } from "../client";
 import { SessionContext, APIResponse, PaginatedResponse } from "../types";
 import { ValidationError } from "../errors";
 import { generateSessionId } from "../utils";
-import { APXMessageType } from "@/types/apix";
+import { APXMessageType } from "../../../types/apix";
 
 export interface CreateSessionRequest {
   userId?: string;

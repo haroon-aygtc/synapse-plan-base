@@ -3,7 +3,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { RedisModule } from '@liaoliaots/nestjs-redis';
 import { WebSocketGatewayImpl } from './websocket.gateway';
 import { ConnectionService } from './connection.service';
 import { WebSocketService } from './websocket.service';
@@ -18,6 +17,7 @@ import {
   Subscription,
 } from '@database/entities';
 import { UserService } from '../auth/user.service';
+import Redis from 'ioredis';
 
 @Module({
   imports: [
@@ -40,25 +40,30 @@ import { UserService } from '../auth/user.service';
         },
       }),
     }),
-    RedisModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        config: {
-          url: configService.get('REDIS_URL'),
+  ],
+  providers: [
+    {
+      provide: 'REDIS_CLIENT',
+      useFactory: (configService: ConfigService) => {
+        const redisUrl = configService.get('REDIS_URL');
+        if (redisUrl) {
+          return new Redis(redisUrl);
+        }
+        
+        return new Redis({
           host: configService.get('REDIS_HOST', 'localhost'),
           port: configService.get('REDIS_PORT', 6379),
           password: configService.get('REDIS_PASSWORD'),
           db: configService.get('REDIS_WS_DB', 2),
           keyPrefix: 'synapseai:ws:',
-          // Simplified connection options
           connectTimeout: 10000,
           commandTimeout: 5000,
           maxRetriesPerRequest: 3,
-        },
-      }),
-    }),
-  ],
-  providers: [
+          lazyConnect: true,
+        });
+      },
+      inject: [ConfigService],
+    },
     WebSocketGatewayImpl,
     ConnectionService,
     WebSocketService,
@@ -66,6 +71,6 @@ import { UserService } from '../auth/user.service';
     APXPermissionService,
     UserService,
   ],
-  exports: [WebSocketService, ConnectionService],
+  exports: [WebSocketService, ConnectionService, 'REDIS_CLIENT'],
 })
-export class WebsocketModule {}
+export class WebsocketModule { }

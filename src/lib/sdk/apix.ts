@@ -8,7 +8,7 @@ import {
   APXMessageType,
   APXStreamState,
   APXExecutionState,
-} from "@/types/apix";
+} from "../../types/apix";
 import { generateExecutionId, generateSessionId, retry } from "./utils";
 import { ConnectionError, TimeoutError, AuthenticationError } from "./errors";
 
@@ -151,7 +151,7 @@ export class APXClient extends EventEmitter {
           reject(
             new ConnectionError(
               "Failed to connect to APIX server",
-              error.message,
+              error instanceof Error ? error.message : String(error),
             ),
           );
         });
@@ -159,7 +159,7 @@ export class APXClient extends EventEmitter {
         reject(
           new ConnectionError(
             "Failed to initialize APIX connection",
-            error.message,
+            error instanceof Error ? error.message : String(error),
           ),
         );
       }
@@ -179,7 +179,7 @@ export class APXClient extends EventEmitter {
     }
 
     // Reject all pending requests
-    for (const [requestId, request] of this.pendingRequests) {
+    for (const request of Array.from(this.pendingRequests.values())) {
       clearTimeout(request.timeout);
       request.reject(new ConnectionError("Connection closed"));
     }
@@ -552,7 +552,7 @@ export class APXClient extends EventEmitter {
 
   private handleMessage(message: APXMessage): void {
     // Emit to specific subscribers
-    for (const subscription of this.subscriptions.values()) {
+    for (const subscription of Array.from(this.subscriptions.values())) {
       if (subscription.messageType === message.type) {
         try {
           subscription.callback(message);

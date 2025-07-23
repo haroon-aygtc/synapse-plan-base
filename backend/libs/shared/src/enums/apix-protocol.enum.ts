@@ -4,6 +4,52 @@ export enum APXMessageType {
   CONNECTION_HEARTBEAT = 'connection_heartbeat',
   SESSION_CREATED = 'session_created',
   SESSION_ENDED = 'session_ended',
+
+  // Stream Events
+  STREAM_STARTED = 'stream_started',
+  STREAM_OUTPUT = 'stream_output',
+  STREAM_COMPLETED = 'stream_completed',
+  STREAM_ERROR = 'stream_error',
+  STREAM_CANCELLED = 'stream_cancelled',
+
+  // Tool Events
+  TOOL_STARTED = 'tool_started',
+  TOOL_OUTPUT = 'tool_output',
+  TOOL_COMPLETED = 'tool_completed',
+  TOOL_ERROR = 'tool_error',
+  TOOL_CANCELLED = 'tool_cancelled',
+
+    // Message Events
+  MESSAGE_CREATED = 'message_created',
+  MESSAGE_UPDATED = 'message_updated',
+  MESSAGE_DELETED = 'message_deleted',
+  MESSAGE_SENT = 'message_sent',
+  MESSAGE_RECEIVED = 'message_received',
+
+  // Conversation Events
+  CONVERSATION_CREATED = 'conversation_created',
+  CONVERSATION_UPDATED = 'conversation_updated',
+  CONVERSATION_DELETED = 'conversation_deleted',
+
+  // User Events
+  USER_CREATED = 'user_created',
+  USER_UPDATED = 'user_updated',
+  USER_DELETED = 'user_deleted',
+
+  // Team Events
+  TEAM_CREATED = 'team_created',
+  TEAM_UPDATED = 'team_updated',
+  TEAM_DELETED = 'team_deleted',
+
+  // Workspace Events
+  WORKSPACE_CREATED = 'workspace_created',
+  WORKSPACE_UPDATED = 'workspace_updated',
+  WORKSPACE_DELETED = 'workspace_deleted',
+
+  // Agent Events
+  AGENT_CREATED = 'agent_created',
+  AGENT_UPDATED = 'agent_updated',
+  AGENT_DELETED = 'agent_deleted',
   
   // Agent Execution
   AGENT_EXECUTION_STARTED = 'agent_execution_started',
@@ -39,6 +85,9 @@ export enum APXMessageType {
   STREAM_RESUME = 'stream_resume',
   TOKEN_LIMIT_REACHED = 'token_limit_reached',
   PROVIDER_FALLBACK = 'provider_fallback',
+  
+  // Workflow Events
+  WORKFLOW_EXECUTION_STARTED = 'workflow_execution_started',
   
   // Error Events
   VALIDATION_ERROR = 'validation_error',

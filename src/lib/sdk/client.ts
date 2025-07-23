@@ -32,7 +32,7 @@ import { validateConfig, createHeaders, handleAPIError } from "./utils";
 export class SynapseAI extends EventEmitter {
   private config: Required<SynapseAIConfig>;
   private socket: Socket | null = null;
-  private apixClient: APXClient;
+  public apixClient: APXClient;
   private connectionState: ConnectionState = {
     status: "disconnected",
     reconnectAttempts: 0,
@@ -118,7 +118,7 @@ export class SynapseAI extends EventEmitter {
       this.connect().catch((error) => {
         this.emit(
           "error",
-          new SDKErrorClass("CONNECTION_FAILED", error.message),
+          new SDKErrorClass("CONNECTION_FAILED", error instanceof Error ? error.message : String(error)),
         );
       });
     }
@@ -156,7 +156,7 @@ export class SynapseAI extends EventEmitter {
       this.emit("connected");
     } catch (error) {
       this.updateConnectionState({ status: "error" });
-      throw new SDKErrorClass("CONNECTION_FAILED", error.message);
+      throw new SDKErrorClass("CONNECTION_FAILED", error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -419,7 +419,7 @@ export class SynapseAI extends EventEmitter {
         this.apixClient.authenticate(this.config.apiKey).catch((error) => {
           this.emit(
             "error",
-            new SDKErrorClass("APIX_AUTH_FAILED", error.message),
+            new SDKErrorClass("APIX_AUTH_FAILED", error instanceof Error ? error.message : String(error)),
           );
         });
       }
@@ -433,14 +433,14 @@ export class SynapseAI extends EventEmitter {
     this.emit(event, payload);
 
     // Handle subscription callbacks
-    for (const subscription of this.subscriptions.values()) {
+    for (const subscription of Array.from(this.subscriptions.values())) {
       if (subscription.isActive && subscription.eventType === event) {
         try {
           subscription.callback(payload);
         } catch (error) {
           this.emit(
             "error",
-            new SDKErrorClass("CALLBACK_ERROR", error.message),
+            new SDKErrorClass("CALLBACK_ERROR", error instanceof Error ? error.message : String(error)),
           );
         }
       }
@@ -484,7 +484,7 @@ export class SynapseAI extends EventEmitter {
       this.connect().catch((error) => {
         this.emit(
           "error",
-          new SDKErrorClass("RECONNECT_FAILED", error.message),
+          new SDKErrorClass("RECONNECT_FAILED", error instanceof Error ? error.message : String(error)),
         );
         this.scheduleReconnect();
       });

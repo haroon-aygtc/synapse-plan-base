@@ -13,7 +13,7 @@ import {
 } from "../types";
 import { ValidationError, ExecutionError } from "../errors";
 import { generateExecutionId } from "../utils";
-import { APXMessageType } from "@/types/apix";
+import { APXMessageType } from "../../../types/apix";
 
 export interface CreateToolRequest {
   name: string;

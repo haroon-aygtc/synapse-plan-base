@@ -516,7 +516,9 @@ export class APXSchemaService {
 
     // Extract payload schema information
     for (const [key, field] of Object.entries(payloadShape)) {
-      const isOptional = field._def.typeName === 'ZodOptional';
+      // Cast field to ZodTypeAny to access internal properties
+      const zodField = field as z.ZodTypeAny;
+      const isOptional = zodField._def?.typeName === 'ZodOptional';
       
       if (isOptional) {
         optionalFields.push(key);
@@ -526,9 +528,9 @@ export class APXSchemaService {
 
       // Determine field type
       let fieldType = 'any';
-      const innerType = isOptional ? field._def.innerType : field;
+      const innerType = isOptional ? zodField._def?.innerType : zodField;
       
-      switch (innerType._def.typeName) {
+      switch (innerType._def?.typeName) {
         case 'ZodString':
           fieldType = 'string';
           break;
