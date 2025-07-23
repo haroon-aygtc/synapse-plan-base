@@ -225,12 +225,20 @@ export enum ResourceType {
   API_CALL = 'API_CALL',
 }
 
-import { EventPriority as EnumEventPriority, EventTargetType as EnumEventTargetType, EventPriority, EventTargetType, WebSocketEventType, EventType } from '../enums'; // Import enums directly from the enums file
-export { EnumEventPriority as EventPriority, EnumEventTargetType as EventTargetType };
+// Import and re-export enums
+import {
+  EventPriority,
+  EventTargetType,
+  WebSocketEventType,
+  EventType
+} from '../enums';
 
-// Use the enums from @shared/enums instead
-import { EventType as EnumEventType, WebSocketEventType as EnumWebSocketEventType } from '../enums';
-export { EnumEventType as EventType, EnumWebSocketEventType as WebSocketEventType };
+export {
+  EventPriority,
+  EventTargetType,
+  WebSocketEventType,
+  EventType
+};
 
 export interface IJwtPayload {
   sub: string;
@@ -259,161 +267,8 @@ export interface IPaginatedResponse<T = any> extends IApiResponse<T[]> {
   };
 }
 
+// Export all interface files
 export * from './websocket.interface';
-export * from './session.interface';
 export * from './apix-protocol.interface';
 
-// JWT and Auth interfaces
-export interface IJwtPayload {
-  sub: string;
-  email: string;
-  organizationId: string;
-  role: UserRole;
-  iat: number;
-  exp?: number;
-}
-
-export interface IUser {
-  id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: UserRole;
-  organizationId: string;
-    isActive: boolean;
-    createdAt: Date;
-  updatedAt: Date;
-  lastLoginAt?: Date;
-  organization?: {
-    id: string;
-    name: string;
-    isActive: boolean;
-  };
-}
-
-// Message tracking interface
-export interface MessageTrackingInfo {
-  messageId: string;
-  event: string;
-  organizationId: string;
-  userId?: string;
-  timestamp: Date;
-  payload: any;
-  size: number;
-}
-
-export interface IWebSocketMessage {
-  event: string;
-  payload: any;
-  timestamp: Date;
-  messageId: string;
-  userId?: string;
-  organizationId?: string;
-  targetType?: EventTargetType;
-  targetId?: string;
-  priority?: EventPriority;
-  correlationId?: string;
-  retryCount?: number;
-}
-
-export interface IConnectionInfo {
-  id: string;
-  userId: string;
-  organizationId: string;
-  role?: UserRole;
-  connectedAt: Date;
-  lastHeartbeat: Date;
-  userAgent?: string;
-  ipAddress?: string;
-  subscriptions?: Set<string>;
-}
-
-export interface ISubscriptionInfo {
-  connectionId: string;
-  userId: string;
-  organizationId: string;
-  eventTypes: Set<string>;
-  subscribedAt: Date;
-  lastActivity: Date;
-  filters?: Record<string, any>;
-}
-
-export interface IEventTargeting {
-  type: EventTargetType;
-  targetId?: string;
-  organizationId: string;
-  filters?: Record<string, any>;
-}
-
-export interface IEventPublication {
-  eventId: string;
-  eventType: EventType | WebSocketEventType | string;
-  sourceModule: string;
-  targetModule?: string;
-  payload: any;
-  targeting: IEventTargeting;
-  priority: EventPriority;
-  correlationId?: string;
-  parentEventId?: string;
-  timestamp: Date;
-  expiresAt?: Date;
-  retryPolicy?: {
-    maxRetries: number;
-    retryDelay: number;
-    backoffMultiplier: number;
-  };
-}
-
-export interface IEventSubscription {
-  subscriptionId: string;
-  connectionId: string;
-  userId: string;
-  organizationId: string;
-  eventType: string;
-  targetType: EventTargetType;
-  targetId?: string;
-  filters?: Record<string, any>;
-  subscribedAt: Date;
-  isActive: boolean;
-}
-
-export interface IConnectionStats {
-  totalConnections: number;
-  connectionsByOrg: Record<string, number>;
-  connectionsByRole: Record<string, number>;
-  averageConnectionTime: number;
-  peakConnections: number;
-  messagesPerMinute: number;
-  subscriptionStats: {
-    totalSubscriptions: number;
-    subscriptionsByEvent: Record<string, number>;
-    subscriptionsByOrg: Record<string, number>;
-    activeSubscribers: number;
-  };
-}
-
-export interface IEventReplay {
-  fromTimestamp: Date;
-  toTimestamp?: Date;
-  eventTypes?: string[];
-  organizationId: string;
-  userId?: string;
-  correlationId?: string;
-  maxEvents?: number;
-}
-
-export interface ICrossModuleEvent {
-  sourceModule: string;
-  targetModule: string;
-  eventType: EventType | WebSocketEventType;
-  payload: any;
-  context: {
-    userId: string;
-    organizationId: string;
-    sessionId?: string;
-    workflowId?: string;
-    agentId?: string;
-    toolId?: string;
-  };
-  metadata?: Record<string, any>;
-}
+// MessageTrackingInfo is imported from @database/entities

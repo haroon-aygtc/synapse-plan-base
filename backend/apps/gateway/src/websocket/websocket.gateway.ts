@@ -14,6 +14,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ConnectionService, MessageProtocol } from './connection.service';
 import { WebSocketService } from './websocket.service';
+import { APXSchemaService } from './apix-schema.service';
+import { APXPermissionService } from './apix-permission.service';
 import {
   IsString,
   IsOptional,
@@ -37,6 +39,7 @@ import {
   IAPXRateLimitExceeded,
 } from '@shared/interfaces';
 import { v4 as uuidv4 } from 'uuid';
+import { type } from 'os';
 
 class WebSocketMessageDto {
   @IsString()
@@ -146,6 +149,7 @@ export class WebSocketGatewayImpl
     private readonly connectionService: ConnectionService,
     private readonly websocketService: WebSocketService,
     private readonly apxSchemaService: APXSchemaService,
+    private readonly apxPermissionService: APXPermissionService,
   ) {
     this.initializeMessageSchemas();
   }
@@ -157,89 +161,8 @@ export class WebSocketGatewayImpl
   }
 
   private initializeMessageSchemas(): void {
-    // Define message schemas for validation and security
-    const schemas: Array<[APXMessageType, IAPXMessageSchema]> = [
-      [
-        APXMessageType.AGENT_EXECUTION_STARTED,
-        {
-          type: APXMessageType.AGENT_EXECUTION_STARTED,
-          required_fields: ['agent_id', 'execution_id', 'prompt'],
-          optional_fields: ['model', 'parameters', 'tools_available'],
-          payload_schema: {
-            agent_id: 'string',
-            execution_id: 'string',
-            prompt: 'string',
-            model: 'string',
-            parameters: 'object',
-          },
-          security_requirements: {
-            min_permission_level: APXPermissionLevel.EXECUTE,
-            required_security_level: APXSecurityLevel.AUTHENTICATED,
-            tenant_isolation: true,
-          },
-        },
-      ],
-      [
-        APXMessageType.TOOL_CALL_START,
-        {
-          type: APXMessageType.TOOL_CALL_START,
-          required_fields: ['tool_call_id', 'tool_id', 'function_name'],
-          optional_fields: ['parameters', 'timeout_ms'],
-          payload_schema: {
-            tool_call_id: 'string',
-            tool_id: 'string',
-            function_name: 'string',
-            parameters: 'object',
-          },
-          security_requirements: {
-            min_permission_level: APXPermissionLevel.EXECUTE,
-            required_security_level: APXSecurityLevel.AUTHENTICATED,
-            tenant_isolation: true,
-          },
-        },
-      ],
-      [
-        APXMessageType.HITL_REQUEST_CREATED,
-        {
-          type: APXMessageType.HITL_REQUEST_CREATED,
-          required_fields: ['request_id', 'request_type', 'title'],
-          optional_fields: ['description', 'context', 'options', 'priority'],
-          payload_schema: {
-            request_id: 'string',
-            request_type: 'string',
-            title: 'string',
-            description: 'string',
-          },
-          security_requirements: {
-            min_permission_level: APXPermissionLevel.WRITE,
-            required_security_level: APXSecurityLevel.AUTHENTICATED,
-            tenant_isolation: true,
-          },
-        },
-      ],
-      [
-        APXMessageType.STREAM_PAUSE,
-        {
-          type: APXMessageType.STREAM_PAUSE,
-          required_fields: ['execution_id', 'action'],
-          optional_fields: ['reason'],
-          payload_schema: {
-            execution_id: 'string',
-            action: 'string',
-            reason: 'string',
-          },
-          security_requirements: {
-            min_permission_level: APXPermissionLevel.WRITE,
-            required_security_level: APXSecurityLevel.AUTHENTICATED,
-            tenant_isolation: true,
-          },
-        },
-      ],
-    ];
-
-    schemas.forEach(([type, schema]) => {
-      this.messageSchemas.set(type, schema);
-    });
+    // Message schemas are now handled by APXSchemaService
+    // This method is kept for backward compatibility but delegates to the service
   }
 
   private startRateLimitCleanup(): void {
@@ -312,9 +235,9 @@ export class WebSocketGatewayImpl
             'real_time_orchestration',
           ],
           rate_limits: {
-            messages_per_minute: this.getRateLimit(role, 'messages'),
-            executions_per_hour: this.getRateLimit(role, 'executions'),
-            concurrent_streams: this.getRateLimit(role, 'streams'),
+            messages_per_minute: this.apxPermissionService.getRateLimit(role, 'messages'),
+            executions_per_hour: this.apxPermissionService.getRateLimit(role, 'executions'),
+            concurrent_streams: this.apxPermissionService.getRateLimit(role, 'streams'),
           },
         },
         timestamp: new Date().toISOString(),
@@ -1110,7 +1033,7 @@ export class WebSocketGatewayImpl
         const rateLimitError: IAPXRateLimitExceeded = {
           limit_type: 'messages',
           current_usage: this.getRateLimitUsage(userId, 'messages'),
-          limit: this.getRateLimit(role, 'messages'),
+          limit: this.apxPermissionService.getRateLimit(role, 'messages'),
           reset_time: new Date(Date.now() + 60000).toISOString(),
           retry_after_ms: 60000,
         };
