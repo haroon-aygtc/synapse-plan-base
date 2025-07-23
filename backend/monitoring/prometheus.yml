@@ -1,0 +1,86 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "rules/*.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'synapseai-gateway'
+    static_configs:
+      - targets: ['gateway:3001']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'synapseai-auth'
+    static_configs:
+      - targets: ['auth-service:3002']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'synapseai-agent'
+    static_configs:
+      - targets: ['agent-service:3003']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'synapseai-tool'
+    static_configs:
+      - targets: ['tool-service:3004']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'synapseai-workflow'
+    static_configs:
+      - targets: ['workflow-service:3005']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'synapseai-knowledge'
+    static_configs:
+      - targets: ['knowledge-service:3006']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'synapseai-notification'
+    static_configs:
+      - targets: ['notification-service:3007']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'synapseai-billing'
+    static_configs:
+      - targets: ['billing-service:3008']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'synapseai-analytics'
+    static_configs:
+      - targets: ['analytics-service:3009']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
