@@ -10,6 +10,7 @@ import { BaseEntity } from './base.entity';
 import { Organization } from './organization.entity';
 import { User } from './user.entity';
 import { AgentExecution } from './agent-execution.entity';
+import { PromptTemplate } from './prompt-template.entity';
 
 @Entity('agents')
 @Index(['organizationId', 'name'])
@@ -47,6 +48,24 @@ export class Agent extends BaseEntity {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ type: 'varchar', length: 50, default: '1.0.0' })
+  version: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  promptTemplateId?: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  testingConfig?: Record<string, any>;
+
+  @Column({ type: 'jsonb', nullable: true })
+  performanceMetrics?: {
+    successRate: number;
+    averageResponseTime: number;
+    totalExecutions: number;
+    errorRate: number;
+    lastUpdated: Date;
+  };
+
   @Column({ type: 'uuid' })
   userId: string;
 
@@ -60,4 +79,13 @@ export class Agent extends BaseEntity {
 
   @OneToMany(() => AgentExecution, (execution) => execution.agent)
   executions: AgentExecution[];
+
+  @OneToMany(() => AgentTestResult, (testResult) => testResult.agent)
+  testResults: AgentTestResult[];
+
+  @ManyToOne(() => PromptTemplate, (template) => template.agents, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'promptTemplateId' })
+  promptTemplate?: PromptTemplate;
 }
