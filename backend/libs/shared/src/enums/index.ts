@@ -44,6 +44,17 @@ export enum EventType {
   ORGANIZATION_UPDATED = 'organization.updated',
   ORGANIZATION_DELETED = 'organization.deleted',
 
+  // AI Provider Events
+  AI_PROVIDER_CREATED = 'ai.provider.created',
+  AI_PROVIDER_UPDATED = 'ai.provider.updated',
+  AI_PROVIDER_DELETED = 'ai.provider.deleted',
+  AI_PROVIDER_HEALTH_CHECK = 'ai.provider.health.check',
+  AI_PROVIDER_STATUS_CHANGED = 'ai.provider.status.changed',
+  AI_PROVIDER_KEY_ROTATED = 'ai.provider.key.rotated',
+  AI_PROVIDER_EXECUTION_STARTED = 'ai.provider.execution.started',
+  AI_PROVIDER_EXECUTION_COMPLETED = 'ai.provider.execution.completed',
+  AI_PROVIDER_EXECUTION_FAILED = 'ai.provider.execution.failed',
+
   // Billing Events
   USAGE_RECORDED = 'billing.usage.recorded',
   QUOTA_EXCEEDED = 'billing.quota.exceeded',
