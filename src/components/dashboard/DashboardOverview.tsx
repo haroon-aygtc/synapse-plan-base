@@ -18,7 +18,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import QuickAccessPanel from './QuickAccessPanel';
 import { useAuth } from '@/hooks/useAuth';
-import { apiClient } from '@/lib/api';
+import { api as apiClient } from '@/lib/api';
 import { wsService } from '@/lib/websocket';
 import {
   DashboardData,
@@ -330,24 +330,22 @@ const DashboardOverview = () => {
 
       const [statsResponse, activitiesResponse, usageResponse] =
         await Promise.all([
-          apiClient.get<DashboardStats>(
-            `/dashboard/stats?period=${timeFilter}`,
+          apiClient.get(`/analytics/dashboard/stats?period=${timeFilter}`),
+          apiClient.get(
+            `/analytics/dashboard/activities?period=${timeFilter}&limit=10`,
           ),
-          apiClient.get<ActivityItem[]>(
-            `/dashboard/activities?period=${timeFilter}&limit=10`,
-          ),
-          apiClient.get<ResourceUsage>('/dashboard/usage'),
+          apiClient.get('/billing/usage'),
         ]);
 
       if (
-        statsResponse.success &&
-        activitiesResponse.success &&
-        usageResponse.success
+        statsResponse.data.success &&
+        activitiesResponse.data.success &&
+        usageResponse.data.success
       ) {
         setDashboardData({
-          stats: statsResponse.data!,
-          activities: activitiesResponse.data!,
-          resourceUsage: usageResponse.data!,
+          stats: statsResponse.data.data,
+          activities: activitiesResponse.data.data,
+          resourceUsage: usageResponse.data.data,
         });
       } else {
         throw new Error('Failed to fetch dashboard data');
@@ -505,11 +503,10 @@ const DashboardOverview = () => {
   };
 
   return (
-    <div className="flex flex-col space-y-6 bg-muted/40 p-6 rounded-lg">
+    <div className="flex flex-col space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <ConnectionStatus />
+          <h2 className="text-xl font-semibold">Overview</h2>
         </div>
       </div>
 

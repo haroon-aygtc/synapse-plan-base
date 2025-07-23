@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -8,32 +8,32 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useToast } from "@/components/ui/use-toast";
+} from '@/components/ui/tooltip';
+import { useToast } from '@/components/ui/use-toast';
 import {
   ChevronLeft,
   ChevronRight,
@@ -69,11 +69,11 @@ import {
   RotateCcw,
   X,
   Loader2,
-} from "lucide-react";
-import AIConfigurationPanel from "@/components/ai-assistant/AIConfigurationPanel";
-import VisualAgentBuilder from "@/components/agent-builder/VisualAgentBuilder";
-import ComponentPalette from "@/components/agent-builder/ComponentPalette";
-import { type AgentConfiguration } from "@/lib/ai-assistant";
+} from 'lucide-react';
+import AIConfigurationPanel from '@/components/ai-assistant/AIConfigurationPanel';
+import VisualAgentBuilder from '@/components/agent-builder/VisualAgentBuilder';
+import ComponentPalette from '@/components/agent-builder/ComponentPalette';
+import { type AgentConfiguration } from '@/lib/ai-assistant';
 
 // Tutorial and onboarding interfaces
 interface TutorialStep {
@@ -83,7 +83,7 @@ interface TutorialStep {
   target: string;
   content: React.ReactNode;
   action?: () => void;
-  position: "top" | "bottom" | "left" | "right";
+  position: 'top' | 'bottom' | 'left' | 'right';
   skippable: boolean;
 }
 
@@ -110,7 +110,7 @@ interface ContextualHint {
   id: string;
   trigger: string;
   content: string;
-  type: "tip" | "warning" | "success" | "info";
+  type: 'tip' | 'warning' | 'success' | 'info';
   position: { x: number; y: number };
   persistent: boolean;
 }
@@ -122,8 +122,8 @@ export default function AgentCreatePage() {
   const [showVisualBuilder, setShowVisualBuilder] = useState(false);
   const [showComponentPalette, setShowComponentPalette] = useState(false);
   const [userExperience, setUserExperience] = useState<
-    "beginner" | "intermediate" | "advanced"
-  >("beginner");
+    'beginner' | 'intermediate' | 'advanced'
+  >('beginner');
 
   // Onboarding and tutorial state
   const [onboardingState, setOnboardingState] = useState<OnboardingState>({
@@ -154,16 +154,16 @@ export default function AgentCreatePage() {
   const [agentConfiguration, setAgentConfiguration] = useState<
     Partial<AgentConfiguration>
   >({
-    name: "",
-    description: "",
-    category: "customer-support",
-    personality: "helpful",
-    model: "gpt-4",
+    name: '',
+    description: '',
+    category: 'customer-support',
+    personality: 'helpful',
+    model: 'gpt-4',
     temperature: 0.7,
     memoryEnabled: true,
     contextWindow: 10,
-    tone: "friendly",
-    style: "conversational",
+    tone: 'friendly',
+    style: 'conversational',
     traits: [],
     capabilities: [],
     knowledgeSources: [],
@@ -171,15 +171,15 @@ export default function AgentCreatePage() {
   });
 
   // Legacy state for backward compatibility
-  const [agentName, setAgentName] = useState(agentConfiguration.name || "");
+  const [agentName, setAgentName] = useState(agentConfiguration.name || '');
   const [agentDescription, setAgentDescription] = useState(
-    agentConfiguration.description || "",
+    agentConfiguration.description || '',
   );
   const [selectedPersonality, setSelectedPersonality] = useState(
-    agentConfiguration.personality || "helpful",
+    agentConfiguration.personality || 'helpful',
   );
   const [selectedModel, setSelectedModel] = useState(
-    agentConfiguration.model || "gpt-4",
+    agentConfiguration.model || 'gpt-4',
   );
   const [temperature, setTemperature] = useState([
     agentConfiguration.temperature || 0.7,
@@ -196,11 +196,11 @@ export default function AgentCreatePage() {
   // Tutorial steps definition
   const tutorialSteps: TutorialStep[] = [
     {
-      id: "welcome",
-      title: "Welcome to SynapseAI! 🎉",
+      id: 'welcome',
+      title: 'Welcome to SynapseAI! 🎉',
       description:
         "Let's create your first AI agent in under 5 minutes. This interactive tutorial will guide you through every step.",
-      target: "main-container",
+      target: 'main-container',
       content: (
         <div className="space-y-4">
           <div className="flex items-center gap-3">
@@ -239,15 +239,15 @@ export default function AgentCreatePage() {
           </div>
         </div>
       ),
-      position: "bottom",
+      position: 'bottom',
       skippable: true,
     },
     {
-      id: "name-agent",
-      title: "Name Your Agent",
+      id: 'name-agent',
+      title: 'Name Your Agent',
       description:
-        "Give your agent a memorable name. This helps you identify it later and sets the tone for interactions.",
-      target: "agent-name-input",
+        'Give your agent a memorable name. This helps you identify it later and sets the tone for interactions.',
+      target: 'agent-name-input',
       content: (
         <div className="space-y-3">
           <div className="flex items-start gap-3">
@@ -267,15 +267,15 @@ export default function AgentCreatePage() {
           </div>
         </div>
       ),
-      position: "right",
+      position: 'right',
       skippable: false,
     },
     {
-      id: "describe-purpose",
+      id: 'describe-purpose',
       title: "Describe Your Agent's Purpose",
       description:
-        "Tell us what your agent should do. Be specific - this helps our AI configure everything perfectly.",
-      target: "agent-description-input",
+        'Tell us what your agent should do. Be specific - this helps our AI configure everything perfectly.',
+      target: 'agent-description-input',
       content: (
         <div className="space-y-3">
           <div className="space-y-2">
@@ -295,15 +295,15 @@ export default function AgentCreatePage() {
           </div>
         </div>
       ),
-      position: "right",
+      position: 'right',
       skippable: false,
     },
     {
-      id: "ai-magic",
-      title: "Watch the AI Magic! ✨",
+      id: 'ai-magic',
+      title: 'Watch the AI Magic! ✨',
       description:
-        "Our AI is analyzing your description and configuring your agent automatically. No technical knowledge required!",
-      target: "ai-assistant-panel",
+        'Our AI is analyzing your description and configuring your agent automatically. No technical knowledge required!',
+      target: 'ai-assistant-panel',
       content: (
         <div className="space-y-3">
           <div className="flex items-center gap-3">
@@ -333,15 +333,15 @@ export default function AgentCreatePage() {
           </div>
         </div>
       ),
-      position: "left",
+      position: 'left',
       skippable: true,
     },
     {
-      id: "test-agent",
-      title: "Test Your Agent",
+      id: 'test-agent',
+      title: 'Test Your Agent',
       description:
-        "Your agent is ready! Click the test button to have a real conversation and see how it performs.",
-      target: "test-button",
+        'Your agent is ready! Click the test button to have a real conversation and see how it performs.',
+      target: 'test-button',
       content: (
         <div className="space-y-3">
           <div className="flex items-center gap-3">
@@ -362,15 +362,15 @@ export default function AgentCreatePage() {
           </div>
         </div>
       ),
-      position: "bottom",
+      position: 'bottom',
       skippable: false,
     },
     {
-      id: "congratulations",
-      title: "Congratulations! 🎉",
+      id: 'congratulations',
+      title: 'Congratulations! 🎉',
       description:
         "You've successfully created your first AI agent! You can now deploy it, share it, or create more agents.",
-      target: "main-container",
+      target: 'main-container',
       content: (
         <div className="space-y-4">
           <div className="text-center">
@@ -402,7 +402,7 @@ export default function AgentCreatePage() {
           </div>
         </div>
       ),
-      position: "bottom",
+      position: 'bottom',
       skippable: true,
     },
   ];
@@ -410,29 +410,29 @@ export default function AgentCreatePage() {
   // Progressive feature discovery
   const discoverableFeatures = [
     {
-      id: "visual-builder",
-      name: "Visual Builder",
-      description: "Drag and drop components to build complex workflows",
+      id: 'visual-builder',
+      name: 'Visual Builder',
+      description: 'Drag and drop components to build complex workflows',
       icon: Bot,
       unlockCondition: () => onboardingState.userProgress.stepsCompleted >= 2,
-      category: "advanced",
+      category: 'advanced',
     },
     {
-      id: "component-palette",
-      name: "Component Palette",
-      description: "Pre-built components for common use cases",
+      id: 'component-palette',
+      name: 'Component Palette',
+      description: 'Pre-built components for common use cases',
       icon: Settings,
       unlockCondition: () => onboardingState.userProgress.stepsCompleted >= 3,
-      category: "intermediate",
+      category: 'intermediate',
     },
     {
-      id: "ai-optimization",
-      name: "AI Optimization",
+      id: 'ai-optimization',
+      name: 'AI Optimization',
       description: "Let AI continuously improve your agent's performance",
       icon: Sparkles,
       unlockCondition: () =>
         onboardingState.userProgress.featuresDiscovered.length >= 2,
-      category: "advanced",
+      category: 'advanced',
     },
   ];
 
@@ -440,30 +440,30 @@ export default function AgentCreatePage() {
   const generateContextualHint = useCallback(
     (trigger: string, element?: HTMLElement) => {
       const hints: Record<string, ContextualHint> = {
-        "temperature-slider": {
-          id: "temperature-help",
-          trigger: "temperature-slider",
+        'temperature-slider': {
+          id: 'temperature-help',
+          trigger: 'temperature-slider',
           content:
-            "Higher values make responses more creative but less predictable. For customer support, keep it low (0.2-0.4). For creative tasks, try higher values (0.7-0.9).",
-          type: "tip",
+            'Higher values make responses more creative but less predictable. For customer support, keep it low (0.2-0.4). For creative tasks, try higher values (0.7-0.9).',
+          type: 'tip',
           position: { x: 0, y: 0 },
           persistent: false,
         },
-        "model-selection": {
-          id: "model-help",
-          trigger: "model-selection",
+        'model-selection': {
+          id: 'model-help',
+          trigger: 'model-selection',
           content:
-            "GPT-4 is more capable but slower and more expensive. GPT-3.5 Turbo is faster and cheaper but less sophisticated. Choose based on your needs and budget.",
-          type: "info",
+            'GPT-4 is more capable but slower and more expensive. GPT-3.5 Turbo is faster and cheaper but less sophisticated. Choose based on your needs and budget.',
+          type: 'info',
           position: { x: 0, y: 0 },
           persistent: false,
         },
-        "memory-toggle": {
-          id: "memory-help",
-          trigger: "memory-toggle",
+        'memory-toggle': {
+          id: 'memory-help',
+          trigger: 'memory-toggle',
           content:
-            "Memory allows your agent to remember previous conversations. Essential for customer support and ongoing relationships, but not needed for one-time queries.",
-          type: "tip",
+            'Memory allows your agent to remember previous conversations. Essential for customer support and ongoing relationships, but not needed for one-time queries.',
+          type: 'tip',
           position: { x: 0, y: 0 },
           persistent: false,
         },
@@ -487,25 +487,25 @@ export default function AgentCreatePage() {
   // Achievement system
   const achievements = [
     {
-      id: "first-agent",
-      name: "First Agent",
-      description: "Created your first AI agent",
+      id: 'first-agent',
+      name: 'First Agent',
+      description: 'Created your first AI agent',
       icon: Bot,
       unlocked: onboardingState.userProgress.stepsCompleted >= 4,
     },
     {
-      id: "quick-learner",
-      name: "Quick Learner",
-      description: "Completed tutorial in under 5 minutes",
+      id: 'quick-learner',
+      name: 'Quick Learner',
+      description: 'Completed tutorial in under 5 minutes',
       icon: Clock,
       unlocked:
         onboardingState.userProgress.timeSpent < 300 &&
         onboardingState.userProgress.stepsCompleted >= 4,
     },
     {
-      id: "explorer",
-      name: "Explorer",
-      description: "Discovered 3 or more features",
+      id: 'explorer',
+      name: 'Explorer',
+      description: 'Discovered 3 or more features',
       icon: Star,
       unlocked: onboardingState.userProgress.featuresDiscovered.length >= 3,
     },
@@ -530,11 +530,11 @@ export default function AgentCreatePage() {
 
   // Check for first visit and start tutorial
   useEffect(() => {
-    const hasVisited = localStorage.getItem("synapseai-visited");
+    const hasVisited = localStorage.getItem('synapseai-visited');
     if (!hasVisited) {
       setIsFirstVisit(true);
       setShowTutorialOverlay(true);
-      localStorage.setItem("synapseai-visited", "true");
+      localStorage.setItem('synapseai-visited', 'true');
     } else {
       setIsFirstVisit(false);
       setOnboardingState((prev) => ({ ...prev, isActive: false }));
@@ -582,8 +582,8 @@ export default function AgentCreatePage() {
     setOnboardingState((prev) => ({ ...prev, isActive: false }));
     setShowTutorialOverlay(false);
     toast({
-      title: "Tutorial skipped",
-      description: "You can restart the tutorial anytime from the help menu.",
+      title: 'Tutorial skipped',
+      description: 'You can restart the tutorial anytime from the help menu.',
     });
   }, [toast]);
 
@@ -593,14 +593,14 @@ export default function AgentCreatePage() {
       isActive: false,
       userProgress: {
         ...prev.userProgress,
-        achievements: [...prev.userProgress.achievements, "first-agent"],
+        achievements: [...prev.userProgress.achievements, 'first-agent'],
       },
     }));
     setShowTutorialOverlay(false);
 
     // Show completion celebration
     toast({
-      title: "🎉 Congratulations!",
+      title: '🎉 Congratulations!',
       description:
         "You've successfully created your first AI agent! Ready to deploy it?",
     });
@@ -613,8 +613,8 @@ export default function AgentCreatePage() {
           ...prev.userProgress,
           featuresDiscovered: [
             ...prev.userProgress.featuresDiscovered,
-            "visual-builder",
-            "component-palette",
+            'visual-builder',
+            'component-palette',
           ],
         },
       }));
@@ -644,7 +644,7 @@ export default function AgentCreatePage() {
 
           // Show discovery notification
           toast({
-            title: "🎉 New feature unlocked!",
+            title: '🎉 New feature unlocked!',
             description: `You've discovered: ${discoverableFeatures.find((f) => f.id === featureId)?.name}`,
           });
 
@@ -665,40 +665,40 @@ export default function AgentCreatePage() {
   // Smart defaults based on user input
   const applySmartDefaults = useCallback((description: string) => {
     if (
-      description.toLowerCase().includes("customer") ||
-      description.toLowerCase().includes("support")
+      description.toLowerCase().includes('customer') ||
+      description.toLowerCase().includes('support')
     ) {
       setAgentConfiguration((prev) => ({
         ...prev,
-        category: "customer-support",
-        personality: "helpful",
+        category: 'customer-support',
+        personality: 'helpful',
         temperature: 0.3,
-        tone: "friendly",
-        style: "conversational",
+        tone: 'friendly',
+        style: 'conversational',
       }));
     } else if (
-      description.toLowerCase().includes("sales") ||
-      description.toLowerCase().includes("lead")
+      description.toLowerCase().includes('sales') ||
+      description.toLowerCase().includes('lead')
     ) {
       setAgentConfiguration((prev) => ({
         ...prev,
-        category: "sales",
-        personality: "professional",
+        category: 'sales',
+        personality: 'professional',
         temperature: 0.5,
-        tone: "confident",
-        style: "persuasive",
+        tone: 'confident',
+        style: 'persuasive',
       }));
     } else if (
-      description.toLowerCase().includes("creative") ||
-      description.toLowerCase().includes("content")
+      description.toLowerCase().includes('creative') ||
+      description.toLowerCase().includes('content')
     ) {
       setAgentConfiguration((prev) => ({
         ...prev,
-        category: "marketing",
-        personality: "creative",
+        category: 'marketing',
+        personality: 'creative',
         temperature: 0.8,
-        tone: "engaging",
-        style: "creative",
+        tone: 'engaging',
+        style: 'creative',
       }));
     }
   }, []);
@@ -713,13 +713,13 @@ export default function AgentCreatePage() {
 
     // Auto-advance conditions
     if (
-      currentStep.id === "name-agent" &&
+      currentStep.id === 'name-agent' &&
       agentConfiguration.name &&
       agentConfiguration.name.length > 3
     ) {
       setTimeout(nextTutorialStep, 1500);
     } else if (
-      currentStep.id === "describe-purpose" &&
+      currentStep.id === 'describe-purpose' &&
       agentConfiguration.description &&
       agentConfiguration.description.length > 20
     ) {
@@ -739,20 +739,20 @@ export default function AgentCreatePage() {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!onboardingState.isActive) return;
 
-      if (e.key === "ArrowRight" || e.key === "Enter") {
+      if (e.key === 'ArrowRight' || e.key === 'Enter') {
         e.preventDefault();
         nextTutorialStep();
-      } else if (e.key === "ArrowLeft") {
+      } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         previousTutorialStep();
-      } else if (e.key === "Escape") {
+      } else if (e.key === 'Escape') {
         e.preventDefault();
         skipTutorial();
       }
     };
 
-    window.addEventListener("keydown", handleKeyPress);
-    return () => window.removeEventListener("keydown", handleKeyPress);
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
   }, [
     onboardingState.isActive,
     nextTutorialStep,
@@ -790,18 +790,89 @@ export default function AgentCreatePage() {
       setContextWindow([newConfig.contextWindow]);
   };
 
-  const handleSave = () => {
-    // In a real implementation, this would save the agent configuration
-    console.log("Agent saved:", agentConfiguration);
+  const handleSave = async () => {
+    try {
+      const response = await fetch('/api/agents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+        body: JSON.stringify({
+          name: agentConfiguration.name,
+          description: agentConfiguration.description,
+          category: agentConfiguration.category,
+          personality: agentConfiguration.personality,
+          model: agentConfiguration.model,
+          temperature: agentConfiguration.temperature,
+          memoryEnabled: agentConfiguration.memoryEnabled,
+          contextWindow: agentConfiguration.contextWindow,
+          tone: agentConfiguration.tone,
+          style: agentConfiguration.style,
+          traits: agentConfiguration.traits,
+          capabilities: agentConfiguration.capabilities,
+          knowledgeSources: agentConfiguration.knowledgeSources,
+          tools: agentConfiguration.tools,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          toast({
+            title: 'Agent created successfully!',
+            description: 'Your agent is now ready to use.',
+          });
+          // Redirect to agent management or dashboard
+          window.location.href = '/dashboard';
+        } else {
+          throw new Error(result.message || 'Failed to create agent');
+        }
+      } else {
+        throw new Error('Failed to create agent');
+      }
+    } catch (error) {
+      console.error('Error creating agent:', error);
+      toast({
+        title: 'Error creating agent',
+        description: error.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleTest = () => {
-    // In a real implementation, this would open a test conversation with the agent
-    console.log("Testing agent...");
+  const handleTest = async () => {
+    if (!agentConfiguration.name || !agentConfiguration.description) {
+      toast({
+        title: 'Missing information',
+        description:
+          'Please provide at least a name and description for your agent.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // First save the agent if it doesn't exist
+      await handleSave();
+
+      // Then open test interface (this would be implemented as a modal or separate page)
+      toast({
+        title: 'Test mode activated',
+        description: 'Agent testing interface would open here.',
+      });
+    } catch (error) {
+      console.error('Error testing agent:', error);
+      toast({
+        title: 'Error testing agent',
+        description: 'Please save the agent first.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleAddComponent = (template: any) => {
-    console.log("Adding component:", template);
+    console.log('Adding component:', template);
     // In a real implementation, this would add the component to the visual builder
   };
 
@@ -827,7 +898,7 @@ export default function AgentCreatePage() {
                         Interactive Tutorial
                       </h2>
                       <p className="text-sm text-muted-foreground">
-                        Step {onboardingState.currentTutorialStep + 1} of{" "}
+                        Step {onboardingState.currentTutorialStep + 1} of{' '}
                         {tutorialSteps.length}
                       </p>
                     </div>
@@ -957,19 +1028,19 @@ export default function AgentCreatePage() {
             style={{
               left: currentHint.position.x,
               top: currentHint.position.y,
-              transform: "translateY(-100%)",
+              transform: 'translateY(-100%)',
             }}
           >
             <div className="flex items-start gap-2">
               <div
                 className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                  currentHint.type === "tip"
-                    ? "bg-blue-500"
-                    : currentHint.type === "warning"
-                      ? "bg-yellow-500"
-                      : currentHint.type === "success"
-                        ? "bg-green-500"
-                        : "bg-gray-500"
+                  currentHint.type === 'tip'
+                    ? 'bg-blue-500'
+                    : currentHint.type === 'warning'
+                      ? 'bg-yellow-500'
+                      : currentHint.type === 'success'
+                        ? 'bg-green-500'
+                        : 'bg-gray-500'
                 }`}
               />
               <div className="flex-1">
@@ -1044,10 +1115,10 @@ export default function AgentCreatePage() {
 
             {/* Feature Toggles */}
             <Button
-              variant={showAIAssistant ? "default" : "outline"}
+              variant={showAIAssistant ? 'default' : 'outline'}
               onClick={() => {
                 setShowAIAssistant(!showAIAssistant);
-                if (!showAIAssistant) discoverFeature("ai-assistant");
+                if (!showAIAssistant) discoverFeature('ai-assistant');
               }}
             >
               <Wand2 className="mr-2 h-4 w-4" />
@@ -1069,25 +1140,25 @@ export default function AgentCreatePage() {
                   <TooltipTrigger asChild>
                     <Button
                       variant={
-                        (feature.id === "visual-builder" &&
+                        (feature.id === 'visual-builder' &&
                           showVisualBuilder) ||
-                        (feature.id === "component-palette" &&
+                        (feature.id === 'component-palette' &&
                           showComponentPalette)
-                          ? "default"
-                          : "outline"
+                          ? 'default'
+                          : 'outline'
                       }
                       onClick={() => {
-                        if (feature.id === "visual-builder") {
+                        if (feature.id === 'visual-builder') {
                           setShowVisualBuilder(!showVisualBuilder);
-                        } else if (feature.id === "component-palette") {
+                        } else if (feature.id === 'component-palette') {
                           setShowComponentPalette(!showComponentPalette);
                         }
                         if (!isDiscovered) discoverFeature(feature.id);
                       }}
                       className={
                         !isDiscovered
-                          ? "animate-pulse ring-2 ring-primary/20"
-                          : ""
+                          ? 'animate-pulse ring-2 ring-primary/20'
+                          : ''
                       }
                     >
                       <feature.icon className="mr-2 h-4 w-4" />
@@ -1112,7 +1183,7 @@ export default function AgentCreatePage() {
             <Select
               value={userExperience}
               onValueChange={(
-                value: "beginner" | "intermediate" | "advanced",
+                value: 'beginner' | 'intermediate' | 'advanced',
               ) => setUserExperience(value)}
             >
               <SelectTrigger className="w-32">
@@ -1143,17 +1214,17 @@ export default function AgentCreatePage() {
               <React.Fragment key={index}>
                 {index > 0 && (
                   <div
-                    className={`w-12 h-1 ${currentStep > index ? "bg-primary" : "bg-muted"}`}
+                    className={`w-12 h-1 ${currentStep > index ? 'bg-primary' : 'bg-muted'}`}
                   />
                 )}
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center
                   ${
                     currentStep > index + 1
-                      ? "bg-primary text-primary-foreground"
+                      ? 'bg-primary text-primary-foreground'
                       : currentStep === index + 1
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   {index + 1}
@@ -1171,8 +1242,8 @@ export default function AgentCreatePage() {
               <AlertDescription>
                 <div className="flex items-center justify-between">
                   <span>
-                    Tutorial Progress:{" "}
-                    {onboardingState.userProgress.stepsCompleted} of{" "}
+                    Tutorial Progress:{' '}
+                    {onboardingState.userProgress.stepsCompleted} of{' '}
                     {totalSteps} steps completed
                   </span>
                   <div className="flex items-center gap-2">
@@ -1181,7 +1252,7 @@ export default function AgentCreatePage() {
                       {Math.floor(onboardingState.userProgress.timeSpent / 60)}:
                       {String(
                         onboardingState.userProgress.timeSpent % 60,
-                      ).padStart(2, "0")}
+                      ).padStart(2, '0')}
                     </span>
                   </div>
                 </div>
@@ -1267,7 +1338,7 @@ export default function AgentCreatePage() {
                   onAddComponent={handleAddComponent}
                   currentConfiguration={agentConfiguration}
                   userExperience={userExperience}
-                  searchContext={agentConfiguration.description || ""}
+                  searchContext={agentConfiguration.description || ''}
                   canvasNodes={[]}
                   canvasEdges={[]}
                 />
@@ -1291,7 +1362,7 @@ export default function AgentCreatePage() {
                   <Input
                     id="agent-name-input"
                     placeholder="e.g., Customer Support Helper, Sales Assistant"
-                    value={agentConfiguration.name || ""}
+                    value={agentConfiguration.name || ''}
                     onChange={(e) => {
                       handleConfigurationUpdate({ name: e.target.value });
                       if (
@@ -1302,7 +1373,7 @@ export default function AgentCreatePage() {
                         const currentStep =
                           tutorialSteps[onboardingState.currentTutorialStep];
                         if (
-                          currentStep?.id === "name-agent" &&
+                          currentStep?.id === 'name-agent' &&
                           onboardingState.preferences.autoAdvance
                         ) {
                           setTimeout(nextTutorialStep, 1000);
@@ -1312,17 +1383,18 @@ export default function AgentCreatePage() {
                     onFocus={() => {
                       if (onboardingState.showContextualHelp) {
                         generateContextualHint(
-                          "agent-name",
-                          document.getElementById("agent-name-input") ?? undefined,
+                          'agent-name',
+                          document.getElementById('agent-name-input') ??
+                            undefined,
                         );
                       }
                     }}
                     className={
                       onboardingState.isActive &&
                       tutorialSteps[onboardingState.currentTutorialStep]?.id ===
-                        "name-agent"
-                        ? "ring-2 ring-primary/50"
-                        : ""
+                        'name-agent'
+                        ? 'ring-2 ring-primary/50'
+                        : ''
                     }
                   />
                   {onboardingState.isActive &&
@@ -1347,7 +1419,7 @@ export default function AgentCreatePage() {
                     id="agent-description-input"
                     placeholder="e.g., Help customers with billing questions, troubleshoot account issues, and provide product information in a friendly, professional manner."
                     rows={4}
-                    value={agentConfiguration.description || ""}
+                    value={agentConfiguration.description || ''}
                     onChange={(e) => {
                       handleConfigurationUpdate({
                         description: e.target.value,
@@ -1358,7 +1430,7 @@ export default function AgentCreatePage() {
                         const currentStep =
                           tutorialSteps[onboardingState.currentTutorialStep];
                         if (
-                          currentStep?.id === "describe-purpose" &&
+                          currentStep?.id === 'describe-purpose' &&
                           onboardingState.preferences.autoAdvance
                         ) {
                           setTimeout(nextTutorialStep, 1500);
@@ -1368,17 +1440,18 @@ export default function AgentCreatePage() {
                     onFocus={() => {
                       if (onboardingState.showContextualHelp) {
                         generateContextualHint(
-                          "agent-description",
-                          document.getElementById("agent-description-input") ?? undefined,
+                          'agent-description',
+                          document.getElementById('agent-description-input') ??
+                            undefined,
                         );
                       }
                     }}
                     className={
                       onboardingState.isActive &&
                       tutorialSteps[onboardingState.currentTutorialStep]?.id ===
-                        "describe-purpose"
-                        ? "ring-2 ring-primary/50"
-                        : ""
+                        'describe-purpose'
+                        ? 'ring-2 ring-primary/50'
+                        : ''
                     }
                   />
                   {onboardingState.isActive &&
@@ -1418,7 +1491,7 @@ export default function AgentCreatePage() {
               <div className="space-y-2">
                 <Label htmlFor="agent-category">Category</Label>
                 <Select
-                  value={agentConfiguration.category || "customer-support"}
+                  value={agentConfiguration.category || 'customer-support'}
                   onValueChange={(value) =>
                     handleConfigurationUpdate({ category: value })
                   }
@@ -1483,37 +1556,37 @@ export default function AgentCreatePage() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
                       {
-                        id: "helpful",
-                        name: "Helpful Assistant",
+                        id: 'helpful',
+                        name: 'Helpful Assistant',
                         description:
-                          "Friendly and eager to assist with any request",
+                          'Friendly and eager to assist with any request',
                       },
                       {
-                        id: "professional",
-                        name: "Professional Expert",
+                        id: 'professional',
+                        name: 'Professional Expert',
                         description:
-                          "Formal, knowledgeable, and business-oriented",
+                          'Formal, knowledgeable, and business-oriented',
                       },
                       {
-                        id: "friendly",
-                        name: "Friendly Guide",
-                        description: "Casual, approachable, and conversational",
+                        id: 'friendly',
+                        name: 'Friendly Guide',
+                        description: 'Casual, approachable, and conversational',
                       },
                       {
-                        id: "technical",
-                        name: "Technical Specialist",
+                        id: 'technical',
+                        name: 'Technical Specialist',
                         description:
-                          "Detailed, precise, and technically focused",
+                          'Detailed, precise, and technically focused',
                       },
                       {
-                        id: "creative",
-                        name: "Creative Partner",
-                        description: "Imaginative, inspiring, and idea-focused",
+                        id: 'creative',
+                        name: 'Creative Partner',
+                        description: 'Imaginative, inspiring, and idea-focused',
                       },
                       {
-                        id: "concise",
-                        name: "Concise Responder",
-                        description: "Brief, to-the-point, and efficient",
+                        id: 'concise',
+                        name: 'Concise Responder',
+                        description: 'Brief, to-the-point, and efficient',
                       },
                     ].map((personality) => {
                       const isSelected =
@@ -1525,7 +1598,7 @@ export default function AgentCreatePage() {
                       return (
                         <Card
                           key={personality.id}
-                          className={`cursor-pointer border-2 ${isSelected ? "border-primary" : "border-border"} ${isAISuggested ? "ring-2 ring-blue-200" : ""}`}
+                          className={`cursor-pointer border-2 ${isSelected ? 'border-primary' : 'border-border'} ${isAISuggested ? 'ring-2 ring-blue-200' : ''}`}
                           onClick={() =>
                             handleConfigurationUpdate({
                               personality: personality.id,
@@ -1558,7 +1631,7 @@ export default function AgentCreatePage() {
                     <div className="space-y-2">
                       <Label htmlFor="tone">Tone of Voice</Label>
                       <Select
-                        value={agentConfiguration.tone || "friendly"}
+                        value={agentConfiguration.tone || 'friendly'}
                         onValueChange={(value) =>
                           handleConfigurationUpdate({ tone: value })
                         }
@@ -1580,7 +1653,7 @@ export default function AgentCreatePage() {
                     <div className="space-y-2">
                       <Label htmlFor="style">Communication Style</Label>
                       <Select
-                        value={agentConfiguration.style || "conversational"}
+                        value={agentConfiguration.style || 'conversational'}
                         onValueChange={(value) =>
                           handleConfigurationUpdate({ style: value })
                         }
@@ -1609,11 +1682,11 @@ export default function AgentCreatePage() {
                         id="personality-traits"
                         placeholder="Describe your agent's personality traits (e.g., empathetic, detail-oriented, humorous)"
                         rows={3}
-                        value={agentConfiguration.traits?.join(", ") || ""}
+                        value={agentConfiguration.traits?.join(', ') || ''}
                         onChange={(e) =>
                           handleConfigurationUpdate({
                             traits: e.target.value
-                              .split(",")
+                              .split(',')
                               .map((t) => t.trim())
                               .filter((t) => t.length > 0),
                           })
@@ -1657,7 +1730,7 @@ export default function AgentCreatePage() {
                     <SelectItem value="gpt-4">
                       <div className="flex items-center gap-2">
                         GPT-4 (Most capable)
-                        {agentConfiguration.model === "gpt-4" && (
+                        {agentConfiguration.model === 'gpt-4' && (
                           <Badge variant="secondary" className="text-xs">
                             <Sparkles className="w-3 h-3 mr-1" />
                             AI Pick
@@ -1705,9 +1778,10 @@ export default function AgentCreatePage() {
                             size="sm"
                             className="h-6 w-6 p-0"
                             onClick={() => {
-                              const element = document.getElementById("temperature");
+                              const element =
+                                document.getElementById('temperature');
                               generateContextualHint(
-                                "temperature-slider",
+                                'temperature-slider',
                                 element ?? undefined,
                               );
                             }}
@@ -1764,9 +1838,10 @@ export default function AgentCreatePage() {
                             size="sm"
                             className="h-6 w-6 p-0"
                             onClick={() => {
-                              const element = document.getElementById("memory-toggle");
+                              const element =
+                                document.getElementById('memory-toggle');
                               generateContextualHint(
-                                "memory-toggle",
+                                'memory-toggle',
                                 element ?? undefined,
                               );
                             }}
