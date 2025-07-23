@@ -1,4 +1,3 @@
-"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { 
@@ -8,7 +7,7 @@ import {
   register as authRegister,
   getUser,
   isAuthenticated as checkIsAuthenticated,
-  setUser
+  setUser as setAuthUser
 } from "@/lib/auth";
 import axios from "axios";
 
@@ -101,7 +100,7 @@ export function useAuth() {
       });
       
       if (response.data.success && response.data.data) {
-        setUser(response.data.data);
+        setAuthUser(response.data.data);
         refreshAuthState();
       }
     } catch (error) {

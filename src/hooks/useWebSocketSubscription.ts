@@ -1,8 +1,8 @@
-'use client';
-
 import { useEffect, useRef, useCallback } from 'react';
 import { wsService, SubscriptionOptions } from '@/lib/websocket';
 import { useAuth } from './useAuth';
+import { APXMessageType } from '@/types/apix';
+import { useAPIX } from './useAPIX';
 
 export interface UseWebSocketSubscriptionOptions extends SubscriptionOptions {
   enabled?: boolean;

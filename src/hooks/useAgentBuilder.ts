@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from './useAuth';
@@ -218,20 +217,27 @@ export function useAgentBuilder() {
     if (!user) throw new Error('User not authenticated');
 
     try {
-      const response = await fetch(`/api/agents/${agentId}/execute`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const token = localStorage.getItem('synapse_access_token');
+      
+      const response = await fetch(`${apiUrl}/agents/${agentId}/execute`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user.token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           input,
-          ...options,
+          sessionId: options?.sessionId || crypto.randomUUID(),
+          context: options?.context || {},
+          metadata: options?.metadata || {},
+          stream: options?.stream || false,
         }),
       });
 
       if (response.ok) {
-        return await response.json();
+        const result = await response.json();
+        return result.data || result;
       } else {
         const error = await response.json();
         throw new Error(error.message || 'Failed to execute agent');

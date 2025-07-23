@@ -1,591 +1,569 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from 'react';
+import { useAgentBuilder } from '@/hooks/useAgentBuilder';
+import { useAIAssistant } from '@/hooks/useAIAssistant';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { toast } from '@/components/ui/use-toast';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Bot,
-  Star,
-  Download,
-  Eye,
-  TrendingUp,
-  Users,
-  Clock,
   Search,
   Filter,
-  Sparkles,
-  Award,
-  CheckCircle,
-  MessageSquare,
+  Star,
+  Download,
+  Bot,
+  Tag,
   Settings,
+  ChevronRight,
+  Check,
+  X,
+  Info,
+  AlertCircle,
   Zap,
-  Target,
-  Lightbulb,
-  BarChart,
-  Shield,
+  ArrowRight,
   Globe,
-} from "lucide-react";
-import { AgentConfiguration } from "@/lib/ai-assistant";
-import { useToast } from "@/components/ui/use-toast";
+  Briefcase,
+  Users,
+  MessageSquare,
+  FileText,
+  Code,
+  ShoppingCart,
+  Headphones,
+  BookOpen,
+  BarChart3
+} from 'lucide-react';
 
 interface AgentTemplate {
   id: string;
   name: string;
   description: string;
   category: string;
-  author: {
-    name: string;
-    avatar?: string;
-    verified: boolean;
-  };
-  config: Partial<AgentConfiguration>;
-  stats: {
-    downloads: number;
-    rating: number;
-    reviews: number;
-    successRate: number;
-  };
+  industry: string;
+  useCase: string;
+  prompt: string;
+  model: string;
+  temperature: number;
+  maxTokens: number;
+  tools: string[];
+  knowledgeSources: string[];
+  settings: Record<string, any>;
+  metadata: Record<string, any>;
+  personalityTraits: Record<string, number>;
+  rating: number;
+  downloads: number;
+  author: string;
   tags: string[];
-  difficulty: "beginner" | "intermediate" | "advanced";
-  featured: boolean;
-  premium: boolean;
-  lastUpdated: Date;
-  version: string;
-  useCases: string[];
-  preview?: {
-    conversation: Array<{
-      role: "user" | "assistant";
-      content: string;
-    }>;
+  preview: {
+    input: string;
+    output: string;
   };
 }
 
-interface AgentMarketplaceProps {
-  onSelectTemplate: (template: AgentTemplate) => void;
-  onDeployTemplate: (template: AgentTemplate) => void;
-  className?: string;
-}
-
-// Mock data - in a real app, this would come from an API
-const AGENT_TEMPLATES: AgentTemplate[] = [
-  {
-    id: "customer-support-pro",
-    name: "Customer Support Pro",
-    description: "Advanced customer support agent with sentiment analysis and escalation handling",
-    category: "customer-support",
-    author: {
-      name: "SynapseAI Team",
-      verified: true,
-    },
-    config: {
-      personality: "helpful",
-      model: "gpt-4",
-      temperature: 0.3,
-      memoryEnabled: true,
-      tone: "professional",
-      style: "supportive",
-      capabilities: ["sentiment-analysis", "escalation-handling", "knowledge-base"],
-    },
-    stats: {
-      downloads: 15420,
-      rating: 4.8,
-      reviews: 342,
-      successRate: 94,
-    },
-    tags: ["support", "customer-service", "escalation", "sentiment"],
-    difficulty: "intermediate",
-    featured: true,
-    premium: false,
-    lastUpdated: new Date('2024-01-15'),
-    version: "2.1.0",
-    useCases: ["Help desk", "Live chat", "Ticket resolution"],
-    preview: {
-      conversation: [
-        { role: "user", content: "I'm having trouble with my account login" },
-        { role: "assistant", content: "I understand how frustrating login issues can be. Let me help you resolve this quickly. Can you tell me what happens when you try to log in?" },
-      ],
-    },
-  },
-  {
-    id: "sales-qualifier-ai",
-    name: "Sales Qualifier AI",
-    description: "Intelligent lead qualification agent with CRM integration and scoring",
-    category: "sales",
-    author: {
-      name: "Revenue Labs",
-      verified: true,
-    },
-    config: {
-      personality: "professional",
-      model: "gpt-4",
-      temperature: 0.5,
-      memoryEnabled: true,
-      tone: "confident",
-      style: "consultative",
-      capabilities: ["lead-scoring", "crm-integration", "qualification"],
-    },
-    stats: {
-      downloads: 8930,
-      rating: 4.6,
-      reviews: 187,
-      successRate: 87,
-    },
-    tags: ["sales", "leads", "qualification", "crm"],
-    difficulty: "advanced",
-    featured: true,
-    premium: true,
-    lastUpdated: new Date('2024-01-12'),
-    version: "1.8.2",
-    useCases: ["Lead qualification", "Sales discovery", "Demo scheduling"],
-  },
-  {
-    id: "content-creator-assistant",
-    name: "Content Creator Assistant",
-    description: "Creative writing assistant for blogs, social media, and marketing content",
-    category: "marketing",
-    author: {
-      name: "Creative Studio",
-      verified: false,
-    },
-    config: {
-      personality: "creative",
-      model: "gpt-4",
-      temperature: 0.8,
-      memoryEnabled: true,
-      tone: "engaging",
-      style: "creative",
-      capabilities: ["content-generation", "seo-optimization", "social-media"],
-    },
-    stats: {
-      downloads: 12650,
-      rating: 4.7,
-      reviews: 298,
-      successRate: 91,
-    },
-    tags: ["content", "writing", "marketing", "seo"],
-    difficulty: "beginner",
-    featured: false,
-    premium: false,
-    lastUpdated: new Date('2024-01-10'),
-    version: "1.5.1",
-    useCases: ["Blog writing", "Social media posts", "Ad copy"],
-  },
-  {
-    id: "technical-documentation",
-    name: "Technical Documentation Expert",
-    description: "Specialized agent for creating and maintaining technical documentation",
-    category: "technical",
-    author: {
-      name: "DevTools Inc",
-      verified: true,
-    },
-    config: {
-      personality: "technical",
-      model: "gpt-4",
-      temperature: 0.2,
-      memoryEnabled: true,
-      tone: "technical",
-      style: "instructional",
-      capabilities: ["code-analysis", "documentation", "api-docs"],
-    },
-    stats: {
-      downloads: 5420,
-      rating: 4.9,
-      reviews: 89,
-      successRate: 96,
-    },
-    tags: ["technical", "documentation", "api", "code"],
-    difficulty: "advanced",
-    featured: false,
-    premium: true,
-    lastUpdated: new Date('2024-01-08'),
-    version: "3.0.0",
-    useCases: ["API documentation", "User guides", "Technical specs"],
-  },
-  {
-    id: "hr-assistant",
-    name: "HR Assistant",
-    description: "Human resources assistant for employee queries and policy guidance",
-    category: "hr",
-    author: {
-      name: "HR Solutions",
-      verified: true,
-    },
-    config: {
-      personality: "professional",
-      model: "gpt-3.5-turbo",
-      temperature: 0.4,
-      memoryEnabled: true,
-      tone: "supportive",
-      style: "professional",
-      capabilities: ["policy-guidance", "employee-support", "compliance"],
-    },
-    stats: {
-      downloads: 3280,
-      rating: 4.5,
-      reviews: 67,
-      successRate: 89,
-    },
-    tags: ["hr", "policies", "employees", "compliance"],
-    difficulty: "intermediate",
-    featured: false,
-    premium: false,
-    lastUpdated: new Date('2024-01-05'),
-    version: "1.2.3",
-    useCases: ["Policy questions", "Benefits info", "Leave requests"],
-  },
-];
-
-export default function AgentMarketplace({
-  onSelectTemplate,
-  onDeployTemplate,
-  className = "",
-}: AgentMarketplaceProps) {
-  const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedDifficulty, setSelectedDifficulty] = useState("all");
-  const [sortBy, setSortBy] = useState("featured");
-  const [showPremiumOnly, setShowPremiumOnly] = useState(false);
+export function AgentMarketplace() {
+  const { createAgent } = useAgentBuilder();
+  const { getAgentTemplates, deployTemplate } = useAIAssistant();
+  const [templates, setTemplates] = useState<AgentTemplate[]>([]);
+  const [filteredTemplates, setFilteredTemplates] = useState<AgentTemplate[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [activeTab, setActiveTab] = useState('featured');
 
-  // Filter and sort templates
-  const filteredTemplates = AGENT_TEMPLATES.filter((template) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      template.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      template.tags.some((tag) =>
-        tag.toLowerCase().includes(searchQuery.toLowerCase())
+  // Fetch templates
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getAgentTemplates();
+        setTemplates(data);
+        setFilteredTemplates(data);
+      } catch (error) {
+        console.error('Error fetching templates:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load agent templates',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTemplates();
+  }, [getAgentTemplates]);
+
+  // Filter templates based on search and filters
+  useEffect(() => {
+    let result = templates;
+
+    if (searchQuery) {
+      result = result.filter(template =>
+        template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        template.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        template.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
       );
-
-    const matchesCategory =
-      selectedCategory === "all" || template.category === selectedCategory;
-
-    const matchesDifficulty =
-      selectedDifficulty === "all" || template.difficulty === selectedDifficulty;
-
-    const matchesPremium = !showPremiumOnly || template.premium;
-
-    return matchesSearch && matchesCategory && matchesDifficulty && matchesPremium;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case "featured":
-        return (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || b.stats.downloads - a.stats.downloads;
-      case "downloads":
-        return b.stats.downloads - a.stats.downloads;
-      case "rating":
-        return b.stats.rating - a.stats.rating;
-      case "recent":
-        return b.lastUpdated.getTime() - a.lastUpdated.getTime();
-      default:
-        return 0;
     }
-  });
 
-  const handlePreviewTemplate = (template: AgentTemplate) => {
-    setSelectedTemplate(template);
-    onSelectTemplate(template);
-  };
+    if (selectedCategory) {
+      result = result.filter(template => template.category === selectedCategory);
+    }
 
-  const handleDeployTemplate = (template: AgentTemplate) => {
-    onDeployTemplate(template);
-    toast({
-      title: "Template deployed",
-      description: `"${template.name}" has been added to your agents`,
-    });
-  };
+    if (selectedIndustry) {
+      result = result.filter(template => template.industry === selectedIndustry);
+    }
+
+    if (activeTab === 'featured') {
+      result = result.filter(template => template.rating >= 4.0);
+    } else if (activeTab === 'popular') {
+      result = [...result].sort((a, b) => b.downloads - a.downloads);
+    } else if (activeTab === 'newest') {
+      // Assuming there's a createdAt field, otherwise this is just a placeholder
+      result = [...result].sort((a, b) =>
+        new Date(b.metadata.createdAt || 0).getTime() -
+        new Date(a.metadata.createdAt || 0).getTime()
+      );
+    }
+
+    setFilteredTemplates(result);
+  }, [templates, searchQuery, selectedCategory, selectedIndustry, activeTab]);
+
+  const handleDeployTemplate = useCallback(async () => {
+    if (!selectedTemplate) return;
+
+    setIsDeploying(true);
+    try {
+      const result = await deployTemplate(selectedTemplate.id);
+
+      toast({
+        title: 'Template Deployed',
+        description: 'Agent has been created successfully',
+      });
+
+      setSelectedTemplate(null);
+    } catch (error) {
+      console.error('Error deploying template:', error);
+      toast({
+        title: 'Deployment Failed',
+        description: 'Failed to deploy agent template',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeploying(false);
+    }
+  }, [selectedTemplate, deployTemplate]);
+
+  const categories = Array.from(new Set(templates.map(t => t.category)));
+  const industries = Array.from(new Set(templates.map(t => t.industry)));
 
   const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "customer-support":
-        return MessageSquare;
-      case "sales":
-        return TrendingUp;
-      case "marketing":
-        return Lightbulb;
-      case "technical":
-        return Settings;
-      case "hr":
-        return Users;
-      default:
-        return Bot;
-    }
+    const icons = {
+      'customer-support': <Headphones className="h-4 w-4" />,
+      'content-creation': <FileText className="h-4 w-4" />,
+      'data-analysis': <BarChart3 className="h-4 w-4" />,
+      'code-assistant': <Code className="h-4 w-4" />,
+      'education': <BookOpen className="h-4 w-4" />,
+      'e-commerce': <ShoppingCart className="h-4 w-4" />,
+      'general': <Bot className="h-4 w-4" />,
+      'default': <Bot className="h-4 w-4" />
+    };
+
+    const key = category.toLowerCase().replace(/\s+/g, '-');
+    return icons[key as keyof typeof icons] || icons.default;
   };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case "beginner":
-        return "bg-green-100 text-green-800";
-      case "intermediate":
-        return "bg-yellow-100 text-yellow-800";
-      case "advanced":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+  const getIndustryIcon = (industry: string) => {
+    const icons = {
+      'technology': <Code className="h-4 w-4" />,
+      'healthcare': <Users className="h-4 w-4" />,
+      'finance': <BarChart3 className="h-4 w-4" />,
+      'education': <BookOpen className="h-4 w-4" />,
+      'retail': <ShoppingCart className="h-4 w-4" />,
+      'general': <Globe className="h-4 w-4" />,
+      'default': <Briefcase className="h-4 w-4" />
+    };
+
+    const key = industry.toLowerCase().replace(/\s+/g, '-');
+    return icons[key as keyof typeof icons] || icons.default;
+  };
+
+  const renderStars = (rating: number) => {
+    return (
+      <div className="flex items-center">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`h-3 w-3 ${star <= rating
+                ? 'text-yellow-400 fill-yellow-400'
+                : 'text-gray-300'
+              }`}
+          />
+        ))}
+        <span className="ml-1 text-xs font-medium">{rating.toFixed(1)}</span>
+      </div>
+    );
   };
 
   return (
-    <div className={`h-full bg-background ${className}`}>
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold mb-2">Agent Marketplace</h2>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold">Agent Marketplace</h2>
           <p className="text-muted-foreground">
-            Discover and deploy pre-built AI agents created by the community
+            Discover and deploy pre-built agent templates
           </p>
         </div>
+      </div>
 
-        {/* Search and Filters */}
-        <div className="space-y-4 mb-6">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search agents..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="customer-support">Customer Support</SelectItem>
-                <SelectItem value="sales">Sales</SelectItem>
-                <SelectItem value="marketing">Marketing</SelectItem>
-                <SelectItem value="technical">Technical</SelectItem>
-                <SelectItem value="hr">HR</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Difficulty" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                <SelectItem value="beginner">Beginner</SelectItem>
-                <SelectItem value="intermediate">Intermediate</SelectItem>
-                <SelectItem value="advanced">Advanced</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* Filters Sidebar */}
+        <div className="w-full md:w-64 space-y-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Search</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search templates..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="featured">Featured</SelectItem>
-                  <SelectItem value="downloads">Most Downloaded</SelectItem>
-                  <SelectItem value="rating">Highest Rated</SelectItem>
-                  <SelectItem value="recent">Recently Updated</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Button
-                variant={showPremiumOnly ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowPremiumOnly(!showPremiumOnly)}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Categories</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div
+                className={`flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-muted ${selectedCategory === null ? 'bg-muted' : ''
+                  }`}
+                onClick={() => setSelectedCategory(null)}
               >
-                <Award className="h-4 w-4 mr-2" />
-                Premium Only
-              </Button>
-            </div>
+                <div className="flex items-center space-x-2">
+                  <Bot className="h-4 w-4" />
+                  <span className="text-sm">All Categories</span>
+                </div>
+                {selectedCategory === null && <Check className="h-4 w-4" />}
+              </div>
 
-            <div className="text-sm text-muted-foreground">
-              {filteredTemplates.length} agent{filteredTemplates.length !== 1 ? 's' : ''} found
-            </div>
-          </div>
+              {categories.map((category) => (
+                <div
+                  key={category}
+                  className={`flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-muted ${selectedCategory === category ? 'bg-muted' : ''
+                    }`}
+                  onClick={() => setSelectedCategory(category === selectedCategory ? null : category)}
+                >
+                  <div className="flex items-center space-x-2">
+                    {getCategoryIcon(category)}
+                    <span className="text-sm">{category}</span>
+                  </div>
+                  {selectedCategory === category && <Check className="h-4 w-4" />}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Industries</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div
+                className={`flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-muted ${selectedIndustry === null ? 'bg-muted' : ''
+                  }`}
+                onClick={() => setSelectedIndustry(null)}
+              >
+                <div className="flex items-center space-x-2">
+                  <Globe className="h-4 w-4" />
+                  <span className="text-sm">All Industries</span>
+                </div>
+                {selectedIndustry === null && <Check className="h-4 w-4" />}
+              </div>
+
+              {industries.map((industry) => (
+                <div
+                  key={industry}
+                  className={`flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-muted ${selectedIndustry === industry ? 'bg-muted' : ''
+                    }`}
+                  onClick={() => setSelectedIndustry(industry === selectedIndustry ? null : industry)}
+                >
+                  <div className="flex items-center space-x-2">
+                    {getIndustryIcon(industry)}
+                    <span className="text-sm">{industry}</span>
+                  </div>
+                  {selectedIndustry === industry && <Check className="h-4 w-4" />}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Templates Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTemplates.map((template) => {
-            const CategoryIcon = getCategoryIcon(template.category);
-            
-            return (
-              <Card
-                key={template.id}
-                className={`cursor-pointer transition-all hover:shadow-lg ${
-                  template.featured ? "ring-2 ring-primary/20" : ""
-                } ${
-                  selectedTemplate?.id === template.id ? "ring-2 ring-primary" : ""
-                }`}
-                onClick={() => handlePreviewTemplate(template)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <CategoryIcon className="h-5 w-5 text-primary" />
+        <div className="flex-1">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="featured">Featured</TabsTrigger>
+              <TabsTrigger value="popular">Popular</TabsTrigger>
+              <TabsTrigger value="newest">Newest</TabsTrigger>
+            </TabsList>
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <LoadingSpinner size="lg" />
+              </div>
+            ) : filteredTemplates.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No templates found</h3>
+                <p className="text-muted-foreground max-w-md">
+                  Try adjusting your search or filters to find agent templates.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredTemplates.map((template) => (
+                  <Card key={template.id} className="flex flex-col">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-base">{template.name}</CardTitle>
+                          <CardDescription className="line-clamp-2">
+                            {template.description}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="outline" className="flex items-center space-x-1">
+                          {getCategoryIcon(template.category)}
+                          <span className="ml-1">{template.category}</span>
+                        </Badge>
                       </div>
-                      <div>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                          {template.name}
-                          {template.featured && (
-                            <Badge variant="default" className="text-xs">
-                              <Star className="h-3 w-3 mr-1" />
-                              Featured
-                            </Badge>
-                          )}
-                          {template.premium && (
-                            <Badge variant="secondary" className="text-xs">
-                              <Award className="h-3 w-3 mr-1" />
-                              Premium
-                            </Badge>
-                          )}
-                        </CardTitle>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex items-center gap-1">
-                            <span className="text-sm font-medium">{template.stats.rating}</span>
-                            <div className="flex">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`h-3 w-3 ${
-                                    i < Math.floor(template.stats.rating)
-                                      ? "text-yellow-400 fill-current"
-                                      : "text-gray-300"
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              ({template.stats.reviews})
-                            </span>
+                    </CardHeader>
+                    <CardContent className="flex-1">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center space-x-1">
+                            <Bot className="h-4 w-4 text-muted-foreground" />
+                            <span>{template.model}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Download className="h-4 w-4 text-muted-foreground" />
+                            <span>{template.downloads.toLocaleString()}</span>
                           </div>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <CardDescription className="mt-2">
-                    {template.description}
-                  </CardDescription>
-                </CardHeader>
 
-                <CardContent className="space-y-4">
-                  {/* Author */}
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
-                      <Users className="h-3 w-3" />
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      by {template.author.name}
-                    </span>
-                    {template.author.verified && (
-                      <CheckCircle className="h-4 w-4 text-blue-500" />
+                        <div className="flex flex-wrap gap-1">
+                          {template.tags.slice(0, 3).map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {template.tags.length > 3 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{template.tags.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-1">
+                            <Settings className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">
+                              {template.tools.length} tools
+                            </span>
+                          </div>
+                          {renderStars(template.rating)}
+                        </div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="pt-0">
+                      <Button
+                        className="w-full"
+                        onClick={() => setSelectedTemplate(template)}
+                      >
+                        <Zap className="h-4 w-4 mr-2" />
+                        Deploy Template
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </Tabs>
+        </div>
+      </div>
+
+      {/* Template Details Dialog */}
+      <Dialog open={!!selectedTemplate} onOpenChange={(open) => !open && setSelectedTemplate(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{selectedTemplate?.name}</DialogTitle>
+            <DialogDescription>{selectedTemplate?.description}</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Details</h4>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Category:</span>
+                  <Badge variant="outline">{selectedTemplate?.category}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Industry:</span>
+                  <Badge variant="outline">{selectedTemplate?.industry}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Model:</span>
+                  <span>{selectedTemplate?.model}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Temperature:</span>
+                  <span>{selectedTemplate?.temperature}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Author:</span>
+                  <span>{selectedTemplate?.author}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Downloads:</span>
+                  <span>{selectedTemplate?.downloads.toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Rating:</span>
+                  {selectedTemplate && renderStars(selectedTemplate.rating)}
+                </div>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 space-y-2">
+              <h4 className="text-sm font-medium">Capabilities</h4>
+              <div className="space-y-3">
+                <div>
+                  <h5 className="text-xs font-medium text-muted-foreground mb-1">Tools</h5>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedTemplate?.tools.map((tool) => (
+                      <Badge key={tool} variant="outline" className="text-xs">
+                        {tool}
+                      </Badge>
+                    ))}
+                    {!selectedTemplate?.tools.length && (
+                      <span className="text-xs text-muted-foreground">No tools configured</span>
                     )}
                   </div>
+                </div>
 
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Download className="h-4 w-4 text-muted-foreground" />
-                      <span>{template.stats.downloads.toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Target className="h-4 w-4 text-muted-foreground" />
-                      <span>{template.stats.successRate}% success</span>
-                    </div>
-                  </div>
-
-                  {/* Tags */}
+                <div>
+                  <h5 className="text-xs font-medium text-muted-foreground mb-1">Knowledge Sources</h5>
                   <div className="flex flex-wrap gap-1">
-                    {template.tags.slice(0, 3).map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
+                    {selectedTemplate?.knowledgeSources.map((source) => (
+                      <Badge key={source} variant="outline" className="text-xs">
+                        {source}
+                      </Badge>
+                    ))}
+                    {!selectedTemplate?.knowledgeSources.length && (
+                      <span className="text-xs text-muted-foreground">No knowledge sources configured</span>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h5 className="text-xs font-medium text-muted-foreground mb-1">Tags</h5>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedTemplate?.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
                         {tag}
                       </Badge>
                     ))}
-                    {template.tags.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{template.tags.length - 3}
-                      </Badge>
-                    )}
                   </div>
+                </div>
 
-                  {/* Difficulty */}
-                  <div className="flex items-center justify-between">
-                    <Badge
-                      variant="outline"
-                      className={`text-xs ${getDifficultyColor(template.difficulty)}`}
-                    >
-                      {template.difficulty}
-                    </Badge>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      v{template.version}
-                    </div>
+                <div>
+                  <h5 className="text-xs font-medium text-muted-foreground mb-1">Personality</h5>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedTemplate?.personalityTraits && Object.entries(selectedTemplate.personalityTraits).map(([trait, value]) => (
+                      <div key={trait} className="flex items-center justify-between">
+                        <span className="text-xs capitalize">{trait}:</span>
+                        <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary"
+                            style={{ width: `${value}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                        e.stopPropagation();
-                        handlePreviewTemplate(template);
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      Preview
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1"
-                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                        e.stopPropagation();
-                        handleDeployTemplate(template);
-                      }}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Deploy
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {filteredTemplates.length === 0 && (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <Bot className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-medium mb-2">No agents found</h3>
-              <p className="text-muted-foreground">
-                Try adjusting your search criteria or browse all categories
-              </p>
+                </div>
+              </div>
             </div>
           </div>
-        )}
-      </div>
+
+          <Tabs defaultValue="preview">
+            <TabsList>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+              <TabsTrigger value="prompt">System Prompt</TabsTrigger>
+            </TabsList>
+            <TabsContent value="preview" className="space-y-4 mt-2">
+              <div className="border rounded-md p-3 bg-muted/30">
+                <div className="flex items-center space-x-2 mb-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">User</span>
+                </div>
+                <p className="text-sm">{selectedTemplate?.preview.input}</p>
+              </div>
+
+              <div className="border rounded-md p-3 bg-primary/5">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Bot className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Agent</span>
+                </div>
+                <p className="text-sm">{selectedTemplate?.preview.output}</p>
+              </div>
+            </TabsContent>
+            <TabsContent value="prompt" className="mt-2">
+              <div className="border rounded-md p-3 bg-muted/30 font-mono text-sm whitespace-pre-wrap max-h-[200px] overflow-y-auto">
+                {selectedTemplate?.prompt}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedTemplate(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeployTemplate}
+              disabled={isDeploying}
+            >
+              {isDeploying ? (
+                <>
+                  <LoadingSpinner size="sm" className="mr-2" />
+                  Deploying...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Deploy Template
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

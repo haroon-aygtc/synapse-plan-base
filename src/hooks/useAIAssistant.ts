@@ -1,8 +1,5 @@
-'use client';
-
 import { useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
-import { toast } from '@/components/ui/use-toast';
 
 export interface AIGeneratedConfig {
   name: string;
@@ -124,17 +121,21 @@ export function useAIAssistant() {
     if (!user) throw new Error('User not authenticated');
 
     try {
-      const response = await fetch('/api/ai-assistant/prompt-suggestions', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const token = localStorage.getItem('synapse_access_token');
+      
+      const response = await fetch(`${apiUrl}/ai-assistant/prompt-suggestions`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user.token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(params),
       });
 
       if (response.ok) {
-        return await response.json();
+        const result = await response.json();
+        return result.data || result;
       } else {
         const error = await response.json();
         throw new Error(error.message || 'Failed to generate prompt suggestions');

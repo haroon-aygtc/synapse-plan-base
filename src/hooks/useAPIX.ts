@@ -1,9 +1,8 @@
-'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
 import { apixClient, APXMessage, APXConnectionState, APXSessionContext } from '@/lib/apix-client';
 import { APXMessageType, APXStreamState, APXExecutionState } from '@/types/apix';
 import { useAuth } from './useAuth';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 export interface UseAPXOptions {
   autoConnect?: boolean;

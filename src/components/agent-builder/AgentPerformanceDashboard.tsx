@@ -1,590 +1,558 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from 'react';
+import { useAgentBuilder } from '@/hooks/useAgentBuilder';
+import { useAIAssistant } from '@/hooks/useAIAssistant';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { toast } from '@/components/ui/use-toast';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+  BarChart3,
+  LineChart,
+  PieChart,
+  Activity,
+  Clock,
+  Zap,
+  DollarSign,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Calendar,
+  Download,
+  RefreshCw,
+  ArrowUpRight,
+  ArrowDownRight,
+  Lightbulb,
+  Sparkles
+} from 'lucide-react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  BarChart,
+  LineChart as RechartsLineChart,
+  Line,
+  BarChart as RechartsBarChart,
   Bar,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  Area,
-  AreaChart,
-} from "recharts";
-import {
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  DollarSign,
-  MessageSquare,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Zap,
-  Users,
-  Target,
-  Activity,
-  RefreshCw,
-  Download,
-  Filter,
-  Calendar,
-  Loader2,
-} from "lucide-react";
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
 
-interface AgentMetrics {
-  id: string;
-  name: string;
-  totalExecutions: number;
+interface PerformanceMetrics {
   successRate: number;
   averageResponseTime: number;
-  totalCost: number;
+  totalExecutions: number;
   errorRate: number;
-  userSatisfaction: number;
-  conversationQuality: number;
-  lastUpdated: Date;
-  performanceTrend: Array<{
-    date: string;
-    executions: number;
-    successRate: number;
-    responseTime: number;
-    cost: number;
-  }>;
-  errorBreakdown: Array<{
-    type: string;
-    count: number;
-    percentage: number;
-  }>;
-  usageByHour: Array<{
-    hour: number;
-    executions: number;
-  }>;
-  topFailureReasons: Array<{
-    reason: string;
-    count: number;
-    impact: string;
-  }>;
+  costPerExecution: number;
+  tokenUsage: number;
+  lastUpdated: string;
 }
 
-interface AgentPerformanceDashboardProps {
-  agentId: string;
-  className?: string;
+interface TimeSeriesData {
+  date: string;
+  successRate: number;
+  responseTime: number;
+  cost: number;
+  executions: number;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+interface OptimizationSuggestion {
+  type: 'performance' | 'cost' | 'quality' | 'security';
+  title: string;
+  description: string;
+  impact: 'low' | 'medium' | 'high';
+  effort: 'low' | 'medium' | 'high';
+  recommendation: string;
+}
 
-export default function AgentPerformanceDashboard({
-  agentId,
-  className,
-}: AgentPerformanceDashboardProps) {
-  const [metrics, setMetrics] = useState<AgentMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState("7d");
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedTab, setSelectedTab] = useState("overview");
+export function AgentPerformanceDashboard() {
+  const { currentAgent, isLoading } = useAgentBuilder();
+  const { analyzeAgent, isAnalyzing } = useAIAssistant();
+  const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('week');
+  const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
+  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData[]>([]);
+  const [suggestions, setSuggestions] = useState<OptimizationSuggestion[]>([]);
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
 
-  // Mock data - in production, this would come from the backend
-  const mockMetrics: AgentMetrics = {
-    id: agentId,
-    name: "Customer Support Agent",
-    totalExecutions: 1247,
-    successRate: 94.2,
-    averageResponseTime: 1.8,
-    totalCost: 23.45,
-    errorRate: 5.8,
-    userSatisfaction: 4.6,
-    conversationQuality: 87.3,
-    lastUpdated: new Date(),
-    performanceTrend: [
-      { date: "2024-01-01", executions: 45, successRate: 92, responseTime: 2.1, cost: 1.2 },
-      { date: "2024-01-02", executions: 52, successRate: 94, responseTime: 1.9, cost: 1.4 },
-      { date: "2024-01-03", executions: 38, successRate: 96, responseTime: 1.7, cost: 1.1 },
-      { date: "2024-01-04", executions: 61, successRate: 93, responseTime: 2.0, cost: 1.6 },
-      { date: "2024-01-05", executions: 47, successRate: 95, responseTime: 1.8, cost: 1.3 },
-      { date: "2024-01-06", executions: 55, successRate: 94, responseTime: 1.9, cost: 1.5 },
-      { date: "2024-01-07", executions: 49, successRate: 94, responseTime: 1.8, cost: 1.3 },
-    ],
-    errorBreakdown: [
-      { type: "Timeout", count: 23, percentage: 39.7 },
-      { type: "API Error", count: 18, percentage: 31.0 },
-      { type: "Validation", count: 12, percentage: 20.7 },
-      { type: "Rate Limit", count: 5, percentage: 8.6 },
-    ],
-    usageByHour: [
-      { hour: 0, executions: 12 },
-      { hour: 1, executions: 8 },
-      { hour: 2, executions: 5 },
-      { hour: 3, executions: 3 },
-      { hour: 4, executions: 7 },
-      { hour: 5, executions: 15 },
-      { hour: 6, executions: 28 },
-      { hour: 7, executions: 42 },
-      { hour: 8, executions: 65 },
-      { hour: 9, executions: 78 },
-      { hour: 10, executions: 85 },
-      { hour: 11, executions: 92 },
-      { hour: 12, executions: 88 },
-      { hour: 13, executions: 95 },
-      { hour: 14, executions: 102 },
-      { hour: 15, executions: 98 },
-      { hour: 16, executions: 87 },
-      { hour: 17, executions: 76 },
-      { hour: 18, executions: 54 },
-      { hour: 19, executions: 43 },
-      { hour: 20, executions: 32 },
-      { hour: 21, executions: 25 },
-      { hour: 22, executions: 18 },
-      { hour: 23, executions: 14 },
-    ],
-    topFailureReasons: [
-      { reason: "Knowledge base timeout", count: 15, impact: "high" },
-      { reason: "Invalid user input format", count: 12, impact: "medium" },
-      { reason: "External API unavailable", count: 8, impact: "high" },
-      { reason: "Rate limit exceeded", count: 5, impact: "low" },
-    ],
-  };
-
+  // Fetch performance metrics
   useEffect(() => {
     const fetchMetrics = async () => {
-      setLoading(true);
+      if (!currentAgent) return;
+
+      setIsLoadingMetrics(true);
       try {
-        // In production, this would be an API call
-        // const response = await fetch(`/api/agents/${agentId}/metrics?timeRange=${timeRange}`);
-        // const data = await response.json();
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setMetrics(mockMetrics);
+        const response = await fetch(`/api/agents/${currentAgent.id}/metrics?timeRange=${timeRange}`);
+        if (response.ok) {
+          const data = await response.json();
+          setMetrics(data.metrics);
+          setTimeSeriesData(data.timeSeriesData);
+        } else {
+          throw new Error('Failed to fetch metrics');
+        }
       } catch (error) {
-        console.error('Failed to fetch agent metrics:', error);
+        console.error('Error fetching metrics:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load performance metrics',
+          variant: 'destructive',
+        });
       } finally {
-        setLoading(false);
+        setIsLoadingMetrics(false);
       }
     };
 
     fetchMetrics();
-  }, [agentId, timeRange]);
+  }, [currentAgent, timeRange]);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    // Simulate refresh
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setRefreshing(false);
+  const generateOptimizationSuggestions = useCallback(async () => {
+    if (!currentAgent) return;
+
+    setIsGeneratingSuggestions(true);
+    try {
+      const analysis = await analyzeAgent({
+        name: currentAgent.name,
+        description: currentAgent.description || '',
+        prompt: currentAgent.prompt,
+        model: currentAgent.model,
+        temperature: currentAgent.temperature,
+        tools: currentAgent.tools,
+        knowledgeSources: currentAgent.knowledgeSources,
+        performanceMetrics: currentAgent.performanceMetrics
+      });
+
+      // Map the suggestions to match the OptimizationSuggestion type
+      const typedSuggestions: OptimizationSuggestion[] = (analysis.suggestions || []).map(suggestion => {
+        // If suggestion is already the correct type, use it directly
+        if (typeof suggestion === 'object' && suggestion !== null && 'type' in suggestion) {
+          return suggestion as OptimizationSuggestion;
+        }
+        // Otherwise, create a properly typed suggestion object
+        return {
+          type: 'performance' as const,
+          title: 'Optimization Suggestion',
+          description: typeof suggestion === 'string' ? suggestion : 'Suggestion details not available',
+          impact: 'medium' as const,
+          effort: 'medium' as const,
+          recommendation: typeof suggestion === 'string' ? suggestion : 'No specific recommendation'
+        } satisfies OptimizationSuggestion;
+      });
+
+      setSuggestions(typedSuggestions);
+
+      toast({
+        title: 'Analysis Complete',
+        description: 'Optimization suggestions have been generated',
+      });
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+      toast({
+        title: 'Analysis Failed',
+        description: 'Failed to generate optimization suggestions',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingSuggestions(false);
+    }
+  }, [currentAgent, analyzeAgent]);
+
+  const getImpactColor = (impact: string) => {
+    switch (impact) {
+      case 'high':
+        return 'text-green-600';
+      case 'medium':
+        return 'text-amber-600';
+      case 'low':
+        return 'text-blue-600';
+      default:
+        return 'text-gray-600';
+    }
   };
 
-  const exportData = () => {
-    if (!metrics) return;
-    
-    const dataToExport = {
-      agentId: metrics.id,
-      agentName: metrics.name,
-      exportDate: new Date().toISOString(),
-      timeRange,
-      metrics: {
-        totalExecutions: metrics.totalExecutions,
-        successRate: metrics.successRate,
-        averageResponseTime: metrics.averageResponseTime,
-        totalCost: metrics.totalCost,
-        errorRate: metrics.errorRate,
-        userSatisfaction: metrics.userSatisfaction,
-        conversationQuality: metrics.conversationQuality,
-      },
-      performanceTrend: metrics.performanceTrend,
-      errorBreakdown: metrics.errorBreakdown,
-    };
-    
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `agent-${agentId}-metrics-${timeRange}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const getEffortColor = (effort: string) => {
+    switch (effort) {
+      case 'low':
+        return 'text-green-600';
+      case 'medium':
+        return 'text-amber-600';
+      case 'high':
+        return 'text-red-600';
+      default:
+        return 'text-gray-600';
+    }
   };
 
-  if (loading) {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  const formatDuration = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(2)}s`;
+  };
+
+  const formatCost = (cost: number) => {
+    return `$${cost.toFixed(4)}`;
+  };
+
+  const formatPercentage = (value: number) => {
+    return `${(value * 100).toFixed(1)}%`;
+  };
+
+  if (isLoading) {
     return (
-      <Card className={className}>
-        <CardContent className="flex items-center justify-center h-96">
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-16 w-16 animate-spin text-muted-foreground" />
-            <span>Loading performance metrics...</span>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center h-full">
+        <LoadingSpinner size="lg" />
+      </div>
     );
   }
 
-  if (!metrics) {
+  if (!currentAgent) {
     return (
-      <Card className={className}>
-        <CardContent className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <AlertTriangle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
-            <p className="text-muted-foreground">Failed to load metrics</p>
-            <Button onClick={handleRefresh} className="mt-2">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex flex-col items-center justify-center h-full text-center p-6">
+        <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+        <h3 className="text-xl font-semibold mb-2">No Agent Selected</h3>
+        <p className="text-muted-foreground max-w-md">
+          Please select or create an agent to view performance metrics and analytics.
+        </p>
+      </div>
     );
   }
-
-  const getStatusColor = (value: number, type: 'success' | 'error' | 'satisfaction') => {
-    if (type === 'success') {
-      return value >= 95 ? 'text-green-600' : value >= 85 ? 'text-yellow-600' : 'text-red-600';
-    }
-    if (type === 'error') {
-      return value <= 5 ? 'text-green-600' : value <= 10 ? 'text-yellow-600' : 'text-red-600';
-    }
-    if (type === 'satisfaction') {
-      return value >= 4.5 ? 'text-green-600' : value >= 3.5 ? 'text-yellow-600' : 'text-red-600';
-    }
-    return 'text-gray-600';
-  };
-
-  const getTrendIcon = (current: number, previous: number) => {
-    if (current > previous) {
-      return <TrendingUp className="h-4 w-4 text-green-600" />;
-    } else if (current < previous) {
-      return <TrendingDown className="h-4 w-4 text-red-600" />;
-    }
-    return <Activity className="h-4 w-4 text-gray-600" />;
-  };
 
   return (
-    <div className={`space-y-6 ${className}`}>
-      {/* Header */}
+    <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">{metrics.name} Performance</h2>
+          <h2 className="text-2xl font-semibold">Performance Dashboard</h2>
           <p className="text-muted-foreground">
-            Last updated: {metrics.lastUpdated.toLocaleString()}
+            Analytics and optimization for {currentAgent.name}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1d">Last 24h</SelectItem>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={exportData}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button variant="outline" onClick={handleRefresh} disabled={refreshing}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 bg-muted rounded-md p-1">
+            <Button
+              variant={timeRange === 'day' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setTimeRange('day')}
+              className="text-xs h-7"
+            >
+              Day
+            </Button>
+            <Button
+              variant={timeRange === 'week' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setTimeRange('week')}
+              className="text-xs h-7"
+            >
+              Week
+            </Button>
+            <Button
+              variant={timeRange === 'month' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setTimeRange('month')}
+              className="text-xs h-7"
+            >
+              Month
+            </Button>
+            <Button
+              variant={timeRange === 'year' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setTimeRange('year')}
+              className="text-xs h-7"
+            >
+              Year
+            </Button>
+          </div>
+
+          <Button size="sm" onClick={() => setIsLoadingMetrics(true)}>
+            <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
         </div>
       </div>
 
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Executions</p>
-                <p className="text-2xl font-bold">{metrics.totalExecutions.toLocaleString()}</p>
-              </div>
-              <MessageSquare className="h-8 w-8 text-blue-600" />
-            </div>
-            <div className="flex items-center mt-2">
-              {getTrendIcon(metrics.totalExecutions, 1100)}
-              <span className="text-sm text-muted-foreground ml-1">+13% from last period</span>
-            </div>
-          </CardContent>
-        </Card>
+      {isLoadingMetrics ? (
+        <div className="flex items-center justify-center py-12">
+          <LoadingSpinner size="lg" />
+        </div>
+      ) : (
+        <>
+          {/* Key Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Success Rate</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-bold">
+                    {metrics ? formatPercentage(metrics.successRate) : 'N/A'}
+                  </div>
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                </div>
+                {metrics && metrics.successRate > 0.8 ? (
+                  <p className="text-xs text-green-600 flex items-center mt-1">
+                    <ArrowUpRight className="h-3 w-3 mr-1" />
+                    Good performance
+                  </p>
+                ) : metrics && metrics.successRate < 0.5 ? (
+                  <p className="text-xs text-red-600 flex items-center mt-1">
+                    <ArrowDownRight className="h-3 w-3 mr-1" />
+                    Needs improvement
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-600 flex items-center mt-1">
+                    <Activity className="h-3 w-3 mr-1" />
+                    Average performance
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Success Rate</p>
-                <p className={`text-2xl font-bold ${getStatusColor(metrics.successRate, 'success')}`}>
-                  {metrics.successRate}%
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Avg Response Time</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-bold">
+                    {metrics ? formatDuration(metrics.averageResponseTime) : 'N/A'}
+                  </div>
+                  <Clock className="h-5 w-5 text-blue-500" />
+                </div>
+                {metrics && metrics.averageResponseTime < 1000 ? (
+                  <p className="text-xs text-green-600 flex items-center mt-1">
+                    <ArrowUpRight className="h-3 w-3 mr-1" />
+                    Fast responses
+                  </p>
+                ) : metrics && metrics.averageResponseTime > 3000 ? (
+                  <p className="text-xs text-red-600 flex items-center mt-1">
+                    <ArrowDownRight className="h-3 w-3 mr-1" />
+                    Slow responses
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-600 flex items-center mt-1">
+                    <Activity className="h-3 w-3 mr-1" />
+                    Average speed
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Cost Per Execution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-bold">
+                    {metrics ? formatCost(metrics.costPerExecution) : 'N/A'}
+                  </div>
+                  <DollarSign className="h-5 w-5 text-emerald-500" />
+                </div>
+                {metrics && metrics.costPerExecution < 0.01 ? (
+                  <p className="text-xs text-green-600 flex items-center mt-1">
+                    <ArrowUpRight className="h-3 w-3 mr-1" />
+                    Cost-efficient
+                  </p>
+                ) : metrics && metrics.costPerExecution > 0.05 ? (
+                  <p className="text-xs text-red-600 flex items-center mt-1">
+                    <ArrowDownRight className="h-3 w-3 mr-1" />
+                    High cost
+                  </p>
+                ) : (
+                  <p className="text-xs text-amber-600 flex items-center mt-1">
+                    <Activity className="h-3 w-3 mr-1" />
+                    Average cost
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Executions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="text-2xl font-bold">
+                    {metrics ? metrics.totalExecutions.toLocaleString() : 'N/A'}
+                  </div>
+                  <Zap className="h-5 w-5 text-purple-500" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Last updated: {metrics ? formatDate(metrics.lastUpdated) : 'N/A'}
                 </p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-            <div className="mt-2">
-              <Progress value={metrics.successRate} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Avg Response Time</p>
-                <p className="text-2xl font-bold">{metrics.averageResponseTime}s</p>
-              </div>
-              <Clock className="h-8 w-8 text-orange-600" />
-            </div>
-            <div className="flex items-center mt-2">
-              {getTrendIcon(1.8, 2.1)}
-              <span className="text-sm text-muted-foreground ml-1">-14% faster</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Cost</p>
-                <p className="text-2xl font-bold">${metrics.totalCost}</p>
-              </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
-            </div>
-            <div className="flex items-center mt-2">
-              <span className="text-sm text-muted-foreground">$0.019 per execution</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Detailed Analytics */}
-      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="errors">Errors</TabsTrigger>
-          <TabsTrigger value="usage">Usage Patterns</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Performance Trend</CardTitle>
-                <CardDescription>Success rate and response time over time</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={metrics.performanceTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" />
-                    <Tooltip />
-                    <Line
-                      yAxisId="left"
-                      type="monotone"
-                      dataKey="successRate"
-                      stroke="#8884d8"
-                      strokeWidth={2}
-                      name="Success Rate (%)"
-                    />
-                    <Line
-                      yAxisId="right"
-                      type="monotone"
-                      dataKey="responseTime"
-                      stroke="#82ca9d"
-                      strokeWidth={2}
-                      name="Response Time (s)"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Quality Metrics</CardTitle>
-                <CardDescription>User satisfaction and conversation quality</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">User Satisfaction</span>
-                    <span className={`font-bold ${getStatusColor(metrics.userSatisfaction, 'satisfaction')}`}>
-                      {metrics.userSatisfaction}/5.0
-                    </span>
-                  </div>
-                  <Progress value={(metrics.userSatisfaction / 5) * 100} className="h-2" />
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Conversation Quality</span>
-                    <span className="font-bold">{metrics.conversationQuality}%</span>
-                  </div>
-                  <Progress value={metrics.conversationQuality} className="h-2" />
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Error Rate</span>
-                    <span className={`font-bold ${getStatusColor(metrics.errorRate, 'error')}`}>
-                      {metrics.errorRate}%
-                    </span>
-                  </div>
-                  <Progress value={metrics.errorRate} className="h-2" />
-                </div>
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
 
-        <TabsContent value="performance" className="space-y-4">
+          {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
+            <Card className="col-span-1">
               <CardHeader>
-                <CardTitle>Execution Volume</CardTitle>
-                <CardDescription>Daily execution count and cost</CardDescription>
+                <CardTitle className="text-base">Success Rate Over Time</CardTitle>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={metrics.performanceTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="executions"
-                      stroke="#8884d8"
-                      fill="#8884d8"
-                      fillOpacity={0.6}
-                      name="Executions"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+              <CardContent className="h-[300px]">
+                {timeSeriesData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsLineChart data={timeSeriesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis tickFormatter={(value) => `${(value * 100).toFixed(0)}%`} />
+                      <Tooltip formatter={(value) => [`${(Number(value) * 100).toFixed(1)}%`, 'Success Rate']} />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="successRate"
+                        stroke="#10b981"
+                        activeDot={{ r: 8 }}
+                        name="Success Rate"
+                      />
+                    </RechartsLineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No data available
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="col-span-1">
               <CardHeader>
-                <CardTitle>Cost Analysis</CardTitle>
-                <CardDescription>Daily cost breakdown</CardDescription>
+                <CardTitle className="text-base">Response Time & Cost</CardTitle>
               </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={metrics.performanceTrend}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="cost" fill="#82ca9d" name="Cost ($)" />
-                  </BarChart>
-                </ResponsiveContainer>
+              <CardContent className="h-[300px]">
+                {timeSeriesData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart data={timeSeriesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis yAxisId="left" orientation="left" stroke="#0ea5e9" />
+                      <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
+                      <Tooltip />
+                      <Legend />
+                      <Bar
+                        yAxisId="left"
+                        dataKey="responseTime"
+                        fill="#0ea5e9"
+                        name="Response Time (ms)"
+                      />
+                      <Bar
+                        yAxisId="right"
+                        dataKey="cost"
+                        fill="#10b981"
+                        name="Cost ($)"
+                      />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    No data available
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
 
-        <TabsContent value="errors" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Error Breakdown</CardTitle>
-                <CardDescription>Distribution of error types</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={metrics.errorBreakdown}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percentage }) => `${name} (${percentage}%)`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="count"
-                    >
-                      {metrics.errorBreakdown.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Failure Reasons</CardTitle>
-                <CardDescription>Most common causes of failures</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {metrics.topFailureReasons.map((reason, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{reason.reason}</p>
-                        <p className="text-xs text-muted-foreground">{reason.count} occurrences</p>
+          {/* Optimization Suggestions */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Optimization Suggestions</CardTitle>
+                <CardDescription>AI-generated recommendations to improve agent performance</CardDescription>
+              </div>
+              <Button
+                onClick={generateOptimizationSuggestions}
+                disabled={isGeneratingSuggestions}
+              >
+                {isGeneratingSuggestions ? (
+                  <>
+                    <LoadingSpinner size="sm" className="mr-2" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate Suggestions
+                  </>
+                )}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {suggestions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Lightbulb className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground">
+                    No optimization suggestions yet. Click "Generate Suggestions" to analyze your agent.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {suggestions.map((suggestion, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-start space-x-3">
+                          {suggestion.type === 'performance' ? (
+                            <Zap className="h-5 w-5 text-blue-500 mt-0.5" />
+                          ) : suggestion.type === 'cost' ? (
+                            <DollarSign className="h-5 w-5 text-emerald-500 mt-0.5" />
+                          ) : suggestion.type === 'quality' ? (
+                            <CheckCircle className="h-5 w-5 text-purple-500 mt-0.5" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
+                          )}
+                          <div>
+                            <h4 className="font-medium">{suggestion.title}</h4>
+                            <p className="text-sm text-muted-foreground mt-1">{suggestion.description}</p>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="capitalize">
+                          {suggestion.type}
+                        </Badge>
                       </div>
-                      <Badge
-                        variant={reason.impact === 'high' ? 'destructive' : reason.impact === 'medium' ? 'default' : 'secondary'}
-                      >
-                        {reason.impact} impact
-                      </Badge>
+
+                      <div className="mt-4 bg-muted/50 rounded-md p-3">
+                        <h5 className="text-sm font-medium mb-1">Recommendation</h5>
+                        <p className="text-sm">{suggestion.recommendation}</p>
+                      </div>
+
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center">
+                            <span className="text-xs text-muted-foreground mr-1">Impact:</span>
+                            <span className={`text-xs font-medium capitalize ${getImpactColor(suggestion.impact)}`}>
+                              {suggestion.impact}
+                            </span>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="text-xs text-muted-foreground mr-1">Effort:</span>
+                            <span className={`text-xs font-medium capitalize ${getEffortColor(suggestion.effort)}`}>
+                              {suggestion.effort}
+                            </span>
+                          </div>
+                        </div>
+                        <Button variant="outline" size="sm" className="text-xs">
+                          Apply Suggestion
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="usage" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Usage by Hour</CardTitle>
-              <CardDescription>Execution patterns throughout the day</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={metrics.usageByHour}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="executions" fill="#8884d8" name="Executions" />
-                </BarChart>
-              </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </>
+      )}
     </div>
   );
 }
