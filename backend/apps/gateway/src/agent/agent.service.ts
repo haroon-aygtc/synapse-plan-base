@@ -21,6 +21,7 @@ import {
 import { AgentRepository } from '@database/repositories/agent.repository';
 import { SessionService } from '../session/session.service';
 import { WebSocketService } from '../websocket/websocket.service';
+import { AgentExecutionEngine } from './agent-execution.engine';
 import { ToolService } from '../tool/tool.service';
 import {
   CreateAgentDto,

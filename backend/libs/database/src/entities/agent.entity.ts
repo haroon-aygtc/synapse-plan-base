@@ -11,6 +11,7 @@ import { Organization } from './organization.entity';
 import { User } from './user.entity';
 import { AgentExecution } from './agent-execution.entity';
 import { PromptTemplate } from './prompt-template.entity';
+import { AgentTestResult } from './agent-test-result.entity';
 
 @Entity('agents')
 @Index(['organizationId', 'name'])

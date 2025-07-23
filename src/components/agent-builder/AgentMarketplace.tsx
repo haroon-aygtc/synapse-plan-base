@@ -21,69 +21,60 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Search,
+  Bot,
   Star,
   Download,
   Eye,
-  Heart,
-  MessageSquare,
   TrendingUp,
   Users,
-  Bot,
+  Clock,
+  Search,
+  Filter,
+  Sparkles,
+  Award,
+  CheckCircle,
+  MessageSquare,
   Settings,
   Zap,
-  FileText,
-  Filter,
-  SortAsc,
-  SortDesc,
-  Award,
-  Verified,
-  Clock,
-  DollarSign,
+  Target,
+  Lightbulb,
+  BarChart,
+  Shield,
+  Globe,
 } from "lucide-react";
-import { type AgentConfiguration } from "@/lib/ai-assistant";
+import { AgentConfiguration } from "@/lib/ai-assistant";
+import { useToast } from "@/components/ui/use-toast";
 
 interface AgentTemplate {
   id: string;
   name: string;
   description: string;
-  longDescription: string;
   category: string;
-  industry: string;
   author: {
     name: string;
-    avatar: string;
+    avatar?: string;
     verified: boolean;
-    reputation: number;
   };
-  rating: number;
-  reviewCount: number;
-  downloadCount: number;
-  price: number; // 0 for free
+  config: Partial<AgentConfiguration>;
+  stats: {
+    downloads: number;
+    rating: number;
+    reviews: number;
+    successRate: number;
+  };
   tags: string[];
-  configuration: Partial<AgentConfiguration>;
-  screenshots: string[];
-  features: string[];
-  useCases: string[];
-  requirements: string[];
-  changelog: Array<{
-    version: string;
-    date: string;
-    changes: string[];
-  }>;
-  createdAt: Date;
-  updatedAt: Date;
+  difficulty: "beginner" | "intermediate" | "advanced";
   featured: boolean;
-  trending: boolean;
-  verified: boolean;
+  premium: boolean;
+  lastUpdated: Date;
+  version: string;
+  useCases: string[];
+  preview?: {
+    conversation: Array<{
+      role: "user" | "assistant";
+      content: string;
+    }>;
+  };
 }
 
 interface AgentMarketplaceProps {
@@ -92,640 +83,509 @@ interface AgentMarketplaceProps {
   className?: string;
 }
 
-const MOCK_TEMPLATES: AgentTemplate[] = [
+// Mock data - in a real app, this would come from an API
+const AGENT_TEMPLATES: AgentTemplate[] = [
   {
     id: "customer-support-pro",
     name: "Customer Support Pro",
-    description: "Advanced customer support agent with multi-language support and sentiment analysis",
-    longDescription: "A comprehensive customer support solution that handles complex inquiries, provides personalized responses, and integrates with popular helpdesk systems. Features advanced sentiment analysis, multi-language support, and intelligent ticket routing.",
+    description: "Advanced customer support agent with sentiment analysis and escalation handling",
     category: "customer-support",
-    industry: "SaaS",
     author: {
-      name: "SupportTech Solutions",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=supporttech",
+      name: "SynapseAI Team",
       verified: true,
-      reputation: 4.8,
     },
-    rating: 4.9,
-    reviewCount: 247,
-    downloadCount: 1523,
-    price: 0,
-    tags: ["customer-service", "multilingual", "sentiment-analysis", "helpdesk"],
-    configuration: {
+    config: {
       personality: "helpful",
       model: "gpt-4",
       temperature: 0.3,
       memoryEnabled: true,
-      contextWindow: 20,
       tone: "professional",
       style: "supportive",
-      capabilities: ["web-search", "knowledge-base", "sentiment-analysis"],
-      tools: ["helpdesk-integration", "ticket-system"],
+      capabilities: ["sentiment-analysis", "escalation-handling", "knowledge-base"],
     },
-    screenshots: [
-      "https://images.unsplash.com/photo-1551434678-e076c223a692?w=800&q=80",
-      "https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&q=80",
-    ],
-    features: [
-      "Multi-language support (15+ languages)",
-      "Real-time sentiment analysis",
-      "Intelligent ticket routing",
-      "Knowledge base integration",
-      "Performance analytics",
-      "Custom branding options",
-    ],
-    useCases: [
-      "E-commerce customer support",
-      "SaaS product support",
-      "Technical troubleshooting",
-      "Billing and account inquiries",
-    ],
-    requirements: [
-      "OpenAI API key",
-      "Helpdesk system integration (optional)",
-      "Knowledge base setup",
-    ],
-    changelog: [
-      {
-        version: "2.1.0",
-        date: "2024-01-15",
-        changes: [
-          "Added sentiment analysis",
-          "Improved response accuracy",
-          "New language support",
-        ],
-      },
-    ],
-    createdAt: new Date("2023-12-01"),
-    updatedAt: new Date("2024-01-15"),
+    stats: {
+      downloads: 15420,
+      rating: 4.8,
+      reviews: 342,
+      successRate: 94,
+    },
+    tags: ["support", "customer-service", "escalation", "sentiment"],
+    difficulty: "intermediate",
     featured: true,
-    trending: true,
-    verified: true,
+    premium: false,
+    lastUpdated: new Date('2024-01-15'),
+    version: "2.1.0",
+    useCases: ["Help desk", "Live chat", "Ticket resolution"],
+    preview: {
+      conversation: [
+        { role: "user", content: "I'm having trouble with my account login" },
+        { role: "assistant", content: "I understand how frustrating login issues can be. Let me help you resolve this quickly. Can you tell me what happens when you try to log in?" },
+      ],
+    },
   },
   {
     id: "sales-qualifier-ai",
     name: "Sales Qualifier AI",
-    description: "Intelligent lead qualification and nurturing system with CRM integration",
-    longDescription: "Transform your sales process with AI-powered lead qualification. This agent automatically scores leads, schedules meetings, and integrates with popular CRM systems to streamline your sales pipeline.",
+    description: "Intelligent lead qualification agent with CRM integration and scoring",
     category: "sales",
-    industry: "Sales",
     author: {
-      name: "SalesBoost Inc",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=salesboost",
+      name: "Revenue Labs",
       verified: true,
-      reputation: 4.6,
     },
-    rating: 4.7,
-    reviewCount: 189,
-    downloadCount: 892,
-    price: 29.99,
-    tags: ["sales", "lead-qualification", "crm", "automation"],
-    configuration: {
+    config: {
       personality: "professional",
       model: "gpt-4",
       temperature: 0.5,
       memoryEnabled: true,
-      contextWindow: 15,
       tone: "confident",
       style: "consultative",
-      capabilities: ["web-search", "data-analysis", "calendar"],
-      tools: ["crm-integration", "lead-scoring", "meeting-scheduler"],
+      capabilities: ["lead-scoring", "crm-integration", "qualification"],
     },
-    screenshots: [
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&q=80",
-      "https://images.unsplash.com/photo-1553484771-371a605b060b?w=800&q=80",
-    ],
-    features: [
-      "Automated lead scoring",
-      "CRM integration (Salesforce, HubSpot)",
-      "Meeting scheduling",
-      "Follow-up automation",
-      "Performance tracking",
-      "Custom qualification criteria",
-    ],
-    useCases: [
-      "B2B lead qualification",
-      "Product demo scheduling",
-      "Sales pipeline management",
-      "Lead nurturing campaigns",
-    ],
-    requirements: [
-      "CRM system access",
-      "Calendar integration",
-      "Lead scoring criteria setup",
-    ],
-    changelog: [
-      {
-        version: "1.5.0",
-        date: "2024-01-10",
-        changes: [
-          "Added HubSpot integration",
-          "Improved lead scoring algorithm",
-          "Enhanced meeting scheduling",
-        ],
-      },
-    ],
-    createdAt: new Date("2023-11-15"),
-    updatedAt: new Date("2024-01-10"),
-    featured: false,
-    trending: true,
-    verified: true,
+    stats: {
+      downloads: 8930,
+      rating: 4.6,
+      reviews: 187,
+      successRate: 87,
+    },
+    tags: ["sales", "leads", "qualification", "crm"],
+    difficulty: "advanced",
+    featured: true,
+    premium: true,
+    lastUpdated: new Date('2024-01-12'),
+    version: "1.8.2",
+    useCases: ["Lead qualification", "Sales discovery", "Demo scheduling"],
   },
   {
-    id: "content-creator-pro",
-    name: "Content Creator Pro",
-    description: "AI-powered content generation for blogs, social media, and marketing materials",
-    longDescription: "Create engaging content across multiple platforms with this versatile AI assistant. From blog posts to social media content, this agent helps maintain your brand voice while generating high-quality, SEO-optimized content.",
+    id: "content-creator-assistant",
+    name: "Content Creator Assistant",
+    description: "Creative writing assistant for blogs, social media, and marketing content",
     category: "marketing",
-    industry: "Marketing",
     author: {
-      name: "ContentCraft Studio",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=contentcraft",
+      name: "Creative Studio",
       verified: false,
-      reputation: 4.3,
     },
-    rating: 4.5,
-    reviewCount: 156,
-    downloadCount: 634,
-    price: 19.99,
-    tags: ["content", "marketing", "seo", "social-media"],
-    configuration: {
+    config: {
       personality: "creative",
       model: "gpt-4",
       temperature: 0.8,
       memoryEnabled: true,
-      contextWindow: 12,
       tone: "engaging",
       style: "creative",
-      capabilities: ["image-generation", "web-search", "seo-optimization"],
-      tools: ["content-planner", "seo-analyzer", "social-scheduler"],
+      capabilities: ["content-generation", "seo-optimization", "social-media"],
     },
-    screenshots: [
-      "https://images.unsplash.com/photo-1432888622747-4eb9a8efeb07?w=800&q=80",
-      "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=800&q=80",
-    ],
-    features: [
-      "Multi-platform content generation",
-      "SEO optimization",
-      "Brand voice consistency",
-      "Content calendar integration",
-      "Performance analytics",
-      "Image generation",
-    ],
-    useCases: [
-      "Blog post creation",
-      "Social media content",
-      "Email marketing campaigns",
-      "Product descriptions",
-    ],
-    requirements: [
-      "Brand guidelines document",
-      "Content calendar setup",
-      "SEO keyword list",
-    ],
-    changelog: [
-      {
-        version: "1.2.0",
-        date: "2024-01-05",
-        changes: [
-          "Added image generation",
-          "Improved SEO optimization",
-          "New content templates",
-        ],
-      },
-    ],
-    createdAt: new Date("2023-10-20"),
-    updatedAt: new Date("2024-01-05"),
+    stats: {
+      downloads: 12650,
+      rating: 4.7,
+      reviews: 298,
+      successRate: 91,
+    },
+    tags: ["content", "writing", "marketing", "seo"],
+    difficulty: "beginner",
     featured: false,
-    trending: false,
-    verified: false,
+    premium: false,
+    lastUpdated: new Date('2024-01-10'),
+    version: "1.5.1",
+    useCases: ["Blog writing", "Social media posts", "Ad copy"],
+  },
+  {
+    id: "technical-documentation",
+    name: "Technical Documentation Expert",
+    description: "Specialized agent for creating and maintaining technical documentation",
+    category: "technical",
+    author: {
+      name: "DevTools Inc",
+      verified: true,
+    },
+    config: {
+      personality: "technical",
+      model: "gpt-4",
+      temperature: 0.2,
+      memoryEnabled: true,
+      tone: "technical",
+      style: "instructional",
+      capabilities: ["code-analysis", "documentation", "api-docs"],
+    },
+    stats: {
+      downloads: 5420,
+      rating: 4.9,
+      reviews: 89,
+      successRate: 96,
+    },
+    tags: ["technical", "documentation", "api", "code"],
+    difficulty: "advanced",
+    featured: false,
+    premium: true,
+    lastUpdated: new Date('2024-01-08'),
+    version: "3.0.0",
+    useCases: ["API documentation", "User guides", "Technical specs"],
+  },
+  {
+    id: "hr-assistant",
+    name: "HR Assistant",
+    description: "Human resources assistant for employee queries and policy guidance",
+    category: "hr",
+    author: {
+      name: "HR Solutions",
+      verified: true,
+    },
+    config: {
+      personality: "professional",
+      model: "gpt-3.5-turbo",
+      temperature: 0.4,
+      memoryEnabled: true,
+      tone: "supportive",
+      style: "professional",
+      capabilities: ["policy-guidance", "employee-support", "compliance"],
+    },
+    stats: {
+      downloads: 3280,
+      rating: 4.5,
+      reviews: 67,
+      successRate: 89,
+    },
+    tags: ["hr", "policies", "employees", "compliance"],
+    difficulty: "intermediate",
+    featured: false,
+    premium: false,
+    lastUpdated: new Date('2024-01-05'),
+    version: "1.2.3",
+    useCases: ["Policy questions", "Benefits info", "Leave requests"],
   },
 ];
 
 export default function AgentMarketplace({
   onSelectTemplate,
   onDeployTemplate,
-  className,
+  className = "",
 }: AgentMarketplaceProps) {
-  const [templates, setTemplates] = useState<AgentTemplate[]>(MOCK_TEMPLATES);
-  const [filteredTemplates, setFilteredTemplates] = useState<AgentTemplate[]>(MOCK_TEMPLATES);
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedIndustry, setSelectedIndustry] = useState("all");
-  const [priceFilter, setPriceFilter] = useState("all");
+  const [selectedDifficulty, setSelectedDifficulty] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
+  const [showPremiumOnly, setShowPremiumOnly] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<AgentTemplate | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
 
   // Filter and sort templates
-  useEffect(() => {
-    let filtered = [...templates];
-
-    // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (template) =>
-          template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          template.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          template.tags.some((tag) =>
-            tag.toLowerCase().includes(searchQuery.toLowerCase()),
-          ),
+  const filteredTemplates = AGENT_TEMPLATES.filter((template) => {
+    const matchesSearch =
+      searchQuery === "" ||
+      template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      template.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      template.tags.some((tag) =>
+        tag.toLowerCase().includes(searchQuery.toLowerCase())
       );
-    }
 
-    // Category filter
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter((template) => template.category === selectedCategory);
-    }
+    const matchesCategory =
+      selectedCategory === "all" || template.category === selectedCategory;
 
-    // Industry filter
-    if (selectedIndustry !== "all") {
-      filtered = filtered.filter((template) => template.industry === selectedIndustry);
-    }
+    const matchesDifficulty =
+      selectedDifficulty === "all" || template.difficulty === selectedDifficulty;
 
-    // Price filter
-    if (priceFilter === "free") {
-      filtered = filtered.filter((template) => template.price === 0);
-    } else if (priceFilter === "paid") {
-      filtered = filtered.filter((template) => template.price > 0);
-    }
+    const matchesPremium = !showPremiumOnly || template.premium;
 
-    // Sort
+    return matchesSearch && matchesCategory && matchesDifficulty && matchesPremium;
+  }).sort((a, b) => {
     switch (sortBy) {
       case "featured":
-        filtered.sort((a, b) => {
-          if (a.featured && !b.featured) return -1;
-          if (!a.featured && b.featured) return 1;
-          return b.rating - a.rating;
-        });
-        break;
-      case "rating":
-        filtered.sort((a, b) => b.rating - a.rating);
-        break;
+        return (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || b.stats.downloads - a.stats.downloads;
       case "downloads":
-        filtered.sort((a, b) => b.downloadCount - a.downloadCount);
-        break;
-      case "newest":
-        filtered.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        break;
-      case "price-low":
-        filtered.sort((a, b) => a.price - b.price);
-        break;
-      case "price-high":
-        filtered.sort((a, b) => b.price - a.price);
-        break;
+        return b.stats.downloads - a.stats.downloads;
+      case "rating":
+        return b.stats.rating - a.stats.rating;
+      case "recent":
+        return b.lastUpdated.getTime() - a.lastUpdated.getTime();
+      default:
+        return 0;
     }
+  });
 
-    setFilteredTemplates(filtered);
-  }, [templates, searchQuery, selectedCategory, selectedIndustry, priceFilter, sortBy]);
-
-  const handlePreview = (template: AgentTemplate) => {
+  const handlePreviewTemplate = (template: AgentTemplate) => {
     setSelectedTemplate(template);
-    setShowPreview(true);
+    onSelectTemplate(template);
   };
 
-  const handleDeploy = (template: AgentTemplate) => {
+  const handleDeployTemplate = (template: AgentTemplate) => {
     onDeployTemplate(template);
-    setShowPreview(false);
+    toast({
+      title: "Template deployed",
+      description: `"${template.name}" has been added to your agents`,
+    });
   };
 
-  const categories = Array.from(new Set(templates.map((t) => t.category)));
-  const industries = Array.from(new Set(templates.map((t) => t.industry)));
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case "customer-support":
+        return MessageSquare;
+      case "sales":
+        return TrendingUp;
+      case "marketing":
+        return Lightbulb;
+      case "technical":
+        return Settings;
+      case "hr":
+        return Users;
+      default:
+        return Bot;
+    }
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "beginner":
+        return "bg-green-100 text-green-800";
+      case "intermediate":
+        return "bg-yellow-100 text-yellow-800";
+      case "advanced":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
 
   return (
-    <div className={`space-y-6 ${className}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold">Agent Marketplace</h2>
+    <div className={`h-full bg-background ${className}`}>
+      <div className="p-6">
+        {/* Header */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold mb-2">Agent Marketplace</h2>
           <p className="text-muted-foreground">
-            Discover and deploy pre-built AI agents for your business
+            Discover and deploy pre-built AI agents created by the community
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline">{filteredTemplates.length} agents</Badge>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/30 rounded-lg">
-        <div className="flex-1 min-w-[300px]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search agents..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+        {/* Search and Filters */}
+        <div className="space-y-4 mb-6">
+          <div className="flex gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search agents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="customer-support">Customer Support</SelectItem>
+                <SelectItem value="sales">Sales</SelectItem>
+                <SelectItem value="marketing">Marketing</SelectItem>
+                <SelectItem value="technical">Technical</SelectItem>
+                <SelectItem value="hr">HR</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Difficulty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                <SelectItem value="beginner">Beginner</SelectItem>
+                <SelectItem value="intermediate">Intermediate</SelectItem>
+                <SelectItem value="advanced">Advanced</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="featured">Featured</SelectItem>
+                  <SelectItem value="downloads">Most Downloaded</SelectItem>
+                  <SelectItem value="rating">Highest Rated</SelectItem>
+                  <SelectItem value="recent">Recently Updated</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button
+                variant={showPremiumOnly ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowPremiumOnly(!showPremiumOnly)}
+              >
+                <Award className="h-4 w-4 mr-2" />
+                Premium Only
+              </Button>
+            </div>
+
+            <div className="text-sm text-muted-foreground">
+              {filteredTemplates.length} agent{filteredTemplates.length !== 1 ? 's' : ''} found
+            </div>
           </div>
         </div>
-        
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
-        <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-          <SelectTrigger className="w-32">
-            <SelectValue placeholder="Industry" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Industries</SelectItem>
-            {industries.map((industry) => (
-              <SelectItem key={industry} value={industry}>
-                {industry}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={priceFilter} onValueChange={setPriceFilter}>
-          <SelectTrigger className="w-24">
-            <SelectValue placeholder="Price" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Prices</SelectItem>
-            <SelectItem value="free">Free</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-32">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="featured">Featured</SelectItem>
-            <SelectItem value="rating">Rating</SelectItem>
-            <SelectItem value="downloads">Downloads</SelectItem>
-            <SelectItem value="newest">Newest</SelectItem>
-            <SelectItem value="price-low">Price: Low to High</SelectItem>
-            <SelectItem value="price-high">Price: High to Low</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Featured Section */}
-      {sortBy === "featured" && (
-        <div className="space-y-4">
-          <h3 className="text-xl font-semibold flex items-center gap-2">
-            <Award className="h-5 w-5 text-yellow-500" />
-            Featured Agents
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates
-              .filter((t) => t.featured)
-              .slice(0, 3)
-              .map((template) => (
-                <Card key={template.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <Bot className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">{template.name}</CardTitle>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm font-medium">{template.rating}</span>
-                              <span className="text-xs text-muted-foreground">
-                                ({template.reviewCount})
-                              </span>
+        {/* Templates Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredTemplates.map((template) => {
+            const CategoryIcon = getCategoryIcon(template.category);
+            
+            return (
+              <Card
+                key={template.id}
+                className={`cursor-pointer transition-all hover:shadow-lg ${
+                  template.featured ? "ring-2 ring-primary/20" : ""
+                } ${
+                  selectedTemplate?.id === template.id ? "ring-2 ring-primary" : ""
+                }`}
+                onClick={() => handlePreviewTemplate(template)}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <CategoryIcon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          {template.name}
+                          {template.featured && (
+                            <Badge variant="default" className="text-xs">
+                              <Star className="h-3 w-3 mr-1" />
+                              Featured
+                            </Badge>
+                          )}
+                          {template.premium && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Award className="h-3 w-3 mr-1" />
+                              Premium
+                            </Badge>
+                          )}
+                        </CardTitle>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm font-medium">{template.stats.rating}</span>
+                            <div className="flex">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-3 w-3 ${
+                                    i < Math.floor(template.stats.rating)
+                                      ? "text-yellow-400 fill-current"
+                                      : "text-gray-300"
+                                  }`}
+                                />
+                              ))}
                             </div>
-                            {template.verified && (
-                              <Verified className="h-4 w-4 text-blue-500" />
-                            )}
+                            <span className="text-xs text-muted-foreground">
+                              ({template.stats.reviews})
+                            </span>
                           </div>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
-                        {template.price === 0 ? (
-                          <Badge variant="secondary">Free</Badge>
-                        ) : (
-                          <Badge variant="default">${template.price}</Badge>
-                        )}
-                        {template.trending && (
-                          <Badge variant="outline" className="text-xs">
-                            <TrendingUp className="h-3 w-3 mr-1" />
-                            Trending
-                          </Badge>
-                        )}
-                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="mb-4">
-                      {template.description}
-                    </CardDescription>
-                    
-                    <div className="flex flex-wrap gap-1 mb-4">
-                      {template.tags.slice(0, 3).map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                      <div className="flex items-center gap-1">
-                        <Download className="h-4 w-4" />
-                        <span>{template.downloadCount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Users className="h-4 w-4" />
-                        <span>{template.author.name}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePreview(template)}
-                        className="flex-1"
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Preview
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleDeploy(template)}
-                        className="flex-1"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Deploy
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-          </div>
-        </div>
-      )}
+                  </div>
+                  
+                  <CardDescription className="mt-2">
+                    {template.description}
+                  </CardDescription>
+                </CardHeader>
 
-      {/* All Templates */}
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold">
-          {sortBy === "featured" ? "All Agents" : "Search Results"}
-        </h3>
-        
-        {filteredTemplates.length === 0 ? (
-          <Card>
-            <CardContent className="flex items-center justify-center h-32">
-              <div className="text-center">
-                <Search className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground">No agents found matching your criteria</p>
-                <p className="text-sm text-muted-foreground">Try adjusting your filters</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates
-              .filter((t) => sortBy !== "featured" || !t.featured)
-              .map((template) => (
-                <Card key={template.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <Bot className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">{template.name}</CardTitle>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-sm font-medium">{template.rating}</span>
-                              <span className="text-xs text-muted-foreground">
-                                ({template.reviewCount})
-                              </span>
-                            </div>
-                            {template.verified && (
-                              <Verified className="h-4 w-4 text-blue-500" />
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        {template.price === 0 ? (
-                          <Badge variant="secondary">Free</Badge>
-                        ) : (
-                          <Badge variant="default">${template.price}</Badge>
-                        )}
-                        {template.trending && (
-                          <Badge variant="outline" className="text-xs">
-                            <TrendingUp className="h-3 w-3 mr-1" />
-                            Trending
-                          </Badge>
-                        )}
-                      </div>
+                <CardContent className="space-y-4">
+                  {/* Author */}
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                      <Users className="h-3 w-3" />
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="mb-4">
-                      {template.description}
-                    </CardDescription>
-                    
-                    <div className="flex flex-wrap gap-1 mb-4">
-                      {template.tags.slice(0, 3).map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
+                    <span className="text-sm text-muted-foreground">
+                      by {template.author.name}
+                    </span>
+                    {template.author.verified && (
+                      <CheckCircle className="h-4 w-4 text-blue-500" />
+                    )}
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Download className="h-4 w-4 text-muted-foreground" />
+                      <span>{template.stats.downloads.toLocaleString()}</span>
                     </div>
-                    
-                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                      <div className="flex items-center gap-1">
-                        <Download className="h-4 w-4" />
-                        <span>{template.downloadCount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Users className="h-4 w-4" />
-                        <span>{template.author.name}</span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                      <span>{template.stats.successRate}% success</span>
                     </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePreview(template)}
-                        className="flex-1"
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Preview
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleDeploy(template)}
-                        className="flex-1"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Deploy
-                      </Button>
+                  </div>
+
+                  {/* Tags */}
+                  <div className="flex flex-wrap gap-1">
+                    {template.tags.slice(0, 3).map((tag) => (
+                      <Badge key={tag} variant="outline" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                    {template.tags.length > 3 && (
+                      <Badge variant="outline" className="text-xs">
+                        +{template.tags.length - 3}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Difficulty */}
+                  <div className="flex items-center justify-between">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${getDifficultyColor(template.difficulty)}`}
+                    >
+                      {template.difficulty}
+                    </Badge>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      v{template.version}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                        e.stopPropagation();
+                        handlePreviewTemplate(template);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Preview
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                        e.stopPropagation();
+                        handleDeployTemplate(template);
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Deploy
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {filteredTemplates.length === 0 && (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <Bot className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="text-lg font-medium mb-2">No agents found</h3>
+              <p className="text-muted-foreground">
+                Try adjusting your search criteria or browse all categories
+              </p>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Preview Dialog */}
-      <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          {selectedTemplate && (
-            <>
-              <DialogHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <DialogTitle className="text-2xl">{selectedTemplate.name}</DialogTitle>
-                    <DialogDescription className="mt-2">
-                      {selectedTemplate.longDescription}
-                    </DialogDescription>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    {selectedTemplate.price === 0 ? (
-                      <Badge variant="secondary" className="text-lg px-3 py-1">Free</Badge>
-                    ) : (
-                      <Badge variant="default" className="text-lg px-3 py-1">
-                        ${selectedTemplate.price}
-                      </Badge>
-                    )}
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="font-medium">{selectedTemplate.rating}</span>
-                      <span className="text-sm text-muted-foreground">
-                        ({selectedTemplate.reviewCount} reviews)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </DialogHeader>
-              
-              <Tabs defaultValue="overview" className="mt-6">
-                <TabsList>
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="features">Features</TabsTrigger>
-                  <TabsTrigger value="configuration">Configuration</TabsTrigger>
-                  <TabsTrigger value="reviews">Reviews</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="overview" className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-semibold mb-3">Key Features</h4>
-                      <ul className="space-y-
+    </div>
+  );
+}

@@ -68,6 +68,7 @@ import {
   SkipForward,
   RotateCcw,
   X,
+  Loader2,
 } from "lucide-react";
 import AIConfigurationPanel from "@/components/ai-assistant/AIConfigurationPanel";
 import VisualAgentBuilder from "@/components/agent-builder/VisualAgentBuilder";

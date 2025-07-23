@@ -52,6 +52,7 @@ import {
   Download,
   Filter,
   Calendar,
+  Loader2,
 } from "lucide-react";
 
 interface AgentMetrics {
@@ -233,7 +234,7 @@ export default function AgentPerformanceDashboard({
       <Card className={className}>
         <CardContent className="flex items-center justify-center h-96">
           <div className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-16 w-16 animate-spin text-muted-foreground" />
             <span>Loading performance metrics...</span>
           </div>
         </CardContent>
