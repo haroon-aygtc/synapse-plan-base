@@ -16,7 +16,9 @@ import { OrganizationService } from './organization.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PermissionsGuard } from '@shared/guards/permissions.guard';
+import { RowLevelSecurityGuard } from '@shared/guards/row-level-security.guard';
 import { TenantContextInterceptor } from '@shared/interceptors/tenant-context.interceptor';
+import { RowLevelSecurityMiddleware } from '@shared/middleware/row-level-security.middleware';
 
 @Module({
   imports: [
@@ -74,6 +76,11 @@ import { TenantContextInterceptor } from '@shared/interceptors/tenant-context.in
       provide: APP_GUARD,
       useClass: PermissionsGuard,
     },
+    {
+      provide: APP_GUARD,
+      useClass: RowLevelSecurityGuard,
+    },
+    RowLevelSecurityMiddleware,
     // Global interceptors
     {
       provide: APP_INTERCEPTOR,

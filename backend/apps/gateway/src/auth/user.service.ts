@@ -26,6 +26,7 @@ interface UpdateUserData {
   avatar?: string;
   role?: UserRole;
   preferences?: Record<string, any>;
+  permissions?: string[];
   isActive?: boolean;
 }
 
@@ -98,9 +99,18 @@ export class UserService {
       limit?: number;
       role?: UserRole;
       isActive?: boolean;
+      requestingUserId?: string;
+      requestingUserRole?: UserRole;
     },
   ): Promise<{ users: IUser[]; total: number }> {
-    const { page = 1, limit = 10, role, isActive } = options || {};
+    const {
+      page = 1,
+      limit = 10,
+      role,
+      isActive,
+      requestingUserId,
+      requestingUserRole,
+    } = options || {};
 
     const whereConditions: FindOptionsWhere<User> = {
       organizationId,
@@ -114,6 +124,14 @@ export class UserService {
       whereConditions.isActive = isActive;
     }
 
+    // Row-level security: Non-admin users can only see themselves
+    if (
+      requestingUserRole &&
+      ![UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN].includes(requestingUserRole)
+    ) {
+      whereConditions.id = requestingUserId;
+    }
+
     const [users, total] = await this.userRepository.findAndCount({
       where: whereConditions,
       relations: ['organization'],
@@ -125,15 +143,39 @@ export class UserService {
     return { users, total };
   }
 
-  async update(id: string, updateData: UpdateUserData): Promise<IUser> {
+  async update(
+    id: string,
+    updateData: UpdateUserData,
+    requestingUserId?: string,
+    requestingUserRole?: UserRole,
+  ): Promise<IUser> {
     const user = await this.findById(id);
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
+    // Row-level security: Users can only update themselves unless they're admin
+    if (requestingUserId && requestingUserRole) {
+      if (
+        id !== requestingUserId &&
+        ![UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN].includes(requestingUserRole)
+      ) {
+        throw new BadRequestException('You can only update your own profile');
+      }
+    }
+
     // Validate role change permissions
     if (updateData.role && updateData.role !== user.role) {
-      await this.validateRoleChange(user, updateData.role);
+      await this.validateRoleChange(user, updateData.role, requestingUserRole);
+    }
+
+    // Validate permission changes
+    if (updateData.permissions) {
+      await this.validatePermissionChange(
+        user,
+        updateData.permissions,
+        requestingUserRole,
+      );
     }
 
     await this.userRepository.update(id, updateData);
@@ -233,6 +275,7 @@ export class UserService {
   private async validateRoleChange(
     user: IUser,
     newRole: UserRole,
+    requestingUserRole?: UserRole,
   ): Promise<void> {
     // Prevent role escalation beyond organization admin for non-super-admins
     const roleHierarchy = {
@@ -243,15 +286,100 @@ export class UserService {
     };
 
     // Only super admins can assign super admin role
-    if (newRole === UserRole.SUPER_ADMIN) {
+    if (
+      newRole === UserRole.SUPER_ADMIN &&
+      requestingUserRole !== UserRole.SUPER_ADMIN
+    ) {
       throw new BadRequestException(
         'Super admin role can only be assigned by system administrators',
       );
     }
 
+    // Org admins cannot assign roles higher than their own
+    if (
+      requestingUserRole === UserRole.ORG_ADMIN &&
+      roleHierarchy[newRole] >= roleHierarchy[UserRole.SUPER_ADMIN]
+    ) {
+      throw new BadRequestException('Cannot assign role higher than your own');
+    }
+
+    // Developers and viewers cannot change roles
+    if (
+      requestingUserRole &&
+      [UserRole.DEVELOPER, UserRole.VIEWER].includes(requestingUserRole)
+    ) {
+      throw new BadRequestException(
+        'Insufficient permissions to change user roles',
+      );
+    }
+
     // Validate role hierarchy
-    if (roleHierarchy[newRole] > roleHierarchy[UserRole.ORG_ADMIN]) {
+    if (roleHierarchy[newRole] > roleHierarchy[UserRole.SUPER_ADMIN]) {
       throw new BadRequestException('Invalid role assignment');
+    }
+  }
+
+  private async validatePermissionChange(
+    user: IUser,
+    newPermissions: string[],
+    requestingUserRole?: UserRole,
+  ): Promise<void> {
+    // Only org admins and super admins can modify permissions
+    if (
+      requestingUserRole &&
+      ![UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN].includes(requestingUserRole)
+    ) {
+      throw new BadRequestException(
+        'Insufficient permissions to modify user permissions',
+      );
+    }
+
+    // Validate that permissions are valid
+    const validPermissions = Object.values({
+      AGENT_CREATE: 'agent:create',
+      AGENT_READ: 'agent:read',
+      AGENT_UPDATE: 'agent:update',
+      AGENT_DELETE: 'agent:delete',
+      AGENT_EXECUTE: 'agent:execute',
+      TOOL_CREATE: 'tool:create',
+      TOOL_READ: 'tool:read',
+      TOOL_UPDATE: 'tool:update',
+      TOOL_DELETE: 'tool:delete',
+      TOOL_EXECUTE: 'tool:execute',
+      WORKFLOW_CREATE: 'workflow:create',
+      WORKFLOW_READ: 'workflow:read',
+      WORKFLOW_UPDATE: 'workflow:update',
+      WORKFLOW_DELETE: 'workflow:delete',
+      WORKFLOW_EXECUTE: 'workflow:execute',
+      WORKFLOW_APPROVE: 'workflow:approve',
+      KNOWLEDGE_CREATE: 'knowledge:create',
+      KNOWLEDGE_READ: 'knowledge:read',
+      KNOWLEDGE_UPDATE: 'knowledge:update',
+      KNOWLEDGE_DELETE: 'knowledge:delete',
+      KNOWLEDGE_SEARCH: 'knowledge:search',
+      USER_CREATE: 'user:create',
+      USER_READ: 'user:read',
+      USER_UPDATE: 'user:update',
+      USER_DELETE: 'user:delete',
+      USER_INVITE: 'user:invite',
+      ORG_READ: 'org:read',
+      ORG_UPDATE: 'org:update',
+      ORG_DELETE: 'org:delete',
+      ORG_SETTINGS: 'org:settings',
+      ORG_BILLING: 'org:billing',
+      ANALYTICS_READ: 'analytics:read',
+      ANALYTICS_EXPORT: 'analytics:export',
+      SYSTEM_ADMIN: 'system:admin',
+      SYSTEM_MONITOR: 'system:monitor',
+    });
+
+    const invalidPermissions = newPermissions.filter(
+      (permission) => !validPermissions.includes(permission),
+    );
+    if (invalidPermissions.length > 0) {
+      throw new BadRequestException(
+        `Invalid permissions: ${invalidPermissions.join(', ')}`,
+      );
     }
   }
 }

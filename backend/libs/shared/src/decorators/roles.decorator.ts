@@ -30,3 +30,15 @@ export const RequireViewer = () =>
     UserRole.ORG_ADMIN,
     UserRole.SUPER_ADMIN,
   );
+
+// Decorator to require tenant context (organization scoping)
+export const RequireTenantContext = (required: boolean = true) =>
+  SetMetadata('requiresTenantContext', required);
+
+// Decorator to require resource ownership
+export const RequireResourceOwnership = () =>
+  SetMetadata('requiresResourceOwnership', true);
+
+// Decorator to allow cross-organization access (super admin only)
+export const AllowCrossOrganization = () =>
+  SetMetadata('allowCrossOrganization', true);

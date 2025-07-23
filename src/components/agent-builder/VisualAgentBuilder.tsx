@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useCallback, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
 import ReactFlow, {
   Node,
   Edge,
@@ -17,20 +17,20 @@ import ReactFlow, {
   ReactFlowInstance,
   NodeTypes,
   EdgeTypes,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+} from "reactflow";
+import "reactflow/dist/style.css";
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Bot, 
-  MessageSquare, 
-  Settings, 
-  Database, 
-  Zap, 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Bot,
+  MessageSquare,
+  Settings,
+  Database,
+  Zap,
   Brain,
   Search,
   Code,
@@ -47,19 +47,19 @@ import {
   BarChart3,
   Plus,
   Play,
-  Save
-} from 'lucide-react';
+  Save,
+} from "lucide-react";
 
-import { AgentNode } from './nodes/AgentNode';
-import { ToolNode } from './nodes/ToolNode';
-import { KnowledgeNode } from './nodes/KnowledgeNode';
-import { TriggerNode } from './nodes/TriggerNode';
-import { ConditionNode } from './nodes/ConditionNode';
-import { ActionNode } from './nodes/ActionNode';
-import { CustomEdge } from './edges/CustomEdge';
-import { ComponentPalette } from './ComponentPalette';
-import { useAgentBuilder } from '@/hooks/useAgentBuilder';
-import { toast } from '@/components/ui/use-toast';
+import { AgentNode } from "./nodes/AgentNode";
+import { ToolNode } from "./nodes/ToolNode";
+import { KnowledgeNode } from "./nodes/KnowledgeNode";
+import { TriggerNode } from "./nodes/TriggerNode";
+import { ConditionNode } from "./nodes/ConditionNode";
+import { ActionNode } from "./nodes/ActionNode";
+import { CustomEdge } from "./edges/CustomEdge";
+import { ComponentPalette } from "./ComponentPalette";
+import { useAgentBuilder } from "@/hooks/useAgentBuilder";
+import { toast } from "@/components/ui/use-toast";
 
 const nodeTypes: NodeTypes = {
   agent: AgentNode,
@@ -76,135 +76,135 @@ const edgeTypes: EdgeTypes = {
 
 const COMPONENT_CATEGORIES = [
   {
-    id: 'core',
-    name: 'Core Components',
+    id: "core",
+    name: "Core Components",
     icon: <Bot className="h-4 w-4" />,
     components: [
       {
-        id: 'agent',
-        name: 'Agent',
-        description: 'Main AI agent component',
+        id: "agent",
+        name: "Agent",
+        description: "Main AI agent component",
         icon: <Bot className="h-5 w-5" />,
-        color: 'bg-blue-500',
-        type: 'agent'
+        color: "bg-blue-500",
+        type: "agent",
       },
       {
-        id: 'trigger',
-        name: 'Trigger',
-        description: 'Event trigger',
+        id: "trigger",
+        name: "Trigger",
+        description: "Event trigger",
         icon: <Zap className="h-5 w-5" />,
-        color: 'bg-yellow-500',
-        type: 'trigger'
+        color: "bg-yellow-500",
+        type: "trigger",
       },
       {
-        id: 'condition',
-        name: 'Condition',
-        description: 'Logic condition',
+        id: "condition",
+        name: "Condition",
+        description: "Logic condition",
         icon: <Settings className="h-5 w-5" />,
-        color: 'bg-purple-500',
-        type: 'condition'
+        color: "bg-purple-500",
+        type: "condition",
       },
       {
-        id: 'action',
-        name: 'Action',
-        description: 'Execute action',
+        id: "action",
+        name: "Action",
+        description: "Execute action",
         icon: <Play className="h-5 w-5" />,
-        color: 'bg-green-500',
-        type: 'action'
-      }
-    ]
+        color: "bg-green-500",
+        type: "action",
+      },
+    ],
   },
   {
-    id: 'tools',
-    name: 'Tools & APIs',
+    id: "tools",
+    name: "Tools & APIs",
     icon: <Settings className="h-4 w-4" />,
     components: [
       {
-        id: 'search',
-        name: 'Web Search',
-        description: 'Search the web',
+        id: "search",
+        name: "Web Search",
+        description: "Search the web",
         icon: <Search className="h-5 w-5" />,
-        color: 'bg-orange-500',
-        type: 'tool'
+        color: "bg-orange-500",
+        type: "tool",
       },
       {
-        id: 'code',
-        name: 'Code Executor',
-        description: 'Execute code',
+        id: "code",
+        name: "Code Executor",
+        description: "Execute code",
         icon: <Code className="h-5 w-5" />,
-        color: 'bg-gray-500',
-        type: 'tool'
+        color: "bg-gray-500",
+        type: "tool",
       },
       {
-        id: 'email',
-        name: 'Email',
-        description: 'Send emails',
+        id: "email",
+        name: "Email",
+        description: "Send emails",
         icon: <Mail className="h-5 w-5" />,
-        color: 'bg-red-500',
-        type: 'tool'
+        color: "bg-red-500",
+        type: "tool",
       },
       {
-        id: 'calendar',
-        name: 'Calendar',
-        description: 'Manage calendar',
+        id: "calendar",
+        name: "Calendar",
+        description: "Manage calendar",
         icon: <Calendar className="h-5 w-5" />,
-        color: 'bg-indigo-500',
-        type: 'tool'
+        color: "bg-indigo-500",
+        type: "tool",
       },
       {
-        id: 'calculator',
-        name: 'Calculator',
-        description: 'Perform calculations',
+        id: "calculator",
+        name: "Calculator",
+        description: "Perform calculations",
         icon: <Calculator className="h-5 w-5" />,
-        color: 'bg-teal-500',
-        type: 'tool'
-      }
-    ]
+        color: "bg-teal-500",
+        type: "tool",
+      },
+    ],
   },
   {
-    id: 'knowledge',
-    name: 'Knowledge Sources',
+    id: "knowledge",
+    name: "Knowledge Sources",
     icon: <Database className="h-4 w-4" />,
     components: [
       {
-        id: 'documents',
-        name: 'Documents',
-        description: 'Document knowledge base',
+        id: "documents",
+        name: "Documents",
+        description: "Document knowledge base",
         icon: <FileText className="h-5 w-5" />,
-        color: 'bg-blue-600',
-        type: 'knowledge'
+        color: "bg-blue-600",
+        type: "knowledge",
       },
       {
-        id: 'database',
-        name: 'Database',
-        description: 'Database connection',
+        id: "database",
+        name: "Database",
+        description: "Database connection",
         icon: <Database className="h-5 w-5" />,
-        color: 'bg-green-600',
-        type: 'knowledge'
+        color: "bg-green-600",
+        type: "knowledge",
       },
       {
-        id: 'api',
-        name: 'API',
-        description: 'External API',
+        id: "api",
+        name: "API",
+        description: "External API",
         icon: <Globe className="h-5 w-5" />,
-        color: 'bg-purple-600',
-        type: 'knowledge'
-      }
-    ]
-  }
+        color: "bg-purple-600",
+        type: "knowledge",
+      },
+    ],
+  },
 ];
 
 const initialNodes: Node[] = [
   {
-    id: 'agent-1',
-    type: 'agent',
+    id: "agent-1",
+    type: "agent",
     position: { x: 400, y: 200 },
     data: {
-      label: 'Main Agent',
-      name: 'Assistant',
-      model: 'gpt-4',
+      label: "Main Agent",
+      name: "Assistant",
+      model: "gpt-4",
       temperature: 0.7,
-      prompt: 'You are a helpful assistant...'
+      prompt: "You are a helpful assistant...",
     },
   },
 ];
@@ -215,29 +215,33 @@ export function VisualAgentBuilder() {
   const { currentAgent, updateAgent } = useAgentBuilder();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
+  const [reactFlowInstance, setReactFlowInstance] =
+    useState<ReactFlowInstance | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'custom' }, eds)),
-    [setEdges]
+    (params: Connection) =>
+      setEdges((eds) => addEdge({ ...params, type: "custom" }, eds)),
+    [setEdges],
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
+    event.dataTransfer.dropEffect = "move";
   }, []);
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
 
-      const type = event.dataTransfer.getData('application/reactflow');
-      const componentData = JSON.parse(event.dataTransfer.getData('application/json'));
+      const type = event.dataTransfer.getData("application/reactflow");
+      const componentData = JSON.parse(
+        event.dataTransfer.getData("application/json"),
+      );
 
-      if (typeof type === 'undefined' || !type || !reactFlowInstance) {
+      if (typeof type === "undefined" || !type || !reactFlowInstance) {
         return;
       }
 
@@ -258,7 +262,7 @@ export function VisualAgentBuilder() {
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [reactFlowInstance, setNodes]
+    [reactFlowInstance, setNodes, addNode, discoverFeature],
   );
 
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
@@ -269,60 +273,61 @@ export function VisualAgentBuilder() {
     setIsExecuting(true);
     try {
       // Simulate workflow execution
-      const agentNodes = nodes.filter(node => node.type === 'agent');
-      const toolNodes = nodes.filter(node => node.type === 'tool');
-      const knowledgeNodes = nodes.filter(node => node.type === 'knowledge');
+      const agentNodes = nodes.filter((node) => node.type === "agent");
+      const toolNodes = nodes.filter((node) => node.type === "tool");
+      const knowledgeNodes = nodes.filter((node) => node.type === "knowledge");
 
       // Build execution plan
       const executionPlan = {
-        agents: agentNodes.map(node => ({
+        agents: agentNodes.map((node) => ({
           id: node.id,
           name: node.data.name,
           model: node.data.model,
           prompt: node.data.prompt,
-          position: node.position
+          position: node.position,
         })),
-        tools: toolNodes.map(node => ({
+        tools: toolNodes.map((node) => ({
           id: node.id,
           name: node.data.name,
           type: node.data.type,
-          config: node.data.config
+          config: node.data.config,
         })),
-        knowledge: knowledgeNodes.map(node => ({
+        knowledge: knowledgeNodes.map((node) => ({
           id: node.id,
           name: node.data.name,
           source: node.data.source,
-          config: node.data.config
+          config: node.data.config,
         })),
-        connections: edges.map(edge => ({
+        connections: edges.map((edge) => ({
           from: edge.source,
           to: edge.target,
-          type: edge.type
-        }))
+          type: edge.type,
+        })),
       };
 
       // Send to backend for execution
-      const response = await fetch('/api/agents/execute-workflow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/agents/execute-workflow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workflow: executionPlan,
-          testInput: 'Hello, test the workflow'
-        })
+          testInput: "Hello, test the workflow",
+        }),
       });
 
       if (response.ok) {
         const result = await response.json();
         toast({
-          title: 'Workflow Executed',
+          title: "Workflow Executed",
           description: `Execution completed in ${result.executionTime}ms`,
         });
       }
     } catch (error) {
       toast({
-        title: 'Execution Failed',
-        description: 'Failed to execute workflow. Please check your configuration.',
-        variant: 'destructive',
+        title: "Execution Failed",
+        description:
+          "Failed to execute workflow. Please check your configuration.",
+        variant: "destructive",
       });
     } finally {
       setIsExecuting(false);
@@ -332,37 +337,37 @@ export function VisualAgentBuilder() {
   const saveWorkflow = useCallback(async () => {
     try {
       const workflowData = {
-        nodes: nodes.map(node => ({
+        nodes: nodes.map((node) => ({
           id: node.id,
           type: node.type,
           position: node.position,
-          data: node.data
+          data: node.data,
         })),
-        edges: edges.map(edge => ({
+        edges: edges.map((edge) => ({
           id: edge.id,
           source: edge.source,
           target: edge.target,
-          type: edge.type
-        }))
+          type: edge.type,
+        })),
       };
 
       await updateAgent({
         ...currentAgent,
         metadata: {
           ...currentAgent?.metadata,
-          visualWorkflow: workflowData
-        }
+          visualWorkflow: workflowData,
+        },
       });
 
       toast({
-        title: 'Workflow Saved',
-        description: 'Your visual workflow has been saved successfully.',
+        title: "Workflow Saved",
+        description: "Your visual workflow has been saved successfully.",
       });
     } catch (error) {
       toast({
-        title: 'Save Failed',
-        description: 'Failed to save workflow. Please try again.',
-        variant: 'destructive',
+        title: "Save Failed",
+        description: "Failed to save workflow. Please try again.",
+        variant: "destructive",
       });
     }
   }, [nodes, edges, currentAgent, updateAgent]);
@@ -391,7 +396,7 @@ export function VisualAgentBuilder() {
             className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
           >
             <Play className="h-4 w-4 mr-2" />
-            {isExecuting ? 'Executing...' : 'Test Workflow'}
+            {isExecuting ? "Executing..." : "Test Workflow"}
           </Button>
           <Button onClick={saveWorkflow} variant="outline">
             <Save className="h-4 w-4 mr-2" />
@@ -416,13 +421,13 @@ export function VisualAgentBuilder() {
               <div className="flex justify-between text-sm">
                 <span>Agents:</span>
                 <Badge variant="outline">
-                  {nodes.filter(n => n.type === 'agent').length}
+                  {nodes.filter((n) => n.type === "agent").length}
                 </Badge>
               </div>
               <div className="flex justify-between text-sm">
                 <span>Tools:</span>
                 <Badge variant="outline">
-                  {nodes.filter(n => n.type === 'tool').length}
+                  {nodes.filter((n) => n.type === "tool").length}
                 </Badge>
               </div>
             </CardContent>
@@ -447,24 +452,24 @@ export function VisualAgentBuilder() {
               attributionPosition="bottom-left"
             >
               <Controls />
-              <MiniMap 
+              <MiniMap
                 nodeStrokeColor={(n) => {
-                  if (n.type === 'agent') return '#3b82f6';
-                  if (n.type === 'tool') return '#f59e0b';
-                  if (n.type === 'knowledge') return '#10b981';
-                  return '#6b7280';
+                  if (n.type === "agent") return "#3b82f6";
+                  if (n.type === "tool") return "#f59e0b";
+                  if (n.type === "knowledge") return "#10b981";
+                  return "#6b7280";
                 }}
                 nodeColor={(n) => {
-                  if (n.type === 'agent') return '#dbeafe';
-                  if (n.type === 'tool') return '#fef3c7';
-                  if (n.type === 'knowledge') return '#d1fae5';
-                  return '#f3f4f6';
+                  if (n.type === "agent") return "#dbeafe";
+                  if (n.type === "tool") return "#fef3c7";
+                  if (n.type === "knowledge") return "#d1fae5";
+                  return "#f3f4f6";
                 }}
                 nodeBorderRadius={8}
               />
-              <Background 
-                variant={BackgroundVariant.Dots} 
-                gap={20} 
+              <Background
+                variant={BackgroundVariant.Dots}
+                gap={20}
                 size={1}
                 color="#e2e8f0"
               />
@@ -503,7 +508,8 @@ export function VisualAgentBuilder() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Position:</span>
                     <span className="text-xs">
-                      ({Math.round(selectedNode.position.x)}, {Math.round(selectedNode.position.y)})
+                      ({Math.round(selectedNode.position.x)},{" "}
+                      {Math.round(selectedNode.position.y)})
                     </span>
                   </div>
                 </div>
@@ -517,10 +523,12 @@ export function VisualAgentBuilder() {
                   {Object.entries(selectedNode.data).map(([key, value]) => (
                     <div key={key} className="space-y-1">
                       <label className="text-sm font-medium capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                        {key.replace(/([A-Z])/g, " $1").trim()}
                       </label>
                       <div className="text-sm text-muted-foreground">
-                        {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                        {typeof value === "object"
+                          ? JSON.stringify(value, null, 2)
+                          : String(value)}
                       </div>
                     </div>
                   ))}
@@ -533,15 +541,21 @@ export function VisualAgentBuilder() {
                 <h4 className="font-medium mb-2">Connections</h4>
                 <div className="space-y-2">
                   <div>
-                    <span className="text-sm text-muted-foreground">Incoming:</span>
+                    <span className="text-sm text-muted-foreground">
+                      Incoming:
+                    </span>
                     <div className="text-sm">
-                      {edges.filter(e => e.target === selectedNode.id).length} connections
+                      {edges.filter((e) => e.target === selectedNode.id).length}{" "}
+                      connections
                     </div>
                   </div>
                   <div>
-                    <span className="text-sm text-muted-foreground">Outgoing:</span>
+                    <span className="text-sm text-muted-foreground">
+                      Outgoing:
+                    </span>
                     <div className="text-sm">
-                      {edges.filter(e => e.source === selectedNode.id).length} connections
+                      {edges.filter((e) => e.source === selectedNode.id).length}{" "}
+                      connections
                     </div>
                   </div>
                 </div>

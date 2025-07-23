@@ -28,6 +28,16 @@ export class RolesGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
+    // Check if user is active
+    if (!user.isActive) {
+      throw new ForbiddenException('User account is deactivated');
+    }
+
+    // Check organization access
+    if (!user.organizationId) {
+      throw new ForbiddenException('User must belong to an organization');
+    }
+
     const hasRole = requiredRoles.some((role) => user.role === role);
 
     if (!hasRole) {
@@ -40,6 +50,13 @@ export class RolesGuard implements CanActivate {
     if (!this.checkRoleHierarchy(user.role, requiredRoles)) {
       throw new ForbiddenException('Insufficient permissions');
     }
+
+    // Set tenant context for row-level security
+    request.tenantContext = {
+      organizationId: user.organizationId,
+      userId: user.id,
+      userRole: user.role,
+    };
 
     return true;
   }

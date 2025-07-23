@@ -39,4 +39,10 @@ export const databaseConfig = {
   retryAttempts: 3,
   retryDelay: 3000,
   autoLoadEntities: true,
+  extra: {
+    // Enable row-level security
+    application_name: 'synapseai',
+    // Set default search path for multi-tenancy
+    search_path: 'public',
+  },
 };

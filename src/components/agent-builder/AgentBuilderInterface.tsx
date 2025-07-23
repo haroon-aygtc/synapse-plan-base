@@ -1,290 +1,371 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { 
-  Bot, 
-  Settings, 
-  TestTube, 
-  BarChart3, 
-  Store, 
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAgentBuilderStore } from "@/store/agentBuilderStore";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import {
+  Bot,
+  Settings,
+  Palette,
   Zap,
+  TestTube,
+  BarChart3,
   Sparkles,
-  Brain,
-  MessageSquare,
-  Play,
-  Save,
-  Share2
-} from 'lucide-react';
+  Eye,
+  Code,
+  HelpCircle,
+  ChevronRight,
+  CheckCircle,
+} from "lucide-react";
 
-import { AIAssistedConfiguration } from './AIAssistedConfiguration';
-import { VisualAgentBuilder } from './VisualAgentBuilder';
-import { AgentTestingInterface } from './AgentTestingInterface';
-import { AgentPerformanceDashboard } from './AgentPerformanceDashboard';
-import { AgentMarketplace } from './AgentMarketplace';
-import { AgentToolLinking } from './AgentToolLinking';
-import { AgentKnowledgeIntegration } from './AgentKnowledgeIntegration';
-import { LiveAgentPreview } from './LiveAgentPreview';
-import { useAgentBuilder } from '@/hooks/useAgentBuilder';
-import { useAuth } from '@/hooks/useAuth';
-import { toast } from '@/components/ui/use-toast';
+// Import all the components
+import { AIAssistedConfiguration } from "./AIAssistedConfiguration";
+import { VisualAgentBuilder } from "./VisualAgentBuilder";
+import { ComponentPalette } from "./ComponentPalette";
+import AgentTestingInterface from "./AgentTestingInterface";
+import { AgentPerformanceDashboard } from "./AgentPerformanceDashboard";
+import { AgentToolLinking } from "./AgentToolLinking";
+import { AgentKnowledgeIntegration } from "./AgentKnowledgeIntegration";
+import { AgentMarketplace } from "./AgentMarketplace";
+import { OnboardingSystem } from "./OnboardingSystem";
+import { NaturalLanguageProcessor } from "./NaturalLanguageProcessor";
+
+const COMPONENT_CATEGORIES = [
+  {
+    id: "core",
+    name: "Core Components",
+    icon: <Bot className="h-4 w-4" />,
+    components: [
+      {
+        id: "agent",
+        name: "Agent",
+        description: "Main AI agent component",
+        icon: <Bot className="h-5 w-5" />,
+        color: "bg-blue-500",
+        type: "agent",
+      },
+      {
+        id: "trigger",
+        name: "Trigger",
+        description: "Event trigger",
+        icon: <Zap className="h-5 w-5" />,
+        color: "bg-yellow-500",
+        type: "trigger",
+      },
+      {
+        id: "condition",
+        name: "Condition",
+        description: "Logic condition",
+        icon: <Settings className="h-5 w-5" />,
+        color: "bg-purple-500",
+        type: "condition",
+      },
+    ],
+  },
+];
 
 export function AgentBuilderInterface() {
-  const { user } = useAuth();
   const {
+    activeTab,
+    setActiveTab,
+    showAIAssistant,
+    showVisualBuilder,
+    showComponentPalette,
+    toggleAIAssistant,
+    toggleVisualBuilder,
+    toggleComponentPalette,
+    onboarding,
+    startOnboarding,
     currentAgent,
-    isLoading,
-    saveAgent,
-    testAgent,
-    deployAgent,
-    updateAgent
-  } = useAgentBuilder();
+    discoverFeature,
+  } = useAgentBuilderStore();
 
-  const [activeTab, setActiveTab] = useState('configure');
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [completionProgress, setCompletionProgress] = useState(0);
 
-  const handleSaveAgent = useCallback(async () => {
-    if (!currentAgent) return;
-    
-    setIsSaving(true);
-    try {
-      await saveAgent(currentAgent);
-      toast({
-        title: 'Agent Saved',
-        description: 'Your agent has been saved successfully.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Save Failed',
-        description: 'Failed to save agent. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSaving(false);
+  // Calculate completion progress
+  useEffect(() => {
+    if (currentAgent) {
+      let completed = 0;
+      const total = 6;
+
+      if (currentAgent.name) completed++;
+      if (currentAgent.description) completed++;
+      if (currentAgent.personality) completed++;
+      if (currentAgent.model) completed++;
+      if (currentAgent.capabilities && currentAgent.capabilities.length > 0)
+        completed++;
+      if (currentAgent.tools && currentAgent.tools.length > 0) completed++;
+
+      setCompletionProgress((completed / total) * 100);
     }
-  }, [currentAgent, saveAgent]);
+  }, [currentAgent]);
 
-  const handleTestAgent = useCallback(async () => {
-    if (!currentAgent) return;
-    
-    try {
-      await testAgent(currentAgent.id, {
-        testType: 'integration',
-        testName: 'Quick Test',
-        testInput: { input: 'Hello, test the agent functionality' }
-      });
-      setActiveTab('testing');
-    } catch (error) {
-      toast({
-        title: 'Test Failed',
-        description: 'Failed to test agent. Please check configuration.',
-        variant: 'destructive',
-      });
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as any);
+    discoverFeature(`tab-${tab}`);
+  };
+
+  const getTabIcon = (tab: string) => {
+    switch (tab) {
+      case "basic":
+        return <Bot className="h-4 w-4" />;
+      case "personality":
+        return <Palette className="h-4 w-4" />;
+      case "model":
+        return <Settings className="h-4 w-4" />;
+      case "capabilities":
+        return <Zap className="h-4 w-4" />;
+      case "visual":
+        return <Code className="h-4 w-4" />;
+      case "testing":
+        return <TestTube className="h-4 w-4" />;
+      case "performance":
+        return <BarChart3 className="h-4 w-4" />;
+      case "marketplace":
+        return <Bot className="h-4 w-4" />;
+      default:
+        return <Settings className="h-4 w-4" />;
     }
-  }, [currentAgent, testAgent]);
+  };
 
-  const handleDeployAgent = useCallback(async () => {
-    if (!currentAgent) return;
-    
-    try {
-      await deployAgent(currentAgent.id);
-      toast({
-        title: 'Agent Deployed',
-        description: 'Your agent is now live and ready to use.',
-      });
-    } catch (error) {
-      toast({
-        title: 'Deployment Failed',
-        description: 'Failed to deploy agent. Please try again.',
-        variant: 'destructive',
-      });
+  const getTabBadge = (tab: string) => {
+    switch (tab) {
+      case "basic":
+        return currentAgent?.name ? (
+          <CheckCircle className="h-3 w-3 text-green-500" />
+        ) : null;
+      case "personality":
+        return currentAgent?.personality ? (
+          <CheckCircle className="h-3 w-3 text-green-500" />
+        ) : null;
+      case "model":
+        return currentAgent?.model ? (
+          <CheckCircle className="h-3 w-3 text-green-500" />
+        ) : null;
+      case "capabilities":
+        return currentAgent?.capabilities?.length ? (
+          <CheckCircle className="h-3 w-3 text-green-500" />
+        ) : null;
+      default:
+        return null;
     }
-  }, [currentAgent, deployAgent]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Loading Agent Builder...</p>
-        </div>
-      </div>
-    );
-  }
+  };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="h-full flex flex-col">
+      {/* Onboarding System */}
+      <OnboardingSystem />
+
       {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Bot className="h-8 w-8 text-primary" />
-                <div>
-                  <h1 className="text-xl font-bold">Agent Builder</h1>
-                  <p className="text-sm text-muted-foreground">
-                    {currentAgent?.name || 'New Agent'}
-                  </p>
-                </div>
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                <Bot className="h-4 w-4 text-primary" />
               </div>
-              {currentAgent && (
-                <Badge variant={currentAgent.isActive ? 'default' : 'secondary'}>
-                  {currentAgent.isActive ? 'Active' : 'Draft'}
-                </Badge>
-              )}
+              <div>
+                <h1 className="text-lg font-semibold">Agent Builder</h1>
+                <p className="text-xs text-muted-foreground">
+                  {currentAgent?.name || "Create your AI agent"}
+                </p>
+              </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsPreviewOpen(true)}
-                className="hidden md:flex"
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Preview
+            {completionProgress > 0 && (
+              <div className="flex items-center space-x-2">
+                <Progress value={completionProgress} className="w-24 h-2" />
+                <span className="text-xs text-muted-foreground">
+                  {Math.round(completionProgress)}% complete
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {!onboarding.isActive && (
+              <Button variant="outline" size="sm" onClick={startOnboarding}>
+                <HelpCircle className="h-4 w-4 mr-2" />
+                Tutorial
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleTestAgent}
-                disabled={!currentAgent}
-              >
-                <TestTube className="h-4 w-4 mr-2" />
-                Test
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSaveAgent}
-                disabled={!currentAgent || isSaving}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {isSaving ? 'Saving...' : 'Save'}
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleDeployAgent}
-                disabled={!currentAgent}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                Deploy
-              </Button>
-            </div>
+            )}
+
+            <Button
+              variant={showAIAssistant ? "default" : "outline"}
+              size="sm"
+              onClick={toggleAIAssistant}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              AI Assistant
+            </Button>
+
+            <Button
+              variant={showVisualBuilder ? "default" : "outline"}
+              size="sm"
+              onClick={toggleVisualBuilder}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Visual Builder
+            </Button>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-          <div className="border-b bg-muted/30">
-            <div className="container mx-auto px-4">
-              <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:grid-cols-none lg:flex">
-                <TabsTrigger value="configure" className="flex items-center space-x-2">
-                  <Sparkles className="h-4 w-4" />
-                  <span className="hidden sm:inline">Configure</span>
-                </TabsTrigger>
-                <TabsTrigger value="visual" className="flex items-center space-x-2">
-                  <Brain className="h-4 w-4" />
-                  <span className="hidden sm:inline">Visual</span>
-                </TabsTrigger>
-                <TabsTrigger value="testing" className="flex items-center space-x-2">
-                  <TestTube className="h-4 w-4" />
-                  <span className="hidden sm:inline">Testing</span>
-                </TabsTrigger>
-                <TabsTrigger value="analytics" className="flex items-center space-x-2">
-                  <BarChart3 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Analytics</span>
-                </TabsTrigger>
-                <TabsTrigger value="tools" className="flex items-center space-x-2">
-                  <Settings className="h-4 w-4" />
-                  <span className="hidden sm:inline">Tools</span>
-                </TabsTrigger>
-                <TabsTrigger value="marketplace" className="flex items-center space-x-2">
-                  <Store className="h-4 w-4" />
-                  <span className="hidden sm:inline">Market</span>
-                </TabsTrigger>
+      <div className="flex-1 flex">
+        {/* Sidebar - Component Palette */}
+        <AnimatePresence>
+          {showComponentPalette && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="border-r bg-card/50 backdrop-blur-sm overflow-hidden"
+            >
+              <div className="p-4 border-b">
+                <h3 className="font-semibold flex items-center space-x-2">
+                  <Settings className="h-5 w-5" />
+                  <span>Components</span>
+                </h3>
+              </div>
+              <ComponentPalette categories={COMPONENT_CATEGORIES} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col">
+          <Tabs
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className="flex-1 flex flex-col"
+          >
+            <div className="border-b">
+              <TabsList className="h-12 w-full justify-start rounded-none bg-transparent p-0">
+                {[
+                  { id: "basic", label: "Basic Setup" },
+                  { id: "personality", label: "Personality" },
+                  { id: "model", label: "AI Model" },
+                  { id: "capabilities", label: "Capabilities" },
+                  { id: "visual", label: "Visual Builder" },
+                  { id: "testing", label: "Testing" },
+                  { id: "performance", label: "Performance" },
+                  { id: "marketplace", label: "Marketplace" },
+                ].map((tab) => (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="h-12 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                  >
+                    <div className="flex items-center space-x-2">
+                      {getTabIcon(tab.id)}
+                      <span>{tab.label}</span>
+                      {getTabBadge(tab.id)}
+                    </div>
+                  </TabsTrigger>
+                ))}
               </TabsList>
             </div>
-          </div>
 
-          <div className="flex-1 overflow-auto">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.2 }}
-                className="h-full"
-              >
-                <TabsContent value="configure" className="h-full m-0 p-0">
+            <div className="flex-1 overflow-hidden">
+              <TabsContent value="basic" className="h-full m-0 p-0">
+                <div className="h-full flex">
+                  <div className="flex-1 overflow-auto">
+                    <div className="p-6">
+                      <NaturalLanguageProcessor />
+                    </div>
+                  </div>
+                  {showAIAssistant && (
+                    <motion.div
+                      initial={{ width: 0, opacity: 0 }}
+                      animate={{ width: 400, opacity: 1 }}
+                      exit={{ width: 0, opacity: 0 }}
+                      className="border-l bg-card/50 backdrop-blur-sm overflow-auto"
+                    >
+                      <AIAssistedConfiguration />
+                    </motion.div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="personality" className="h-full m-0 p-0">
+                <div className="h-full overflow-auto p-6">
                   <AIAssistedConfiguration />
-                </TabsContent>
+                </div>
+              </TabsContent>
 
-                <TabsContent value="visual" className="h-full m-0 p-0">
+              <TabsContent value="model" className="h-full m-0 p-0">
+                <div className="h-full overflow-auto p-6">
+                  <AIAssistedConfiguration />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="capabilities" className="h-full m-0 p-0">
+                <div className="h-full flex">
+                  <div className="flex-1 overflow-auto">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+                      <AgentToolLinking />
+                      <AgentKnowledgeIntegration />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="visual" className="h-full m-0 p-0">
+                {showVisualBuilder ? (
                   <VisualAgentBuilder />
-                </TabsContent>
-
-                <TabsContent value="testing" className="h-full m-0 p-0">
-                  <AgentTestingInterface />
-                </TabsContent>
-
-                <TabsContent value="analytics" className="h-full m-0 p-0">
-                  <AgentPerformanceDashboard />
-                </TabsContent>
-
-                <TabsContent value="tools" className="h-full m-0 p-0">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 h-full">
-                    <Card className="h-fit">
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                          <Settings className="h-5 w-5" />
-                          <span>Tool Integration</span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <AgentToolLinking />
-                      </CardContent>
-                    </Card>
-
-                    <Card className="h-fit">
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                          <Brain className="h-5 w-5" />
-                          <span>Knowledge Sources</span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <AgentKnowledgeIntegration />
+                ) : (
+                  <div className="h-full flex items-center justify-center">
+                    <Card className="w-96">
+                      <CardContent className="p-6 text-center">
+                        <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">
+                          Visual Builder
+                        </h3>
+                        <p className="text-muted-foreground mb-4">
+                          Enable the visual builder to create workflows with
+                          drag-and-drop components.
+                        </p>
+                        <Button onClick={toggleVisualBuilder}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Enable Visual Builder
+                        </Button>
                       </CardContent>
                     </Card>
                   </div>
-                </TabsContent>
+                )}
+              </TabsContent>
 
-                <TabsContent value="marketplace" className="h-full m-0 p-0">
+              <TabsContent value="testing" className="h-full m-0 p-0">
+                <AgentTestingInterface
+                  agentId={currentAgent?.id || ""}
+                  agentConfiguration={currentAgent || {}}
+                  className="h-full"
+                />
+              </TabsContent>
+
+              <TabsContent value="performance" className="h-full m-0 p-0">
+                <div className="h-full overflow-auto">
+                  <AgentPerformanceDashboard />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="marketplace" className="h-full m-0 p-0">
+                <div className="h-full overflow-auto">
                   <AgentMarketplace />
-                </TabsContent>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        </Tabs>
+                </div>
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
       </div>
-
-      {/* Live Preview Modal */}
-      <LiveAgentPreview
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-        agent={currentAgent}
-      />
     </div>
   );
 }

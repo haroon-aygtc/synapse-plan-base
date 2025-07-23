@@ -45,6 +45,9 @@ export class User extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   preferences?: Record<string, any>;
 
+  @Column({ type: 'jsonb', nullable: true })
+  permissions?: string[];
+
   @Column({ type: 'timestamp with time zone', nullable: true })
   lastLoginAt?: Date;
 
