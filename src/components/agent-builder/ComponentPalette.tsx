@@ -771,18 +771,18 @@ export default function ComponentPalette({
                   )?.confidence;
                   const contextScore = contextualSuggestions.find(
                     (s) => s.id === template.id,
-                  )?.contextScore;  
+                  )?.contextScore;
 
                   return (
                     <Card
                       key={template.id}
                       className={`cursor-pointer transition-all hover:shadow-md ${
-                        isContextual
-                          ? "ring-2 ring-green-200 bg-green-50"
-                          : isAISuggested
-                            ? "ring-2 ring-primary/20 bg-primary/5"
-                            : ""
-                      }`}
+                        isAISuggested && !isContextual
+                          ? "ring-2 ring-primary/20 bg-primary/5"
+                          : isContextual
+                            ? "ring-2 ring-green-200 bg-green-50"
+                            : ""}
+                      `}
                       draggable
                       onDragStart={(e) => handleDragStart(e, template)}
                       onClick={() => onAddComponent(template)}

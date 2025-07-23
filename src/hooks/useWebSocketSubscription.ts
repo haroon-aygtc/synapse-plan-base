@@ -148,7 +148,7 @@ export function useWebSocketSubscriptions(
 }
 
 /**
- * Hook for publishing events
+ * Hook for publishing events (Legacy WebSocket)
  */
 export function useWebSocketPublisher() {
   const { isAuthenticated } = useAuth();
@@ -173,6 +173,82 @@ export function useWebSocketPublisher() {
   return {
     publishEvent,
     isConnected: wsService.isConnected(),
+  };
+}
+
+/**
+ * Hook for APIX WebSocket subscriptions with enhanced features
+ */
+export function useAPXSubscription(
+  messageType: APXMessageType,
+  callback: (data: any) => void,
+  options: {
+    enabled?: boolean;
+    filters?: Record<string, any>;
+    target_id?: string;
+    dependencies?: any[];
+  } = {},
+) {
+  const apix = useAPIX({ autoConnect: true });
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const callbackRef = useRef(callback);
+  const optionsRef = useRef(options);
+
+  // Update refs when values change
+  useEffect(() => {
+    callbackRef.current = callback;
+  }, [callback]);
+
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
+
+  const subscribe = useCallback(() => {
+    if (!apix.isConnected || options.enabled === false) {
+      return;
+    }
+
+    // Unsubscribe from previous subscription if exists
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+    }
+
+    // Create new APIX subscription
+    unsubscribeRef.current = apix.subscribe(
+      messageType,
+      (message) => callbackRef.current(message.payload),
+      {
+        filters: optionsRef.current.filters,
+        target_id: optionsRef.current.target_id,
+      },
+    );
+  }, [messageType, apix.isConnected, options.enabled]);
+
+  const unsubscribe = useCallback(() => {
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+  }, []);
+
+  // Subscribe on mount and when dependencies change
+  useEffect(() => {
+    subscribe();
+    return unsubscribe;
+  }, [subscribe, unsubscribe, ...(options.dependencies || [])]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      unsubscribe();
+    };
+  }, [unsubscribe]);
+
+  return {
+    subscribe,
+    unsubscribe,
+    isConnected: apix.isConnected,
+    sessionContext: apix.sessionContext,
   };
 }
 

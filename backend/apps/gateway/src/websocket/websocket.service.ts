@@ -6,6 +6,14 @@ import {
   IEventPublication,
   ICrossModuleEvent,
   IEventTargeting,
+  IAPXMessage,
+  IAPXSessionContext,
+  IAPXAgentExecutionStarted,
+  IAPXToolCallStart,
+  IAPXHITLRequestCreated,
+  IAPXKBSearchPerformed,
+  IAPXWidgetQuerySubmitted,
+  IAPXStreamingSession,
 } from '@shared/interfaces';
 // Import enums directly from the enums file
 import {
@@ -13,6 +21,9 @@ import {
   WebSocketEventType,
   EventTargetType,
   EventPriority,
+  APXMessageType,
+  APXStreamState,
+  APXExecutionState,
 } from '@shared/enums';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,6 +31,8 @@ import { v4 as uuidv4 } from 'uuid';
 export class WebSocketService implements OnModuleInit {
   private readonly logger = new Logger(WebSocketService.name);
   private server: Server;
+  private activeStreams = new Map<string, IAPXStreamingSession>();
+  private executionContexts = new Map<string, any>();
 
   constructor(
     private readonly connectionService: ConnectionService,
@@ -381,5 +394,504 @@ export class WebSocketService implements OnModuleInit {
   // Check if server is ready
   isReady(): boolean {
     return !!this.server;
+  }
+
+  // APIX Protocol Handlers
+  async handleAgentExecutionStart(
+    payload: IAPXAgentExecutionStarted,
+    context: { userId: string; organizationId: string; sessionId: string },
+  ): Promise<void> {
+    try {
+      // Create streaming session for agent execution
+      const streamingSession: IAPXStreamingSession = {
+        session_id: context.sessionId,
+        stream_id: payload.execution_id,
+        stream_type: 'agent_execution',
+        state: APXStreamState.STREAMING,
+        created_at: new Date().toISOString(),
+        last_activity: new Date().toISOString(),
+        buffer_size: 0,
+        compression_enabled: true,
+        encryption_enabled: true,
+      };
+
+      this.activeStreams.set(payload.execution_id, streamingSession);
+
+      // Store execution context
+      this.executionContexts.set(payload.execution_id, {
+        ...context,
+        agentId: payload.agent_id,
+        startTime: new Date(),
+        tokenCount: 0,
+        toolCalls: [],
+      });
+
+      // Broadcast execution started event
+      await this.broadcastAPXMessage(
+        context.organizationId,
+        APXMessageType.AGENT_EXECUTION_STARTED,
+        payload,
+        context.sessionId,
+      );
+
+      this.logger.log(
+        `Agent execution started: ${payload.execution_id} for agent ${payload.agent_id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle agent execution start: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async handleToolCallStart(
+    payload: IAPXToolCallStart,
+    context: { userId: string; organizationId: string; sessionId: string },
+  ): Promise<void> {
+    try {
+      // Create streaming session for tool call
+      const streamingSession: IAPXStreamingSession = {
+        session_id: context.sessionId,
+        stream_id: payload.tool_call_id,
+        stream_type: 'tool_call',
+        state: APXStreamState.STREAMING,
+        created_at: new Date().toISOString(),
+        last_activity: new Date().toISOString(),
+        buffer_size: 0,
+        compression_enabled: false, // Tools usually don't need compression
+        encryption_enabled: true,
+      };
+
+      this.activeStreams.set(payload.tool_call_id, streamingSession);
+
+      // Store tool call context
+      this.executionContexts.set(payload.tool_call_id, {
+        ...context,
+        toolId: payload.tool_id,
+        startTime: new Date(),
+        parameters: payload.parameters,
+      });
+
+      // Broadcast tool call started event
+      await this.broadcastAPXMessage(
+        context.organizationId,
+        APXMessageType.TOOL_CALL_START,
+        payload,
+        context.sessionId,
+      );
+
+      this.logger.log(
+        `Tool call started: ${payload.tool_call_id} for tool ${payload.tool_id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle tool call start: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async handleHITLRequest(
+    payload: IAPXHITLRequestCreated,
+    context: { userId: string; organizationId: string; sessionId: string },
+  ): Promise<void> {
+    try {
+      // Store HITL request context
+      this.executionContexts.set(payload.request_id, {
+        ...context,
+        requestType: payload.request_type,
+        createdAt: new Date(),
+        priority: payload.priority,
+      });
+
+      // Broadcast HITL request to appropriate users
+      await this.broadcastAPXMessage(
+        context.organizationId,
+        APXMessageType.HITL_REQUEST_CREATED,
+        payload,
+        context.sessionId,
+        {
+          targetRoles: payload.assignee_roles,
+          targetUsers: payload.assignee_users,
+        },
+      );
+
+      this.logger.log(
+        `HITL request created: ${payload.request_id} with priority ${payload.priority}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle HITL request: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async handleKnowledgeSearch(
+    payload: IAPXKBSearchPerformed,
+    context: { userId: string; organizationId: string; sessionId: string },
+  ): Promise<void> {
+    try {
+      // Create streaming session for knowledge search
+      const streamingSession: IAPXStreamingSession = {
+        session_id: context.sessionId,
+        stream_id: payload.search_id,
+        stream_type: 'knowledge_search',
+        state: APXStreamState.STREAMING,
+        created_at: new Date().toISOString(),
+        last_activity: new Date().toISOString(),
+        buffer_size: 0,
+        compression_enabled: true,
+        encryption_enabled: true,
+      };
+
+      this.activeStreams.set(payload.search_id, streamingSession);
+
+      // Store search context
+      this.executionContexts.set(payload.search_id, {
+        ...context,
+        query: payload.query,
+        searchType: payload.search_type,
+        startTime: new Date(),
+      });
+
+      // Broadcast knowledge search event
+      await this.broadcastAPXMessage(
+        context.organizationId,
+        APXMessageType.KB_SEARCH_PERFORMED,
+        payload,
+        context.sessionId,
+      );
+
+      this.logger.log(
+        `Knowledge search performed: ${payload.search_id} with query "${payload.query}"`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle knowledge search: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async handleWidgetQuery(
+    payload: IAPXWidgetQuerySubmitted,
+    context: { userId: string; organizationId: string; sessionId: string },
+  ): Promise<void> {
+    try {
+      // Store widget interaction context
+      this.executionContexts.set(payload.interaction_id, {
+        ...context,
+        widgetId: payload.widget_id,
+        query: payload.query,
+        queryType: payload.query_type,
+        startTime: new Date(),
+      });
+
+      // Broadcast widget query event
+      await this.broadcastAPXMessage(
+        context.organizationId,
+        APXMessageType.WIDGET_QUERY_SUBMITTED,
+        payload,
+        context.sessionId,
+      );
+
+      this.logger.log(
+        `Widget query submitted: ${payload.interaction_id} for widget ${payload.widget_id}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle widget query: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async handleStreamControl(
+    executionId: string,
+    action: 'pause' | 'resume',
+    context: { userId: string; organizationId: string; reason?: string },
+  ): Promise<void> {
+    try {
+      const streamingSession = this.activeStreams.get(executionId);
+      if (!streamingSession) {
+        throw new Error(`Streaming session not found: ${executionId}`);
+      }
+
+      // Update stream state
+      streamingSession.state =
+        action === 'pause' ? APXStreamState.PAUSED : APXStreamState.STREAMING;
+      streamingSession.last_activity = new Date().toISOString();
+
+      // Broadcast stream control event
+      const controlPayload = {
+        execution_id: executionId,
+        action,
+        requested_by: context.userId,
+        reason: context.reason,
+        timestamp: new Date().toISOString(),
+      };
+
+      await this.broadcastAPXMessage(
+        context.organizationId,
+        action === 'pause'
+          ? APXMessageType.STREAM_PAUSE
+          : APXMessageType.STREAM_RESUME,
+        controlPayload,
+        streamingSession.session_id,
+      );
+
+      this.logger.log(
+        `Stream ${action}d: ${executionId} by user ${context.userId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle stream control: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  // Stream text chunks for agent responses
+  async streamTextChunk(
+    executionId: string,
+    chunkId: string,
+    text: string,
+    isFinal: boolean = false,
+    tokenCount: number = 0,
+  ): Promise<void> {
+    try {
+      const streamingSession = this.activeStreams.get(executionId);
+      const executionContext = this.executionContexts.get(executionId);
+
+      if (!streamingSession || !executionContext) {
+        this.logger.warn(
+          `No active stream found for execution: ${executionId}`,
+        );
+        return;
+      }
+
+      // Update token count
+      executionContext.tokenCount += tokenCount;
+
+      const chunkPayload = {
+        execution_id: executionId,
+        chunk_id: chunkId,
+        text,
+        is_final: isFinal,
+        token_count: tokenCount,
+        cumulative_tokens: executionContext.tokenCount,
+      };
+
+      // Broadcast text chunk
+      await this.broadcastAPXMessage(
+        executionContext.organizationId,
+        APXMessageType.AGENT_TEXT_CHUNK,
+        chunkPayload,
+        streamingSession.session_id,
+      );
+
+      // Update stream state if final
+      if (isFinal) {
+        streamingSession.state = APXStreamState.COMPLETED;
+        streamingSession.last_activity = new Date().toISOString();
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to stream text chunk: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  // Complete execution and cleanup
+  async completeExecution(
+    executionId: string,
+    finalResponse: string,
+    executionStats: any,
+  ): Promise<void> {
+    try {
+      const streamingSession = this.activeStreams.get(executionId);
+      const executionContext = this.executionContexts.get(executionId);
+
+      if (!streamingSession || !executionContext) {
+        this.logger.warn(`No active execution found: ${executionId}`);
+        return;
+      }
+
+      // Calculate execution time
+      const executionTimeMs = Date.now() - executionContext.startTime.getTime();
+
+      const completionPayload = {
+        execution_id: executionId,
+        final_response: finalResponse,
+        total_tokens: executionContext.tokenCount,
+        execution_time_ms: executionTimeMs,
+        tools_used: executionContext.toolCalls || [],
+        memory_updates: [],
+        cost_breakdown: executionStats.costBreakdown || {
+          model_cost: 0,
+          tool_cost: 0,
+          total_cost: 0,
+        },
+      };
+
+      // Broadcast completion event
+      await this.broadcastAPXMessage(
+        executionContext.organizationId,
+        APXMessageType.AGENT_EXECUTION_COMPLETE,
+        completionPayload,
+        streamingSession.session_id,
+      );
+
+      // Cleanup
+      streamingSession.state = APXStreamState.COMPLETED;
+      this.activeStreams.delete(executionId);
+      this.executionContexts.delete(executionId);
+
+      this.logger.log(
+        `Execution completed: ${executionId} in ${executionTimeMs}ms`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to complete execution: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  // Handle execution errors
+  async handleExecutionError(
+    executionId: string,
+    errorType: string,
+    errorMessage: string,
+    errorDetails?: any,
+  ): Promise<void> {
+    try {
+      const streamingSession = this.activeStreams.get(executionId);
+      const executionContext = this.executionContexts.get(executionId);
+
+      if (!streamingSession || !executionContext) {
+        this.logger.warn(`No active execution found for error: ${executionId}`);
+        return;
+      }
+
+      const errorPayload = {
+        execution_id: executionId,
+        error_type: errorType,
+        error_code: `EXECUTION_${errorType.toUpperCase()}`,
+        error_message: errorMessage,
+        error_details: errorDetails,
+        retry_possible: this.isRetryPossible(errorType),
+        suggested_action: this.getSuggestedAction(errorType),
+      };
+
+      // Broadcast error event
+      await this.broadcastAPXMessage(
+        executionContext.organizationId,
+        APXMessageType.AGENT_ERROR,
+        errorPayload,
+        streamingSession.session_id,
+      );
+
+      // Update stream state
+      streamingSession.state = APXStreamState.ERROR;
+      streamingSession.last_activity = new Date().toISOString();
+
+      this.logger.error(
+        `Execution error: ${executionId} - ${errorType}: ${errorMessage}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle execution error: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  // Broadcast APIX message to organization
+  private async broadcastAPXMessage(
+    organizationId: string,
+    messageType: APXMessageType,
+    payload: any,
+    sessionId: string,
+    options?: {
+      targetRoles?: string[];
+      targetUsers?: string[];
+    },
+  ): Promise<void> {
+    if (!this.server) {
+      this.logger.warn('WebSocket server not initialized');
+      return;
+    }
+
+    const message: IAPXMessage = {
+      type: messageType,
+      session_id: sessionId,
+      payload,
+      timestamp: new Date().toISOString(),
+      request_id: uuidv4(),
+      organization_id: organizationId,
+    };
+
+    if (options?.targetRoles || options?.targetUsers) {
+      // Targeted broadcast to specific roles or users
+      if (options.targetRoles) {
+        for (const role of options.targetRoles) {
+          this.server
+            .to(`role:${role}:${organizationId}`)
+            .emit('apx_message', message);
+        }
+      }
+      if (options.targetUsers) {
+        for (const userId of options.targetUsers) {
+          this.server.to(`user:${userId}`).emit('apx_message', message);
+        }
+      }
+    } else {
+      // Broadcast to entire organization
+      this.server.to(`org:${organizationId}`).emit('apx_message', message);
+    }
+
+    this.logger.debug(
+      `Broadcasted APIX message: ${messageType} to organization ${organizationId}`,
+    );
+  }
+
+  // Get active streaming sessions
+  getActiveStreams(): IAPXStreamingSession[] {
+    return Array.from(this.activeStreams.values());
+  }
+
+  // Get execution context
+  getExecutionContext(executionId: string): any {
+    return this.executionContexts.get(executionId);
+  }
+
+  // Helper methods
+  private isRetryPossible(errorType: string): boolean {
+    const retryableErrors = ['timeout', 'rate_limit', 'provider'];
+    return retryableErrors.includes(errorType.toLowerCase());
+  }
+
+  private getSuggestedAction(errorType: string): string {
+    const suggestions = {
+      validation: 'Check input parameters and try again',
+      timeout: 'Retry with a longer timeout or smaller input',
+      rate_limit: 'Wait and retry, or upgrade your plan',
+      provider: 'Try again or switch to a different AI provider',
+      execution: 'Review the error details and modify your request',
+    };
+
+    return (
+      suggestions[errorType.toLowerCase()] || 'Contact support for assistance'
+    );
   }
 }

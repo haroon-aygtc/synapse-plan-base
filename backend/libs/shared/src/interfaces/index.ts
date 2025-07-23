@@ -237,7 +237,7 @@ export interface IJwtPayload {
   email: string;
   organizationId: string;
   role: UserRole;
-  iat?: number;
+  iat: number;
   exp?: number;
   tokenVersion?: number;
 }
@@ -260,6 +260,46 @@ export interface IPaginatedResponse<T = any> extends IApiResponse<T[]> {
 }
 
 export * from './websocket.interface';
+export * from './session.interface';
+
+// JWT and Auth interfaces
+export interface IJwtPayload {
+  sub: string;
+  email: string;
+  organizationId: string;
+  role: UserRole;
+  iat: number;
+  exp?: number;
+}
+
+export interface IUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  organizationId: string;
+    isActive: boolean;
+    createdAt: Date;
+  updatedAt: Date;
+  lastLoginAt?: Date;
+  organization?: {
+    id: string;
+    name: string;
+    isActive: boolean;
+  };
+}
+
+// Message tracking interface
+export interface MessageTrackingInfo {
+  messageId: string;
+  event: string;
+  organizationId: string;
+  userId?: string;
+  timestamp: Date;
+  payload: any;
+  size: number;
+}
 
 export interface IWebSocketMessage {
   event: string;
@@ -279,7 +319,7 @@ export interface IConnectionInfo {
   id: string;
   userId: string;
   organizationId: string;
-  role?: string;
+  role?: UserRole;
   connectedAt: Date;
   lastHeartbeat: Date;
   userAgent?: string;

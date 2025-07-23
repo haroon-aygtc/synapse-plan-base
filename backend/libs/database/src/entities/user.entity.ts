@@ -12,6 +12,8 @@ import { Agent } from './agent.entity';
 import { Tool } from './tool.entity';
 import { Workflow } from './workflow.entity';
 import { Session } from './session.entity';
+import { APXSession } from './apix-session.entity';
+import { APXExecution } from './apix-execution.entity';
 import { UserRole } from '@shared/interfaces';
 
 @Entity('users')
@@ -76,6 +78,12 @@ export class User extends BaseEntity {
 
   @OneToMany(() => Session, (session) => session.user)
   sessions: Session[];
+
+  @OneToMany(() => APXSession, (session) => session.user)
+  apixSessions: APXSession[];
+
+  @OneToMany(() => APXExecution, (execution) => execution.user)
+  apixExecutions: APXExecution[];
 
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`;

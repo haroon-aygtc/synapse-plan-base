@@ -11,6 +11,7 @@ import { databaseConfig } from '@database/config';
 import { AuthModule } from './auth/auth.module';
 import { SessionModule } from './session/session.module';
 import { AgentModule } from './agent/agent.module';
+import { PromptTemplateModule } from './prompt-template/prompt-template.module';
 import { ToolModule } from './tool/tool.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
@@ -80,6 +81,7 @@ import { WebsocketModule } from './websocket/websocket.module';
     AuthModule,
     SessionModule,
     AgentModule,
+    PromptTemplateModule,
     ToolModule,
     WorkflowModule,
     KnowledgeModule,
