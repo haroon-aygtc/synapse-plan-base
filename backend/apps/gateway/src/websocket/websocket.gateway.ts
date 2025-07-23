@@ -24,7 +24,7 @@ import {
   IsArray,
   ValidateNested,
 } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import {
   APXMessageType,
   APXSecurityLevel,
@@ -32,14 +32,12 @@ import {
 } from '@shared/enums';
 import {
   IAPXMessage,
-  IAPXSessionContext,
   IAPXMessageSchema,
   IAPXValidationError,
   IAPXPermissionDenied,
   IAPXRateLimitExceeded,
 } from '@shared/interfaces';
 import { v4 as uuidv4 } from 'uuid';
-import { type } from 'os';
 
 class WebSocketMessageDto {
   @IsString()
@@ -127,8 +125,7 @@ class APXSubscriptionDto {
 })
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class WebSocketGatewayImpl
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
-{
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
@@ -161,8 +158,13 @@ export class WebSocketGatewayImpl
   }
 
   private initializeMessageSchemas(): void {
-    // Message schemas are now handled by APXSchemaService
-    // This method is kept for backward compatibility but delegates to the service
+    // Load schemas from the APXSchemaService
+    for (const messageType of Object.values(APXMessageType)) {
+      const schema = this.apxSchemaService.getMessageSchema(messageType as APXMessageType);
+      if (schema) {
+        this.messageSchemas.set(messageType as APXMessageType, schema);
+      }
+    }
   }
 
   private startRateLimitCleanup(): void {
@@ -1433,60 +1435,27 @@ export class WebSocketGatewayImpl
     return limiter?.count || 0;
   }
 
+  // These methods are now handled by APXPermissionService
+  // Keeping these as thin wrappers for backward compatibility
   private getRateLimit(
     role: string,
     limitType: 'messages' | 'executions' | 'streams',
   ): number {
-    const limits = {
-      SUPER_ADMIN: { messages: 1000, executions: 500, streams: 50 },
-      ORG_ADMIN: { messages: 500, executions: 200, streams: 20 },
-      DEVELOPER: { messages: 200, executions: 100, streams: 10 },
-      VIEWER: { messages: 50, executions: 10, streams: 2 },
-    };
-
-    return limits[role]?.[limitType] || limits.VIEWER[limitType];
+    return this.apxPermissionService.getRateLimit(role, limitType);
   }
 
   private getSecurityLevel(role: string): APXSecurityLevel {
-    if (['SUPER_ADMIN', 'ORG_ADMIN'].includes(role)) {
-      return APXSecurityLevel.PRIVATE;
-    }
-    return APXSecurityLevel.AUTHENTICATED;
+    return this.apxPermissionService.getSecurityLevel(role);
   }
 
   private getPermissions(role: string): APXPermissionLevel[] {
-    const permissions = {
-      SUPER_ADMIN: [
-        APXPermissionLevel.READ,
-        APXPermissionLevel.WRITE,
-        APXPermissionLevel.ADMIN,
-        APXPermissionLevel.EXECUTE,
-      ],
-      ORG_ADMIN: [
-        APXPermissionLevel.READ,
-        APXPermissionLevel.WRITE,
-        APXPermissionLevel.ADMIN,
-        APXPermissionLevel.EXECUTE,
-      ],
-      DEVELOPER: [
-        APXPermissionLevel.READ,
-        APXPermissionLevel.WRITE,
-        APXPermissionLevel.EXECUTE,
-      ],
-      VIEWER: [APXPermissionLevel.READ],
-    };
-
-    return permissions[role] || permissions.VIEWER;
+    return this.apxPermissionService.getPermissions(role);
   }
 
   private getRequiredPermission(
     messageType: APXMessageType,
   ): APXPermissionLevel {
-    const schema = this.messageSchemas.get(messageType);
-    return (
-      schema?.security_requirements.min_permission_level ||
-      APXPermissionLevel.READ
-    );
+    return this.apxPermissionService.getRequiredPermission(messageType);
   }
 
   private sendAPXMessage(

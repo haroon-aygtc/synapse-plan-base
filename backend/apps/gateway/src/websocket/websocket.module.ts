@@ -3,11 +3,12 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { RedisModule } from '@nestjs-modules/ioredis';
+import { RedisModule } from '@liaoliaots/nestjs-redis';
 import { WebSocketGatewayImpl } from './websocket.gateway';
 import { ConnectionService } from './connection.service';
 import { WebSocketService } from './websocket.service';
 import { APXSchemaService } from './apix-schema.service';
+import { APXPermissionService } from './apix-permission.service';
 import {
   User,
   Organization,
@@ -42,23 +43,18 @@ import { UserService } from '../auth/user.service';
     RedisModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        type: 'single',
-        url:
-          configService.get('REDIS_URL') ||
-          `redis://${configService.get('REDIS_HOST', 'localhost')}:${configService.get('REDIS_PORT', 6379)}`,
-        password: configService.get('REDIS_PASSWORD'),
-        db: configService.get('REDIS_WS_DB', 2), // Use separate DB for WebSocket data
-        enableReadyCheck: true,
-        maxRetriesPerRequest: 3,
-        lazyConnect: true,
-        keepAlive: 30000,
-        family: 4,
-        keyPrefix: 'synapseai:ws:',
-        // Connection pooling configuration
-        retryDelayOnFailover: 100,
-        enableOfflineQueue: false,
-        connectTimeout: 10000,
-        commandTimeout: 5000,
+        config: {
+          url: configService.get('REDIS_URL'),
+          host: configService.get('REDIS_HOST', 'localhost'),
+          port: configService.get('REDIS_PORT', 6379),
+          password: configService.get('REDIS_PASSWORD'),
+          db: configService.get('REDIS_WS_DB', 2),
+          keyPrefix: 'synapseai:ws:',
+          // Simplified connection options
+          connectTimeout: 10000,
+          commandTimeout: 5000,
+          maxRetriesPerRequest: 3,
+        },
       }),
     }),
   ],
@@ -67,6 +63,7 @@ import { UserService } from '../auth/user.service';
     ConnectionService,
     WebSocketService,
     APXSchemaService,
+    APXPermissionService,
     UserService,
   ],
   exports: [WebSocketService, ConnectionService],
