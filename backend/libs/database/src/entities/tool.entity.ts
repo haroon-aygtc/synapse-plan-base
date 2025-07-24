@@ -47,6 +47,40 @@ export class Tool extends BaseEntity {
   @Column({ type: 'uuid' })
   userId: string;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  version?: string;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  iconUrl?: string;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  documentationUrl?: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 4, nullable: true })
+  costPerExecution?: number;
+
+  @Column({ type: 'boolean', default: false })
+  isPublic: boolean;
+
+  @Column({ type: 'jsonb', nullable: true })
+  rateLimit?: {
+    requestsPerMinute: number;
+    burstLimit?: number;
+  };
+
+  @Column({ type: 'integer', default: 30000 })
+  timeout: number;
+
+  @Column({ type: 'jsonb', nullable: true })
+  retryConfig?: {
+    maxRetries: number;
+    backoffMultiplier: number;
+    initialDelay: number;
+  };
+
+  @Column({ type: 'simple-array', nullable: true })
+  tags?: string[];
+
   @ManyToOne(() => Organization, (organization) => organization.tools)
   @JoinColumn({ name: 'organizationId' })
   organization: Organization;

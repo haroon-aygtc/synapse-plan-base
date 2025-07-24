@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Tool, ToolExecution } from '@database/entities';
 import { ExecuteToolDto } from './dto';
-import { ExecutionStatus, EventType } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 
@@ -33,18 +33,22 @@ export class ToolExecutionEngine {
     const execution = this.toolExecutionRepository.create({
       id: executionId,
       toolId,
-      functionName: executeToolDto.functionName,
-      parameters: executeToolDto.parameters,
+      sessionId: uuidv4(), // Generate session ID
+      input: executeToolDto.parameters,
       status: ExecutionStatus.RUNNING,
-      callerType: executeToolDto.callerType || 'user',
-      callerId: executeToolDto.callerId,
+      context: {
+        functionName: executeToolDto.functionName,
+        callerType: executeToolDto.callerType || 'user',
+        callerId: executeToolDto.callerId,
+      },
+      startedAt: new Date(),
       createdAt: new Date(),
     });
 
     await this.toolExecutionRepository.save(execution);
 
     // Emit execution started event
-    this.eventEmitter.emit(EventType.TOOL_EXECUTION_STARTED, {
+    this.eventEmitter.emit('tool.execution.started', {
       toolId,
       executionId,
       functionName: executeToolDto.functionName,
@@ -58,7 +62,7 @@ export class ToolExecutionEngine {
 
       // Update execution record
       execution.status = ExecutionStatus.COMPLETED;
-      execution.result = result;
+      execution.output = result;
       execution.executionTimeMs = executionTime;
       execution.cost = this.calculateCost(tool, executionTime);
       execution.completedAt = new Date();
@@ -66,7 +70,7 @@ export class ToolExecutionEngine {
       await this.toolExecutionRepository.save(execution);
 
       // Emit execution completed event
-      this.eventEmitter.emit(EventType.TOOL_EXECUTION_COMPLETED, {
+      this.eventEmitter.emit('tool.execution.completed', {
         toolId,
         executionId,
         result,
@@ -86,7 +90,7 @@ export class ToolExecutionEngine {
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      
+
       // Update execution record with error
       execution.status = ExecutionStatus.FAILED;
       execution.error = error.message;
@@ -96,7 +100,7 @@ export class ToolExecutionEngine {
       await this.toolExecutionRepository.save(execution);
 
       // Emit execution failed event
-      this.eventEmitter.emit(EventType.TOOL_EXECUTION_FAILED, {
+      this.eventEmitter.emit('tool.execution.failed', {
         toolId,
         executionId,
         error: error.message,
@@ -107,7 +111,10 @@ export class ToolExecutionEngine {
     }
   }
 
-  private async performToolExecution(tool: Tool, executeToolDto: ExecuteToolDto) {
+  private async performToolExecution(
+    tool: Tool,
+    executeToolDto: ExecuteToolDto,
+  ) {
     const { endpoint, method, headers } = tool;
     const { parameters } = executeToolDto;
 
