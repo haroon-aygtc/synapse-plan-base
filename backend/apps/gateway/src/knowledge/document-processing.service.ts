@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { KnowledgeDocument } from '@database/entities';
-import { DocumentStatus, EventType } from '@shared/enums';
+import { DocumentStatus, AgentEventType as EventType } from '@shared/enums';
 import { VectorSearchService } from './vector-search.service';
 import OpenAI from 'openai';
 import { ConfigService } from '@nestjs/config';
@@ -50,10 +50,10 @@ export class DocumentProcessingService {
 
       // Extract and chunk content
       const chunks = await this.chunkDocument(document.content, document.type);
-      
+
       // Generate embeddings for each chunk
       const embeddedChunks = await this.generateEmbeddings(chunks);
-      
+
       // Store in vector database
       await this.vectorSearchService.indexDocument({
         documentId: document.id,
@@ -78,7 +78,7 @@ export class DocumentProcessingService {
         embeddingModel: 'text-embedding-3-small',
         processedAt: new Date(),
       };
-      
+
       await this.documentRepository.save(document);
 
       // Emit processing completed event
@@ -117,13 +117,18 @@ export class DocumentProcessingService {
 
     // Simple text chunking - in production, use more sophisticated methods
     if (type === 'text' || type === 'markdown') {
-      const paragraphs = content.split('\n\n').filter(p => p.trim().length > 0);
-      
+      const paragraphs = content
+        .split('\n\n')
+        .filter((p) => p.trim().length > 0);
+
       let currentChunk = '';
       let chunkIndex = 0;
-      
+
       for (const paragraph of paragraphs) {
-        if (currentChunk.length + paragraph.length > maxChunkSize && currentChunk.length > 0) {
+        if (
+          currentChunk.length + paragraph.length > maxChunkSize &&
+          currentChunk.length > 0
+        ) {
           chunks.push({
             text: currentChunk.trim(),
             metadata: {
@@ -132,7 +137,7 @@ export class DocumentProcessingService {
               length: currentChunk.length,
             },
           });
-          
+
           // Add overlap
           const words = currentChunk.split(' ');
           const overlapWords = words.slice(-Math.floor(overlapSize / 5));
@@ -142,7 +147,7 @@ export class DocumentProcessingService {
           currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
         }
       }
-      
+
       if (currentChunk.trim()) {
         chunks.push({
           text: currentChunk.trim(),
@@ -180,7 +185,7 @@ export class DocumentProcessingService {
 
     for (let i = 0; i < chunks.length; i += batchSize) {
       const batch = chunks.slice(i, i + batchSize);
-      const texts = batch.map(chunk => chunk.text);
+      const texts = batch.map((chunk) => chunk.text);
 
       try {
         const response = await this.openai.embeddings.create({
@@ -198,7 +203,7 @@ export class DocumentProcessingService {
 
         // Small delay to respect rate limits
         if (i + batchSize < chunks.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       } catch (error) {
         this.logger.error(
@@ -223,7 +228,7 @@ export class DocumentProcessingService {
 
     // Remove from vector database first
     await this.vectorSearchService.removeDocument(documentId);
-    
+
     // Reset status and reprocess
     document.status = DocumentStatus.UPLOADED;
     document.error = null;
@@ -244,7 +249,10 @@ export class DocumentProcessingService {
       .createQueryBuilder('doc')
       .select('doc.status', 'status')
       .addSelect('COUNT(*)', 'count')
-      .addSelect('AVG(EXTRACT(EPOCH FROM (doc.processedAt - doc.createdAt)))', 'avgTime')
+      .addSelect(
+        'AVG(EXTRACT(EPOCH FROM (doc.processedAt - doc.createdAt)))',
+        'avgTime',
+      )
       .where('doc.organizationId = :organizationId', { organizationId })
       .groupBy('doc.status')
       .getRawMany();
@@ -259,7 +267,7 @@ export class DocumentProcessingService {
 
     for (const stat of stats) {
       result.totalDocuments += parseInt(stat.count);
-      
+
       switch (stat.status) {
         case DocumentStatus.PROCESSING:
           result.processingDocuments = parseInt(stat.count);
