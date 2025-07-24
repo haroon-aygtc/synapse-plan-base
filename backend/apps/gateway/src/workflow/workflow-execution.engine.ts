@@ -1147,27 +1147,90 @@ export class WorkflowExecutionEngine {
       requestedAt: new Date(),
     });
 
-    // Pause workflow execution
+    // Pause workflow execution and wait for approval
     await this.pause(context.executionId);
 
-    // Return pending result - actual resolution will happen via event handlers
-    const executionTime = Date.now() - startTime;
+    // Set up event listener for HITL resolution
+    const approvalPromise = this.waitForHITLApproval(
+      hitlRequest.id,
+      hitlConfig.timeout || 86400000,
+    );
 
-    return {
-      output: {
-        hitlRequestId: hitlRequest.id,
-        status: 'pending_approval',
-        requestType: hitlConfig.type,
-      },
-      cost: 0,
-      executionTime,
-      metadata: {
-        requestId: hitlRequest.id,
-        requestType: hitlConfig.type,
-        stepId: step.id,
-        pausedForApproval: true,
-      },
-    };
+    try {
+      const approval = await approvalPromise;
+
+      // Update HITL request status in context
+      const hitlRequestIndex = context.hitlRequests.findIndex(
+        (r) => r.requestId === hitlRequest.id,
+      );
+      if (hitlRequestIndex !== -1) {
+        context.hitlRequests[hitlRequestIndex].status = approval.approved
+          ? 'approved'
+          : 'rejected';
+        context.hitlRequests[hitlRequestIndex].resolvedAt = new Date();
+        context.hitlRequests[hitlRequestIndex].resolvedBy = approval.resolvedBy;
+        context.hitlRequests[hitlRequestIndex].resolution = approval;
+      }
+
+      // Resume workflow execution
+      await this.resume(context.executionId);
+
+      const executionTime = Date.now() - startTime;
+
+      if (!approval.approved) {
+        throw new Error(
+          `HITL request rejected: ${approval.reason || 'No reason provided'}`,
+        );
+      }
+
+      return {
+        output: {
+          hitlRequestId: hitlRequest.id,
+          status: 'approved',
+          requestType: hitlConfig.type,
+          approvalData: approval,
+        },
+        cost: 0,
+        executionTime,
+        metadata: {
+          requestId: hitlRequest.id,
+          requestType: hitlConfig.type,
+          stepId: step.id,
+          approved: true,
+          resolvedBy: approval.resolvedBy,
+          approvalTime: executionTime,
+        },
+      };
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+
+      // Update HITL request status in context
+      const hitlRequestIndex = context.hitlRequests.findIndex(
+        (r) => r.requestId === hitlRequest.id,
+      );
+      if (hitlRequestIndex !== -1) {
+        context.hitlRequests[hitlRequestIndex].status = 'expired';
+        context.hitlRequests[hitlRequestIndex].resolvedAt = new Date();
+      }
+
+      return {
+        output: {
+          hitlRequestId: hitlRequest.id,
+          status: 'failed',
+          requestType: hitlConfig.type,
+          error: error.message,
+        },
+        cost: 0,
+        executionTime,
+        metadata: {
+          requestId: hitlRequest.id,
+          requestType: hitlConfig.type,
+          stepId: step.id,
+          approved: false,
+          error: error.message,
+        },
+      };
+    }
   }
 
   private async findNextStep(
@@ -1378,7 +1441,7 @@ export class WorkflowExecutionEngine {
     current[keys[keys.length - 1]] = value;
   }
 
-  private async waitForHitlApproval(
+  private async waitForHITLApproval(
     requestId: string,
     timeout: number,
   ): Promise<{
@@ -1388,17 +1451,65 @@ export class WorkflowExecutionEngine {
     data?: Record<string, any>;
     resolution?: any;
   }> {
-    // This is a placeholder implementation
-    // In a real system, this would wait for actual human approval
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          approved: true,
-          resolvedBy: 'system',
-          reason: 'Auto-approved for demo',
-          data: {},
-        });
-      }, 1000); // Simulate 1 second approval time
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new Error('HITL request timed out'));
+      }, timeout);
+
+      // Set up event listener for HITL resolution
+      const handleHITLResolution = (data: any) => {
+        if (data.requestId === requestId) {
+          clearTimeout(timeoutId);
+          this.eventEmitter.off('hitl.request.resolved', handleHITLResolution);
+
+          resolve({
+            approved: data.approved,
+            resolvedBy: data.resolvedBy,
+            reason: data.reason,
+            data: data.decisionData,
+            resolution: data,
+          });
+        }
+      };
+
+      // Listen for HITL resolution events
+      this.eventEmitter.on('hitl.request.resolved', handleHITLResolution);
+
+      // Also listen for specific approval/rejection events
+      const handleApproval = (data: any) => {
+        if (data.requestId === requestId) {
+          clearTimeout(timeoutId);
+          this.eventEmitter.off('hitl.request.approved', handleApproval);
+          this.eventEmitter.off('hitl.request.rejected', handleRejection);
+
+          resolve({
+            approved: true,
+            resolvedBy: data.userId,
+            reason: data.reason,
+            data: data.decisionData,
+            resolution: data,
+          });
+        }
+      };
+
+      const handleRejection = (data: any) => {
+        if (data.requestId === requestId) {
+          clearTimeout(timeoutId);
+          this.eventEmitter.off('hitl.request.approved', handleApproval);
+          this.eventEmitter.off('hitl.request.rejected', handleRejection);
+
+          resolve({
+            approved: false,
+            resolvedBy: data.userId,
+            reason: data.reason,
+            data: data.decisionData,
+            resolution: data,
+          });
+        }
+      };
+
+      this.eventEmitter.on('hitl.request.approved', handleApproval);
+      this.eventEmitter.on('hitl.request.rejected', handleRejection);
     });
   }
 

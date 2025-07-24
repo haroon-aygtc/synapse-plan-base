@@ -65,20 +65,27 @@ export class BillingService {
       1,
     );
 
-    // Get current usage from organization quotas
-    const quotas = organization.quotas || {
-      agentExecutions: 1000,
-      toolExecutions: 5000,
-      knowledgeStorage: 10,
-      apiCalls: 10000,
+    // Get real-time usage from database aggregations
+    const [agentUsage, toolUsage, knowledgeUsage, apiUsage] = await Promise.all(
+      [
+        this.getAgentExecutionUsage(organizationId, startOfMonth),
+        this.getToolExecutionUsage(organizationId, startOfMonth),
+        this.getKnowledgeStorageUsage(organizationId),
+        this.getApiCallUsage(organizationId, startOfMonth),
+      ],
+    );
+
+    const quotas = this.getQuotasForPlan(subscription?.planType || 'free');
+
+    const usage = {
+      agentExecutions: agentUsage,
+      toolExecutions: toolUsage,
+      knowledgeStorage: knowledgeUsage,
+      apiCalls: apiUsage,
     };
 
-    const usage = organization.usage || {
-      agentExecutions: 0,
-      toolExecutions: 0,
-      knowledgeStorage: 0,
-      apiCalls: 0,
-    };
+    // Check for quota violations and send alerts
+    await this.checkQuotaViolations(organizationId, usage, quotas);
 
     return {
       agentExecutions: {
@@ -332,5 +339,155 @@ export class BillingService {
     };
 
     return priceIds[planType] || priceIds.starter;
+  }
+
+  private async getAgentExecutionUsage(
+    organizationId: string,
+    startDate: Date,
+  ): Promise<number> {
+    const result = await this.organizationRepository.query(
+      `SELECT COUNT(*) as count FROM agent_execution 
+       WHERE "organizationId" = $1 AND "createdAt" >= $2`,
+      [organizationId, startDate],
+    );
+    return parseInt(result[0]?.count || '0');
+  }
+
+  private async getToolExecutionUsage(
+    organizationId: string,
+    startDate: Date,
+  ): Promise<number> {
+    const result = await this.organizationRepository.query(
+      `SELECT COUNT(*) as count FROM tool_execution 
+       WHERE "organizationId" = $1 AND "createdAt" >= $2`,
+      [organizationId, startDate],
+    );
+    return parseInt(result[0]?.count || '0');
+  }
+
+  private async getKnowledgeStorageUsage(
+    organizationId: string,
+  ): Promise<number> {
+    const result = await this.organizationRepository.query(
+      `SELECT COALESCE(SUM("fileSize"), 0) as total FROM knowledge_document 
+       WHERE "organizationId" = $1 AND "status" = 'PROCESSED'`,
+      [organizationId],
+    );
+    return Math.ceil(parseInt(result[0]?.total || '0') / (1024 * 1024 * 1024)); // Convert to GB
+  }
+
+  private async getApiCallUsage(
+    organizationId: string,
+    startDate: Date,
+  ): Promise<number> {
+    const result = await this.organizationRepository.query(
+      `SELECT COUNT(*) as count FROM (
+         SELECT id FROM agent_execution WHERE "organizationId" = $1 AND "createdAt" >= $2
+         UNION ALL
+         SELECT id FROM tool_execution WHERE "organizationId" = $1 AND "createdAt" >= $2
+         UNION ALL
+         SELECT id FROM workflow_execution WHERE "organizationId" = $1 AND "createdAt" >= $2
+       ) as combined`,
+      [organizationId, startDate],
+    );
+    return parseInt(result[0]?.count || '0');
+  }
+
+  private getQuotasForPlan(planType: string): any {
+    const quotas = {
+      free: {
+        agentExecutions: 100,
+        toolExecutions: 500,
+        knowledgeStorage: 1, // GB
+        apiCalls: 1000,
+      },
+      starter: {
+        agentExecutions: 1000,
+        toolExecutions: 5000,
+        knowledgeStorage: 10,
+        apiCalls: 10000,
+      },
+      professional: {
+        agentExecutions: 10000,
+        toolExecutions: 50000,
+        knowledgeStorage: 100,
+        apiCalls: 100000,
+      },
+      enterprise: {
+        agentExecutions: -1, // Unlimited
+        toolExecutions: -1,
+        knowledgeStorage: -1,
+        apiCalls: -1,
+      },
+    };
+    return quotas[planType] || quotas.free;
+  }
+
+  private async checkQuotaViolations(
+    organizationId: string,
+    usage: any,
+    quotas: any,
+  ): Promise<void> {
+    const violations = [];
+
+    Object.keys(usage).forEach((key) => {
+      if (quotas[key] !== -1 && usage[key] >= quotas[key] * 0.8) {
+        violations.push({
+          type: key,
+          used: usage[key],
+          limit: quotas[key],
+          percentage: (usage[key] / quotas[key]) * 100,
+        });
+      }
+    });
+
+    if (violations.length > 0) {
+      // Send quota warning notifications
+      for (const violation of violations) {
+        if (violation.percentage >= 100) {
+          await this.sendQuotaExceededAlert(organizationId, violation);
+        } else if (violation.percentage >= 80) {
+          await this.sendQuotaWarningAlert(organizationId, violation);
+        }
+      }
+    }
+  }
+
+  private async sendQuotaWarningAlert(
+    organizationId: string,
+    violation: any,
+  ): Promise<void> {
+    // Implementation would send notification via notification service
+    console.log(
+      `Quota warning for ${organizationId}: ${violation.type} at ${violation.percentage}%`,
+    );
+  }
+
+  private async sendQuotaExceededAlert(
+    organizationId: string,
+    violation: any,
+  ): Promise<void> {
+    // Implementation would send critical notification and potentially block further usage
+    console.log(
+      `Quota exceeded for ${organizationId}: ${violation.type} at ${violation.percentage}%`,
+    );
+  }
+
+  async enforceQuota(
+    organizationId: string,
+    resourceType: string,
+  ): Promise<boolean> {
+    const metrics = await this.getUsageMetrics(organizationId);
+    const resource = metrics[resourceType];
+
+    if (!resource) {
+      return true; // Allow if resource type not found
+    }
+
+    if (resource.limit === -1) {
+      return true; // Unlimited
+    }
+
+    return resource.used < resource.limit;
   }
 }

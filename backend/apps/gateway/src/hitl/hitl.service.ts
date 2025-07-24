@@ -844,29 +844,66 @@ export class HITLService {
 
   @Cron(CronExpression.EVERY_10_MINUTES)
   async handleAutoEscalation(): Promise<void> {
+    const now = new Date();
+    const escalationWindow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
     const escalationCandidates = await this.hitlRequestRepository.find({
       where: {
         status: In([HITLRequestStatus.PENDING, HITLRequestStatus.IN_PROGRESS]),
-        expiresAt: Between(
-          new Date(),
-          new Date(Date.now() + 24 * 60 * 60 * 1000),
-        ),
+        expiresAt: Between(now, escalationWindow),
       },
+      relations: ['requester', 'assignee'],
     });
 
     for (const request of escalationCandidates) {
-      if (request.shouldEscalate()) {
-        await this.escalateRequest(
-          request.id,
-          {
-            reason: HITLEscalationReason.TIMEOUT,
-            description: 'Auto-escalated due to timeout',
-          },
-          'system',
-          request.organizationId,
+      try {
+        // Check if request should be escalated based on escalation rules
+        if (this.shouldEscalateRequest(request)) {
+          await this.escalateRequest(
+            request.id,
+            {
+              reason: HITLEscalationReason.TIMEOUT,
+              description: `Auto-escalated due to approaching timeout. Original request created at ${request.createdAt.toISOString()}`,
+              justification:
+                'Automatic escalation triggered by system timeout rules',
+            },
+            'system',
+            request.organizationId,
+          );
+
+          this.logger.log(
+            `Auto-escalated HITL request ${request.id} due to timeout`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to auto-escalate request ${request.id}:`,
+          error,
         );
       }
     }
+  }
+
+  private shouldEscalateRequest(request: any): boolean {
+    const now = new Date();
+    const timeUntilExpiry = request.expiresAt.getTime() - now.getTime();
+    const totalTime = request.expiresAt.getTime() - request.createdAt.getTime();
+    const timeElapsed = now.getTime() - request.createdAt.getTime();
+
+    // Escalate if:
+    // 1. Less than 2 hours until expiry
+    // 2. More than 75% of total time has elapsed
+    // 3. Request has escalation rules enabled
+    const shouldEscalateByTime = timeUntilExpiry < 2 * 60 * 60 * 1000; // 2 hours
+    const shouldEscalateByProgress = timeElapsed > totalTime * 0.75;
+    const hasEscalationRules = request.escalationRules?.enabled;
+
+    return (
+      (shouldEscalateByTime || shouldEscalateByProgress) &&
+      hasEscalationRules &&
+      request.escalationLevel <
+        (request.escalationRules?.maxEscalationLevel || 3)
+    );
   }
 
   // Private Helper Methods

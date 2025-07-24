@@ -103,6 +103,16 @@ export default function ToolsPage() {
   const [loadingCostAnalysis, setLoadingCostAnalysis] = useState(false);
   const [toolConnections, setToolConnections] = useState<any>(null);
   const [loadingConnections, setLoadingConnections] = useState(false);
+  const [showAgentConnectionsDialog, setShowAgentConnectionsDialog] = useState(false);
+  const [showWorkflowConnectionsDialog, setShowWorkflowConnectionsDialog] = useState(false);
+  const [agentConnections, setAgentConnections] = useState<any>(null);
+  const [workflowConnections, setWorkflowConnections] = useState<any>(null);
+  const [loadingAgentConnections, setLoadingAgentConnections] = useState(false);
+  const [loadingWorkflowConnections, setLoadingWorkflowConnections] = useState(false);
+  const [testInContextDialog, setTestInContextDialog] = useState(false);
+  const [contextTestData, setContextTestData] = useState<any>(null);
+  const [contextTestResult, setContextTestResult] = useState<any>(null);
+  const [loadingContextTest, setLoadingContextTest] = useState(false);
 
   useEffect(() => {
     loadTools();
@@ -215,6 +225,19 @@ export default function ToolsPage() {
     loadToolAnalytics(tool.id);
     loadCostAnalysis(tool.id);
     loadToolConnections(tool.id);
+  };
+
+  const testToolInContext = async (toolId: string, testPayload: any) => {
+    setLoadingContextTest(true);
+    try {
+      const response = await api.post(`/tools/${toolId}/test-context`, testPayload);
+      setContextTestResult(response.data);
+    } catch (error) {
+      console.error('Context test failed:', error);
+      setContextTestResult({ success: false, error: 'Test failed' });
+    } finally {
+      setLoadingContextTest(false);
+    }
   };
 
   const filteredTools = tools.filter((tool) => {

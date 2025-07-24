@@ -921,37 +921,97 @@ export class TestingSandboxService {
     sandbox: TestingSandbox,
   ): Promise<void> {
     try {
-      // Create Docker container for isolated execution
+      // Create secure Docker container for isolated execution
       const container = await this.docker.createContainer({
         Image: 'node:18-alpine',
         name: `sandbox-${sandbox.id}`,
         Env: [
           `SANDBOX_ID=${sandbox.id}`,
           `ORGANIZATION_ID=${sandbox.organizationId}`,
+          `NODE_ENV=sandbox`,
+          `SANDBOX_TIMEOUT=${sandbox.resourceLimits.timeout}`,
         ],
         HostConfig: {
           Memory: this.parseMemoryLimit(sandbox.resourceLimits.memory),
           CpuQuota: this.parseCpuLimit(sandbox.resourceLimits.cpu),
           NetworkMode: sandbox.resourceLimits.networkAccess ? 'bridge' : 'none',
           AutoRemove: true,
+          ReadonlyRootfs: true,
+          SecurityOpt: ['no-new-privileges:true'],
+          CapDrop: ['ALL'],
+          CapAdd: ['CHOWN', 'SETUID', 'SETGID'],
+          Tmpfs: {
+            '/tmp': 'rw,noexec,nosuid,size=100m',
+            '/app/temp': 'rw,noexec,nosuid,size=50m',
+          },
+          Ulimits: [
+            { Name: 'nproc', Soft: 64, Hard: 64 },
+            { Name: 'nofile', Soft: 1024, Hard: 1024 },
+          ],
         },
         WorkingDir: '/app',
-        Cmd: ['tail', '-f', '/dev/null'], // Keep container running
+        User: '1000:1000', // Non-root user
+        Cmd: ['sh', '-c', 'while true; do sleep 30; done'], // Keep container running
+        AttachStdout: false,
+        AttachStderr: false,
+        AttachStdin: false,
+        Tty: false,
+        OpenStdin: false,
+        StdinOnce: false,
       });
 
       await container.start();
+
+      // Set up resource monitoring
+      const resourceMonitor = setInterval(async () => {
+        try {
+          const stats = await container.stats({ stream: false });
+          const memoryUsage = this.calculateMemoryUsage(stats);
+          const cpuUsage = this.calculateCpuUsage(stats);
+
+          // Check for resource violations
+          if (memoryUsage > 0.9) {
+            this.logger.warn(
+              `High memory usage in sandbox ${sandbox.id}: ${memoryUsage * 100}%`,
+            );
+          }
+
+          if (cpuUsage > 0.8) {
+            this.logger.warn(
+              `High CPU usage in sandbox ${sandbox.id}: ${cpuUsage * 100}%`,
+            );
+          }
+        } catch (error) {
+          // Container might be stopped, clear interval
+          clearInterval(resourceMonitor);
+        }
+      }, 10000); // Check every 10 seconds
+
+      // Set up automatic cleanup after timeout
+      setTimeout(async () => {
+        try {
+          await this.cleanupSandboxEnvironment(sandbox);
+          clearInterval(resourceMonitor);
+        } catch (error) {
+          this.logger.error(
+            `Failed to auto-cleanup sandbox ${sandbox.id}`,
+            error,
+          );
+        }
+      }, sandbox.resourceLimits.timeout);
 
       // Update sandbox with container info
       sandbox.containerInfo = {
         containerId: container.id,
         status: 'running',
         createdAt: new Date(),
+        resourceMonitorId: resourceMonitor[Symbol.toPrimitive]?.() || 'unknown',
       };
       sandbox.status = 'active';
 
       await this.sandboxRepository.save(sandbox);
 
-      this.logger.log(`Sandbox environment initialized: ${sandbox.id}`);
+      this.logger.log(`Secure sandbox environment initialized: ${sandbox.id}`);
     } catch (error) {
       this.logger.error(
         `Failed to initialize sandbox environment: ${sandbox.id}`,
@@ -1311,23 +1371,60 @@ export class TestingSandboxService {
   }
 
   private calculateCpuUsage(stats: any): number {
-    // Calculate CPU usage percentage from Docker stats
-    return 0; // Placeholder implementation
+    if (!stats.cpu_stats || !stats.precpu_stats) {
+      return 0;
+    }
+
+    const cpuDelta =
+      stats.cpu_stats.cpu_usage.total_usage -
+      stats.precpu_stats.cpu_usage.total_usage;
+    const systemDelta =
+      stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+    const numberCpus = stats.cpu_stats.online_cpus || 1;
+
+    if (systemDelta > 0 && cpuDelta > 0) {
+      return (cpuDelta / systemDelta) * numberCpus;
+    }
+    return 0;
   }
 
   private calculateMemoryUsage(stats: any): number {
-    // Calculate memory usage from Docker stats
-    return 0; // Placeholder implementation
+    if (!stats.memory_stats) {
+      return 0;
+    }
+
+    const usage = stats.memory_stats.usage || 0;
+    const limit = stats.memory_stats.limit || 1;
+
+    return usage / limit;
   }
 
   private calculateNetworkUsage(stats: any): number {
-    // Calculate network usage from Docker stats
-    return 0; // Placeholder implementation
+    if (!stats.networks) {
+      return 0;
+    }
+
+    let totalBytes = 0;
+    Object.values(stats.networks).forEach((network: any) => {
+      totalBytes += (network.rx_bytes || 0) + (network.tx_bytes || 0);
+    });
+
+    return totalBytes;
   }
 
   private calculateDiskUsage(stats: any): number {
-    // Calculate disk usage from Docker stats
-    return 0; // Placeholder implementation
+    if (!stats.blkio_stats || !stats.blkio_stats.io_service_bytes_recursive) {
+      return 0;
+    }
+
+    let totalBytes = 0;
+    stats.blkio_stats.io_service_bytes_recursive.forEach((entry: any) => {
+      if (entry.op === 'Read' || entry.op === 'Write') {
+        totalBytes += entry.value || 0;
+      }
+    });
+
+    return totalBytes;
   }
 
   private groupBy(array: any[], key: string): Record<string, number> {

@@ -78,7 +78,11 @@ export function HITLDashboard({ className }: HITLDashboardProps) {
     status: filters.status || undefined,
     priority: filters.priority || undefined,
     sourceType: filters.sourceType as 'agent' | 'tool' | 'workflow' | undefined,
+    assignedToMe: activeTab === 'assigned',
+    createdByMe: activeTab === 'my-requests',
     limit: 50,
+    sortBy: 'createdAt',
+    sortOrder: 'DESC',
   });
 
   if (dashboardLoading) {
