@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Tool, ToolExecution } from '@database/entities';
+import { Tool, ToolExecution, Agent, Workflow } from '@database/entities';
 import { ToolController } from './tool.controller';
 import { ToolService } from './tool.service';
 import { ToolExecutionEngine } from './tool-execution.engine';
@@ -9,7 +9,7 @@ import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Tool, ToolExecution]),
+    TypeOrmModule.forFeature([Tool, ToolExecution, Agent, Workflow]),
     SessionModule,
     WebsocketModule,
   ],
