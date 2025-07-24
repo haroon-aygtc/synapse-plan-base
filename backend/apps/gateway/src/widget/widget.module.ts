@@ -2,6 +2,10 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WidgetController } from './widget.controller';
 import { WidgetService } from './widget.service';
+import { WidgetAnalyticsController } from './analytics/widget-analytics.controller';
+import { WidgetAnalyticsService } from './analytics/widget-analytics.service';
+import { AnalyticsProcessor } from './analytics/analytics.processor';
+import { PrivacyService } from './analytics/privacy.service';
 import { Widget } from '@database/entities/widget.entity';
 import { WidgetExecution } from '@database/entities/widget-execution.entity';
 import { WidgetAnalytics } from '@database/entities/widget-analytics.entity';
@@ -34,16 +38,22 @@ import { BullModule } from '@nestjs/bull';
     BullModule.registerQueue({
       name: 'widget-processing',
     }),
+    BullModule.registerQueue({
+      name: 'analytics-processing',
+    }),
     WebsocketModule,
   ],
-  controllers: [WidgetController],
+  controllers: [WidgetController, WidgetAnalyticsController],
   providers: [
     WidgetService,
+    WidgetAnalyticsService,
+    AnalyticsProcessor,
+    PrivacyService,
     AgentService,
     ToolService,
     WorkflowService,
     SessionService,
   ],
-  exports: [WidgetService],
+  exports: [WidgetService, WidgetAnalyticsService],
 })
-export class WidgetModule {}
+export class WidgetModule { }
