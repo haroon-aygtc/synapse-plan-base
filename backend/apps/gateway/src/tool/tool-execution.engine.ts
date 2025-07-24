@@ -123,8 +123,31 @@ export class ToolExecutionEngine {
     });
 
     try {
+      // Select AI provider if tool requires AI processing
+      let selectedProvider = null;
+      if (tool.requiresAI) {
+        selectedProvider = await this.aiProviderService.selectProvider(
+          organizationId,
+          ExecutionType.TOOL,
+          undefined, // Let the system choose the best model
+          {
+            toolId: tool.id,
+            userId,
+            organizationId,
+            estimatedCost: 0.005,
+            maxResponseTime: executeToolDto.timeout || 30000,
+          },
+        );
+      }
+
       // Execute the tool
-      const result = await this.performToolExecution(tool, executeToolDto);
+      const result = await this.performToolExecution(
+        tool,
+        executeToolDto,
+        selectedProvider,
+        organizationId,
+        userId,
+      );
       const executionTime = Date.now() - startTime;
 
       // Update execution record
@@ -193,6 +216,9 @@ export class ToolExecutionEngine {
   private async performToolExecution(
     tool: Tool,
     executeToolDto: ExecuteToolDto,
+    aiProvider?: any,
+    organizationId?: string,
+    userId?: string,
   ) {
     const { endpoint, method, headers } = tool;
     const { parameters } = executeToolDto;

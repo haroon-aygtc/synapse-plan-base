@@ -60,6 +60,42 @@ export class AIProviderExecution extends BaseEntity {
   @Column({ type: 'timestamp', nullable: true })
   completedAt?: Date;
 
+  @Column({ type: 'integer', nullable: true })
+  inputTokens?: number;
+
+  @Column({ type: 'integer', nullable: true })
+  outputTokens?: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  latencyMs?: number;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  region?: string;
+
+  @Column({ type: 'boolean', default: false })
+  wasRetried?: boolean;
+
+  @Column({ type: 'integer', default: 0 })
+  retryCount?: number;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  fallbackProvider?: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  performanceMetrics?: {
+    timeToFirstToken?: number;
+    tokensPerSecond?: number;
+    compressionRatio?: number;
+    cacheHitRate?: number;
+  };
+
+  @Column({ type: 'jsonb', nullable: true })
+  securityMetrics?: {
+    encryptionUsed?: boolean;
+    auditTrailId?: string;
+    complianceFlags?: string[];
+  };
+
   @Column({ type: 'uuid' })
   userId: string;
 

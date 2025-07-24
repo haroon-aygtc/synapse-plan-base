@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Plus, Settings, Activity, DollarSign, Zap } from 'lucide-react';
-import { ProviderConfiguration } from '@/components/providers/ProviderConfiguration';
-import { ProviderDashboard } from '@/components/providers/ProviderDashboard';
-import { ProviderHealthMonitor } from '@/components/providers/ProviderHealthMonitor';
-import { ProviderCostAnalytics } from '@/components/providers/ProviderCostAnalytics';
-import { ProviderRoutingConfig } from '@/components/providers/ProviderRoutingConfig';
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Plus, Settings, Activity, DollarSign, Zap } from "lucide-react";
+import { ProviderConfiguration } from "@/components/providers/ProviderConfiguration";
+import { ProviderDashboard } from "@/components/providers/ProviderDashboard";
+import { ProviderHealthMonitor } from "@/components/providers/ProviderHealthMonitor";
+import { ProviderCostAnalytics } from "@/components/providers/ProviderCostAnalytics";
+import { ProviderRoutingConfig } from "@/components/providers/ProviderRoutingConfig";
 import {
   useProviders,
   useProviderHealth,
   useProviderCosts,
-} from '@/hooks/useProviders';
+} from "@/hooks/useProviders";
 
 export default function ProvidersPage() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState("overview");
   const [showCreateProvider, setShowCreateProvider] = useState(false);
   const { providers, loading } = useProviders();
   const { health } = useProviderHealth();
@@ -31,7 +31,7 @@ export default function ProvidersPage() {
 
   const activeProviders = providers.filter((p) => p.isActive);
   const healthyProviders =
-    health?.providers.filter((p) => p.status === 'healthy').length || 0;
+    health?.providers.filter((p) => p.status === "healthy").length || 0;
   const totalCost = costs?.totalCost || 0;
   const totalRequests = costs?.totalRequests || 0;
 
@@ -88,7 +88,7 @@ export default function ProvidersPage() {
               <p className="text-xs text-muted-foreground">
                 {health?.summary.averageUptime
                   ? `${(health.summary.averageUptime * 100).toFixed(1)}% uptime`
-                  : 'Calculating...'}
+                  : "Calculating..."}
               </p>
             </CardContent>
           </Card>
@@ -105,7 +105,7 @@ export default function ProvidersPage() {
               <p className="text-xs text-muted-foreground">
                 {costs?.projectedMonthlyCost
                   ? `$${costs.projectedMonthlyCost.toFixed(2)} projected`
-                  : 'Calculating...'}
+                  : "Calculating..."}
               </p>
             </CardContent>
           </Card>
@@ -124,7 +124,7 @@ export default function ProvidersPage() {
               <p className="text-xs text-muted-foreground">
                 {costs?.averageCostPerRequest
                   ? `$${costs.averageCostPerRequest.toFixed(4)} avg cost`
-                  : 'Calculating...'}
+                  : "Calculating..."}
               </p>
             </CardContent>
           </Card>
@@ -152,6 +152,10 @@ export default function ProvidersPage() {
             <ProviderConfiguration />
           </TabsContent>
 
+          <TabsContent value="models" className="space-y-6">
+            <ModelDirectory />
+          </TabsContent>
+
           <TabsContent value="health" className="space-y-6">
             <ProviderHealthMonitor />
           </TabsContent>
@@ -162,6 +166,14 @@ export default function ProvidersPage() {
 
           <TabsContent value="routing" className="space-y-6">
             <ProviderRoutingConfig />
+          </TabsContent>
+
+          <TabsContent value="testing" className="space-y-6">
+            <ProviderTestPlayground />
+          </TabsContent>
+
+          <TabsContent value="events" className="space-y-6">
+            <StreamingEventsConsole />
           </TabsContent>
         </Tabs>
       </div>

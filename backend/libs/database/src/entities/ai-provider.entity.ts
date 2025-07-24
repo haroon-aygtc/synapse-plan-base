@@ -39,6 +39,16 @@ export interface ProviderConfig {
   };
   models?: string[];
   customHeaders?: Record<string, string>;
+  region?: string;
+  encryptionEnabled?: boolean;
+  compressionEnabled?: boolean;
+  streamingEnabled?: boolean;
+  maxConcurrentRequests?: number;
+  costOptimization?: {
+    enabled: boolean;
+    maxCostPerRequest?: number;
+    budgetAlerts?: boolean;
+  };
 }
 
 export interface RoutingRule {
@@ -94,6 +104,10 @@ export class AIProvider extends BaseEntity {
     responseTime: number;
     errorRate: number;
     uptime: number;
+    consecutiveFailures?: number;
+    lastFailure?: Date;
+    circuitBreakerState?: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+    nextRetryAt?: Date;
   };
 
   @Column({ type: 'jsonb', nullable: true })
@@ -104,10 +118,48 @@ export class AIProvider extends BaseEntity {
     averageResponseTime: number;
     totalCost: number;
     lastUpdated: Date;
+    p95ResponseTime?: number;
+    p99ResponseTime?: number;
+    totalTokensUsed?: number;
+    averageCostPerRequest?: number;
+    throughputPerMinute?: number;
+    modelUsageBreakdown?: Record<
+      string,
+      {
+        requests: number;
+        tokens: number;
+        cost: number;
+        avgResponseTime: number;
+      }
+    >;
   };
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
+
+  @Column({ type: 'jsonb', nullable: true })
+  securityConfig?: {
+    encryptedApiKey?: string;
+    keyRotationSchedule?: string;
+    accessControlRules?: Array<{
+      role: string;
+      permissions: string[];
+    }>;
+    auditLogging?: boolean;
+    complianceLevel?: 'standard' | 'hipaa' | 'gdpr' | 'sox';
+  };
+
+  @Column({ type: 'jsonb', nullable: true })
+  performanceConfig?: {
+    preferredRegions?: string[];
+    loadBalancingStrategy?: 'round_robin' | 'weighted' | 'least_connections';
+    failoverTimeout?: number;
+    retryStrategy?: {
+      maxRetries: number;
+      backoffMultiplier: number;
+      maxBackoffTime: number;
+    };
+  };
 
   @Column({ type: 'uuid' })
   userId: string;

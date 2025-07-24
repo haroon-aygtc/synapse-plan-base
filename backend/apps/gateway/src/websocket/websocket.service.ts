@@ -666,6 +666,7 @@ export class WebSocketService implements OnModuleInit {
     text: string,
     isFinal: boolean = false,
     tokenCount: number = 0,
+    metadata?: Record<string, any>,
   ): Promise<void> {
     try {
       const streamingSession = this.activeStreams.get(executionId);
@@ -688,9 +689,11 @@ export class WebSocketService implements OnModuleInit {
         is_final: isFinal,
         token_count: tokenCount,
         cumulative_tokens: executionContext.tokenCount,
+        timestamp: new Date().toISOString(),
+        metadata: metadata || {},
       };
 
-      // Broadcast text chunk
+      // Broadcast text chunk using APIX protocol
       await this.broadcastAPXMessage(
         executionContext.organizationId,
         APXMessageType.AGENT_TEXT_CHUNK,
@@ -703,9 +706,48 @@ export class WebSocketService implements OnModuleInit {
         streamingSession.state = APXStreamState.COMPLETED;
         streamingSession.last_activity = new Date().toISOString();
       }
+
+      this.logger.debug(
+        `Streamed text chunk ${chunkId} for execution ${executionId} (${text.length} chars)`,
+      );
     } catch (error) {
       this.logger.error(
         `Failed to stream text chunk: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  // Stream provider events
+  async streamProviderEvent(
+    eventType:
+      | 'provider_selected'
+      | 'provider_switched'
+      | 'provider_error'
+      | 'provider_complete'
+      | 'cost_update',
+    payload: any,
+    organizationId: string,
+    sessionId?: string,
+  ): Promise<void> {
+    try {
+      const message = {
+        type: eventType,
+        payload,
+        timestamp: new Date().toISOString(),
+        organization_id: organizationId,
+        session_id: sessionId,
+      };
+
+      // Broadcast to organization
+      await this.broadcastToOrganization(organizationId, eventType, message);
+
+      this.logger.debug(
+        `Streamed provider event ${eventType} to organization ${organizationId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to stream provider event: ${error.message}`,
         error.stack,
       );
     }

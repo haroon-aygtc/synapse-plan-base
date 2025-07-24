@@ -294,7 +294,7 @@ export class AgentExecutionEngine {
         },
       );
 
-      // Execute with selected provider
+      // Execute with selected provider and streaming support
       const providerResponse = await this.providerAdapter.executeRequest(
         selectedProvider.type,
         selectedProvider.config,
@@ -305,6 +305,69 @@ export class AgentExecutionEngine {
           maxTokens: agent.maxTokens,
           tools: tools.length > 0 ? tools : undefined,
         },
+        {
+          streamResponse: options.streamResponse,
+          onChunk: options.streamResponse
+            ? (chunk: string) => {
+                // Stream text chunks via WebSocket
+                this.websocketService.streamTextChunk(
+                  executionId,
+                  uuidv4(),
+                  chunk,
+                  false,
+                  1, // Approximate token count per chunk
+                  {
+                    agentId: agent.id,
+                    providerId: selectedProvider.id,
+                    model: agent.model,
+                  },
+                );
+              }
+            : undefined,
+          onComplete: (response) => {
+            // Emit completion event
+            this.websocketService.streamProviderEvent(
+              'provider_complete',
+              {
+                executionId,
+                providerId: selectedProvider.id,
+                tokensUsed: response.tokensUsed,
+                cost: response.cost,
+                executionTime: Date.now() - startTime,
+              },
+              organizationId,
+              options.sessionId,
+            );
+          },
+          onError: (error) => {
+            // Emit error event
+            this.websocketService.streamProviderEvent(
+              'provider_error',
+              {
+                executionId,
+                providerId: selectedProvider.id,
+                error: error.message,
+                executionTime: Date.now() - startTime,
+              },
+              organizationId,
+              options.sessionId,
+            );
+          },
+        },
+      );
+
+      // Emit provider selected event
+      await this.websocketService.streamProviderEvent(
+        'provider_selected',
+        {
+          executionId,
+          providerId: selectedProvider.id,
+          providerType: selectedProvider.type,
+          model: agent.model,
+          estimatedCost: 0.01,
+        },
+        organizationId,
+        options.sessionId,
       );
 
       let finalOutput = providerResponse.content;

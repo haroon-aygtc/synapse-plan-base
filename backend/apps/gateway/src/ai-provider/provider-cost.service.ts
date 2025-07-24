@@ -38,6 +38,21 @@ export class ProviderCostService {
     private readonly metricsRepository: Repository<AIProviderMetrics>,
   ) {}
 
+  async getCostAnalytics(
+    organizationId: string,
+    options: {
+      startDate?: Date;
+      endDate?: Date;
+    } = {},
+  ): Promise<CostAnalysis> {
+    const endDate = options.endDate || new Date();
+    const startDate =
+      options.startDate ||
+      new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    return this.analyzeCosts(organizationId, startDate, endDate);
+  }
+
   async analyzeCosts(
     organizationId: string,
     startDate: Date,

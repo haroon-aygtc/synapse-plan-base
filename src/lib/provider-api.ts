@@ -1,12 +1,12 @@
-import axios from 'axios';
-import { api } from './api';
-import { getToken } from './auth';
+import axios from "axios";
+import { api } from "./api";
+import { getToken } from "./auth";
 
 export interface AIProvider {
   id: string;
   name: string;
-  type: 'openai' | 'claude' | 'gemini' | 'mistral' | 'groq' | 'openrouter';
-  status: 'active' | 'inactive' | 'error' | 'maintenance';
+  type: "openai" | "claude" | "gemini" | "mistral" | "groq" | "openrouter";
+  status: "active" | "inactive" | "error" | "maintenance";
   config: {
     apiKey: string;
     baseUrl?: string;
@@ -23,7 +23,7 @@ export interface AIProvider {
   costMultiplier: number;
   healthCheck?: {
     lastCheck: Date;
-    status: 'healthy' | 'unhealthy' | 'degraded';
+    status: "healthy" | "unhealthy" | "degraded";
     responseTime: number;
     errorRate: number;
     uptime: number;
@@ -43,7 +43,7 @@ export interface AIProvider {
 
 export interface CreateProviderRequest {
   name: string;
-  type: AIProvider['type'];
+  type: AIProvider["type"];
   config: {
     apiKey: string;
     baseUrl?: string;
@@ -63,19 +63,19 @@ export interface CreateProviderRequest {
 
 export interface UpdateProviderRequest {
   name?: string;
-  config?: Partial<AIProvider['config']>;
+  config?: Partial<AIProvider["config"]>;
   priority?: number;
   costMultiplier?: number;
   isActive?: boolean;
 }
 
 export interface ProviderHealthResponse {
-  overall: 'healthy' | 'degraded' | 'unhealthy';
+  overall: "healthy" | "degraded" | "unhealthy";
   providers: Array<{
     id: string;
     name: string;
     type: string;
-    status: 'healthy' | 'degraded' | 'unhealthy';
+    status: "healthy" | "degraded" | "unhealthy";
     responseTime: number;
     errorRate: number;
     uptime: number;
@@ -112,7 +112,7 @@ export interface CostAnalytics {
     percentage: number;
   }>;
   costByExecutionType: Array<{
-    executionType: 'agent' | 'tool' | 'workflow' | 'knowledge';
+    executionType: "agent" | "tool" | "workflow" | "knowledge";
     cost: number;
     requests: number;
     averageCostPerRequest: number;
@@ -125,10 +125,10 @@ export interface CostAnalytics {
   }>;
   projectedMonthlyCost: number;
   costOptimizationSuggestions: Array<{
-    type: 'provider_switch' | 'model_downgrade' | 'usage_reduction';
+    type: "provider_switch" | "model_downgrade" | "usage_reduction";
     description: string;
     potentialSavings: number;
-    impact: 'low' | 'medium' | 'high';
+    impact: "low" | "medium" | "high";
     recommendation: string;
   }>;
 }
@@ -153,7 +153,7 @@ export interface UsageStats {
     avgResponseTime: number;
   }>;
   executionTypeBreakdown: Array<{
-    type: 'agent' | 'tool' | 'workflow' | 'knowledge';
+    type: "agent" | "tool" | "workflow" | "knowledge";
     requests: number;
     cost: number;
     avgResponseTime: number;
@@ -179,17 +179,17 @@ export interface RoutingRule {
 
 export interface OptimizationSuggestions {
   costOptimizations: Array<{
-    type: 'switch_provider' | 'adjust_routing' | 'model_downgrade';
+    type: "switch_provider" | "adjust_routing" | "model_downgrade";
     description: string;
     potentialSavings: number;
-    impact: 'low' | 'medium' | 'high';
+    impact: "low" | "medium" | "high";
     recommendation: string;
   }>;
   performanceOptimizations: Array<{
-    type: 'switch_provider' | 'adjust_routing' | 'load_balance';
+    type: "switch_provider" | "adjust_routing" | "load_balance";
     description: string;
     expectedImprovement: string;
-    impact: 'low' | 'medium' | 'high';
+    impact: "low" | "medium" | "high";
     recommendation: string;
   }>;
 }
@@ -199,14 +199,14 @@ class ProviderAPI {
 
   constructor() {
     // Use the same baseURL pattern as the main api
-    this.baseURL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/ai-providers`;
+    this.baseURL = `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"}/ai-providers`;
   }
 
   private async getAuthHeaders() {
     const token = await getToken();
     return {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     };
   }
 
@@ -274,7 +274,7 @@ class ProviderAPI {
 
   async getAvailableProviders(): Promise<
     Array<{
-      type: AIProvider['type'];
+      type: AIProvider["type"];
       name: string;
       description: string;
       models: string[];
@@ -282,6 +282,55 @@ class ProviderAPI {
     }>
   > {
     const response = await axios.get(`${this.baseURL}/available`, {
+      headers: await this.getAuthHeaders(),
+    });
+    return response.data;
+  }
+
+  async getAvailableModels(): Promise<{
+    models: Array<{
+      name: string;
+      provider: string;
+      capabilities: string[];
+      costPerToken: number;
+      maxTokens: number;
+      isAvailable: boolean;
+    }>;
+  }> {
+    const response = await axios.get(`${this.baseURL}/models`, {
+      headers: await this.getAuthHeaders(),
+    });
+    return response.data;
+  }
+
+  async executeCompletion(request: {
+    messages: Array<{
+      role: "system" | "user" | "assistant" | "tool";
+      content: string;
+      tool_calls?: any[];
+    }>;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    tools?: any[];
+    executionType: "agent" | "tool" | "workflow" | "knowledge";
+    resourceId: string;
+    sessionId?: string;
+    streamResponse?: boolean;
+    preferredProvider?: string;
+  }): Promise<{
+    id: string;
+    content: string;
+    tokensUsed: number;
+    cost: number;
+    executionTime: number;
+    providerId: string;
+    providerType: string;
+    model: string;
+    toolCalls?: any[];
+    metadata?: any;
+  }> {
+    const response = await axios.post(`${this.baseURL}/ai/complete`, request, {
       headers: await this.getAuthHeaders(),
     });
     return response.data;
@@ -306,7 +355,7 @@ class ProviderAPI {
   }
 
   async getUsageStats(
-    period: 'day' | 'week' | 'month' = 'week',
+    period: "day" | "week" | "month" = "week",
   ): Promise<UsageStats> {
     const response = await axios.get(`${this.baseURL}/usage-stats`, {
       headers: await this.getAuthHeaders(),
@@ -322,7 +371,7 @@ class ProviderAPI {
     return response.data;
   }
 
-  async createRoutingRule(rule: Omit<RoutingRule, 'id'>): Promise<RoutingRule> {
+  async createRoutingRule(rule: Omit<RoutingRule, "id">): Promise<RoutingRule> {
     const response = await axios.post(`${this.baseURL}/routing-rules`, rule, {
       headers: await this.getAuthHeaders(),
     });
@@ -341,7 +390,7 @@ class ProviderAPI {
 
   async getProviderMetrics(
     id: string,
-    period: 'hour' | 'day' | 'week' | 'month' = 'day',
+    period: "hour" | "day" | "week" | "month" = "day",
   ): Promise<{
     current: {
       requests: number;
@@ -369,7 +418,7 @@ class ProviderAPI {
   async bulkConfigureProviders(
     providers: Array<{
       name: string;
-      type: AIProvider['type'];
+      type: AIProvider["type"];
       apiKey: string;
       baseUrl?: string;
       models?: string[];
