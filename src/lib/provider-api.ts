@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { API_BASE_URL } from './api';
+import { api } from './api';
+import { getToken } from './auth';
 
 export interface AIProvider {
   id: string;
@@ -197,11 +198,12 @@ class ProviderAPI {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = `${API_BASE_URL}/ai-providers`;
+    // Use the same baseURL pattern as the main api
+    this.baseURL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/ai-providers`;
   }
 
-  private getAuthHeaders() {
-    const token = localStorage.getItem('token');
+  private async getAuthHeaders() {
+    const token = await getToken();
     return {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -210,7 +212,7 @@ class ProviderAPI {
 
   async getProviders(includeInactive = false): Promise<AIProvider[]> {
     const response = await axios.get(`${this.baseURL}`, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       params: { includeInactive },
     });
     return response.data;
@@ -218,14 +220,14 @@ class ProviderAPI {
 
   async getProvider(id: string): Promise<AIProvider> {
     const response = await axios.get(`${this.baseURL}/${id}`, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
 
   async createProvider(data: CreateProviderRequest): Promise<AIProvider> {
     const response = await axios.post(`${this.baseURL}`, data, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
@@ -235,14 +237,14 @@ class ProviderAPI {
     data: UpdateProviderRequest,
   ): Promise<AIProvider> {
     const response = await axios.put(`${this.baseURL}/${id}`, data, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
 
   async deleteProvider(id: string): Promise<void> {
     await axios.delete(`${this.baseURL}/${id}`, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     });
   }
 
@@ -253,7 +255,7 @@ class ProviderAPI {
       `${this.baseURL}/${id}/test`,
       {},
       {
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
       },
     );
     return response.data;
@@ -264,7 +266,7 @@ class ProviderAPI {
       `${this.baseURL}/${id}/rotate-key`,
       { newApiKey },
       {
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
       },
     );
     return response.data;
@@ -280,14 +282,14 @@ class ProviderAPI {
     }>
   > {
     const response = await axios.get(`${this.baseURL}/available`, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
 
   async getProviderHealth(): Promise<ProviderHealthResponse> {
     const response = await axios.get(`${this.baseURL}/health`, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
@@ -297,7 +299,7 @@ class ProviderAPI {
     endDate?: string,
   ): Promise<CostAnalytics> {
     const response = await axios.get(`${this.baseURL}/costs`, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       params: { startDate, endDate },
     });
     return response.data;
@@ -307,7 +309,7 @@ class ProviderAPI {
     period: 'day' | 'week' | 'month' = 'week',
   ): Promise<UsageStats> {
     const response = await axios.get(`${this.baseURL}/usage-stats`, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       params: { period },
     });
     return response.data;
@@ -315,14 +317,14 @@ class ProviderAPI {
 
   async getRoutingRules(): Promise<RoutingRule[]> {
     const response = await axios.get(`${this.baseURL}/routing-rules`, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
 
   async createRoutingRule(rule: Omit<RoutingRule, 'id'>): Promise<RoutingRule> {
     const response = await axios.post(`${this.baseURL}/routing-rules`, rule, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
@@ -331,7 +333,7 @@ class ProviderAPI {
     const response = await axios.get(
       `${this.baseURL}/optimization-suggestions`,
       {
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
       },
     );
     return response.data;
@@ -358,7 +360,7 @@ class ProviderAPI {
     }>;
   }> {
     const response = await axios.get(`${this.baseURL}/${id}/metrics`, {
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       params: { period },
     });
     return response.data;
@@ -380,7 +382,7 @@ class ProviderAPI {
       `${this.baseURL}/bulk-configure`,
       { providers },
       {
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
       },
     );
     return response.data;

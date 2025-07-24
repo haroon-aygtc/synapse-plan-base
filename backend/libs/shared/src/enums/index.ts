@@ -1,4 +1,4 @@
-export enum EventType {
+export enum AgentEventType {
   // Agent Events
   AGENT_CREATED = 'agent.created',
   AGENT_UPDATED = 'agent.updated',
@@ -6,7 +6,16 @@ export enum EventType {
   AGENT_EXECUTION_STARTED = 'agent.execution.started',
   AGENT_EXECUTION_COMPLETED = 'agent.execution.completed',
   AGENT_EXECUTION_FAILED = 'agent.execution.failed',
-
+  AGENT_EXECUTION_CANCELLED = 'agent.execution.cancelled',
+  AGENT_PERFORMANCE_UPDATE = 'agent.performance.update',
+  AGENT_TEST_RESULT_CREATED = 'agent.test.result.created',
+  AGENT_TEST_RESULT_UPDATED = 'agent.test.result.updated',
+  AGENT_TEST_RESULT_DELETED = 'agent.test.result.deleted',
+  AGENT_TEST_RESULT_EXECUTION_STARTED = 'agent.test.result.execution.started',
+  AGENT_TEST_RESULT_EXECUTION_COMPLETED = 'agent.test.result.execution.completed',
+  AGENT_TEST_RESULT_EXECUTION_FAILED = 'agent.test.result.execution.failed',
+  AGENT_TEST_RESULT_EXECUTION_CANCELLED = 'agent.test.result.execution.cancelled',
+  
   // Tool Events
   TOOL_CREATED = 'tool.created',
   TOOL_UPDATED = 'tool.updated',
@@ -14,6 +23,8 @@ export enum EventType {
   TOOL_EXECUTION_STARTED = 'tool.execution.started',
   TOOL_EXECUTION_COMPLETED = 'tool.execution.completed',
   TOOL_EXECUTION_FAILED = 'tool.execution.failed',
+  TOOL_EXECUTION_CANCELLED = 'tool.execution.cancelled',
+
 
   // Workflow Events
   WORKFLOW_CREATED = 'workflow.created',
@@ -22,6 +33,7 @@ export enum EventType {
   WORKFLOW_EXECUTION_STARTED = 'workflow.execution.started',
   WORKFLOW_EXECUTION_COMPLETED = 'workflow.execution.completed',
   WORKFLOW_EXECUTION_FAILED = 'workflow.execution.failed',
+  WORKFLOW_EXECUTION_CANCELLED = 'workflow.execution.cancelled',
   WORKFLOW_STEP_COMPLETED = 'workflow.step.completed',
   WORKFLOW_APPROVAL_REQUESTED = 'workflow.approval.requested',
   WORKFLOW_APPROVAL_GRANTED = 'workflow.approval.granted',

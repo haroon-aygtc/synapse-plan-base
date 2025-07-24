@@ -37,7 +37,8 @@ import {
   ShoppingCart,
   Headphones,
   BookOpen,
-  BarChart3
+  BarChart3,
+  User
 } from 'lucide-react';
 
 interface AgentTemplate {

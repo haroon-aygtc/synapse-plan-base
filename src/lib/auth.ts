@@ -177,3 +177,70 @@ export async function logout(): Promise<void> {
     clearTokens();
   }
 }
+
+// Auth service interface for UI components
+interface AuthServiceResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+// Auth service object that wraps the functions with consistent response format
+export const authService = {
+  async login(credentials: { email: string; password: string }): Promise<AuthServiceResponse<AuthState>> {
+    try {
+      const authState = await login(credentials.email, credentials.password);
+      return {
+        success: true,
+        data: authState,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Login failed',
+      };
+    }
+  },
+
+  async register(userData: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    organizationName?: string;
+  }): Promise<AuthServiceResponse<AuthState>> {
+    try {
+      const authState = await register(userData);
+      return {
+        success: true,
+        data: authState,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Registration failed',
+      };
+    }
+  },
+
+  async logout(): Promise<AuthServiceResponse<void>> {
+    try {
+      await logout();
+      return {
+        success: true,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Logout failed',
+      };
+    }
+  },
+
+  // Additional utility methods
+  getAuthState,
+  getUser,
+  isAuthenticated,
+  getToken,
+  clearTokens,
+};

@@ -54,6 +54,7 @@ import {
   Clock,
   TrendingUp,
 } from "lucide-react";
+<<<<<<< HEAD
 import { useToast } from "@/components/ui/use-toast";
 import { AgentConfiguration } from "@/lib/ai-assistant";
 import { useAgentBuilder } from "@/hooks/useAgentBuilder";
@@ -217,6 +218,20 @@ const CustomNode = ({
     </div>
   );
 };
+=======
+
+import { AgentNode } from "./nodes/AgentNode";
+import { ToolNode } from "./nodes/ToolNode";
+import { KnowledgeNode } from "./nodes/KnowledgeNode";
+import { TriggerNode } from "./nodes/TriggerNode";
+import { ConditionNode } from "./nodes/ConditionNode";
+import { ActionNode } from "./nodes/ActionNode";
+import { CustomEdge } from "./edges/CustomEdge";
+import { ComponentPalette } from "./ComponentPalette";
+import { useAgentBuilderStore } from "@/store/agentBuilderStore";
+import { toast } from "@/components/ui/use-toast";
+import { AgentConfiguration } from "@/lib/ai-assistant";
+>>>>>>> 2e21d6029f52df9cfa2470488345038c6bf6f495
 
 const nodeTypes: NodeTypes = {
   custom: CustomNode,
@@ -230,9 +245,161 @@ function VisualAgentBuilderInner({
   const reactFlowInstance = useReactFlow();
   const { executeAgent, testAgent } = useAgentBuilder();
 
+<<<<<<< HEAD
   const [nodes, setNodes, onNodesChange] = useNodesState<AgentNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<AgentEdge>([]);
   const [selectedNode, setSelectedNode] = useState<AgentNode | null>(null);
+=======
+const COMPONENT_CATEGORIES = [
+  {
+    id: "core",
+    name: "Core Components",
+    icon: <Bot className="h-4 w-4" />,
+    components: [
+      {
+        id: "agent",
+        name: "Agent",
+        description: "Main AI agent component",
+        icon: <Bot className="h-5 w-5" />,
+        color: "bg-blue-500",
+        type: "agent",
+      },
+      {
+        id: "trigger",
+        name: "Trigger",
+        description: "Event trigger",
+        icon: <Zap className="h-5 w-5" />,
+        color: "bg-yellow-500",
+        type: "trigger",
+      },
+      {
+        id: "condition",
+        name: "Condition",
+        description: "Logic condition",
+        icon: <Settings className="h-5 w-5" />,
+        color: "bg-purple-500",
+        type: "condition",
+      },
+      {
+        id: "action",
+        name: "Action",
+        description: "Execute action",
+        icon: <Play className="h-5 w-5" />,
+        color: "bg-green-500",
+        type: "action",
+      },
+    ],
+  },
+  {
+    id: "tools",
+    name: "Tools & APIs",
+    icon: <Settings className="h-4 w-4" />,
+    components: [
+      {
+        id: "search",
+        name: "Web Search",
+        description: "Search the web",
+        icon: <Search className="h-5 w-5" />,
+        color: "bg-orange-500",
+        type: "tool",
+      },
+      {
+        id: "code",
+        name: "Code Executor",
+        description: "Execute code",
+        icon: <Code className="h-5 w-5" />,
+        color: "bg-gray-500",
+        type: "tool",
+      },
+      {
+        id: "email",
+        name: "Email",
+        description: "Send emails",
+        icon: <Mail className="h-5 w-5" />,
+        color: "bg-red-500",
+        type: "tool",
+      },
+      {
+        id: "calendar",
+        name: "Calendar",
+        description: "Manage calendar",
+        icon: <Calendar className="h-5 w-5" />,
+        color: "bg-indigo-500",
+        type: "tool",
+      },
+      {
+        id: "calculator",
+        name: "Calculator",
+        description: "Perform calculations",
+        icon: <Calculator className="h-5 w-5" />,
+        color: "bg-teal-500",
+        type: "tool",
+      },
+    ],
+  },
+  {
+    id: "knowledge",
+    name: "Knowledge Sources",
+    icon: <Database className="h-4 w-4" />,
+    components: [
+      {
+        id: "documents",
+        name: "Documents",
+        description: "Document knowledge base",
+        icon: <FileText className="h-5 w-5" />,
+        color: "bg-blue-600",
+        type: "knowledge",
+      },
+      {
+        id: "database",
+        name: "Database",
+        description: "Database connection",
+        icon: <Database className="h-5 w-5" />,
+        color: "bg-green-600",
+        type: "knowledge",
+      },
+      {
+        id: "api",
+        name: "API",
+        description: "External API",
+        icon: <Globe className="h-5 w-5" />,
+        color: "bg-purple-600",
+        type: "knowledge",
+      },
+    ],
+  },
+];
+
+const initialNodes: Node[] = [
+  {
+    id: "agent-1",
+    type: "agent",
+    position: { x: 400, y: 200 },
+    data: {
+      label: "Main Agent",
+      name: "Assistant",
+      model: "gpt-4",
+      temperature: 0.7,
+      prompt: "You are a helpful assistant...",
+    },
+  },
+];
+
+const initialEdges: Edge[] = [];
+
+export function VisualAgentBuilder() {
+  const {
+    currentAgent,
+    updateAgentConfiguration,
+    addNode,
+    discoverFeature,
+  } = useAgentBuilderStore();
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [reactFlowInstance, setReactFlowInstance] =
+    useState<ReactFlowInstance | null>(null);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+>>>>>>> 2e21d6029f52df9cfa2470488345038c6bf6f495
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionResults, setExecutionResults] = useState<Record<string, any>>(
     {},
@@ -455,6 +622,7 @@ function VisualAgentBuilderInner({
   ) => {
     const startTime = Date.now();
 
+<<<<<<< HEAD
     switch (node.type) {
       case "agent":
         // Execute agent with configuration
@@ -468,6 +636,12 @@ function VisualAgentBuilderInner({
             },
           },
         );
+=======
+      updateAgentConfiguration({
+        ...currentAgent,
+        visualWorkflow: workflowData,
+      } as Partial<AgentConfiguration>);
+>>>>>>> 2e21d6029f52df9cfa2470488345038c6bf6f495
 
         return {
           output: agentResult.output,
@@ -554,6 +728,7 @@ function VisualAgentBuilderInner({
         }
       });
     }
+<<<<<<< HEAD
 
     return result;
   };
@@ -664,6 +839,9 @@ function VisualAgentBuilderInner({
       </div>
     );
   };
+=======
+  }, [nodes, edges, currentAgent, updateAgentConfiguration]);
+>>>>>>> 2e21d6029f52df9cfa2470488345038c6bf6f495
 
   return (
     <div className="h-[600px] border rounded-lg bg-white">

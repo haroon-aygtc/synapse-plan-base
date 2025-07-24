@@ -130,7 +130,7 @@ export interface AgentBuilderStore {
   warnings: Record<string, string>;
 
   // Actions
-  updateCurrentAgent: (updates: Partial<AgentConfiguration>) => void;
+  updateAgentConfiguration: (updates: Partial<AgentConfiguration>) => void;
   setActiveTab: (tab: AgentBuilderStore["activeTab"]) => void;
   toggleAIAssistant: () => void;
   toggleVisualBuilder: () => void;
@@ -294,7 +294,7 @@ export const useAgentBuilderStore = create<AgentBuilderStore>()(
         ...initialState,
 
         // Basic actions
-        updateCurrentAgent: (updates) =>
+        updateAgentConfiguration: (updates: Partial<AgentConfiguration> | Partial<Agent>) =>
           set((state) => {
             Object.assign(state.currentAgent, updates);
           }),
@@ -578,7 +578,16 @@ export const useAgentBuilderStore = create<AgentBuilderStore>()(
                   nodes: state.visualBuilder.nodes,
                   edges: state.visualBuilder.edges,
                 },
-                componentPalette: state.componentPalette,
+                componentPalette: {
+                  ...state.componentPalette,
+                  // Convert Set to array for serialization
+                  expandedCategories: Array.from(state.componentPalette.expandedCategories),
+                },
+                aiAssistant: {
+                  ...state.aiAssistant,
+                  // Convert Set to array for serialization
+                  appliedSuggestions: Array.from(state.aiAssistant.appliedSuggestions || []),
+                },
                 preferences: {
                   showAIAssistant: state.showAIAssistant,
                   showVisualBuilder: state.showVisualBuilder,
@@ -603,15 +612,30 @@ export const useAgentBuilderStore = create<AgentBuilderStore>()(
                   Object.assign(state.onboarding, data.onboarding);
                 if (data.visualBuilder)
                   Object.assign(state.visualBuilder, data.visualBuilder);
-                if (data.componentPalette)
-                  Object.assign(state.componentPalette, data.componentPalette);
+                if (data.componentPalette) {
+                  // Convert array back to Set
+                  if (Array.isArray(data.componentPalette.expandedCategories)) {
+                    state.componentPalette.expandedCategories = new Set(data.componentPalette.expandedCategories);
+                    const { expandedCategories, ...rest } = data.componentPalette;
+                    Object.assign(state.componentPalette, rest);
+                  } else {
+                    Object.assign(state.componentPalette, data.componentPalette);
+                  }
+                }
+                if (data.aiAssistant) {
+                  // Convert array back to Set
+                  if (Array.isArray(data.aiAssistant.appliedSuggestions)) {
+                    state.aiAssistant.appliedSuggestions = new Set(data.aiAssistant.appliedSuggestions);
+                    const { appliedSuggestions, ...rest } = data.aiAssistant;
+                    Object.assign(state.aiAssistant, rest);
+                  } else {
+                    Object.assign(state.aiAssistant, data.aiAssistant);
+                  }
+                }
                 if (data.preferences) {
-                  state.showAIAssistant =
-                    data.preferences.showAIAssistant ?? true;
-                  state.showVisualBuilder =
-                    data.preferences.showVisualBuilder ?? false;
-                  state.showComponentPalette =
-                    data.preferences.showComponentPalette ?? false;
+                  state.showAIAssistant = data.preferences.showAIAssistant ?? true;
+                  state.showVisualBuilder = data.preferences.showVisualBuilder ?? false;
+                  state.showComponentPalette = data.preferences.showComponentPalette ?? false;
                 }
               });
             }
@@ -692,7 +716,14 @@ export const useAgentBuilderStore = create<AgentBuilderStore>()(
             gridSize: state.visualBuilder.gridSize,
             canvasSettings: state.visualBuilder.canvasSettings,
           },
-          componentPalette: state.componentPalette,
+          componentPalette: {
+            ...state.componentPalette,
+            expandedCategories: Array.from(state.componentPalette.expandedCategories),
+          },
+          aiAssistant: {
+            ...state.aiAssistant,
+            appliedSuggestions: Array.from(state.aiAssistant.appliedSuggestions || []),
+          },
           preferences: {
             showAIAssistant: state.showAIAssistant,
             showVisualBuilder: state.showVisualBuilder,
@@ -709,6 +740,26 @@ export const useAgentBuilderStore = create<AgentBuilderStore>()(
                 ...initialState.onboarding,
                 ...persistedState.onboarding,
               },
+              componentPalette: {
+                ...initialState.componentPalette,
+                ...persistedState.componentPalette,
+                // Ensure expandedCategories is a Set
+                expandedCategories: new Set(
+                  Array.isArray(persistedState.componentPalette?.expandedCategories)
+                    ? persistedState.componentPalette.expandedCategories
+                    : ["core", "tools", "knowledge"]
+                ),
+              },
+              aiAssistant: {
+                ...initialState.aiAssistant,
+                ...persistedState.aiAssistant,
+                // Ensure appliedSuggestions is a Set
+                appliedSuggestions: new Set(
+                  Array.isArray(persistedState.aiAssistant?.appliedSuggestions)
+                    ? persistedState.aiAssistant.appliedSuggestions
+                    : []
+                ),
+              }
             };
           }
           return persistedState;
