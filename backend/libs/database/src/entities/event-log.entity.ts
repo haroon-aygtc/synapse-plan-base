@@ -1,6 +1,6 @@
 import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { EventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums';
 
 @Entity('event_logs')
 @Index(['organizationId', 'eventType', 'timestamp'])
@@ -12,12 +12,12 @@ export class EventLog extends BaseEntity {
 
   @Column({
     type: 'enum',
-    enum: EventType,
+    enum: AgentEventType,
   })
-  eventType: EventType;
+        eventType: AgentEventType;
 
   @Column({ type: 'varchar', length: 100 })
-  sourceModule: string;
+  sourceModule!: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   targetModule?: string;

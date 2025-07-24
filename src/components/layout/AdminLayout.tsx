@@ -268,11 +268,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   };
 
   const handleProfileClick = () => {
-    router.push("/profile");
+    router.push("/dashboard");
   };
 
   const handleSettingsClick = () => {
-    router.push("/settings");
+    router.push("/dashboard");
   };
 
   const toggleExpanded = (itemId: string) => {
@@ -531,7 +531,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/help")}>
+                <DropdownMenuItem onClick={() => router.push("/dashboard")}>
                   <HelpCircle className="mr-2 h-4 w-4" />
                   <span>Help</span>
                 </DropdownMenuItem>

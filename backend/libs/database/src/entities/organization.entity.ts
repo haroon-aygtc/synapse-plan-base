@@ -13,10 +13,10 @@ import { SubscriptionPlan } from '@shared/interfaces';
 @Index(['slug'], { unique: true })
 export class Organization extends BaseEntity {
   @Column({ type: 'varchar', length: 255 })
-  name: string;
+  name!: string;
 
   @Column({ type: 'varchar', length: 100, unique: true })
-  slug: string;
+  slug!: string;
 
   @Column({ type: 'text', nullable: true })
   description?: string;
@@ -32,7 +32,7 @@ export class Organization extends BaseEntity {
     enum: SubscriptionPlan,
     default: SubscriptionPlan.FREE,
   })
-  plan: SubscriptionPlan;
+  plan!: SubscriptionPlan;
 
   @Column({ type: 'jsonb', nullable: true })
   settings?: Record<string, any>;
@@ -41,26 +41,26 @@ export class Organization extends BaseEntity {
   quotas?: Record<string, number>;
 
   @Column({ type: 'boolean', default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @OneToMany(() => User, (user) => user.organization)
-  users: User[];
+  users!: User[];
 
   @OneToMany(() => Agent, (agent) => agent.organization)
-  agents: Agent[];
+  agents!: Agent[];
 
   @OneToMany(() => Tool, (tool) => tool.organization)
-  tools: Tool[];
+  tools!: Tool[];
 
   @OneToMany(() => Workflow, (workflow) => workflow.organization)
-  workflows: Workflow[];
+  workflows!: Workflow[];
 
   @OneToMany(() => Session, (session) => session.organization)
-  sessions: Session[];
+  sessions!: Session[];
 
   @OneToMany(() => APXSession, (session) => session.organization)
-  apixSessions: APXSession[];
+      apixSessions!: APXSession[];
 
   @OneToMany(() => APXExecution, (execution) => execution.organization)
-  apixExecutions: APXExecution[];
+  apixExecutions!: APXExecution[];
 }
