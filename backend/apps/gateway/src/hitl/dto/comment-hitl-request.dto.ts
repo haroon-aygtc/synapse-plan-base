@@ -2,33 +2,56 @@ import {
   IsString,
   IsOptional,
   IsArray,
-  IsObject,
   IsUUID,
   IsBoolean,
+  IsObject,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+class AttachmentDto {
+  @ApiProperty()
+  @IsString()
+  filename: string;
+
+  @ApiProperty()
+  @IsString()
+  url: string;
+
+  @ApiProperty()
+  @IsString()
+  size: number;
+
+  @ApiProperty()
+  @IsString()
+  mimeType: string;
+}
 
 export class CommentHITLRequestDto {
+  @ApiProperty()
   @IsString()
   content: string;
 
+  @ApiPropertyOptional({ type: [AttachmentDto] })
+  @IsOptional()
   @IsArray()
-  @IsOptional()
-  attachments?: Array<{
-    filename: string;
-    url: string;
-    size: number;
-    mimeType: string;
-  }>;
+  @ValidateNested({ each: true })
+  @Type(() => AttachmentDto)
+  attachments?: AttachmentDto[];
 
-  @IsUUID()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsUUID()
   parentCommentId?: string;
 
-  @IsBoolean()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsBoolean()
   isInternal?: boolean = false;
 
-  @IsObject()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsObject()
   metadata?: Record<string, any>;
 }

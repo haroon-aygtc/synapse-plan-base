@@ -5,29 +5,31 @@ import {
   IsArray,
   IsObject,
 } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ResolveHITLRequestDto {
+  @ApiProperty()
   @IsBoolean()
   approved: boolean;
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   reason?: string;
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   comments?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @IsOptional()
   attachments?: string[];
 
-  @IsObject()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsObject()
   metadata?: Record<string, any>;
-
-  @IsObject()
-  @IsOptional()
-  decisionData?: Record<string, any>;
 }

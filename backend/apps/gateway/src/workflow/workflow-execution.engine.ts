@@ -13,8 +13,13 @@ import { AgentService } from '../agent/agent.service';
 import { ToolService } from '../tool/tool.service';
 import { SessionService } from '../session/session.service';
 import { WebSocketService } from '../websocket/websocket.service';
+import { HITLService } from '../hitl/hitl.service';
 import { ExecuteWorkflowDto } from './dto';
-import { ExecutionStatus } from '@shared/enums';
+import {
+  ExecutionStatus,
+  HITLRequestType,
+  HITLRequestPriority,
+} from '@shared/enums';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface WorkflowStep {
@@ -147,6 +152,7 @@ export class WorkflowExecutionEngine {
     private readonly websocketService: WebSocketService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
+    private readonly hitlService: HITLService,
   ) {}
 
   async execute(
@@ -1100,111 +1106,66 @@ export class WorkflowExecutionEngine {
       throw new Error(`HITL configuration not specified for step ${step.id}`);
     }
 
-    const requestId = uuidv4();
-    const hitlRequest = {
-      requestId,
+    // Create actual HITL request using the HITL service
+    const hitlRequest = await this.hitlService.createRequest(
+      {
+        title: hitlConfig.title || `Workflow Step Approval Required`,
+        description:
+          hitlConfig.description ||
+          `Please review and approve workflow step: ${step.id}`,
+        type: hitlConfig.type || HITLRequestType.APPROVAL,
+        priority: hitlConfig.priority || HITLRequestPriority.MEDIUM,
+        sourceType: 'workflow',
+        sourceId: context.workflowId,
+        executionId: context.executionId,
+        executionContext: {
+          stepId: step.id,
+          variables: context.variables,
+          stepResults: context.stepResults,
+          currentStep: step.id,
+        },
+        assigneeId: hitlConfig.assigneeId,
+        assigneeRoles: hitlConfig.assigneeRoles,
+        assigneeUsers: hitlConfig.assigneeUsers,
+        timeoutMs: hitlConfig.timeout || 86400000,
+        allowDiscussion: hitlConfig.allowDiscussion || false,
+        requireExpertConsultation:
+          hitlConfig.requireExpertConsultation || false,
+        expertConsultants: hitlConfig.expertConsultants,
+        escalationRules: hitlConfig.escalationRules,
+      },
+      'system', // System user for workflow-generated requests
+      context.organizationId,
+    );
+
+    // Update context with HITL request info
+    context.hitlRequests.push({
+      requestId: hitlRequest.id,
       stepId: step.id,
       requestType: hitlConfig.type || 'approval',
-      status: 'pending' as const,
+      status: 'pending',
       requestedAt: new Date(),
-    };
-
-    context.hitlRequests.push(hitlRequest);
+    });
 
     // Pause workflow execution
     await this.pause(context.executionId);
 
-    // Create HITL request data
-    const requestData = {
-      workflowId: context.workflowId,
-      executionId: context.executionId,
-      stepId: step.id,
-      requestType: hitlConfig.type,
-      title: hitlConfig.title || `Approval required for ${step.id}`,
-      description:
-        hitlConfig.description ||
-        'Please review and approve this workflow step',
-      data: {
-        variables: context.variables,
-        stepResults: context.stepResults,
-        currentStep: step.id,
-      },
-      assignees: hitlConfig.assignees || [],
-      timeout: hitlConfig.timeout || 86400000, // 24 hours default
-      priority: hitlConfig.priority || 'medium',
-    };
-
-    // Emit HITL request event
-    this.eventEmitter.emit('workflow.hitl.request.created', {
-      requestId,
-      executionId: context.executionId,
-      workflowId: context.workflowId,
-      requestData,
-      timestamp: new Date(),
-    });
-
-    // Send real-time notification to assignees
-    await this.websocketService.broadcastToOrganization(
-      context.organizationId,
-      'hitl_request_created',
-      {
-        requestId,
-        executionId: context.executionId,
-        workflowId: context.workflowId,
-        requestData,
-      },
-    );
-
-    // Wait for approval (this would be handled by a separate HITL service)
-    // For now, we'll simulate immediate approval
-    const approval = await this.waitForHitlApproval(
-      requestId,
-      hitlConfig.timeout || 86400000,
-    );
-
+    // Return pending result - actual resolution will happen via event handlers
     const executionTime = Date.now() - startTime;
-
-    // Update HITL request
-    const requestIndex = context.hitlRequests.findIndex(
-      (r) => r.requestId === requestId,
-    );
-    if (requestIndex >= 0) {
-      context.hitlRequests[requestIndex] = {
-        ...context.hitlRequests[requestIndex],
-        status: approval.approved ? 'approved' : 'rejected',
-        resolvedAt: new Date(),
-        resolvedBy: approval.resolvedBy,
-        resolution: approval.resolution,
-      };
-    }
-
-    // Resume workflow execution
-    await this.resume(context.executionId);
-
-    if (!approval.approved) {
-      throw new Error(
-        `HITL request rejected: ${approval.reason || 'No reason provided'}`,
-      );
-    }
-
-    // Apply approval data to variables if provided
-    if (approval.data) {
-      Object.assign(context.variables, approval.data);
-    }
 
     return {
       output: {
-        approved: approval.approved,
-        approvedBy: approval.resolvedBy,
-        approvalData: approval.data,
+        hitlRequestId: hitlRequest.id,
+        status: 'pending_approval',
+        requestType: hitlConfig.type,
       },
       cost: 0,
       executionTime,
       metadata: {
-        requestId,
+        requestId: hitlRequest.id,
         requestType: hitlConfig.type,
-        approved: approval.approved,
-        resolvedBy: approval.resolvedBy,
+        stepId: step.id,
+        pausedForApproval: true,
       },
     };
   }

@@ -1,54 +1,55 @@
 import {
   IsOptional,
   IsDateString,
-  IsEnum,
   IsString,
-  IsNumber,
+  IsEnum,
+  IsUUID,
 } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  HITLRequestStatus,
   HITLRequestType,
+  HITLRequestStatus,
   HITLRequestPriority,
 } from '@shared/enums';
 
 export class HITLAnalyticsQueryDto {
-  @IsDateString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsDateString()
   startDate?: string;
 
-  @IsDateString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsDateString()
   endDate?: string;
 
-  @IsEnum(HITLRequestType)
+  @ApiPropertyOptional({ enum: HITLRequestType })
   @IsOptional()
+  @IsEnum(HITLRequestType)
   type?: HITLRequestType;
 
-  @IsEnum(HITLRequestStatus)
+  @ApiPropertyOptional({ enum: HITLRequestStatus })
   @IsOptional()
+  @IsEnum(HITLRequestStatus)
   status?: HITLRequestStatus;
 
-  @IsEnum(HITLRequestPriority)
+  @ApiPropertyOptional({ enum: HITLRequestPriority })
   @IsOptional()
+  @IsEnum(HITLRequestPriority)
   priority?: HITLRequestPriority;
 
-  @IsString()
+  @ApiPropertyOptional({ enum: ['agent', 'tool', 'workflow'] })
   @IsOptional()
+  @IsEnum(['agent', 'tool', 'workflow'])
   sourceType?: 'agent' | 'tool' | 'workflow';
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsUUID()
   assigneeId?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  @IsOptional()
   category?: string;
-
-  @IsNumber()
-  @IsOptional()
-  page?: number = 1;
-
-  @IsNumber()
-  @IsOptional()
-  limit?: number = 50;
 }

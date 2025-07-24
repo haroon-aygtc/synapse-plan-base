@@ -23,4 +23,9 @@ export { Notification } from './notification.entity';
 export { NotificationPreference } from './notification-preference.entity';
 export { AIProvider } from './ai-provider.entity';
 export { PromptTemplate } from './prompt-template.entity';
-  
+export { TestingSandbox } from './testing-sandbox.entity';
+export { TestScenario } from './test-scenario.entity';
+export { TestExecution } from './test-execution.entity';
+export { MockData } from './mock-data.entity';
+export { DebugSession } from './debug-session.entity';
+export { HITLRequest, HITLComment, HITLVote } from './hitl-request.entity';

@@ -1,21 +1,36 @@
-import { IsUUID, IsOptional, IsArray, IsString } from 'class-validator';
+import {
+  IsUUID,
+  IsString,
+  IsOptional,
+  IsArray,
+  ValidateIf,
+} from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AssignHITLRequestDto {
-  @IsUUID()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsUUID()
   assigneeId?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @IsOptional()
   assigneeRoles?: string[];
 
-  @IsArray()
-  @IsUUID(4, { each: true })
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
   assigneeUsers?: string[];
 
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   reason?: string;
+
+  @ValidateIf((o) => !o.assigneeId && !o.assigneeRoles && !o.assigneeUsers)
+  @IsString({ message: 'At least one assignment target must be provided' })
+  _validation?: never;
 }

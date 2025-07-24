@@ -15,7 +15,7 @@ export enum AgentEventType {
   AGENT_TEST_RESULT_EXECUTION_COMPLETED = 'agent.test.result.execution.completed',
   AGENT_TEST_RESULT_EXECUTION_FAILED = 'agent.test.result.execution.failed',
   AGENT_TEST_RESULT_EXECUTION_CANCELLED = 'agent.test.result.execution.cancelled',
-  
+
   // Tool Events
   TOOL_CREATED = 'tool.created',
   TOOL_UPDATED = 'tool.updated',
@@ -24,7 +24,6 @@ export enum AgentEventType {
   TOOL_EXECUTION_COMPLETED = 'tool.execution.completed',
   TOOL_EXECUTION_FAILED = 'tool.execution.failed',
   TOOL_EXECUTION_CANCELLED = 'tool.execution.cancelled',
-
 
   // Workflow Events
   WORKFLOW_CREATED = 'workflow.created',
@@ -217,3 +216,6 @@ export enum UserRole {
 
 // Export APIX Protocol enums from separate file
 export * from './apix-protocol.enum';
+
+// Export HITL enums
+export * from './hitl.enum';
