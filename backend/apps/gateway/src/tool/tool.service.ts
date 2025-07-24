@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tool, ToolExecution } from '@database/entities';
@@ -69,17 +73,126 @@ export class ToolService {
     };
   }
 
-  async findOne(id: string): Promise<Tool> {
-    const tool = await this.toolRepository.findOne({ where: { id } });
+  async findOne(id: string, organizationId?: string): Promise<Tool> {
+    const whereClause: any = { id };
+    if (organizationId) {
+      whereClause.organizationId = organizationId;
+    }
+
+    const tool = await this.toolRepository.findOne({ where: whereClause });
     if (!tool) {
       throw new NotFoundException(`Tool with ID ${id} not found`);
     }
     return tool;
   }
 
+  async execute(
+    toolId: string,
+    executeDto: any,
+    userId: string,
+    organizationId: string,
+    sessionId?: string,
+  ): Promise<any> {
+    const tool = await this.findOne(toolId, organizationId);
+
+    if (!tool.isActive) {
+      throw new BadRequestException('Tool is not active');
+    }
+
+    const executionId = executeDto.toolCallId || require('uuid').v4();
+    const startTime = Date.now();
+
+    // Create execution record
+    const execution = this.toolExecutionRepository.create({
+      id: executionId,
+      toolId,
+      functionName: executeDto.functionName || 'execute',
+      parameters: executeDto.parameters,
+      status: ExecutionStatus.RUNNING,
+      callerType: executeDto.callerType || 'user',
+      callerId: executeDto.callerId || userId,
+      organizationId,
+      createdAt: new Date(),
+    });
+
+    await this.toolExecutionRepository.save(execution);
+
+    try {
+      // Execute the tool
+      const result = await this.performToolExecution(tool, executeDto);
+      const executionTime = Date.now() - startTime;
+
+      // Update execution record
+      execution.status = ExecutionStatus.COMPLETED;
+      execution.result = result;
+      execution.executionTimeMs = executionTime;
+      execution.cost = this.calculateCost(tool, executionTime);
+      execution.completedAt = new Date();
+
+      await this.toolExecutionRepository.save(execution);
+
+      return {
+        id: executionId,
+        toolId,
+        functionName: executeDto.functionName || 'execute',
+        parameters: executeDto.parameters,
+        result,
+        status: ExecutionStatus.COMPLETED,
+        executionTime,
+        cost: execution.cost,
+      };
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+
+      // Update execution record with error
+      execution.status = ExecutionStatus.FAILED;
+      execution.error = error.message;
+      execution.executionTimeMs = executionTime;
+      execution.completedAt = new Date();
+
+      await this.toolExecutionRepository.save(execution);
+
+      throw error;
+    }
+  }
+
+  private async performToolExecution(
+    tool: Tool,
+    executeDto: any,
+  ): Promise<any> {
+    const { endpoint, method, headers } = tool;
+    const { parameters } = executeDto;
+
+    try {
+      const axios = require('axios');
+      const response = await axios({
+        url: endpoint,
+        method: method.toLowerCase(),
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        data: method.toUpperCase() !== 'GET' ? parameters : undefined,
+        params: method.toUpperCase() === 'GET' ? parameters : undefined,
+        timeout: executeDto.timeout || 30000,
+      });
+
+      return response.data;
+    } catch (error) {
+      throw new Error(`Tool execution failed: ${error.message}`);
+    }
+  }
+
+  private calculateCost(tool: Tool, executionTimeMs: number): number {
+    // Simple cost calculation based on execution time
+    const baseCost = 0.001; // $0.001 per execution
+    const timeCost = (executionTimeMs / 1000) * 0.0001; // $0.0001 per second
+    return baseCost + timeCost;
+  }
+
   async update(id: string, updateToolDto: UpdateToolDto): Promise<Tool> {
     const tool = await this.findOne(id);
-    
+
     Object.assign(tool, {
       ...updateToolDto,
       updatedAt: new Date(),
@@ -101,7 +214,10 @@ export class ToolService {
       // Simulate tool execution for testing
       const result = {
         success: true,
-        result: { message: 'Test execution successful', data: testToolDto.parameters },
+        result: {
+          message: 'Test execution successful',
+          data: testToolDto.parameters,
+        },
         executionTime: Date.now() - startTime,
         cost: 0.001,
       };
@@ -117,11 +233,14 @@ export class ToolService {
     }
   }
 
-  async getExecutions(id: string, options: {
-    page?: number;
-    limit?: number;
-    status?: string;
-  }) {
+  async getExecutions(
+    id: string,
+    options: {
+      page?: number;
+      limit?: number;
+      status?: string;
+    },
+  ) {
     const { page = 1, limit = 20, status } = options;
     const queryBuilder = this.toolExecutionRepository
       .createQueryBuilder('execution')
@@ -149,10 +268,13 @@ export class ToolService {
     };
   }
 
-  async getAnalytics(id: string, options: {
-    startDate?: Date;
-    endDate?: Date;
-  }) {
+  async getAnalytics(
+    id: string,
+    options: {
+      startDate?: Date;
+      endDate?: Date;
+    },
+  ) {
     const tool = await this.findOne(id);
     const { startDate, endDate } = options;
 
@@ -177,23 +299,32 @@ export class ToolService {
       (e) => e.status === ExecutionStatus.FAILED,
     ).length;
 
-    const averageExecutionTime = totalExecutions > 0
-      ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions
-      : 0;
+    const averageExecutionTime =
+      totalExecutions > 0
+        ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
+          totalExecutions
+        : 0;
 
     const totalCost = executions.reduce((sum, e) => sum + (e.cost || 0), 0);
 
     return {
       totalExecutions,
-      successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0,
+      successRate:
+        totalExecutions > 0
+          ? (successfulExecutions / totalExecutions) * 100
+          : 0,
       averageExecutionTime,
       totalCost,
-      errorRate: totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0,
+      errorRate:
+        totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0,
       popularFunctions: [
         {
           functionName: 'execute',
           callCount: totalExecutions,
-          successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0,
+          successRate:
+            totalExecutions > 0
+              ? (successfulExecutions / totalExecutions) * 100
+              : 0,
         },
       ],
     };
@@ -239,19 +370,21 @@ export class ToolService {
     }));
   }
 
-  async search(query: string, options: {
-    category?: string;
-    tags?: string[];
-    limit?: number;
-  }) {
+  async search(
+    query: string,
+    options: {
+      category?: string;
+      tags?: string[];
+      limit?: number;
+    },
+  ) {
     const { category, tags, limit = 20 } = options;
     const queryBuilder = this.toolRepository
       .createQueryBuilder('tool')
       .where('tool.isActive = :isActive', { isActive: true })
-      .andWhere(
-        '(tool.name ILIKE :query OR tool.description ILIKE :query)',
-        { query: `%${query}%` },
-      );
+      .andWhere('(tool.name ILIKE :query OR tool.description ILIKE :query)', {
+        query: `%${query}%`,
+      });
 
     if (category) {
       queryBuilder.andWhere('tool.category = :category', { category });
@@ -261,9 +394,7 @@ export class ToolService {
       queryBuilder.andWhere('tool.tags && :tags', { tags });
     }
 
-    queryBuilder
-      .orderBy('tool.name', 'ASC')
-      .limit(limit);
+    queryBuilder.orderBy('tool.name', 'ASC').limit(limit);
 
     return queryBuilder.getMany();
   }
