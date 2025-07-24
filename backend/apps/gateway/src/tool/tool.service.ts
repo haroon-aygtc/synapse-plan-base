@@ -11,6 +11,8 @@ import { CreateToolDto, UpdateToolDto, TestToolDto } from './dto';
 import { ExecutionStatus } from '@shared/enums';
 import axios from 'axios';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { AIProviderService } from '../ai-provider/ai-provider.service';
+import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
 
 @Injectable()
 export class ToolService {
@@ -26,6 +28,7 @@ export class ToolService {
     @InjectRepository(Workflow)
     private readonly workflowRepository: Repository<Workflow>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly aiProviderService: AIProviderService,
   ) {}
 
   async create(createToolDto: CreateToolDto): Promise<Tool> {
@@ -114,8 +117,8 @@ export class ToolService {
         `${endpoint}/swagger.json`,
         `${endpoint}/openapi.json`,
         `${endpoint}/api-docs`,
-        `${endpoint.replace(/\/[^/]*$/, '')}/swagger.json`,
-        `${endpoint.replace(/\/[^/]*$/, '')}/openapi.json`,
+        `${endpoint.replace(/\/[^\/]*$/, '')}/swagger.json`,
+        `${endpoint.replace(/\/[^\/]*$/, '')}/openapi.json`,
       ];
 
       for (const specUrl of possibleSpecUrls) {
@@ -386,6 +389,18 @@ export class ToolService {
       execution.completedAt = new Date();
 
       await this.toolExecutionRepository.save(execution);
+
+      // Record execution in AI provider metrics if this is an AI-powered tool
+      if (tool.category === 'ai' && organizationId && userId) {
+        try {
+          // This would be for AI-powered tools that use LLM providers
+          // For now, we'll skip this for regular API tools
+        } catch (error) {
+          this.logger.warn(
+            `Failed to record tool execution in AI provider metrics: ${error.message}`,
+          );
+        }
+      }
 
       return {
         id: executionId,
@@ -787,9 +802,12 @@ export class ToolService {
     const queryBuilder = this.toolRepository
       .createQueryBuilder('tool')
       .where('tool.isActive = :isActive', { isActive: true })
-      .andWhere('(tool.name ILIKE :query OR tool.description ILIKE :query)', {
-        query: `%${query}%`,
-      });
+      .andWhere(
+        '(tool.name ILIKE :query OR tool.description ILIKE :query OR tool.tags::text ILIKE :query)',
+        {
+          query: `%${query}%`,
+        },
+      );
 
     if (category) {
       queryBuilder.andWhere('tool.category = :category', { category });
@@ -1340,7 +1358,7 @@ export class ToolService {
         iconUrl:
           'https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/salesforce.svg',
         documentationUrl:
-          'https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/dome_sobject_create.htm',
+          'https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta.api_rest.dome_sobject_create.htm',
         rateLimit: { requestsPerMinute: 100, burstLimit: 25 },
         costPerExecution: 0.003,
       },
@@ -2697,6 +2715,7 @@ Return a JSON object with:
         success: false,
         error: error.message,
         executionTime,
+        cost: 0,
         context: testData.context,
         recommendations: this.generateContextTestRecommendations(
           tool,

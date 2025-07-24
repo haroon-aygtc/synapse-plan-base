@@ -6,12 +6,14 @@ import { ToolService } from './tool.service';
 import { ToolExecutionEngine } from './tool-execution.engine';
 import { SessionModule } from '../session/session.module';
 import { WebsocketModule } from '../websocket/websocket.module';
+import { AIProviderModule } from '../ai-provider/ai-provider.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Tool, ToolExecution, Agent, Workflow]),
     SessionModule,
     WebsocketModule,
+    AIProviderModule,
   ],
   controllers: [ToolController],
   providers: [ToolService, ToolExecutionEngine],

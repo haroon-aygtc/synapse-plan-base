@@ -17,7 +17,7 @@ import {
   ProviderStatus,
 } from '@database/entities';
 import { ProviderAdapterService } from './provider-adapter.service';
-import { EventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums';
 
 interface HealthCheckResult {
   providerId: string;
@@ -247,7 +247,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
     );
 
     // Emit health check event
-    this.eventEmitter.emit(EventType.AI_PROVIDER_HEALTH_CHECK, {
+    this.eventEmitter.emit(AgentEventType.AI_PROVIDER_HEALTH_CHECK, {
       providerId,
       organizationId,
       healthStatus: result.status,
@@ -318,7 +318,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
         provider.status = ProviderStatus.ERROR;
         await this.providerRepository.save(provider);
 
-        this.eventEmitter.emit(EventType.AI_PROVIDER_STATUS_CHANGED, {
+        this.eventEmitter.emit(AgentEventType.AI_PROVIDER_STATUS_CHANGED, {
           providerId: provider.id,
           organizationId: provider.organizationId,
           oldStatus: ProviderStatus.ACTIVE,
@@ -339,7 +339,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
       provider.status = ProviderStatus.ACTIVE;
       await this.providerRepository.save(provider);
 
-      this.eventEmitter.emit(EventType.AI_PROVIDER_STATUS_CHANGED, {
+      this.eventEmitter.emit(AgentEventType.AI_PROVIDER_STATUS_CHANGED, {
         providerId: provider.id,
         organizationId: provider.organizationId,
         oldStatus: ProviderStatus.ERROR,

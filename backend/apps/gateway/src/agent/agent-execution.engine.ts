@@ -4,15 +4,22 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Agent, AgentExecution } from '@database/entities';
-import { AgentEventType, ExecutionStatus } from '@shared/enums';
+import {
+  AgentEventType,
+  ExecutionStatus,
+  HITLRequestType,
+  HITLRequestPriority,
+} from '@shared/enums';
 import { WebSocketService } from '../websocket/websocket.service';
 import { SessionService } from '../session/session.service';
 import { ToolService } from '../tool/tool.service';
 import { KnowledgeService } from '../knowledge/knowledge.service';
+import { AIProviderService } from '../ai-provider/ai-provider.service';
+import { ProviderAdapterService } from '../ai-provider/provider-adapter.service';
+import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
 import { v4 as uuidv4 } from 'uuid';
 import OpenAI from 'openai';
 import { HITLService } from '../hitl/hitl.service';
-import { HITLRequestType, HITLRequestPriority } from '@shared/enums';
 
 export interface AgentExecutionOptions {
   input: string;
@@ -70,6 +77,8 @@ export class AgentExecutionEngine {
     private readonly websocketService: WebSocketService,
     private readonly toolService: ToolService,
     private readonly knowledgeService: KnowledgeService,
+    private readonly aiProviderService: AIProviderService,
+    private readonly providerAdapter: ProviderAdapterService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
     private readonly hitlService: HITLService,
@@ -293,19 +302,39 @@ export class AgentExecutionEngine {
         };
       }
 
-      // Execute with OpenAI
-      const completion = await this.openai.chat.completions.create({
-        model: agent.model,
-        messages,
-        temperature: agent.temperature,
-        max_tokens: agent.maxTokens,
-        tools: tools.length > 0 ? tools : undefined,
-        tool_choice: tools.length > 0 ? 'auto' : undefined,
-      });
+      // Select AI provider for execution
+      const selectedProvider = await this.aiProviderService.selectProvider(
+        organizationId,
+        ExecutionType.AGENT,
+        agent.model,
+        {
+          agentId: agent.id,
+          userId,
+          organizationId,
+          estimatedCost: 0.01, // Rough estimate
+          maxResponseTime: 30000,
+        },
+      );
 
-      const choice = completion.choices[0];
-      let finalOutput = choice.message.content || '';
-      const tokensUsed = completion.usage?.total_tokens || 0;
+      // Execute with selected provider
+      const providerResponse = await this.providerAdapter.executeRequest(
+        selectedProvider.type,
+        selectedProvider.config,
+        {
+          messages: messages.map((msg) => ({
+            role: msg.role as 'system' | 'user' | 'assistant',
+            content: msg.content as string,
+          })),
+          model: agent.model,
+          temperature: agent.temperature,
+          maxTokens: agent.maxTokens,
+          tools: tools.length > 0 ? tools : undefined,
+        },
+      );
+
+      let finalOutput = providerResponse.content;
+      const tokensUsed = providerResponse.tokensUsed;
+      const cost = providerResponse.cost;
 
       // Handle tool calls
       if (choice.message.tool_calls) {
@@ -399,7 +428,6 @@ export class AgentExecutionEngine {
       }
 
       const executionTime = Date.now() - startTime;
-      const cost = this.calculateCost(agent.model, tokensUsed);
 
       // Update execution record
       execution.output = finalOutput;
@@ -410,12 +438,29 @@ export class AgentExecutionEngine {
       execution.completedAt = new Date();
       execution.metadata = {
         ...execution.metadata,
+        providerId: selectedProvider.id,
+        providerType: selectedProvider.type,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
         knowledgeSearches:
           knowledgeSearches.length > 0 ? knowledgeSearches : undefined,
       };
 
       await this.agentExecutionRepository.save(execution);
+
+      // Record execution in AI provider metrics
+      await this.aiProviderService.recordExecution(
+        selectedProvider.id,
+        ExecutionType.AGENT,
+        agent.id,
+        agent.model,
+        { input: options.input, context: options.context },
+        { output: finalOutput },
+        tokensUsed,
+        cost,
+        executionTime,
+        organizationId,
+        userId,
+      );
 
       // Update session context if sessionId provided
       if (options.sessionId && sessionContext) {

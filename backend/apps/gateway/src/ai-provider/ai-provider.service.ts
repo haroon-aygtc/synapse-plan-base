@@ -6,7 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Between } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -16,10 +16,12 @@ import {
   AIProvider,
   AIProviderExecution,
   AIProviderMetrics,
+} from '@database/entities';
+import {
   ProviderType,
   ProviderStatus,
   RoutingRule,
-} from '@database/entities';
+} from '@database/entities/ai-provider.entity';
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
 import { ProviderAdapterService } from './provider-adapter.service';
 import { ProviderRoutingService } from './provider-routing.service';
@@ -31,7 +33,7 @@ import {
   ProviderConfigDto,
   ProviderRoutingRuleDto,
 } from './dto';
-import { EventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
@@ -118,7 +120,7 @@ export class AIProviderService {
     this.providerHealth.startMonitoring(savedProvider.id, organizationId);
 
     // Emit event
-    this.eventEmitter.emit(EventType.AI_PROVIDER_CREATED, {
+    this.eventEmitter.emit(AgentEventType.AI_PROVIDER_CREATED, {
       providerId: savedProvider.id,
       organizationId,
       userId,
@@ -202,7 +204,7 @@ export class AIProviderService {
     await this.cacheProvider(updatedProvider);
 
     // Emit event
-    this.eventEmitter.emit(EventType.AI_PROVIDER_UPDATED, {
+    this.eventEmitter.emit(AgentEventType.AI_PROVIDER_UPDATED, {
       providerId: updatedProvider.id,
       organizationId,
       changes: updateProviderDto,
@@ -231,7 +233,7 @@ export class AIProviderService {
     this.providerHealth.stopMonitoring(id);
 
     // Emit event
-    this.eventEmitter.emit(EventType.AI_PROVIDER_DELETED, {
+    this.eventEmitter.emit(AgentEventType.AI_PROVIDER_DELETED, {
       providerId: id,
       organizationId,
       timestamp: new Date(),
@@ -279,7 +281,7 @@ export class AIProviderService {
     await this.cacheProvider(updatedProvider);
 
     // Emit event
-    this.eventEmitter.emit(EventType.AI_PROVIDER_KEY_ROTATED, {
+    this.eventEmitter.emit(AgentEventType.AI_PROVIDER_KEY_ROTATED, {
       providerId: updatedProvider.id,
       organizationId,
       timestamp: new Date(),
@@ -407,10 +409,7 @@ export class AIProviderService {
     const executions = await this.executionRepository.find({
       where: {
         organizationId,
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        } as any,
+        createdAt: Between(startDate, endDate),
       },
       relations: ['provider'],
     });
@@ -607,10 +606,7 @@ export class AIProviderService {
       where: {
         providerId: id,
         organizationId,
-        createdAt: {
-          gte: startDate,
-          lte: endDate,
-        } as any,
+        createdAt: Between(startDate, endDate),
       },
     });
 

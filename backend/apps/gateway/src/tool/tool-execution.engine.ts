@@ -4,9 +4,14 @@ import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Tool, ToolExecution } from '@database/entities';
 import { ExecuteToolDto } from './dto';
-import { ExecutionStatus } from '@shared/enums';
+import {
+  ExecutionStatus,
+  HITLRequestType,
+  HITLRequestPriority,
+} from '@shared/enums';
 import { HITLService } from '../hitl/hitl.service';
-import { HITLRequestType, HITLRequestPriority } from '@shared/enums';
+import { AIProviderService } from '../ai-provider/ai-provider.service';
+import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 
@@ -21,6 +26,7 @@ export class ToolExecutionEngine {
     private readonly toolExecutionRepository: Repository<ToolExecution>,
     private readonly eventEmitter: EventEmitter2,
     private readonly hitlService: HITLService,
+    private readonly aiProviderService: AIProviderService,
   ) {}
 
   async execute(
@@ -129,6 +135,18 @@ export class ToolExecutionEngine {
       execution.completedAt = new Date();
 
       await this.toolExecutionRepository.save(execution);
+
+      // Record execution in AI provider metrics if applicable
+      if (userId && organizationId) {
+        try {
+          // This would be used for AI-powered tools that use LLM providers
+          // For now, we'll skip this for regular API tools
+        } catch (error) {
+          this.logger.warn(
+            `Failed to record tool execution in AI provider metrics: ${error.message}`,
+          );
+        }
+      }
 
       // Emit execution completed event
       this.eventEmitter.emit('tool.execution.completed', {
