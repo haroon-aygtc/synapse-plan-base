@@ -15,6 +15,7 @@ import { ToolModule } from '../tool/tool.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { PromptTemplateModule } from '../prompt-template/prompt-template.module';
 import { AIProviderModule } from '../ai-provider/ai-provider.module';
+import { HITLModule } from '../hitl/hitl.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AIProviderModule } from '../ai-provider/ai-provider.module';
     KnowledgeModule,
     PromptTemplateModule,
     AIProviderModule,
+    HITLModule,
   ],
   controllers: [AgentController],
   providers: [AgentService, AgentExecutionEngine],

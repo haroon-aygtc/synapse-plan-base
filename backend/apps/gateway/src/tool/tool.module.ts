@@ -7,6 +7,7 @@ import { ToolExecutionEngine } from './tool-execution.engine';
 import { SessionModule } from '../session/session.module';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { AIProviderModule } from '../ai-provider/ai-provider.module';
+import { HITLModule } from '../hitl/hitl.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AIProviderModule } from '../ai-provider/ai-provider.module';
     SessionModule,
     WebsocketModule,
     AIProviderModule,
+    HITLModule,
   ],
   controllers: [ToolController],
   providers: [ToolService, ToolExecutionEngine],

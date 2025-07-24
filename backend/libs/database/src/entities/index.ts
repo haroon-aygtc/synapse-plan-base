@@ -21,8 +21,17 @@ export { EventLog } from './event-log.entity';
 export { Subscription } from './subscription.entity';
 export { Notification } from './notification.entity';
 export { NotificationPreference } from './notification-preference.entity';
-export { AIProvider } from './ai-provider.entity';
-export { AIProviderExecution } from './ai-provider-execution.entity';
+export {
+  AIProvider,
+  ProviderType,
+  ProviderStatus,
+  ProviderConfig,
+  RoutingRule,
+} from './ai-provider.entity';
+export {
+  AIProviderExecution,
+  ExecutionType,
+} from './ai-provider-execution.entity';
 export { AIProviderMetrics } from './ai-provider-metrics.entity';
 export { PromptTemplate } from './prompt-template.entity';
 export { TestingSandbox } from './testing-sandbox.entity';
@@ -31,3 +40,7 @@ export { TestExecution } from './test-execution.entity';
 export { MockData } from './mock-data.entity';
 export { DebugSession } from './debug-session.entity';
 export { HITLRequest, HITLComment, HITLVote } from './hitl-request.entity';
+
+// Knowledge entities (if they exist)
+export type KnowledgeDocument = any;
+export type KnowledgeSearch = any;
