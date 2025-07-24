@@ -5,6 +5,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Tool, ToolExecution } from '@database/entities';
 import { ExecuteToolDto } from './dto';
 import { ExecutionStatus } from '@shared/enums';
+import { HITLService } from '../hitl/hitl.service';
+import { HITLRequestType, HITLRequestPriority } from '@shared/enums';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 
@@ -18,9 +20,15 @@ export class ToolExecutionEngine {
     @InjectRepository(ToolExecution)
     private readonly toolExecutionRepository: Repository<ToolExecution>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly hitlService: HITLService,
   ) {}
 
-  async execute(toolId: string, executeToolDto: ExecuteToolDto) {
+  async execute(
+    toolId: string,
+    executeToolDto: ExecuteToolDto,
+    userId?: string,
+    organizationId?: string,
+  ) {
     const tool = await this.toolRepository.findOne({ where: { id: toolId } });
     if (!tool) {
       throw new Error(`Tool with ID ${toolId} not found`);
@@ -28,6 +36,59 @@ export class ToolExecutionEngine {
 
     const executionId = executeToolDto.toolCallId || uuidv4();
     const startTime = Date.now();
+
+    // Handle HITL requests if tool requires approval
+    if (tool.requiresApproval && userId && organizationId) {
+      const hitlRequest = await this.hitlService.createRequest(
+        {
+          title: `Tool Execution Approval Required`,
+          description: `Tool "${tool.name}" requires approval before execution`,
+          type: HITLRequestType.APPROVAL,
+          priority: HITLRequestPriority.MEDIUM,
+          sourceType: 'tool',
+          sourceId: tool.id,
+          executionId,
+          executionContext: {
+            parameters: executeToolDto.parameters,
+            functionName: executeToolDto.functionName,
+            toolId: tool.id,
+          },
+        },
+        userId,
+        organizationId,
+      );
+
+      // Create paused execution record
+      const execution = this.toolExecutionRepository.create({
+        id: executionId,
+        toolId,
+        sessionId: uuidv4(),
+        input: executeToolDto.parameters,
+        status: ExecutionStatus.PAUSED,
+        context: {
+          functionName: executeToolDto.functionName,
+          callerType: executeToolDto.callerType || 'user',
+          callerId: executeToolDto.callerId,
+          hitlRequestId: hitlRequest.id,
+        },
+        startedAt: new Date(),
+        createdAt: new Date(),
+      });
+
+      await this.toolExecutionRepository.save(execution);
+
+      return {
+        id: executionId,
+        toolId,
+        functionName: executeToolDto.functionName,
+        parameters: executeToolDto.parameters,
+        result: 'Execution paused pending approval',
+        status: ExecutionStatus.PAUSED,
+        executionTime: Date.now() - startTime,
+        cost: 0,
+        hitlRequestId: hitlRequest.id,
+      };
+    }
 
     // Create execution record
     const execution = this.toolExecutionRepository.create({
