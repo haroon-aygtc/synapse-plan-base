@@ -208,5 +208,12 @@ export enum SessionEventType {
   SESSION_ANALYTICS_UPDATE = 'session.analytics.update',
 }
 
+export enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ORG_ADMIN = 'ORG_ADMIN',
+  DEVELOPER = 'DEVELOPER',
+  VIEWER = 'VIEWER',
+}
+
 // Export APIX Protocol enums from separate file
 export * from './apix-protocol.enum';
