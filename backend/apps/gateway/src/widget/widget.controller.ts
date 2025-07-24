@@ -22,7 +22,6 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@libs/shared/guards/roles.guard';
-import { Roles } from '@libs/shared/decorators/roles.decorator';
 import { WidgetService } from './widget.service';
 import {
   CreateWidgetDto,
@@ -64,7 +63,7 @@ export class WidgetController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : String(error),
           error: 'WIDGET_CREATION_FAILED',
         },
         HttpStatus.BAD_REQUEST,

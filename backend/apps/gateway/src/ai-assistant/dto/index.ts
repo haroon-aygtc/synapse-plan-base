@@ -5,3 +5,6 @@ export * from './optimize-prompt.dto';
 export * from './generate-test-cases.dto';
 export * from './explain-agent.dto';
 export * from './personality-profile.dto';
+export * from './natural-language-config.dto';
+export * from './visual-builder.dto';
+export * from './api-pattern-detection.dto';
