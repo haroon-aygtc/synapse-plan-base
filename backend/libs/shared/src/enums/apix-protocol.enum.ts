@@ -19,7 +19,7 @@ export enum APXMessageType {
   TOOL_ERROR = 'tool_error',
   TOOL_CANCELLED = 'tool_cancelled',
 
-    // Message Events
+  // Message Events
   MESSAGE_CREATED = 'message_created',
   MESSAGE_UPDATED = 'message_updated',
   MESSAGE_DELETED = 'message_deleted',
@@ -50,7 +50,7 @@ export enum APXMessageType {
   AGENT_CREATED = 'agent_created',
   AGENT_UPDATED = 'agent_updated',
   AGENT_DELETED = 'agent_deleted',
-  
+
   // Agent Execution
   AGENT_EXECUTION_STARTED = 'agent_execution_started',
   AGENT_TEXT_CHUNK = 'agent_text_chunk',
@@ -58,37 +58,37 @@ export enum APXMessageType {
   AGENT_MEMORY_USED = 'agent_memory_used',
   AGENT_ERROR = 'agent_error',
   AGENT_EXECUTION_COMPLETE = 'agent_execution_complete',
-  
+
   // Tool Invocation
   TOOL_CALL_START = 'tool_call_start',
   TOOL_CALL_RESULT = 'tool_call_result',
   TOOL_CALL_ERROR = 'tool_call_error',
-  
+
   // Knowledge Base
   KB_SEARCH_PERFORMED = 'kb_search_performed',
   KB_CHUNK_INJECTED = 'kb_chunk_injected',
-  
+
   // HITL
   HITL_REQUEST_CREATED = 'hitl_request_created',
   HITL_RESOLUTION_PENDING = 'hitl_resolution_pending',
   HITL_RESOLVED = 'hitl_resolved',
   HITL_EXPIRED = 'hitl_expired',
-  
+
   // Widget Events
   WIDGET_LOADED = 'widget_loaded',
   WIDGET_OPENED = 'widget_opened',
   WIDGET_QUERY_SUBMITTED = 'widget_query_submitted',
   WIDGET_CONVERTED = 'widget_converted',
-  
+
   // Control Events
   STREAM_PAUSE = 'stream_pause',
   STREAM_RESUME = 'stream_resume',
   TOKEN_LIMIT_REACHED = 'token_limit_reached',
   PROVIDER_FALLBACK = 'provider_fallback',
-  
+
   // Workflow Events
   WORKFLOW_EXECUTION_STARTED = 'workflow_execution_started',
-  
+
   // Error Events
   VALIDATION_ERROR = 'validation_error',
   PERMISSION_DENIED = 'permission_denied',
@@ -100,6 +100,7 @@ export enum APXSecurityLevel {
   AUTHENTICATED = 'authenticated',
   ENCRYPTED = 'encrypted',
   SENSITIVE = 'sensitive',
+  PRIVATE = 'private',
 }
 
 export enum APXPermissionLevel {

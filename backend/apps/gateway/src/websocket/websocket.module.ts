@@ -8,6 +8,7 @@ import { ConnectionService } from './connection.service';
 import { WebSocketService } from './websocket.service';
 import { APXSchemaService } from './apix-schema.service';
 import { APXPermissionService } from './apix-permission.service';
+import { APXMonitoringService } from './apix-monitoring.service';
 import {
   User,
   Organization,
@@ -49,7 +50,7 @@ import Redis from 'ioredis';
         if (redisUrl) {
           return new Redis(redisUrl);
         }
-        
+
         return new Redis({
           host: configService.get('REDIS_HOST', 'localhost'),
           port: configService.get('REDIS_PORT', 6379),
@@ -69,8 +70,14 @@ import Redis from 'ioredis';
     WebSocketService,
     APXSchemaService,
     APXPermissionService,
+    APXMonitoringService,
     UserService,
   ],
-  exports: [WebSocketService, ConnectionService, 'REDIS_CLIENT'],
+  exports: [
+    WebSocketService,
+    ConnectionService,
+    APXMonitoringService,
+    'REDIS_CLIENT',
+  ],
 })
-export class WebsocketModule { }
+export class WebsocketModule {}

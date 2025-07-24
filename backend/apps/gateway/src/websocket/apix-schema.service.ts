@@ -1,7 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
-import { APXMessageType, APXSecurityLevel, APXPermissionLevel } from '@shared/enums';
-import { IAPXMessage, IAPXValidationError, IAPXMessageSchema } from '@shared/interfaces';
+import {
+  APXMessageType,
+  APXSecurityLevel,
+  APXPermissionLevel,
+} from '@shared/enums';
+import {
+  IAPXMessage,
+  IAPXValidationError,
+  IAPXMessageSchema,
+} from '@shared/interfaces';
 
 @Injectable()
 export class APXSchemaService {
@@ -427,11 +435,13 @@ export class APXSchemaService {
           created_at: z.string().datetime(),
           expires_at: z.string().datetime(),
           session_type: z.string(),
-          client_info: z.object({
-            user_agent: z.string().optional(),
-            ip_address: z.string().optional(),
-            device_id: z.string().optional(),
-          }).optional(),
+          client_info: z
+            .object({
+              user_agent: z.string().optional(),
+              ip_address: z.string().optional(),
+              device_id: z.string().optional(),
+            })
+            .optional(),
         }),
       }),
     );
@@ -454,10 +464,41 @@ export class APXSchemaService {
     this.logger.log(`Initialized ${this.schemas.size} APIX message schemas`);
   }
 
-  validateMessage(message: IAPXMessage): { valid: boolean; errors?: IAPXValidationError } {
+  validateMessage(message: IAPXMessage): {
+    valid: boolean;
+    errors?: IAPXValidationError;
+  } {
     try {
+      // Basic structure validation
+      if (!message.type || !message.session_id || !message.request_id) {
+        return {
+          valid: false,
+          errors: {
+            error_code: 'MISSING_REQUIRED_FIELDS',
+            error_message:
+              'Message must include type, session_id, and request_id',
+            request_id: message.request_id || 'unknown',
+          },
+        };
+      }
+
+      // Payload size validation
+      const payloadSize = JSON.stringify(message.payload || {}).length;
+      const maxSize = 1024 * 1024; // 1MB default limit
+      if (payloadSize > maxSize) {
+        return {
+          valid: false,
+          errors: {
+            error_code: 'PAYLOAD_TOO_LARGE',
+            error_message: `Payload size ${payloadSize} exceeds maximum ${maxSize} bytes`,
+            request_id: message.request_id,
+          },
+        };
+      }
+
+      // Schema validation
       const schema = this.schemas.get(message.type);
-      
+
       if (!schema) {
         return {
           valid: false,
@@ -469,12 +510,15 @@ export class APXSchemaService {
         };
       }
 
-      schema.parse(message);
+      // Sanitize payload to prevent XSS and injection attacks
+      const sanitizedMessage = this.sanitizeMessage(message);
+
+      schema.parse(sanitizedMessage);
       return { valid: true };
     } catch (error) {
       if (error instanceof z.ZodError) {
         const fieldErrors: Record<string, string> = {};
-        
+
         error.errors.forEach((err) => {
           const path = err.path.join('.');
           fieldErrors[path] = err.message;
@@ -502,6 +546,38 @@ export class APXSchemaService {
     }
   }
 
+  private sanitizeMessage(message: IAPXMessage): IAPXMessage {
+    // Deep clone to avoid modifying original
+    const sanitized = JSON.parse(JSON.stringify(message));
+
+    // Sanitize string fields recursively
+    this.sanitizeObject(sanitized);
+
+    return sanitized;
+  }
+
+  private sanitizeObject(obj: any): void {
+    if (typeof obj === 'string') {
+      // Basic XSS prevention - remove script tags and javascript: protocols
+      return obj
+        .replace(/<script[^>]*>.*?<\/script>/gi, '')
+        .replace(/javascript:/gi, '')
+        .replace(/on\w+\s*=/gi, '');
+    }
+
+    if (Array.isArray(obj)) {
+      obj.forEach((item, index) => {
+        obj[index] = this.sanitizeObject(item);
+      });
+    } else if (obj && typeof obj === 'object') {
+      Object.keys(obj).forEach((key) => {
+        obj[key] = this.sanitizeObject(obj[key]);
+      });
+    }
+
+    return obj;
+  }
+
   getMessageSchema(messageType: APXMessageType): IAPXMessageSchema | undefined {
     const schema = this.schemas.get(messageType);
     if (!schema) return undefined;
@@ -519,7 +595,7 @@ export class APXSchemaService {
       // Cast field to ZodTypeAny to access internal properties
       const zodField = field as z.ZodTypeAny;
       const isOptional = zodField._def?.typeName === 'ZodOptional';
-      
+
       if (isOptional) {
         optionalFields.push(key);
       } else {
@@ -529,7 +605,7 @@ export class APXSchemaService {
       // Determine field type
       let fieldType = 'any';
       const innerType = isOptional ? zodField._def?.innerType : zodField;
-      
+
       switch (innerType._def?.typeName) {
         case 'ZodString':
           fieldType = 'string';

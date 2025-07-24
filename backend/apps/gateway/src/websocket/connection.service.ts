@@ -34,8 +34,8 @@ import {
   EventPriority,
 } from '@shared/enums';
 
-export interface ConnectionInfo extends IConnectionInfo { }
-export interface MessageProtocol extends IWebSocketMessage { }
+export interface ConnectionInfo extends IConnectionInfo {}
+export interface MessageProtocol extends IWebSocketMessage {}
 
 @Injectable()
 export class ConnectionService implements OnModuleDestroy {
@@ -79,6 +79,16 @@ export class ConnectionService implements OnModuleDestroy {
     organizationId: string,
     role?: string,
   ): Promise<string> {
+    // Validate connection limits per organization
+    const orgConnections =
+      await this.getConnectionsByOrganizationId(organizationId);
+    const maxConnections = this.getMaxConnectionsForOrg(organizationId);
+
+    if (orgConnections.length >= maxConnections) {
+      throw new Error(
+        `Organization connection limit exceeded: ${maxConnections}`,
+      );
+    }
     const connectionId = uuidv4();
     const connectionInfo: ConnectionInfo = {
       id: connectionId,
@@ -147,6 +157,99 @@ export class ConnectionService implements OnModuleDestroy {
     );
 
     return connectionId;
+  }
+
+  private getMaxConnectionsForOrg(organizationId: string): number {
+    // This would typically come from organization settings or billing plan
+    // For now, return a reasonable default
+    return 1000;
+  }
+
+  async validateMessageSecurity(
+    message: any,
+    userId: string,
+    organizationId: string,
+    role: string,
+  ): Promise<{ valid: boolean; reason?: string }> {
+    // Validate tenant isolation
+    if (message.organization_id && message.organization_id !== organizationId) {
+      return {
+        valid: false,
+        reason: 'Cross-tenant access denied',
+      };
+    }
+
+    // Validate session ownership for session-specific messages
+    if (message.session_id) {
+      const sessionContext = this.sessionContexts.get(message.session_id);
+      if (
+        sessionContext &&
+        sessionContext.userId !== userId &&
+        !['SUPER_ADMIN', 'ORG_ADMIN'].includes(role)
+      ) {
+        return {
+          valid: false,
+          reason: 'Session access denied',
+        };
+      }
+    }
+
+    // Validate message expiration
+    if (message.expires_at) {
+      const expiresAt = new Date(message.expires_at);
+      if (expiresAt < new Date()) {
+        return {
+          valid: false,
+          reason: 'Message expired',
+        };
+      }
+    }
+
+    return { valid: true };
+  }
+
+  async enforceRateLimit(
+    userId: string,
+    organizationId: string,
+    messageType: string,
+  ): Promise<{ allowed: boolean; resetTime?: number }> {
+    const key = `rate_limit:${organizationId}:${userId}:${messageType}`;
+    const now = Date.now();
+    const windowMs = 60000; // 1 minute window
+
+    try {
+      const current = await this.redis.get(key);
+      const count = current ? parseInt(current) : 0;
+      const limit = this.getMessageRateLimit(messageType);
+
+      if (count >= limit) {
+        const ttl = await this.redis.ttl(key);
+        return {
+          allowed: false,
+          resetTime: now + ttl * 1000,
+        };
+      }
+
+      // Increment counter
+      await this.redis.multi().incr(key).expire(key, 60).exec();
+
+      return { allowed: true };
+    } catch (error) {
+      this.logger.error(`Rate limit check failed: ${error.message}`);
+      // Fail open for availability
+      return { allowed: true };
+    }
+  }
+
+  private getMessageRateLimit(messageType: string): number {
+    const limits = {
+      agent_execution_started: 10,
+      tool_call_start: 50,
+      widget_query_submitted: 100,
+      default: 200,
+    };
+
+    return limits[messageType] || limits.default;
   }
 
   async removeConnection(socketId: string): Promise<void> {
@@ -1020,11 +1123,11 @@ export class ConnectionService implements OnModuleDestroy {
       sessionContext.crossModuleData = {
         ...sessionContext.crossModuleData,
         [`${crossModuleEvent.sourceModule}_to_${crossModuleEvent.targetModule}`]:
-        {
-          eventType: crossModuleEvent.eventType,
-          timestamp: new Date(),
-          payload: crossModuleEvent.payload,
-        },
+          {
+            eventType: crossModuleEvent.eventType,
+            timestamp: new Date(),
+            payload: crossModuleEvent.payload,
+          },
       };
       this.sessionContexts.set(
         crossModuleEvent.context.sessionId,

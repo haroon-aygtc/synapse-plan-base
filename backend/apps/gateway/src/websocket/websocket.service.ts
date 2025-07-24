@@ -401,6 +401,17 @@ export class WebSocketService implements OnModuleInit {
     payload: IAPXAgentExecutionStarted,
     context: { userId: string; organizationId: string; sessionId: string },
   ): Promise<void> {
+    // Validate execution limits
+    const activeExecutions = this.getActiveExecutionsForUser(context.userId);
+    const maxConcurrentExecutions = this.getMaxConcurrentExecutions(
+      context.userId,
+    );
+
+    if (activeExecutions >= maxConcurrentExecutions) {
+      throw new Error(
+        `Maximum concurrent executions exceeded: ${maxConcurrentExecutions}`,
+      );
+    }
     try {
       // Create streaming session for agent execution
       const streamingSession: IAPXStreamingSession = {
@@ -444,6 +455,21 @@ export class WebSocketService implements OnModuleInit {
       );
       throw error;
     }
+  }
+
+  private getActiveExecutionsForUser(userId: string): number {
+    let count = 0;
+    for (const [executionId, context] of this.executionContexts.entries()) {
+      if (context.userId === userId) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  private getMaxConcurrentExecutions(userId: string): number {
+    // This would typically come from user's plan or organization settings
+    return 5; // Default limit
   }
 
   async handleToolCallStart(

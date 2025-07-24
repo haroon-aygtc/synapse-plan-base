@@ -127,7 +127,8 @@ class APXSubscriptionDto {
 })
 @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
 export class WebSocketGatewayImpl
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -162,7 +163,9 @@ export class WebSocketGatewayImpl
   private initializeMessageSchemas(): void {
     // Load schemas from the APXSchemaService
     for (const messageType of Object.values(APXMessageType)) {
-      const schema = this.apxSchemaService.getMessageSchema(messageType as APXMessageType);
+      const schema = this.apxSchemaService.getMessageSchema(
+        messageType as APXMessageType,
+      );
       if (schema) {
         this.messageSchemas.set(messageType as APXMessageType, schema);
       }
@@ -244,9 +247,18 @@ export class WebSocketGatewayImpl
             'real_time_orchestration',
           ],
           rate_limits: {
-            messages_per_minute: this.apxPermissionService.getRateLimit(role, 'messages'),
-            executions_per_hour: this.apxPermissionService.getRateLimit(role, 'executions'),
-            concurrent_streams: this.apxPermissionService.getRateLimit(role, 'streams'),
+            messages_per_minute: this.apxPermissionService.getRateLimit(
+              role,
+              'messages',
+            ),
+            executions_per_hour: this.apxPermissionService.getRateLimit(
+              role,
+              'executions',
+            ),
+            concurrent_streams: this.apxPermissionService.getRateLimit(
+              role,
+              'streams',
+            ),
           },
         },
         timestamp: new Date().toISOString(),
@@ -297,7 +309,10 @@ export class WebSocketGatewayImpl
         `Client connected: ${client.id} (User: ${userId}, Org: ${organizationId}, Role: ${role})`,
       );
     } catch (error) {
-      this.logger.error(`Connection error: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Connection error: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       client.disconnect(true);
     }
   }
@@ -328,7 +343,10 @@ export class WebSocketGatewayImpl
         this.logger.log(`Client disconnected: ${client.id} (No user data)`);
       }
     } catch (error) {
-      this.logger.error(`Disconnect error: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Disconnect error: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
     }
   }
 
@@ -352,7 +370,10 @@ export class WebSocketGatewayImpl
 
       client.emit('message', response);
     } catch (error) {
-      this.logger.error(`Heartbeat error: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Heartbeat error: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
     }
   }
 
@@ -455,7 +476,10 @@ export class WebSocketGatewayImpl
         `Client ${client.id} joined room: ${data.room} with permissions: ${JSON.stringify(roomValidation.permissions)}`,
       );
     } catch (error) {
-      this.logger.error(`Join room error: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Join room error: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       client.emit('error', {
         message: 'Failed to join room',
         code: 'ROOM_JOIN_ERROR',
@@ -701,7 +725,10 @@ export class WebSocketGatewayImpl
       client.emit('message', response);
       this.logger.debug(`Client ${client.id} left room: ${data.room}`);
     } catch (error) {
-      this.logger.error(`Leave room error: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Leave room error: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
     }
   }
 
@@ -756,7 +783,10 @@ export class WebSocketGatewayImpl
         );
       }
     } catch (error) {
-      this.logger.error(`Subscribe event error: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Subscribe event error: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       client.emit('error', {
         message: 'Subscription failed',
         code: 'SUBSCRIPTION_ERROR',
@@ -885,7 +915,10 @@ export class WebSocketGatewayImpl
         `Client ${client.id} published event: ${data.eventType}`,
       );
     } catch (error) {
-      this.logger.error(`Publish event error: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Publish event error: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       client.emit('error', {
         message: 'Publishing failed',
         code: 'PUBLISH_ERROR',
@@ -915,7 +948,10 @@ export class WebSocketGatewayImpl
 
       client.emit('message', response);
     } catch (error) {
-      this.logger.error(`Get stats error: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Get stats error: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
     }
   }
 
@@ -1011,7 +1047,10 @@ export class WebSocketGatewayImpl
         `Event replay initiated by user ${userId} for organization ${organizationId}`,
       );
     } catch (error) {
-      this.logger.error(`Event replay error: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Event replay error: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       client.emit('error', {
         message: 'Event replay failed',
         code: 'REPLAY_ERROR',
@@ -1037,13 +1076,21 @@ export class WebSocketGatewayImpl
         return;
       }
 
-      // Rate limiting check
-      if (!this.checkRateLimit(userId, 'messages')) {
+      // Enhanced rate limiting check
+      const rateLimitResult = await this.connectionService.enforceRateLimit(
+        userId,
+        organizationId,
+        messageDto.type,
+      );
+
+      if (!rateLimitResult.allowed) {
         const rateLimitError: IAPXRateLimitExceeded = {
           error_code: 'RATE_LIMIT_EXCEEDED',
           error_message: 'Message rate limit exceeded',
           limit: this.apxPermissionService.getRateLimit(role, 'messages'),
-          reset_at: new Date(Date.now() + 60000).toISOString(),
+          reset_at: new Date(
+            rateLimitResult.resetTime || Date.now() + 60000,
+          ).toISOString(),
         };
         this.sendAPXMessage(
           client,
@@ -1054,8 +1101,8 @@ export class WebSocketGatewayImpl
         return;
       }
 
-      // Validate message structure
-      const validationResult = this.apxSchemaService.validateMessage({
+      // Enhanced message validation
+      const fullMessage = {
         type: messageDto.type,
         session_id: messageDto.session_id,
         payload: messageDto.payload,
@@ -1064,10 +1111,39 @@ export class WebSocketGatewayImpl
         correlation_id: messageDto.correlation_id,
         user_id: userId,
         organization_id: organizationId,
-        security_level: messageDto.security_level,
-        permissions: messageDto.permissions,
+        security_level:
+          messageDto.security_level || this.getSecurityLevel(role),
+        permissions: messageDto.permissions || this.getPermissions(role),
         metadata: messageDto.metadata,
-      });
+      };
+
+      // Validate message structure and security
+      const validationResult =
+        this.apxSchemaService.validateMessage(fullMessage);
+
+      // Additional security validation
+      const securityResult =
+        await this.connectionService.validateMessageSecurity(
+          fullMessage,
+          userId,
+          organizationId,
+          role,
+        );
+
+      if (!securityResult.valid) {
+        const securityError = {
+          error_code: 'SECURITY_VIOLATION',
+          error_message: securityResult.reason || 'Security validation failed',
+          request_id: messageDto.request_id,
+        };
+        this.sendAPXMessage(
+          client,
+          APXMessageType.PERMISSION_DENIED,
+          securityError,
+          messageDto.request_id,
+        );
+        return;
+      }
 
       if (!validationResult.valid && validationResult.errors) {
         this.sendAPXMessage(
@@ -1103,8 +1179,14 @@ export class WebSocketGatewayImpl
         return;
       }
 
-      // Process the message based on type
-      await this.processAPXMessage(client, messageDto);
+      // Process the message based on type with full context
+      await this.processAPXMessage(client, {
+        ...messageDto,
+        user_id: userId,
+        organization_id: organizationId,
+        security_level: fullMessage.security_level,
+        permissions: fullMessage.permissions,
+      });
 
       this.logger.debug(
         `Processed APIX message: ${messageDto.type} from user ${userId} in session ${messageDto.session_id}`,
@@ -1178,7 +1260,10 @@ export class WebSocketGatewayImpl
         `Stream control applied: ${controlDto.action} on execution ${controlDto.execution_id} by user ${userId}`,
       );
     } catch (error) {
-      this.logger.error(`Stream control error: ${(error as Error).message}`, (error as Error).stack);
+      this.logger.error(
+        `Stream control error: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       this.sendAPXError(
         client,
         'STREAM_CONTROL_ERROR',
@@ -1310,8 +1395,6 @@ export class WebSocketGatewayImpl
         );
     }
   }
-
-
 
   private checkMessagePermissions(
     messageType: APXMessageType,
