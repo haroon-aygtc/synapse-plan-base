@@ -346,7 +346,7 @@ export class BillingService {
     startDate: Date,
   ): Promise<number> {
     const result = await this.organizationRepository.query(
-      `SELECT COUNT(*) as count FROM agent_execution 
+      `SELECT COUNT(*) as count FROM agent_executions 
        WHERE "organizationId" = $1 AND "createdAt" >= $2`,
       [organizationId, startDate],
     );
@@ -358,7 +358,7 @@ export class BillingService {
     startDate: Date,
   ): Promise<number> {
     const result = await this.organizationRepository.query(
-      `SELECT COUNT(*) as count FROM tool_execution 
+      `SELECT COUNT(*) as count FROM tool_executions 
        WHERE "organizationId" = $1 AND "createdAt" >= $2`,
       [organizationId, startDate],
     );
@@ -369,7 +369,7 @@ export class BillingService {
     organizationId: string,
   ): Promise<number> {
     const result = await this.organizationRepository.query(
-      `SELECT COALESCE(SUM("fileSize"), 0) as total FROM knowledge_document 
+      `SELECT COALESCE(SUM("fileSize"), 0) as total FROM knowledge_documents 
        WHERE "organizationId" = $1 AND "status" = 'PROCESSED'`,
       [organizationId],
     );
@@ -382,11 +382,11 @@ export class BillingService {
   ): Promise<number> {
     const result = await this.organizationRepository.query(
       `SELECT COUNT(*) as count FROM (
-         SELECT id FROM agent_execution WHERE "organizationId" = $1 AND "createdAt" >= $2
+         SELECT id FROM agent_executions WHERE "organizationId" = $1 AND "createdAt" >= $2
          UNION ALL
-         SELECT id FROM tool_execution WHERE "organizationId" = $1 AND "createdAt" >= $2
+         SELECT id FROM tool_executions WHERE "organizationId" = $1 AND "createdAt" >= $2
          UNION ALL
-         SELECT id FROM workflow_execution WHERE "organizationId" = $1 AND "createdAt" >= $2
+         SELECT id FROM workflow_executions WHERE "organizationId" = $1 AND "createdAt" >= $2
        ) as combined`,
       [organizationId, startDate],
     );

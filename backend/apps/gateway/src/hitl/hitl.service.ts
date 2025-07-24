@@ -369,6 +369,17 @@ export class HITLService {
       sourceType: request.sourceType,
       sourceId: request.sourceId,
       executionId: request.executionId,
+      decisionData: request.decisionData,
+      timestamp: new Date(),
+    });
+
+    // Emit specific resolution event for workflow engine
+    this.eventEmitter.emit('hitl.request.resolved', {
+      requestId: id,
+      approved: resolveDto.approved,
+      resolvedBy: userId,
+      reason: resolveDto.reason,
+      decisionData: request.decisionData,
       timestamp: new Date(),
     });
 
