@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository, FindOptionsWhere, Like, In } from 'typeorm';
 import { User } from '@database/entities';
 import { IUser, UserRole } from '@shared/interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -28,6 +28,18 @@ interface UpdateUserData {
   preferences?: Record<string, any>;
   permissions?: string[];
   isActive?: boolean;
+}
+
+interface FindUsersOptions {
+  page?: number;
+  limit?: number;
+  search?: string;
+  role?: UserRole;
+  isActive?: boolean;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  requestingUserId?: string;
+  requestingUserRole?: UserRole;
 }
 
 @Injectable()
@@ -94,20 +106,16 @@ export class UserService {
 
   async findByOrganization(
     organizationId: string,
-    options?: {
-      page?: number;
-      limit?: number;
-      role?: UserRole;
-      isActive?: boolean;
-      requestingUserId?: string;
-      requestingUserRole?: UserRole;
-    },
+    options?: FindUsersOptions,
   ): Promise<{ users: IUser[]; total: number }> {
     const {
       page = 1,
       limit = 10,
+      search,
       role,
       isActive,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
       requestingUserId,
       requestingUserRole,
     } = options || {};
@@ -115,6 +123,25 @@ export class UserService {
     const whereConditions: FindOptionsWhere<User> = {
       organizationId,
     };
+
+    // Search functionality
+    if (search) {
+      const searchConditions = [
+        { ...whereConditions, firstName: Like(`%${search}%`) },
+        { ...whereConditions, lastName: Like(`%${search}%`) },
+        { ...whereConditions, email: Like(`%${search}%`) },
+      ];
+
+      const [users, total] = await this.userRepository.findAndCount({
+        where: searchConditions,
+        relations: ['organization'],
+        skip: (page - 1) * limit,
+        take: limit,
+        order: { [sortBy]: sortOrder },
+      });
+
+      return { users, total };
+    }
 
     if (role !== undefined) {
       whereConditions.role = role;
@@ -137,7 +164,7 @@ export class UserService {
       relations: ['organization'],
       skip: (page - 1) * limit,
       take: limit,
-      order: { createdAt: 'DESC' },
+      order: { [sortBy]: sortOrder },
     });
 
     return { users, total };
@@ -381,5 +408,135 @@ export class UserService {
         `Invalid permissions: ${invalidPermissions.join(', ')}`,
       );
     }
+  }
+
+  async bulkAction(
+    userIds: string[],
+    action: 'activate' | 'deactivate' | 'delete',
+    organizationId: string,
+    reason?: string,
+  ): Promise<{ success: number; failed: number; errors: string[] }> {
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as string[],
+    };
+
+    for (const userId of userIds) {
+      try {
+        const user = await this.findById(userId);
+        if (!user) {
+          results.failed++;
+          results.errors.push(`User ${userId} not found`);
+          continue;
+        }
+
+        if (user.organizationId !== organizationId) {
+          results.failed++;
+          results.errors.push(`User ${userId} does not belong to organization`);
+          continue;
+        }
+
+        switch (action) {
+          case 'activate':
+            await this.activate(userId);
+            break;
+          case 'deactivate':
+            await this.deactivate(userId);
+            break;
+          case 'delete':
+            await this.deactivate(userId); // Soft delete
+            break;
+        }
+
+        results.success++;
+
+        // Emit bulk action event
+        this.eventEmitter.emit(EventType.USER_BULK_ACTION, {
+          userId,
+          organizationId,
+          action,
+          reason,
+          timestamp: new Date(),
+        });
+      } catch (error) {
+        results.failed++;
+        results.errors.push(`User ${userId}: ${error.message}`);
+      }
+    }
+
+    return results;
+  }
+
+  async searchUsers(
+    organizationId: string,
+    searchTerm: string,
+    filters?: {
+      role?: UserRole;
+      isActive?: boolean;
+      limit?: number;
+    },
+  ): Promise<IUser[]> {
+    const { role, isActive, limit = 50 } = filters || {};
+
+    const whereConditions: FindOptionsWhere<User>[] = [
+      {
+        organizationId,
+        firstName: Like(`%${searchTerm}%`),
+        ...(role && { role }),
+        ...(isActive !== undefined && { isActive }),
+      },
+      {
+        organizationId,
+        lastName: Like(`%${searchTerm}%`),
+        ...(role && { role }),
+        ...(isActive !== undefined && { isActive }),
+      },
+      {
+        organizationId,
+        email: Like(`%${searchTerm}%`),
+        ...(role && { role }),
+        ...(isActive !== undefined && { isActive }),
+      },
+    ];
+
+    const users = await this.userRepository.find({
+      where: whereConditions,
+      relations: ['organization'],
+      take: limit,
+      order: { firstName: 'ASC' },
+    });
+
+    return users;
+  }
+
+  async getUserStats(organizationId: string): Promise<{
+    total: number;
+    active: number;
+    inactive: number;
+    byRole: Record<UserRole, number>;
+  }> {
+    const users = await this.userRepository.find({
+      where: { organizationId },
+      select: ['id', 'role', 'isActive'],
+    });
+
+    const stats = {
+      total: users.length,
+      active: users.filter((u) => u.isActive).length,
+      inactive: users.filter((u) => !u.isActive).length,
+      byRole: {
+        [UserRole.SUPER_ADMIN]: 0,
+        [UserRole.ORG_ADMIN]: 0,
+        [UserRole.DEVELOPER]: 0,
+        [UserRole.VIEWER]: 0,
+      },
+    };
+
+    users.forEach((user) => {
+      stats.byRole[user.role]++;
+    });
+
+    return stats;
   }
 }
