@@ -34,7 +34,7 @@ import {
   CloneWidgetDto,
   PublishTemplateDto,
 } from './dto';
-import { Widget } from '@libs/database/entities/widget.entity';
+import { Widget } from '@database/entities/widget.entity';
 
 @ApiTags('widgets')
 @Controller('widgets')

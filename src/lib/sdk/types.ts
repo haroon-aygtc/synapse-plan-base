@@ -386,14 +386,20 @@ export interface AnalyticsMetric {
 export interface Widget {
   id: string;
   name: string;
+  description?: string;
   type: "agent" | "tool" | "workflow";
   sourceId: string;
   configuration: WidgetConfiguration;
   organizationId: string;
   userId: string;
   isActive: boolean;
+  isDeployed?: boolean;
+  usageCount?: number;
+  version?: string;
   createdAt: Date;
   updatedAt: Date;
+  deploymentInfo?: WidgetDeploymentInfo;
+  analyticsData?: WidgetAnalyticsData;
 }
 
 export interface WidgetConfiguration {
@@ -411,6 +417,8 @@ export interface WidgetTheme {
   textColor: string;
   borderRadius: number;
   fontSize: number;
+  fontFamily?: string;
+  customCSS?: string;
 }
 
 export interface WidgetLayout {
@@ -434,9 +442,12 @@ export interface WidgetBehavior {
 
 export interface WidgetBranding {
   showLogo: boolean;
+  showPoweredBy?: boolean;
   logoUrl?: string;
   companyName?: string;
-  customCSS?: string;
+  poweredByText?: string;
+  customHeader?: string;
+  customFooter?: string;
 }
 
 export interface WidgetSecurity {
@@ -446,6 +457,118 @@ export interface WidgetSecurity {
     enabled: boolean;
     requestsPerMinute: number;
   };
+}
+
+// Widget Deployment and Analytics Types
+export interface WidgetDeploymentInfo {
+  environment: 'staging' | 'production';
+  customDomain?: string;
+  enableAnalytics: boolean;
+  enableCaching: boolean;
+  deployedAt: Date;
+  lastUpdated: Date;
+  status: 'active' | 'inactive' | 'error';
+  embedCode: {
+    javascript: string;
+    iframe: string;
+    react: string;
+    vue: string;
+    angular: string;
+  };
+  urls: {
+    standalone: string;
+    embed: string;
+    api: string;
+  };
+}
+
+export interface WidgetAnalyticsData {
+  views: number;
+  interactions: number;
+  conversions: number;
+  averageSessionDuration: number;
+  bounceRate: number;
+  lastAccessed: Date;
+  topPages: Array<{
+    url: string;
+    views: number;
+    interactions: number;
+  }>;
+  deviceBreakdown: {
+    desktop: number;
+    mobile: number;
+    tablet: number;
+  };
+  browserBreakdown: Record<string, number>;
+  geographicData: Array<{
+    country: string;
+    views: number;
+    interactions: number;
+  }>;
+}
+
+// Widget Runtime Types
+export interface WidgetRuntime {
+  executeWidget(widgetId: string, input: any, context: WidgetExecutionContext): Promise<WidgetExecutionResult>;
+  establishConnection(widgetId: string, parentOrigin: string): Promise<WidgetConnection>;
+  trackEvent(event: WidgetEvent): void;
+  validateOrigin(origin: string, allowedDomains: string[]): boolean;
+}
+
+export interface WidgetExecutionContext {
+  sessionId: string;
+  userId?: string;
+  deviceInfo: DeviceInfo;
+  geolocation?: GeolocationData;
+  customData?: Record<string, any>;
+}
+
+export interface WidgetExecutionResult {
+  executionId: string;
+  result: any;
+  status: 'completed' | 'failed' | 'timeout';
+  tokensUsed?: number;
+  executionTime: number;
+  error?: string;
+}
+
+export interface WidgetConnection {
+  id: string;
+  widgetId: string;
+  parentOrigin: string;
+  established: Date;
+  lastActivity: Date;
+  isActive: boolean;
+}
+
+export interface WidgetEvent {
+  type: 'view' | 'interaction' | 'conversion' | 'error';
+  widgetId: string;
+  sessionId: string;
+  timestamp: Date;
+  data: Record<string, any>;
+}
+
+export interface DeviceInfo {
+  type: 'desktop' | 'mobile' | 'tablet';
+  userAgent: string;
+  screenResolution: {
+    width: number;
+    height: number;
+  };
+  browserInfo: {
+    name: string;
+    version: string;
+  };
+  operatingSystem: string;
+}
+
+export interface GeolocationData {
+  country?: string;
+  region?: string;
+  city?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 // HITL Types

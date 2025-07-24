@@ -7,15 +7,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { Widget } from '@libs/database/entities/widget.entity';
-import { WidgetExecution } from '@libs/database/entities/widget-execution.entity';
-import { WidgetAnalytics } from '@libs/database/entities/widget-analytics.entity';
-import { Agent } from '@libs/database/entities/agent.entity';
-import { Tool } from '@libs/database/entities/tool.entity';
-import { Workflow } from '@libs/database/entities/workflow.entity';
-import { User } from '@libs/database/entities/user.entity';
-import { Organization } from '@libs/database/entities/organization.entity';
-import { Session } from '@libs/database/entities/session.entity';
+import { Widget } from '@database/entities/widget.entity';
+import { WidgetExecution } from '@database/entities/widget-execution.entity';
+import { WidgetAnalytics } from '@database/entities/widget-analytics.entity';
+import { Agent } from '@database/entities/agent.entity';
+import { Tool } from '@database/entities/tool.entity';
+import { Workflow } from '@database/entities/workflow.entity';
+import { User } from '@database/entities/user.entity';
+import { Organization } from '@database/entities/organization.entity';
+import { Session } from '@database/entities/session.entity';
 import {
   CreateWidgetDto,
   UpdateWidgetDto,
@@ -1044,7 +1044,130 @@ export class WidgetService {
     const totalViews = analytics.filter((a) => a.eventType === 'view').length;
     const uniqueVisitors = new Set(analytics.map((a) => a.sessionId)).size;
     const interactions = analytics.filter(
-      (a) => a.eventType === 'interaction',
+      (a) => a.eventType === 'interaction'
+    ).length;
+    const conversions = analytics.filter(
+      (a) => a.eventType === 'conversion'
+    ).length;
+    
+    const totalDuration = analytics.reduce((sum, a) => {
+      return sum + (a.sessionDuration || 0);
+    }, 0);
+    
+    const averageSessionDuration = uniqueVisitors > 0 ? totalDuration / uniqueVisitors : 0;
+    const bounceRate = uniqueVisitors > 0 ? 
+      (analytics.filter(a => a.isBounce).length / uniqueVisitors) * 100 : 0;
+
+    return {
+      totalViews,
+      uniqueVisitors,
+      interactions,
+      conversions,
+      averageSessionDuration,
+      bounceRate,
+      conversionRate: totalViews > 0 ? (conversions / totalViews) * 100 : 0
+    };
+  }
+
+  private calculateTrends(analytics: WidgetAnalytics[]) {
+    const dailyData = new Map<string, { views: number; interactions: number; conversions: number }>();
+    
+    analytics.forEach(event => {
+      const date = event.date.toISOString().split('T')[0];
+      const existing = dailyData.get(date) || { views: 0, interactions: 0, conversions: 0 };
+      
+      if (event.eventType === 'view') existing.views++;
+      else if (event.eventType === 'interaction') existing.interactions++;
+      else if (event.eventType === 'conversion') existing.conversions++;
+      
+      dailyData.set(date, existing);
+    });
+
+    return Array.from(dailyData.entries()).map(([date, data]) => ({
+      date,
+      ...data
+    })).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  private getTopPages(analytics: WidgetAnalytics[]) {
+    const pageData = new Map<string, { views: number; interactions: number }>();
+    
+    analytics.forEach(event => {
+      const url = event.pageUrl || 'unknown';
+      const existing = pageData.get(url) || { views: 0, interactions: 0 };
+      
+      if (event.eventType === 'view') existing.views++;
+      else if (event.eventType === 'interaction') existing.interactions++;
+      
+      pageData.set(url, existing);
+    });
+
+    return Array.from(pageData.entries())
+      .map(([url, data]) => ({ url, ...data }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 10);
+  }
+
+  private getDeviceBreakdown(analytics: WidgetAnalytics[]) {
+    const deviceData = { desktop: 0, mobile: 0, tablet: 0 };
+    
+    analytics.forEach(event => {
+      const deviceType = event.deviceType || 'desktop';
+      if (deviceType in deviceData) {
+        deviceData[deviceType as keyof typeof deviceData]++;
+      }
+    });
+
+    return deviceData;
+  }
+
+  private getBrowserBreakdown(analytics: WidgetAnalytics[]) {
+    const browserData: Record<string, number> = {};
+    
+    analytics.forEach(event => {
+      const browser = event.browserName || 'Unknown';
+      browserData[browser] = (browserData[browser] || 0) + 1;
+    });
+
+    return browserData;
+  }
+
+  private getGeographicData(analytics: WidgetAnalytics[]) {
+    const geoData = new Map<string, { views: number; interactions: number }>();
+    
+    analytics.forEach(event => {
+      const country = event.country || 'Unknown';
+      const existing = geoData.get(country) || { views: 0, interactions: 0 };
+      
+      if (event.eventType === 'view') existing.views++;
+      else if (event.eventType === 'interaction') existing.interactions++;
+      
+      geoData.set(country, existing);
+    });
+
+    return Array.from(geoData.entries())
+      .map(([country, data]) => ({ country, ...data }))
+      .sort((a, b) => b.views - a.views);
+  }
+
+  private convertToCSV(analytics: any): string {
+    const headers = ['Date', 'Views', 'Interactions', 'Conversions', 'Unique Visitors'];
+    const rows = analytics.trends.map((trend: any) => [
+      trend.date,
+      trend.views,
+      trend.interactions,
+      trend.conversions,
+      0 // Placeholder for unique visitors per day
+    ]);
+
+    return [headers, ...rows].map(row => row.join(',')).join('\n');
+  }
+
+  private async convertToXLSX(analytics: any): Promise<Buffer> {
+    // This would typically use a library like xlsx to generate Excel files
+    // For now, return a simple buffer with CSV data
+    const csvData = this.convertToCSV(analytics);
+    return Buffer.from(csvData, 'utf-8');= 'interaction',
     ).length;
     const conversions = analytics.filter(
       (a) => a.eventType === 'conversion',
