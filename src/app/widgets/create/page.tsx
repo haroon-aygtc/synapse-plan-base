@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -9,31 +9,31 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { useToast } from '@/components/ui/use-toast';
+} from "@/components/ui/tooltip";
+import { useToast } from "@/components/ui/use-toast";
 import {
   ArrowLeft,
   Save,
@@ -61,18 +61,19 @@ import {
   Loader2,
   Copy,
   ExternalLink,
-} from 'lucide-react';
-import { api } from '@/lib/api';
-import { useAuth } from '@/hooks/useAuth';
-import { AIConfigurationInterface } from '@/components/widgets/AIConfigurationInterface';
-import { VisualToolBuilder } from '@/components/widgets/VisualToolBuilder';
-import { ToolTemplates } from '@/components/widgets/ToolTemplates';
-import { ToolPerformanceMetrics } from '@/components/widgets/ToolPerformanceMetrics';
-import { ToolAgentConnection } from '@/components/widgets/ToolAgentConnection';
-import { ToolWorkflowConnection } from '@/components/widgets/ToolWorkflowConnection';
-import { WidgetSettings } from '@/components/widgets/WidgetSettings';
-import { WidgetPreview } from '@/components/widgets/WidgetPreview';
-import { WidgetDeployment } from '@/components/widgets/WidgetDeployment';
+} from "lucide-react";
+import { api } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { AIConfigurationInterface } from "@/components/widgets/AIConfigurationInterface";
+import { VisualToolBuilder } from "@/components/widgets/VisualToolBuilder";
+import { ToolTemplates } from "@/components/widgets/ToolTemplates";
+import { ToolPerformanceMetrics } from "@/components/widgets/ToolPerformanceMetrics";
+import { ToolAgentConnection } from "@/components/widgets/ToolAgentConnection";
+import { ToolWorkflowConnection } from "@/components/widgets/ToolWorkflowConnection";
+import { WidgetSettings } from "@/components/widgets/WidgetSettings";
+import { WidgetPreview } from "@/components/widgets/WidgetPreview";
+import { WidgetDeployment } from "@/components/widgets/WidgetDeployment";
+import { WidgetAnalytics } from "@/components/widgets/WidgetAnalytics";
 
 interface WidgetConfiguration {
   theme: {
@@ -89,12 +90,12 @@ interface WidgetConfiguration {
     width: number;
     height: number;
     position:
-      | 'bottom-right'
-      | 'bottom-left'
-      | 'top-right'
-      | 'top-left'
-      | 'center'
-      | 'fullscreen';
+      | "bottom-right"
+      | "bottom-left"
+      | "top-right"
+      | "top-left"
+      | "center"
+      | "fullscreen";
     responsive: boolean;
     zIndex?: number;
     margin?: { top: number; right: number; bottom: number; left: number };
@@ -136,7 +137,7 @@ interface Widget {
   id?: string;
   name: string;
   description?: string;
-  type: 'agent' | 'tool' | 'workflow';
+  type: "agent" | "tool" | "workflow";
   sourceId: string;
   configuration: WidgetConfiguration;
   isActive: boolean;
@@ -150,14 +151,14 @@ export default function CreateWidgetPage() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState('basic');
+  const [activeTab, setActiveTab] = useState("basic");
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [testResults, setTestResults] = useState<any>(null);
   const [previewDevice, setPreviewDevice] = useState<
-    'desktop' | 'mobile' | 'tablet'
-  >('desktop');
+    "desktop" | "mobile" | "tablet"
+  >("desktop");
   const [showPreview, setShowPreview] = useState(false);
 
   // Available sources
@@ -167,27 +168,27 @@ export default function CreateWidgetPage() {
   const [loadingSources, setLoadingSources] = useState(true);
 
   const [widget, setWidget] = useState<Widget>({
-    name: '',
-    description: '',
-    type: 'agent',
-    sourceId: '',
+    name: "",
+    description: "",
+    type: "agent",
+    sourceId: "",
     isActive: true,
     isDeployed: false,
-    version: '1.0.0',
+    version: "1.0.0",
     configuration: {
       theme: {
-        primaryColor: '#3b82f6',
-        secondaryColor: '#64748b',
-        backgroundColor: '#ffffff',
-        textColor: '#1f2937',
+        primaryColor: "#3b82f6",
+        secondaryColor: "#64748b",
+        backgroundColor: "#ffffff",
+        textColor: "#1f2937",
         borderRadius: 8,
         fontSize: 14,
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: "Inter, sans-serif",
       },
       layout: {
         width: 400,
         height: 600,
-        position: 'bottom-right',
+        position: "bottom-right",
         responsive: true,
         zIndex: 1000,
         margin: { top: 20, right: 20, bottom: 20, left: 20 },
@@ -204,9 +205,9 @@ export default function CreateWidgetPage() {
       },
       branding: {
         showLogo: true,
-        companyName: user?.organization?.name || 'Your Company',
+        companyName: user?.organization?.name || "Your Company",
         showPoweredBy: true,
-        poweredByText: 'Powered by SynapseAI',
+        poweredByText: "Powered by SynapseAI",
       },
       security: {
         allowedDomains: [],
@@ -225,7 +226,7 @@ export default function CreateWidgetPage() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.push('/auth/login');
+      router.push("/auth/login");
       return;
     }
     loadSources();
@@ -235,20 +236,20 @@ export default function CreateWidgetPage() {
     try {
       setLoadingSources(true);
       const [agentsRes, toolsRes, workflowsRes] = await Promise.all([
-        api.get('/agents'),
-        api.get('/tools'),
-        api.get('/workflows'),
+        api.get("/agents"),
+        api.get("/tools"),
+        api.get("/workflows"),
       ]);
 
       if (agentsRes.data.success) setAgents(agentsRes.data.data);
       if (toolsRes.data.success) setTools(toolsRes.data.data);
       if (workflowsRes.data.success) setWorkflows(workflowsRes.data.data);
     } catch (error) {
-      console.error('Failed to load sources:', error);
+      console.error("Failed to load sources:", error);
       toast({
-        title: 'Error',
-        description: 'Failed to load available sources',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to load available sources",
+        variant: "destructive",
       });
     } finally {
       setLoadingSources(false);
@@ -276,15 +277,15 @@ export default function CreateWidgetPage() {
     const errors: string[] = [];
 
     if (!widget.name.trim()) {
-      errors.push('Widget name is required');
+      errors.push("Widget name is required");
     }
 
     if (!widget.sourceId) {
-      errors.push('Please select a source (agent, tool, or workflow)');
+      errors.push("Please select a source (agent, tool, or workflow)");
     }
 
     if (widget.configuration.security.allowedDomains.length === 0) {
-      errors.push('At least one allowed domain is required for security');
+      errors.push("At least one allowed domain is required for security");
     }
 
     return { isValid: errors.length === 0, errors };
@@ -294,16 +295,16 @@ export default function CreateWidgetPage() {
     const validation = validateWidget();
     if (!validation.isValid) {
       toast({
-        title: 'Validation Failed',
-        description: validation.errors.join(', '),
-        variant: 'destructive',
+        title: "Validation Failed",
+        description: validation.errors.join(", "),
+        variant: "destructive",
       });
       return;
     }
 
     try {
       setIsSaving(true);
-      const response = await api.post('/widgets', {
+      const response = await api.post("/widgets", {
         ...widget,
         userId: user?.id,
         organizationId: user?.organizationId,
@@ -312,22 +313,22 @@ export default function CreateWidgetPage() {
       if (response.data.success) {
         const createdWidget = response.data.data;
         toast({
-          title: 'Widget Created',
+          title: "Widget Created",
           description: `Widget "${widget.name}" has been created successfully`,
         });
         router.push(`/widgets/${createdWidget.id}`);
       } else {
-        throw new Error(response.data.message || 'Failed to create widget');
+        throw new Error(response.data.message || "Failed to create widget");
       }
     } catch (error: any) {
-      console.error('Failed to save widget:', error);
+      console.error("Failed to save widget:", error);
       toast({
-        title: 'Save Failed',
+        title: "Save Failed",
         description:
           error.response?.data?.message ||
           error.message ||
-          'Failed to save widget',
-        variant: 'destructive',
+          "Failed to save widget",
+        variant: "destructive",
       });
     } finally {
       setIsSaving(false);
@@ -338,22 +339,22 @@ export default function CreateWidgetPage() {
     const validation = validateWidget();
     if (!validation.isValid) {
       toast({
-        title: 'Validation Failed',
-        description: validation.errors.join(', '),
-        variant: 'destructive',
+        title: "Validation Failed",
+        description: validation.errors.join(", "),
+        variant: "destructive",
       });
       return;
     }
 
     try {
       setIsTesting(true);
-      const response = await api.post('/widgets/test', {
+      const response = await api.post("/widgets/test", {
         configuration: widget.configuration,
         sourceId: widget.sourceId,
         type: widget.type,
         testOptions: {
-          browsers: ['chrome', 'firefox', 'safari'],
-          devices: ['desktop', 'mobile', 'tablet'],
+          browsers: ["chrome", "firefox", "safari"],
+          devices: ["desktop", "mobile", "tablet"],
           checkAccessibility: true,
           checkPerformance: true,
           checkSEO: true,
@@ -363,21 +364,21 @@ export default function CreateWidgetPage() {
       if (response.data.success) {
         setTestResults(response.data.data);
         toast({
-          title: 'Test Completed',
-          description: 'Widget test completed successfully',
+          title: "Test Completed",
+          description: "Widget test completed successfully",
         });
       } else {
-        throw new Error(response.data.message || 'Test failed');
+        throw new Error(response.data.message || "Test failed");
       }
     } catch (error: any) {
-      console.error('Test failed:', error);
+      console.error("Test failed:", error);
       toast({
-        title: 'Test Failed',
+        title: "Test Failed",
         description:
           error.response?.data?.message ||
           error.message ||
-          'Widget test failed',
-        variant: 'destructive',
+          "Widget test failed",
+        variant: "destructive",
       });
     } finally {
       setIsTesting(false);
@@ -387,9 +388,9 @@ export default function CreateWidgetPage() {
   const handleDeploy = async () => {
     if (!widget.id) {
       toast({
-        title: 'Save Required',
-        description: 'Please save the widget before deploying',
-        variant: 'destructive',
+        title: "Save Required",
+        description: "Please save the widget before deploying",
+        variant: "destructive",
       });
       return;
     }
@@ -397,7 +398,7 @@ export default function CreateWidgetPage() {
     try {
       setIsDeploying(true);
       const response = await api.post(`/widgets/${widget.id}/deploy`, {
-        environment: 'production',
+        environment: "production",
         enableAnalytics: true,
         enableCaching: true,
       });
@@ -405,21 +406,21 @@ export default function CreateWidgetPage() {
       if (response.data.success) {
         setWidget((prev) => ({ ...prev, isDeployed: true }));
         toast({
-          title: 'Deployment Successful',
-          description: 'Widget has been deployed successfully',
+          title: "Deployment Successful",
+          description: "Widget has been deployed successfully",
         });
       } else {
-        throw new Error(response.data.message || 'Deployment failed');
+        throw new Error(response.data.message || "Deployment failed");
       }
     } catch (error: any) {
-      console.error('Deployment failed:', error);
+      console.error("Deployment failed:", error);
       toast({
-        title: 'Deployment Failed',
+        title: "Deployment Failed",
         description:
           error.response?.data?.message ||
           error.message ||
-          'Widget deployment failed',
-        variant: 'destructive',
+          "Widget deployment failed",
+        variant: "destructive",
       });
     } finally {
       setIsDeploying(false);
@@ -428,11 +429,11 @@ export default function CreateWidgetPage() {
 
   const getSourceOptions = () => {
     switch (widget.type) {
-      case 'agent':
+      case "agent":
         return agents.map((agent) => ({ value: agent.id, label: agent.name }));
-      case 'tool':
+      case "tool":
         return tools.map((tool) => ({ value: tool.id, label: tool.name }));
-      case 'workflow':
+      case "workflow":
         return workflows.map((workflow) => ({
           value: workflow.id,
           label: workflow.name,
@@ -453,13 +454,13 @@ export default function CreateWidgetPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => router.push('/widgets')}
+                  onClick={() => router.push("/widgets")}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900">
-                    {widget.name || 'New Widget'}
+                    {widget.name || "New Widget"}
                   </h1>
                   <p className="text-sm text-gray-500">
                     Create and configure your widget
@@ -472,7 +473,7 @@ export default function CreateWidgetPage() {
                   onClick={() => setShowPreview(!showPreview)}
                 >
                   <Eye className="h-4 w-4 mr-2" />
-                  {showPreview ? 'Hide Preview' : 'Show Preview'}
+                  {showPreview ? "Hide Preview" : "Show Preview"}
                 </Button>
                 <Button
                   variant="outline"
@@ -484,7 +485,7 @@ export default function CreateWidgetPage() {
                   ) : (
                     <TestTube className="h-4 w-4 mr-2" />
                   )}
-                  {isTesting ? 'Testing...' : 'Test'}
+                  {isTesting ? "Testing..." : "Test"}
                 </Button>
                 <Button
                   onClick={handleSave}
@@ -495,13 +496,13 @@ export default function CreateWidgetPage() {
                   ) : (
                     <Save className="h-4 w-4 mr-2" />
                   )}
-                  {isSaving ? 'Saving...' : 'Save Widget'}
+                  {isSaving ? "Saving..." : "Save Widget"}
                 </Button>
                 {widget.id && (
                   <Button
                     onClick={handleDeploy}
                     disabled={isDeploying || widget.isDeployed}
-                    variant={widget.isDeployed ? 'secondary' : 'default'}
+                    variant={widget.isDeployed ? "secondary" : "default"}
                   >
                     {isDeploying ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -511,10 +512,10 @@ export default function CreateWidgetPage() {
                       <Globe className="h-4 w-4 mr-2" />
                     )}
                     {isDeploying
-                      ? 'Deploying...'
+                      ? "Deploying..."
                       : widget.isDeployed
-                        ? 'Deployed'
-                        : 'Deploy'}
+                        ? "Deployed"
+                        : "Deploy"}
                   </Button>
                 )}
               </div>
@@ -527,12 +528,13 @@ export default function CreateWidgetPage() {
             {/* Main Content */}
             <div className="lg:col-span-2">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid grid-cols-6 mb-6">
+                <TabsList className="grid grid-cols-7 mb-6">
                   <TabsTrigger value="basic">Basic</TabsTrigger>
                   <TabsTrigger value="ai-config">AI Config</TabsTrigger>
                   <TabsTrigger value="visual-builder">Builder</TabsTrigger>
                   <TabsTrigger value="templates">Templates</TabsTrigger>
                   <TabsTrigger value="settings">Settings</TabsTrigger>
+                  <TabsTrigger value="analytics">Analytics</TabsTrigger>
                   <TabsTrigger value="deploy">Deploy</TabsTrigger>
                 </TabsList>
 
@@ -562,9 +564,9 @@ export default function CreateWidgetPage() {
                           <Select
                             value={widget.type}
                             onValueChange={(
-                              value: 'agent' | 'tool' | 'workflow',
+                              value: "agent" | "tool" | "workflow",
                             ) => {
-                              handleWidgetUpdate({ type: value, sourceId: '' });
+                              handleWidgetUpdate({ type: value, sourceId: "" });
                             }}
                           >
                             <SelectTrigger>
@@ -598,7 +600,7 @@ export default function CreateWidgetPage() {
                         <Label htmlFor="description">Description</Label>
                         <Textarea
                           id="description"
-                          value={widget.description || ''}
+                          value={widget.description || ""}
                           onChange={(e) =>
                             handleWidgetUpdate({ description: e.target.value })
                           }
@@ -609,7 +611,7 @@ export default function CreateWidgetPage() {
 
                       <div className="space-y-2">
                         <Label htmlFor="source">
-                          Source{' '}
+                          Source{" "}
                           {widget.type.charAt(0).toUpperCase() +
                             widget.type.slice(1)}
                         </Label>
@@ -624,7 +626,7 @@ export default function CreateWidgetPage() {
                             <SelectValue
                               placeholder={
                                 loadingSources
-                                  ? 'Loading...'
+                                  ? "Loading..."
                                   : `Select a ${widget.type}`
                               }
                             />
@@ -685,6 +687,7 @@ export default function CreateWidgetPage() {
                         },
                       });
                     }}
+                    onConfigurationApply={handleConfigurationUpdate}
                   />
                 </TabsContent>
 
@@ -693,6 +696,19 @@ export default function CreateWidgetPage() {
                     configuration={widget.configuration}
                     onUpdate={handleConfigurationUpdate}
                   />
+                </TabsContent>
+
+                <TabsContent value="analytics">
+                  {widget.id ? (
+                    <WidgetAnalytics widget={widget} />
+                  ) : (
+                    <div className="text-center py-12">
+                      <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-500">
+                        Save the widget first to view analytics
+                      </p>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="deploy">
@@ -716,28 +732,28 @@ export default function CreateWidgetPage() {
                       <div className="flex items-center gap-1">
                         <Button
                           variant={
-                            previewDevice === 'desktop' ? 'default' : 'outline'
+                            previewDevice === "desktop" ? "default" : "outline"
                           }
                           size="sm"
-                          onClick={() => setPreviewDevice('desktop')}
+                          onClick={() => setPreviewDevice("desktop")}
                         >
                           <Monitor className="h-4 w-4" />
                         </Button>
                         <Button
                           variant={
-                            previewDevice === 'tablet' ? 'default' : 'outline'
+                            previewDevice === "tablet" ? "default" : "outline"
                           }
                           size="sm"
-                          onClick={() => setPreviewDevice('tablet')}
+                          onClick={() => setPreviewDevice("tablet")}
                         >
                           <Tablet className="h-4 w-4" />
                         </Button>
                         <Button
                           variant={
-                            previewDevice === 'mobile' ? 'default' : 'outline'
+                            previewDevice === "mobile" ? "default" : "outline"
                           }
                           size="sm"
-                          onClick={() => setPreviewDevice('mobile')}
+                          onClick={() => setPreviewDevice("mobile")}
                         >
                           <Smartphone className="h-4 w-4" />
                         </Button>
@@ -770,29 +786,29 @@ export default function CreateWidgetPage() {
                         <span
                           className={
                             testResults.success
-                              ? 'text-green-700'
-                              : 'text-red-700'
+                              ? "text-green-700"
+                              : "text-red-700"
                           }
                         >
                           {testResults.success
-                            ? 'All tests passed'
-                            : 'Some tests failed'}
+                            ? "All tests passed"
+                            : "Some tests failed"}
                         </span>
                       </div>
 
                       {testResults.details && (
                         <div className="space-y-2">
                           <div className="text-sm">
-                            <strong>Performance Score:</strong>{' '}
-                            {testResults.details.performanceScore || 'N/A'}
+                            <strong>Performance Score:</strong>{" "}
+                            {testResults.details.performanceScore || "N/A"}
                           </div>
                           <div className="text-sm">
-                            <strong>Accessibility Score:</strong>{' '}
-                            {testResults.details.accessibilityScore || 'N/A'}
+                            <strong>Accessibility Score:</strong>{" "}
+                            {testResults.details.accessibilityScore || "N/A"}
                           </div>
                           <div className="text-sm">
-                            <strong>SEO Score:</strong>{' '}
-                            {testResults.details.seoScore || 'N/A'}
+                            <strong>SEO Score:</strong>{" "}
+                            {testResults.details.seoScore || "N/A"}
                           </div>
                         </div>
                       )}
@@ -810,7 +826,7 @@ export default function CreateWidgetPage() {
               )}
 
               {/* Connections */}
-              {widget.sourceId && widget.type === 'tool' && (
+              {widget.sourceId && widget.type === "tool" && (
                 <>
                   <ToolAgentConnection toolId={widget.sourceId} />
                   <ToolWorkflowConnection toolId={widget.sourceId} />

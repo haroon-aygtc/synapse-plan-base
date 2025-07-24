@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardContent,
@@ -9,12 +9,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -22,60 +21,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Globe,
+  Code,
   Copy,
   ExternalLink,
-  Settings,
-  Shield,
-  BarChart3,
   CheckCircle,
   AlertCircle,
   Loader2,
-  Code,
-  Download,
-  Eye,
+  Settings,
+  Monitor,
 } from "lucide-react";
+import { Widget } from "@/lib/sdk/types";
 import { useToast } from "@/components/ui/use-toast";
-
-interface Widget {
-  id?: string;
-  name: string;
-  description?: string;
-  type: "agent" | "tool" | "workflow";
-  sourceId: string;
-  isActive: boolean;
-  isDeployed: boolean;
-  version: string;
-  deploymentInfo?: {
-    environment: "staging" | "production";
-    customDomain?: string;
-    enableAnalytics: boolean;
-    enableCaching: boolean;
-    deployedAt: Date;
-    lastUpdated: Date;
-    status: "active" | "inactive" | "error";
-    embedCode: {
-      javascript: string;
-      iframe: string;
-      react: string;
-      vue: string;
-      angular: string;
-    };
-    urls: {
-      standalone: string;
-      embed: string;
-      api: string;
-    };
-  };
-}
 
 interface WidgetDeploymentProps {
   widget: Widget;
@@ -89,79 +49,62 @@ export function WidgetDeployment({
   isDeploying,
 }: WidgetDeploymentProps) {
   const { toast } = useToast();
-  const [selectedEnvironment, setSelectedEnvironment] = useState<
-    "staging" | "production"
-  >("production");
+  const [embedFormat, setEmbedFormat] = useState<
+    "javascript" | "iframe" | "react" | "vue" | "angular"
+  >("javascript");
   const [customDomain, setCustomDomain] = useState("");
   const [enableAnalytics, setEnableAnalytics] = useState(true);
   const [enableCaching, setEnableCaching] = useState(true);
-  const [selectedEmbedFormat, setSelectedEmbedFormat] = useState("javascript");
-  const [allowedDomains, setAllowedDomains] = useState("");
 
-  const handleCopyEmbedCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast({
-      title: "Copied!",
-      description: "Embed code copied to clipboard",
-    });
-  };
+  const generateEmbedCode = () => {
+    const baseUrl =
+      widget.deploymentInfo?.urls?.embed || "https://widgets.synapseai.com";
+    const widgetId = widget.id;
 
-  const handleCopyUrl = (url: string) => {
-    navigator.clipboard.writeText(url);
-    toast({
-      title: "Copied!",
-      description: "URL copied to clipboard",
-    });
-  };
-
-  const getEmbedCode = (format: string) => {
-    if (!widget.deploymentInfo) return "";
-    return (
-      widget.deploymentInfo.embedCode[
-        format as keyof typeof widget.deploymentInfo.embedCode
-      ] || ""
-    );
-  };
-
-  const getEmbedCodeExample = (format: string) => {
-    const baseUrl = "https://widgets.synapseai.com";
-    const widgetId = widget.id || "widget-id";
-
-    switch (format) {
+    switch (embedFormat) {
       case "javascript":
-        return `<script src="${baseUrl}/embed.js"></script>
+        return `<!-- SynapseAI Widget -->
 <script>
-  SynapseWidget.init({
-    widgetId: '${widgetId}',
-    container: '#synapse-widget'
-  });
-</script>
-<div id="synapse-widget"></div>`;
+  (function() {
+    var script = document.createElement('script');
+    script.src = '${baseUrl}/embed.js';
+    script.setAttribute('data-widget-id', '${widgetId}');
+    script.setAttribute('data-theme', 'auto');
+    document.head.appendChild(script);
+  })();
+</script>`;
+
       case "iframe":
-        return `<iframe 
-  src="${baseUrl}/embed/${widgetId}" 
-  width="400" 
-  height="600" 
-  frameborder="0">
-</iframe>`;
+        return `<iframe
+  src="${baseUrl}/${widgetId}"
+  width="${widget.configuration.layout.width}"
+  height="${widget.configuration.layout.height}"
+  frameborder="0"
+  style="border: none; border-radius: 8px;"
+  title="${widget.name}"
+></iframe>`;
+
       case "react":
         return `import { SynapseWidget } from '@synapseai/react-widget';
 
 function MyComponent() {
   return (
-    <SynapseWidget 
+    <SynapseWidget
       widgetId="${widgetId}"
-      width={400}
-      height={600}
+      theme="auto"
+      width={${widget.configuration.layout.width}}
+      height={${widget.configuration.layout.height}}
     />
   );
 }`;
+
       case "vue":
         return `<template>
-  <SynapseWidget 
+  <SynapseWidget
     :widget-id="'${widgetId}'"
-    :width="400"
-    :height="600"
+    theme="auto"
+    :width="${widget.configuration.layout.width}"
+    :height="${widget.configuration.layout.height}"
   />
 </template>
 
@@ -172,45 +115,132 @@ export default {
   components: {
     SynapseWidget
   }
-}
+};
 </script>`;
+
       case "angular":
-        return `<synapse-widget 
-  widgetId="${widgetId}"
-  [width]="400"
-  [height]="600">
-</synapse-widget>`;
+        return `import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-widget',
+  template: \`
+    <synapse-widget
+      widgetId="${widgetId}"
+      theme="auto"
+      [width]="${widget.configuration.layout.width}"
+      [height]="${widget.configuration.layout.height}">
+    </synapse-widget>
+  \`
+})
+export class WidgetComponent {}`;
+
       default:
         return "";
     }
   };
 
-  if (!widget.id) {
-    return (
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copied to clipboard",
+        description: "Embed code has been copied to your clipboard",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy failed",
+        description: "Failed to copy embed code to clipboard",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Deployment Status */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5" />
-            Deployment
+            Deployment Status
           </CardTitle>
           <CardDescription>
-            Deploy your widget to make it available for embedding
+            Current deployment status and configuration
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Please save your widget before deploying it.
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Status:</span>
+                {widget.isDeployed ? (
+                  <Badge className="bg-green-100 text-green-800">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Deployed
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    Not Deployed
+                  </Badge>
+                )}
+              </div>
+              <Button
+                onClick={onDeploy}
+                disabled={isDeploying || !widget.isActive}
+                className={
+                  widget.isDeployed ? "bg-red-600 hover:bg-red-700" : ""
+                }
+              >
+                {isDeploying ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : widget.isDeployed ? (
+                  "Undeploy"
+                ) : (
+                  "Deploy Widget"
+                )}
+              </Button>
+            </div>
+
+            {widget.deploymentInfo && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Environment:</span>
+                  <Badge variant="outline">
+                    {widget.deploymentInfo.environment}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Deployed:</span>
+                  <span className="text-sm">
+                    {new Date(
+                      widget.deploymentInfo.deployedAt,
+                    ).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600">Last Updated:</span>
+                  <span className="text-sm">
+                    {new Date(
+                      widget.deploymentInfo.lastUpdated,
+                    ).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {!widget.isActive && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Widget must be active before it can be deployed.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
         </CardContent>
       </Card>
-    );
-  }
 
-  return (
-    <div className="space-y-6">
       {/* Deployment Configuration */}
       <Card>
         <CardHeader>
@@ -219,150 +249,43 @@ export default {
             Deployment Configuration
           </CardTitle>
           <CardDescription>
-            Configure how your widget will be deployed
+            Configure deployment settings and options
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="environment">Environment</Label>
-              <Select
-                value={selectedEnvironment}
-                onValueChange={(value: "staging" | "production") =>
-                  setSelectedEnvironment(value)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="staging">Staging</SelectItem>
-                  <SelectItem value="production">Production</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="customDomain">Custom Domain (Optional)</Label>
-              <Input
-                id="customDomain"
-                value={customDomain}
-                onChange={(e) => setCustomDomain(e.target.value)}
-                placeholder="widgets.yourcompany.com"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="analytics"
-                checked={enableAnalytics}
-                onCheckedChange={setEnableAnalytics}
-              />
-              <Label htmlFor="analytics">Enable Analytics</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="caching"
-                checked={enableCaching}
-                onCheckedChange={setEnableCaching}
-              />
-              <Label htmlFor="caching">Enable Caching</Label>
-            </div>
-          </div>
-
+        <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="allowedDomains">Allowed Domains</Label>
-            <Textarea
-              id="allowedDomains"
-              value={allowedDomains}
-              onChange={(e) => setAllowedDomains(e.target.value)}
-              placeholder="example.com\napp.example.com\n*.example.com"
-              rows={3}
+            <Label htmlFor="customDomain">Custom Domain (Optional)</Label>
+            <Input
+              id="customDomain"
+              value={customDomain}
+              onChange={(e) => setCustomDomain(e.target.value)}
+              placeholder="widgets.yourdomain.com"
             />
             <p className="text-sm text-gray-500">
-              Enter one domain per line. Use * for wildcards.
+              Use your own domain for widget hosting (requires DNS
+              configuration)
             </p>
           </div>
 
-          <Button
-            onClick={onDeploy}
-            disabled={isDeploying || widget.isDeployed}
-            className="w-full"
-          >
-            {isDeploying ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : widget.isDeployed ? (
-              <CheckCircle className="h-4 w-4 mr-2" />
-            ) : (
-              <Globe className="h-4 w-4 mr-2" />
-            )}
-            {isDeploying
-              ? "Deploying..."
-              : widget.isDeployed
-                ? "Deployed"
-                : "Deploy Widget"}
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="enableAnalytics"
+              checked={enableAnalytics}
+              onCheckedChange={setEnableAnalytics}
+            />
+            <Label htmlFor="enableAnalytics">Enable Analytics Tracking</Label>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="enableCaching"
+              checked={enableCaching}
+              onCheckedChange={setEnableCaching}
+            />
+            <Label htmlFor="enableCaching">Enable CDN Caching</Label>
+          </div>
         </CardContent>
       </Card>
-
-      {/* Deployment Status */}
-      {widget.isDeployed && widget.deploymentInfo && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              Deployment Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-medium">Environment</Label>
-                <div className="mt-1">
-                  <Badge
-                    variant={
-                      widget.deploymentInfo.environment === "production"
-                        ? "default"
-                        : "secondary"
-                    }
-                  >
-                    {widget.deploymentInfo.environment}
-                  </Badge>
-                </div>
-              </div>
-              <div>
-                <Label className="text-sm font-medium">Status</Label>
-                <div className="mt-1">
-                  <Badge
-                    variant={
-                      widget.deploymentInfo.status === "active"
-                        ? "default"
-                        : "destructive"
-                    }
-                  >
-                    {widget.deploymentInfo.status}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium">Deployed At</Label>
-              <p className="text-sm text-gray-600 mt-1">
-                {new Date(widget.deploymentInfo.deployedAt).toLocaleString()}
-              </p>
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium">Last Updated</Label>
-              <p className="text-sm text-gray-600 mt-1">
-                {new Date(widget.deploymentInfo.lastUpdated).toLocaleString()}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Widget URLs */}
       {widget.isDeployed && widget.deploymentInfo && (
@@ -373,81 +296,79 @@ export default {
               Widget URLs
             </CardTitle>
             <CardDescription>
-              Access your deployed widget through these URLs
+              Direct links to your deployed widget
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div>
-                <Label className="text-sm font-medium">Standalone URL</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    value={widget.deploymentInfo.urls.standalone}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      handleCopyUrl(widget.deploymentInfo!.urls.standalone)
-                    }
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      window.open(
-                        widget.deploymentInfo!.urls.standalone,
-                        "_blank",
-                      )
-                    }
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
+            <div className="space-y-2">
+              <Label>Standalone Widget URL</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={widget.deploymentInfo.urls.standalone}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    copyToClipboard(widget.deploymentInfo!.urls.standalone)
+                  }
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(
+                      widget.deploymentInfo!.urls.standalone,
+                      "_blank",
+                    )
+                  }
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
               </div>
+            </div>
 
-              <div>
-                <Label className="text-sm font-medium">Embed URL</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    value={widget.deploymentInfo.urls.embed}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      handleCopyUrl(widget.deploymentInfo!.urls.embed)
-                    }
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
+            <div className="space-y-2">
+              <Label>Embed URL</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={widget.deploymentInfo.urls.embed}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    copyToClipboard(widget.deploymentInfo!.urls.embed)
+                  }
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
               </div>
+            </div>
 
-              <div>
-                <Label className="text-sm font-medium">API URL</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    value={widget.deploymentInfo.urls.api}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      handleCopyUrl(widget.deploymentInfo!.urls.api)
-                    }
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
+            <div className="space-y-2">
+              <Label>API Endpoint</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={widget.deploymentInfo.urls.api}
+                  readOnly
+                  className="font-mono text-sm"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    copyToClipboard(widget.deploymentInfo!.urls.api)
+                  }
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -463,120 +384,110 @@ export default {
               Embed Code
             </CardTitle>
             <CardDescription>
-              Copy and paste this code to embed your widget
+              Copy and paste this code into your website
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="embedFormat">Format</Label>
-              <Select
-                value={selectedEmbedFormat}
-                onValueChange={setSelectedEmbedFormat}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="javascript">JavaScript</SelectItem>
-                  <SelectItem value="iframe">iFrame</SelectItem>
-                  <SelectItem value="react">React</SelectItem>
-                  <SelectItem value="vue">Vue</SelectItem>
-                  <SelectItem value="angular">Angular</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <CardContent>
+            <Tabs
+              value={embedFormat}
+              onValueChange={(value: any) => setEmbedFormat(value)}
+            >
+              <TabsList className="grid grid-cols-5 mb-4">
+                <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+                <TabsTrigger value="iframe">iFrame</TabsTrigger>
+                <TabsTrigger value="react">React</TabsTrigger>
+                <TabsTrigger value="vue">Vue</TabsTrigger>
+                <TabsTrigger value="angular">Angular</TabsTrigger>
+              </TabsList>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Code</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    handleCopyEmbedCode(
-                      widget.deploymentInfo
-                        ? getEmbedCode(selectedEmbedFormat)
-                        : getEmbedCodeExample(selectedEmbedFormat),
-                    )
-                  }
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy Code
-                </Button>
-              </div>
-              <Textarea
-                value={
-                  widget.deploymentInfo
-                    ? getEmbedCode(selectedEmbedFormat)
-                    : getEmbedCodeExample(selectedEmbedFormat)
-                }
-                readOnly
-                className="font-mono text-sm"
-                rows={8}
+              <TabsContent value={embedFormat}>
+                <div className="space-y-4">
+                  <div className="relative">
+                    <Textarea
+                      value={generateEmbedCode()}
+                      readOnly
+                      className="font-mono text-sm min-h-32"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => copyToClipboard(generateEmbedCode())}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                    </Button>
+                  </div>
+
+                  {embedFormat === "javascript" && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        This script will automatically load and display your
+                        widget. Place it anywhere in your HTML where you want
+                        the widget to appear.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {embedFormat === "iframe" && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        iFrame embedding provides the most isolation but may
+                        have limitations with responsive design and cross-origin
+                        communication.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {(embedFormat === "react" ||
+                    embedFormat === "vue" ||
+                    embedFormat === "angular") && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Make sure to install the SynapseAI {embedFormat}{" "}
+                        package:
+                        <code className="ml-1 px-1 py-0.5 bg-gray-100 rounded text-xs">
+                          npm install @synapseai/{embedFormat}-widget
+                        </code>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Preview */}
+      {widget.isDeployed && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Monitor className="h-5 w-5" />
+              Live Preview
+            </CardTitle>
+            <CardDescription>Preview your deployed widget</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <iframe
+                src={widget.deploymentInfo?.urls.embed}
+                width={widget.configuration.layout.width}
+                height={widget.configuration.layout.height}
+                frameBorder="0"
+                className="border-0 rounded-lg"
+                title={`${widget.name} Preview`}
               />
             </div>
           </CardContent>
         </Card>
       )}
-
-      {/* Security & Analytics */}
-      {widget.isDeployed && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Security
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">HTTPS Enabled</span>
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Domain Restrictions</span>
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Rate Limiting</span>
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Analytics
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Usage Tracking</span>
-                {enableAnalytics ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-gray-400" />
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Performance Monitoring</span>
-                {enableAnalytics ? (
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-gray-400" />
-                )}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Error Reporting</span>
-                <CheckCircle className="h-4 w-4 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
+
+export default WidgetDeployment;

@@ -52,7 +52,7 @@ import { cn } from "@/lib/utils";
 interface ToolTemplatesProps {
   selectedType: "agent" | "tool" | "workflow";
   onTemplateSelect: (template: WidgetTemplate) => void;
-  onConfigurationApply: (configuration: WidgetConfiguration) => void;
+  onConfigurationApply?: (configuration: WidgetConfiguration) => void;
   className?: string;
 }
 
@@ -205,7 +205,9 @@ export default function ToolTemplates({
     setIsApplying(true);
     try {
       // Apply the template configuration
-      onConfigurationApply(template.configuration);
+      if (onConfigurationApply) {
+        onConfigurationApply(template.configuration);
+      }
       onTemplateSelect(template);
       setPreviewDialogOpen(false);
     } catch (err) {
