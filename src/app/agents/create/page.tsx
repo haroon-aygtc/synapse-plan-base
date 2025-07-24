@@ -71,8 +71,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import AIConfigurationPanel from '@/components/ai-assistant/AIConfigurationPanel';
-import VisualAgentBuilder from '@/components/agent-builder/VisualAgentBuilder';
-import ComponentPalette from '@/components/agent-builder/ComponentPalette';
+import { VisualAgentBuilder } from '@/components/agent-builder/VisualAgentBuilder';
+import { ComponentPalette } from '@/components/agent-builder/ComponentPalette';
 import { type AgentConfiguration } from '@/lib/ai-assistant';
 
 // Tutorial and onboarding interfaces
@@ -835,7 +835,7 @@ export default function AgentCreatePage() {
       console.error('Error creating agent:', error);
       toast({
         title: 'Error creating agent',
-        description: error.message || 'Please try again.',
+        description: (error as Error).message || 'Please try again.',
         variant: 'destructive',
       });
     }
@@ -872,8 +872,10 @@ export default function AgentCreatePage() {
   };
 
   const handleAddComponent = (template: any) => {
-    console.log('Adding component:', template);
-    // In a real implementation, this would add the component to the visual builder
+    setAgentConfiguration((prev) => ({
+      ...prev,
+      visualWorkflow: [...(prev.visualWorkflow || []), template],
+    }));
   };
 
   return (
@@ -1341,6 +1343,7 @@ export default function AgentCreatePage() {
                   searchContext={agentConfiguration.description || ''}
                   canvasNodes={[]}
                   canvasEdges={[]}
+                  onConfigurationUpdate={handleConfigurationUpdate}
                 />
               </div>
             </div>

@@ -58,8 +58,9 @@ import { ConditionNode } from "./nodes/ConditionNode";
 import { ActionNode } from "./nodes/ActionNode";
 import { CustomEdge } from "./edges/CustomEdge";
 import { ComponentPalette } from "./ComponentPalette";
-import { useAgentBuilder } from "@/hooks/useAgentBuilder";
+import { useAgentBuilderStore } from "@/store/agentBuilderStore";
 import { toast } from "@/components/ui/use-toast";
+import { AgentConfiguration } from "@/lib/ai-assistant";
 
 const nodeTypes: NodeTypes = {
   agent: AgentNode,
@@ -212,7 +213,12 @@ const initialNodes: Node[] = [
 const initialEdges: Edge[] = [];
 
 export function VisualAgentBuilder() {
-  const { currentAgent, updateAgent } = useAgentBuilder();
+  const {
+    currentAgent,
+    updateAgentConfiguration,
+    addNode,
+    discoverFeature,
+  } = useAgentBuilderStore();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] =
@@ -351,13 +357,10 @@ export function VisualAgentBuilder() {
         })),
       };
 
-      await updateAgent({
+      updateAgentConfiguration({
         ...currentAgent,
-        metadata: {
-          ...currentAgent?.metadata,
-          visualWorkflow: workflowData,
-        },
-      });
+        visualWorkflow: workflowData,
+      } as Partial<AgentConfiguration>);
 
       toast({
         title: "Workflow Saved",
@@ -370,7 +373,7 @@ export function VisualAgentBuilder() {
         variant: "destructive",
       });
     }
-  }, [nodes, edges, currentAgent, updateAgent]);
+  }, [nodes, edges, currentAgent, updateAgentConfiguration]);
 
   return (
     <div className="h-full flex">

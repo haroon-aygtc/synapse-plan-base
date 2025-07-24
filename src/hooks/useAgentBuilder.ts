@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { toast } from '@/components/ui/use-toast';
+import { getToken } from '@/lib/auth';
 
 export interface Agent {
   id: string;
@@ -218,7 +219,7 @@ export function useAgentBuilder() {
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-      const token = localStorage.getItem('synapse_access_token');
+      const token = await getToken();
       
       const response = await fetch(`${apiUrl}/agents/${agentId}/execute`, {
         method: 'POST',

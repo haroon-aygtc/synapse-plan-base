@@ -57,7 +57,7 @@ export interface AgentExecutionResult {
   metadata?: Record<string, any>;
 }
 
-export interface AgentTestResult {
+export interface AgentTestResultDto {
   testId: string;
   passed: boolean;
   score?: number;
@@ -219,33 +219,34 @@ export class AgentService {
   ): Promise<Agent> {
     // Try cache first
     const cacheKey = `${this.cachePrefix}${id}`;
-    let agent = await this.cacheManager.get<Agent>(cacheKey);
+    let agent = await this.cacheManager.get<Agent | null>(cacheKey);
 
     if (!agent) {
+      let foundAgent: Agent | null = null;
+      
       if (options?.includeExecutions) {
-        agent = await this.agentRepository.findWithExecutions(
+        foundAgent = await this.agentRepository.findWithExecutions(
           id,
           organizationId,
         );
       } else if (options?.includeTestResults) {
-        agent = await this.agentRepository.findWithTestResults(
+        foundAgent = await this.agentRepository.findWithTestResults(
           id,
           organizationId,
         );
       } else {
-        agent = await this.agentRepository.findOne({
+        foundAgent = await this.agentRepository.findOne({
           where: { id, organizationId },
           relations: ['promptTemplate', 'user'],
         });
       }
-
-      if (agent) {
-        await this.cacheAgent(agent);
+      
+      if (!foundAgent) {
+        throw new NotFoundException('Agent not found');
       }
-    }
-
-    if (!agent) {
-      throw new NotFoundException('Agent not found');
+      
+      agent = foundAgent;
+      await this.cacheAgent(agent);
     }
 
     return agent;
@@ -397,7 +398,7 @@ export class AgentService {
     testDto: TestAgentDto,
     userId: string,
     organizationId: string,
-  ): Promise<AgentTestResult> {
+  ): Promise<AgentTestResultDto> {
     const agent = await this.findOne(id, organizationId);
     const testId = uuidv4();
     const startTime = Date.now();
@@ -496,7 +497,7 @@ export class AgentService {
 
       await this.agentTestResultRepository.save(testResult);
 
-      const result: AgentTestResult = {
+      const result: AgentTestResultDto = {
         testId,
         passed,
         score,
@@ -509,13 +510,13 @@ export class AgentService {
       );
 
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       const executionTime = Date.now() - startTime;
 
       // Update test result with error
       testResult.status = ExecutionStatus.FAILED;
       testResult.passed = false;
-      testResult.errorMessage = error.message;
+      testResult.errorMessage = error instanceof Error ? error.message : 'Unknown error';
       testResult.metrics = {
         responseTime: executionTime,
         tokenUsage: 0,
@@ -531,8 +532,8 @@ export class AgentService {
         testId,
         passed: false,
         metrics: testResult.metrics,
-        actualOutput: { error: error.message },
-        errorMessage: error.message,
+        actualOutput: { error: error instanceof Error ? error.message : 'Unknown error' },
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -542,9 +543,9 @@ export class AgentService {
     batchTestDto: BatchTestAgentDto,
     userId: string,
     organizationId: string,
-  ): Promise<AgentTestResult[]> {
+  ): Promise<AgentTestResultDto[]> {
     const maxConcurrency = batchTestDto.maxConcurrency || 5;
-    const results: AgentTestResult[] = [];
+    const results: AgentTestResultDto[] = [];
 
     // Process tests in batches
     for (let i = 0; i < batchTestDto.testCases.length; i += maxConcurrency) {
@@ -617,11 +618,13 @@ export class AgentService {
 
   private calculateCost(model: string, tokens: number): number {
     // Simplified cost calculation - in production, use actual pricing
-    const costPerToken = {
+    const costPerToken: Record<string, number> = {
       'gpt-4': 0.00003,
       'gpt-3.5-turbo': 0.000002,
       'claude-3-opus': 0.000015,
       'claude-3-sonnet': 0.000003,
+      'gemini-pro': 0.000001,
+      'mistral-large': 0.000006,
     };
 
     return (costPerToken[model] || costPerToken['gpt-3.5-turbo']) * tokens;
@@ -710,14 +713,24 @@ export class AgentService {
 
       const content = evaluation.choices[0]?.message?.content;
       if (content) {
-        const result = JSON.parse(content);
-        return {
-          passed: result.passed || result.score > 0.7,
-          score: result.score || 0,
-          accuracy: result.accuracy || 0,
-          relevance: result.relevance || 0,
-          coherence: result.coherence || 0,
-        };
+        try {
+          const result = JSON.parse(content) as {
+            passed: boolean;
+            score: number;
+            accuracy: number;
+            relevance: number;
+            coherence: number;
+          };
+          return {
+            passed: result.passed || result.score > 0.7,
+            score: result.score || 0,
+            accuracy: result.accuracy || 0,
+            relevance: result.relevance || 0,
+            coherence: result.coherence || 0,
+          };
+        } catch (parseError) {
+          this.logger.error('Failed to parse evaluation result', parseError);
+        }
       }
     } catch (error) {
       this.logger.error('Response evaluation failed', error);
