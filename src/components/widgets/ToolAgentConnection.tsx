@@ -137,4 +137,95 @@ export function ToolAgentConnection({
       <Card className={className}>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Bot className="h-5 w-5
+            <Bot className="h-5 w-5" />
+            Agent Connections
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <p className="text-red-600 font-medium mb-2">Failed to load connections</p>
+            <p className="text-gray-500 text-sm mb-4">{error}</p>
+            <Button onClick={fetchConnections} variant="outline" size="sm">
+              Try Again
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Bot className="h-5 w-5" />
+          Agent Connections
+        </CardTitle>
+        <CardDescription>
+          Manage agent connections for this tool
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {connections.length === 0 ? (
+          <div className="text-center py-8">
+            <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 font-medium mb-2">No agent connections</p>
+            <p className="text-gray-400 text-sm">Connect agents to use this tool in conversations</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {connections.map((connection) => (
+              <div
+                key={connection.id}
+                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  {getStatusIcon(connection.connectionStatus)}
+                  <div>
+                    <h4 className="font-medium text-gray-900">{connection.name}</h4>
+                    {connection.description && (
+                      <p className="text-sm text-gray-500">{connection.description}</p>
+                    )}
+                    <div className="flex items-center gap-4 mt-1">
+                      <Badge className={getStatusColor(connection.connectionStatus)}>
+                        {connection.connectionStatus}
+                      </Badge>
+                      <span className="text-xs text-gray-400">
+                        Used {connection.usageCount} times
+                      </span>
+                      {connection.lastUsed && (
+                        <span className="text-xs text-gray-400">
+                          Last used {new Date(connection.lastUsed).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={connection.connectionStatus === 'connected' ? 'destructive' : 'default'}
+                    size="sm"
+                    onClick={() => handleToggleConnection(connection.id, connection.connectionStatus)}
+                    disabled={actionLoading === connection.id}
+                  >
+                    {actionLoading === connection.id ? (
+                      <LoadingSpinner size="sm" className="mr-2" />
+                    ) : connection.connectionStatus === 'connected' ? (
+                      <Unlink className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Link className="h-4 w-4 mr-2" />
+                    )}
+                    {connection.connectionStatus === 'connected' ? 'Disconnect' : 'Connect'}
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
