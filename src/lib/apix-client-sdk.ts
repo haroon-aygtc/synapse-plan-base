@@ -1,9 +1,10 @@
-import { EventEmitter } from 'events';
+import { EventEmitter } from "events";
+import { io, Socket } from "socket.io-client";
 import {
   APXMessageType,
   APXSecurityLevel,
   APXPermissionLevel,
-} from '@/types/apix';
+} from "@/types/apix";
 
 interface APXMessage {
   type: APXMessageType;
@@ -19,7 +20,7 @@ interface APXMessage {
   metadata?: Record<string, any>;
   retry_count?: number;
   expires_at?: string;
-  priority?: 'low' | 'normal' | 'high' | 'critical';
+  priority?: "low" | "normal" | "high" | "critical";
 }
 
 interface APXClientConfig {
@@ -42,14 +43,14 @@ interface QueuedMessage {
 }
 
 export class APXClient extends EventEmitter {
-  private ws: WebSocket | null = null;
+  private socket: Socket | null = null;
   private config: Required<APXClientConfig>;
   private sessionId: string | null = null;
   private connectionState:
-    | 'disconnected'
-    | 'connecting'
-    | 'connected'
-    | 'reconnecting' = 'disconnected';
+    | "disconnected"
+    | "connecting"
+    | "connected"
+    | "reconnecting" = "disconnected";
   private messageQueue: QueuedMessage[] = [];
   private pendingRequests = new Map<string, QueuedMessage>();
   private heartbeatTimer: NodeJS.Timeout | null = null;
@@ -73,52 +74,58 @@ export class APXClient extends EventEmitter {
 
   async connect(): Promise<void> {
     if (
-      this.connectionState === 'connected' ||
-      this.connectionState === 'connecting'
+      this.connectionState === "connected" ||
+      this.connectionState === "connecting"
     ) {
       return;
     }
 
-    this.connectionState = 'connecting';
-    this.emit('connecting');
+    this.connectionState = "connecting";
+    this.emit("connecting");
 
     return new Promise((resolve, reject) => {
       try {
-        this.ws = new WebSocket(this.config.url);
+        this.socket = io(this.config.url, {
+          auth: { token: this.config.token },
+          transports: ["websocket", "polling"],
+          timeout: 10000,
+          autoConnect: true,
+          forceNew: true,
+        });
 
-        this.ws.onopen = () => {
-          this.connectionState = 'connected';
+        this.socket.on("connect", () => {
+          this.connectionState = "connected";
           this.reconnectAttempts = 0;
           this.startHeartbeat();
           this.processMessageQueue();
-          this.emit('connected');
+          this.emit("connected");
           resolve();
-        };
+        });
 
-        this.ws.onmessage = (event) => {
-          this.handleMessage(event.data);
-        };
+        this.socket.on("apx_message", (message: APXMessage) => {
+          this.handleMessage(JSON.stringify(message));
+        });
 
-        this.ws.onclose = (event) => {
-          this.handleDisconnection(event.code, event.reason);
-        };
+        this.socket.on("disconnect", (reason: string) => {
+          this.handleDisconnection(1000, reason);
+        });
 
-        this.ws.onerror = (error) => {
-          this.emit('error', error);
-          if (this.connectionState === 'connecting') {
-            reject(new Error('Connection failed'));
+        this.socket.on("connect_error", (error: Error) => {
+          this.emit("error", error);
+          if (this.connectionState === "connecting") {
+            reject(new Error("Connection failed"));
           }
-        };
+        });
 
         // Connection timeout
         setTimeout(() => {
-          if (this.connectionState === 'connecting') {
-            this.ws?.close();
-            reject(new Error('Connection timeout'));
+          if (this.connectionState === "connecting") {
+            this.socket?.disconnect();
+            reject(new Error("Connection timeout"));
           }
         }, 10000);
       } catch (error) {
-        this.connectionState = 'disconnected';
+        this.connectionState = "disconnected";
         reject(error);
       }
     });
@@ -129,14 +136,14 @@ export class APXClient extends EventEmitter {
     this.stopHeartbeat();
     this.clearReconnectTimer();
 
-    if (this.ws) {
-      this.ws.close(1000, 'Client disconnect');
-      this.ws = null;
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
     }
 
-    this.connectionState = 'disconnected';
+    this.connectionState = "disconnected";
     this.sessionId = null;
-    this.emit('disconnected');
+    this.emit("disconnected");
   }
 
   async sendMessage<T = any>(
@@ -144,19 +151,19 @@ export class APXClient extends EventEmitter {
     payload: any,
     options?: {
       correlation_id?: string;
-      priority?: 'low' | 'normal' | 'high' | 'critical';
+      priority?: "low" | "normal" | "high" | "critical";
       expires_in_ms?: number;
       metadata?: Record<string, any>;
     },
   ): Promise<T> {
     const message: APXMessage = {
       type,
-      session_id: this.sessionId || '',
+      session_id: this.sessionId || "",
       payload,
       timestamp: new Date().toISOString(),
       request_id: this.generateRequestId(),
       correlation_id: options?.correlation_id,
-      priority: options?.priority || 'normal',
+      priority: options?.priority || "normal",
       expires_at: options?.expires_in_ms
         ? new Date(Date.now() + options.expires_in_ms).toISOString()
         : undefined,
@@ -176,11 +183,11 @@ export class APXClient extends EventEmitter {
         timeout,
       };
 
-      if (this.connectionState === 'connected' && this.ws) {
+      if (this.connectionState === "connected" && this.ws) {
         this.sendQueuedMessage(queuedMessage);
       } else {
         this.messageQueue.push(queuedMessage);
-        if (this.connectionState === 'disconnected') {
+        if (this.connectionState === "disconnected") {
           this.connect().catch(reject);
         }
       }
@@ -238,7 +245,7 @@ export class APXClient extends EventEmitter {
   async pauseStream(executionId: string, reason?: string) {
     return this.sendMessage(APXMessageType.STREAM_PAUSE, {
       execution_id: executionId,
-      action: 'pause',
+      action: "pause",
       reason,
     });
   }
@@ -246,7 +253,7 @@ export class APXClient extends EventEmitter {
   async resumeStream(executionId: string) {
     return this.sendMessage(APXMessageType.STREAM_RESUME, {
       execution_id: executionId,
-      action: 'resume',
+      action: "resume",
     });
   }
 
@@ -275,7 +282,7 @@ export class APXClient extends EventEmitter {
     options?: {
       description?: string;
       context?: Record<string, any>;
-      priority?: 'low' | 'medium' | 'high' | 'urgent';
+      priority?: "low" | "medium" | "high" | "urgent";
       expiration?: Date;
       assignee_roles?: string[];
       assignee_users?: string[];
@@ -344,7 +351,7 @@ export class APXClient extends EventEmitter {
 
   // Connection status
   isConnected(): boolean {
-    return this.connectionState === 'connected';
+    return this.connectionState === "connected";
   }
 
   getConnectionState(): string {
@@ -363,7 +370,7 @@ export class APXClient extends EventEmitter {
       // Handle connection acknowledgment
       if (message.type === APXMessageType.CONNECTION_ACK) {
         this.sessionId = message.payload.session_id;
-        this.emit('session_established', message.payload);
+        this.emit("session_established", message.payload);
         return;
       }
 
@@ -391,28 +398,28 @@ export class APXClient extends EventEmitter {
       }
 
       // Emit general message event
-      this.emit('message', message);
+      this.emit("message", message);
     } catch (error) {
       this.emit(
-        'error',
+        "error",
         new Error(`Failed to parse message: ${error.message}`),
       );
     }
   }
 
   private handleDisconnection(code: number, reason: string): void {
-    this.connectionState = 'disconnected';
+    this.connectionState = "disconnected";
     this.stopHeartbeat();
-    this.ws = null;
+    this.socket = null;
 
     // Reject all pending requests
     for (const [requestId, pending] of this.pendingRequests.entries()) {
       clearTimeout(pending.timeout);
-      pending.reject(new Error('Connection lost'));
+      pending.reject(new Error("Connection lost"));
     }
     this.pendingRequests.clear();
 
-    this.emit('disconnected', { code, reason });
+    this.emit("disconnected", { code, reason });
 
     // Auto-reconnect if enabled
     if (
@@ -424,46 +431,43 @@ export class APXClient extends EventEmitter {
   }
 
   private scheduleReconnect(): void {
-    this.connectionState = 'reconnecting';
+    this.connectionState = "reconnecting";
     this.reconnectAttempts++;
 
     const delay =
       this.config.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
-    this.emit('reconnecting', { attempt: this.reconnectAttempts, delay });
+    this.emit("reconnecting", { attempt: this.reconnectAttempts, delay });
 
     this.reconnectTimer = setTimeout(() => {
       this.connect().catch((error) => {
-        this.emit('reconnect_failed', error);
+        this.emit("reconnect_failed", error);
         if (this.reconnectAttempts < this.config.maxReconnectAttempts) {
           this.scheduleReconnect();
         } else {
-          this.emit('reconnect_exhausted');
+          this.emit("reconnect_exhausted");
         }
       });
     }, delay);
   }
 
   private sendQueuedMessage(queuedMessage: QueuedMessage): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    if (!this.socket || !this.socket.connected) {
       this.messageQueue.push(queuedMessage);
       return;
     }
 
     try {
-      this.ws.send(JSON.stringify(queuedMessage.message));
+      this.socket.emit("apx_message", queuedMessage.message);
       this.pendingRequests.set(queuedMessage.message.request_id, queuedMessage);
     } catch (error) {
       clearTimeout(queuedMessage.timeout);
-      queuedMessage.reject(error);
+      queuedMessage.reject(error as Error);
     }
   }
 
   private processMessageQueue(): void {
-    while (
-      this.messageQueue.length > 0 &&
-      this.ws?.readyState === WebSocket.OPEN
-    ) {
+    while (this.messageQueue.length > 0 && this.socket?.connected) {
       const queuedMessage = this.messageQueue.shift()!;
       this.sendQueuedMessage(queuedMessage);
     }
@@ -474,23 +478,21 @@ export class APXClient extends EventEmitter {
     this.lastHeartbeat = Date.now();
 
     this.heartbeatTimer = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        this.ws.send(
-          JSON.stringify({
-            type: APXMessageType.CONNECTION_HEARTBEAT,
-            session_id: this.sessionId || '',
-            payload: { timestamp: new Date().toISOString() },
-            timestamp: new Date().toISOString(),
-            request_id: this.generateRequestId(),
-          }),
-        );
+      if (this.socket?.connected) {
+        this.socket.emit("apx_message", {
+          type: APXMessageType.CONNECTION_HEARTBEAT,
+          session_id: this.sessionId || "",
+          payload: { timestamp: new Date().toISOString() },
+          timestamp: new Date().toISOString(),
+          request_id: this.generateRequestId(),
+        });
 
         // Check for missed heartbeats
         if (
           Date.now() - this.lastHeartbeat >
           this.config.heartbeatInterval * 2
         ) {
-          this.ws.close(1000, 'Heartbeat timeout');
+          this.socket.disconnect();
         }
       }
     }, this.config.heartbeatInterval);

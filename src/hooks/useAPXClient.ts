@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   APXClient,
   createAPXClient,
   APXClientConfig,
-} from '@/lib/apix-client-sdk';
-import { APXMessageType } from '@/types/apix';
-import { useAuth } from './useAuth';
+} from "@/lib/apix-client-sdk";
+import { APXMessageType } from "@/types/apix";
+import { useAuth } from "./useAuth";
 
 interface UseAPXClientOptions {
   autoConnect?: boolean;
@@ -19,7 +19,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
   const { user, token } = useAuth();
   const clientRef = useRef<APXClient | null>(null);
   const [connectionState, setConnectionState] =
-    useState<string>('disconnected');
+    useState<string>("disconnected");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
@@ -28,44 +28,47 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
     if (!token || !user) return;
 
     const config: APXClientConfig = {
-      url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000',
+      url: process.env.NEXT_PUBLIC_WS_URL || "http://localhost:3001",
       token,
       autoReconnect: true,
       maxReconnectAttempts: 10,
       reconnectDelay: 1000,
       heartbeatInterval: 30000,
       messageTimeout: 30000,
+      compression: true,
+      encryption: true,
+      debug: process.env.NODE_ENV === "development",
     };
 
     const client = createAPXClient(config);
     clientRef.current = client;
 
     // Set up event listeners
-    client.on('connecting', () => setConnectionState('connecting'));
-    client.on('connected', () => {
-      setConnectionState('connected');
+    client.on("connecting", () => setConnectionState("connecting"));
+    client.on("connected", () => {
+      setConnectionState("connected");
       setError(null);
       options.onConnected?.();
     });
 
-    client.on('disconnected', (event) => {
-      setConnectionState('disconnected');
+    client.on("disconnected", (event) => {
+      setConnectionState("disconnected");
       setSessionId(null);
       options.onDisconnected?.(event);
     });
 
-    client.on('reconnecting', () => setConnectionState('reconnecting'));
+    client.on("reconnecting", () => setConnectionState("reconnecting"));
 
-    client.on('session_established', (payload) => {
+    client.on("session_established", (payload) => {
       setSessionId(payload.session_id);
     });
 
-    client.on('error', (err) => {
+    client.on("error", (err) => {
       setError(err);
       options.onError?.(err);
     });
 
-    client.on('message', options.onMessage || (() => {}));
+    client.on("message", options.onMessage || (() => {}));
 
     // Auto-connect if enabled
     if (options.autoConnect !== false) {
@@ -99,13 +102,13 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
       payload: any,
       options?: {
         correlation_id?: string;
-        priority?: 'low' | 'normal' | 'high' | 'critical';
+        priority?: "low" | "normal" | "high" | "critical";
         expires_in_ms?: number;
         metadata?: Record<string, any>;
       },
     ): Promise<T> => {
       if (!clientRef.current) {
-        throw new Error('APIX client not initialized');
+        throw new Error("APIX client not initialized");
       }
       return clientRef.current.sendMessage<T>(type, payload, options);
     },
@@ -116,7 +119,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
   const subscribe = useCallback(
     (messageType: APXMessageType, callback: (payload: any) => void) => {
       if (!clientRef.current) {
-        throw new Error('APIX client not initialized');
+        throw new Error("APIX client not initialized");
       }
       return clientRef.current.subscribe(messageType, callback);
     },
@@ -126,7 +129,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
   const subscribeToExecution = useCallback(
     (executionId: string, callback: (message: any) => void) => {
       if (!clientRef.current) {
-        throw new Error('APIX client not initialized');
+        throw new Error("APIX client not initialized");
       }
       return clientRef.current.subscribeToExecution(executionId, callback);
     },
@@ -146,7 +149,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
       },
     ) => {
       if (!clientRef.current) {
-        throw new Error('APIX client not initialized');
+        throw new Error("APIX client not initialized");
       }
       return clientRef.current.startAgentExecution(agentId, prompt, options);
     },
@@ -156,7 +159,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
   const pauseStream = useCallback(
     async (executionId: string, reason?: string) => {
       if (!clientRef.current) {
-        throw new Error('APIX client not initialized');
+        throw new Error("APIX client not initialized");
       }
       return clientRef.current.pauseStream(executionId, reason);
     },
@@ -165,7 +168,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
 
   const resumeStream = useCallback(async (executionId: string) => {
     if (!clientRef.current) {
-      throw new Error('APIX client not initialized');
+      throw new Error("APIX client not initialized");
     }
     return clientRef.current.resumeStream(executionId);
   }, []);
@@ -178,7 +181,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
       parameters: Record<string, any>,
     ) => {
       if (!clientRef.current) {
-        throw new Error('APIX client not initialized');
+        throw new Error("APIX client not initialized");
       }
       return clientRef.current.callTool(toolId, functionName, parameters);
     },
@@ -193,14 +196,14 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
       options?: {
         description?: string;
         context?: Record<string, any>;
-        priority?: 'low' | 'medium' | 'high' | 'urgent';
+        priority?: "low" | "medium" | "high" | "urgent";
         expiration?: Date;
         assignee_roles?: string[];
         assignee_users?: string[];
       },
     ) => {
       if (!clientRef.current) {
-        throw new Error('APIX client not initialized');
+        throw new Error("APIX client not initialized");
       }
       return clientRef.current.createHITLRequest(requestType, title, options);
     },
@@ -216,7 +219,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
       context?: Record<string, any>,
     ) => {
       if (!clientRef.current) {
-        throw new Error('APIX client not initialized');
+        throw new Error("APIX client not initialized");
       }
       return clientRef.current.submitWidgetQuery(
         widgetId,
@@ -240,7 +243,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
       },
     ) => {
       if (!clientRef.current) {
-        throw new Error('APIX client not initialized');
+        throw new Error("APIX client not initialized");
       }
       return clientRef.current.searchKnowledge(
         query,
@@ -257,7 +260,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
     connectionState,
     sessionId,
     error,
-    isConnected: connectionState === 'connected',
+    isConnected: connectionState === "connected",
 
     // Connection methods
     connect,

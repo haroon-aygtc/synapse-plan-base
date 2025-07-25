@@ -13,7 +13,7 @@ import {
   ParseUUIDPipe,
   ValidationPipe,
   UsePipes,
-} from '@nestjs/common';
+} from "@nestjs/common";
 import {
   ApiTags,
   ApiOperation,
@@ -21,34 +21,34 @@ import {
   ApiQuery,
   ApiBearerAuth,
   ApiParam,
-} from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '@shared/decorators/roles.decorator';
-import { UserRole } from '@shared/interfaces';
-import { PromptTemplateService } from './prompt-template.service';
+} from "@nestjs/swagger";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { RolesGuard } from "../auth/guards/roles.guard";
+import { Roles } from "@shared/decorators/roles.decorator";
+import { UserRole } from "@shared/interfaces";
+import { PromptTemplateService } from "./prompt-template.service";
 import {
   CreatePromptTemplateDto,
   UpdatePromptTemplateDto,
   PromptTemplateResponseDto,
   RenderTemplateDto,
-} from './dto';
-import { PromptTemplate } from '@database/entities';
-import { plainToClass } from 'class-transformer';
+} from "./dto";
+import { PromptTemplate } from "@database/entities";
+import { plainToClass } from "class-transformer";
 
-@ApiTags('prompt-templates')
+@ApiTags("prompt-templates")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('prompt-templates')
+@Controller("prompt-templates")
 export class PromptTemplateController {
   constructor(private readonly promptTemplateService: PromptTemplateService) {}
 
   @Post()
   @Roles(UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Create a new prompt template' })
+  @ApiOperation({ summary: "Create a new prompt template" })
   @ApiResponse({
     status: HttpStatus.CREATED,
-    description: 'Template created successfully',
+    description: "Template created successfully",
     type: PromptTemplateResponseDto,
   })
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -73,60 +73,60 @@ export class PromptTemplateController {
     UserRole.ORG_ADMIN,
     UserRole.SUPER_ADMIN,
   )
-  @ApiOperation({ summary: 'Get all prompt templates' })
+  @ApiOperation({ summary: "Get all prompt templates" })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Templates retrieved successfully',
+    description: "Templates retrieved successfully",
     type: [PromptTemplateResponseDto],
   })
   @ApiQuery({
-    name: 'userId',
+    name: "userId",
     required: false,
-    description: 'Filter by user ID',
+    description: "Filter by user ID",
   })
   @ApiQuery({
-    name: 'includeInactive',
+    name: "includeInactive",
     required: false,
     type: Boolean,
-    description: 'Include inactive templates',
+    description: "Include inactive templates",
   })
   @ApiQuery({
-    name: 'category',
+    name: "category",
     required: false,
-    description: 'Filter by category',
+    description: "Filter by category",
   })
   @ApiQuery({
-    name: 'isPublic',
+    name: "isPublic",
     required: false,
     type: Boolean,
-    description: 'Filter by public status',
+    description: "Filter by public status",
   })
   @ApiQuery({
-    name: 'search',
+    name: "search",
     required: false,
-    description: 'Search term',
+    description: "Search term",
   })
   @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Limit results',
-  })
-  @ApiQuery({
-    name: 'offset',
+    name: "limit",
     required: false,
     type: Number,
-    description: 'Offset results',
+    description: "Limit results",
+  })
+  @ApiQuery({
+    name: "offset",
+    required: false,
+    type: Number,
+    description: "Offset results",
   })
   async findAll(
     @Request() req: any,
-    @Query('userId') userId?: string,
-    @Query('includeInactive') includeInactive?: boolean,
-    @Query('category') category?: string,
-    @Query('isPublic') isPublic?: boolean,
-    @Query('search') search?: string,
-    @Query('limit') limit?: number,
-    @Query('offset') offset?: number,
+    @Query("userId") userId?: string,
+    @Query("includeInactive") includeInactive?: boolean,
+    @Query("category") category?: string,
+    @Query("isPublic") isPublic?: boolean,
+    @Query("search") search?: string,
+    @Query("limit") limit?: number,
+    @Query("offset") offset?: number,
   ): Promise<PromptTemplateResponseDto[]> {
     const templates = await this.promptTemplateService.findAll(
       req.user.organizationId,
@@ -147,37 +147,37 @@ export class PromptTemplateController {
     );
   }
 
-  @Get(':id')
+  @Get(":id")
   @Roles(
     UserRole.VIEWER,
     UserRole.DEVELOPER,
     UserRole.ORG_ADMIN,
     UserRole.SUPER_ADMIN,
   )
-  @ApiOperation({ summary: 'Get prompt template by ID' })
+  @ApiOperation({ summary: "Get prompt template by ID" })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Template retrieved successfully',
+    description: "Template retrieved successfully",
     type: PromptTemplateResponseDto,
   })
-  @ApiParam({ name: 'id', description: 'Template ID' })
+  @ApiParam({ name: "id", description: "Template ID" })
   @ApiQuery({
-    name: 'includeChildren',
+    name: "includeChildren",
     required: false,
     type: Boolean,
-    description: 'Include child templates',
+    description: "Include child templates",
   })
   @ApiQuery({
-    name: 'includeAgents',
+    name: "includeAgents",
     required: false,
     type: Boolean,
-    description: 'Include agents using this template',
+    description: "Include agents using this template",
   })
   async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Request() req: any,
-    @Query('includeChildren') includeChildren?: boolean,
-    @Query('includeAgents') includeAgents?: boolean,
+    @Query("includeChildren") includeChildren?: boolean,
+    @Query("includeAgents") includeAgents?: boolean,
   ): Promise<PromptTemplateResponseDto> {
     const template = await this.promptTemplateService.findOne(
       id,
@@ -192,18 +192,18 @@ export class PromptTemplateController {
     });
   }
 
-  @Patch(':id')
+  @Patch(":id")
   @Roles(UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Update prompt template' })
+  @ApiOperation({ summary: "Update prompt template" })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Template updated successfully',
+    description: "Template updated successfully",
     type: PromptTemplateResponseDto,
   })
-  @ApiParam({ name: 'id', description: 'Template ID' })
+  @ApiParam({ name: "id", description: "Template ID" })
   @UsePipes(new ValidationPipe({ transform: true }))
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() updateDto: UpdatePromptTemplateDto,
     @Request() req: any,
   ): Promise<PromptTemplateResponseDto> {
@@ -218,16 +218,16 @@ export class PromptTemplateController {
     });
   }
 
-  @Delete(':id')
+  @Delete(":id")
   @Roles(UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Delete prompt template' })
+  @ApiOperation({ summary: "Delete prompt template" })
   @ApiResponse({
     status: HttpStatus.NO_CONTENT,
-    description: 'Template deleted successfully',
+    description: "Template deleted successfully",
   })
-  @ApiParam({ name: 'id', description: 'Template ID' })
+  @ApiParam({ name: "id", description: "Template ID" })
   async remove(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Request() req: any,
   ): Promise<void> {
     await this.promptTemplateService.remove(
@@ -237,17 +237,17 @@ export class PromptTemplateController {
     );
   }
 
-  @Post(':id/versions')
+  @Post(":id/versions")
   @Roles(UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Create new version of prompt template' })
+  @ApiOperation({ summary: "Create new version of prompt template" })
   @ApiResponse({
     status: HttpStatus.CREATED,
-    description: 'Template version created successfully',
+    description: "Template version created successfully",
     type: PromptTemplateResponseDto,
   })
-  @ApiParam({ name: 'id', description: 'Template ID' })
+  @ApiParam({ name: "id", description: "Template ID" })
   async createVersion(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() body: { version: string; changes: Record<string, any> },
     @Request() req: any,
   ): Promise<PromptTemplateResponseDto> {
@@ -263,22 +263,22 @@ export class PromptTemplateController {
     });
   }
 
-  @Get(':id/versions')
+  @Get(":id/versions")
   @Roles(
     UserRole.VIEWER,
     UserRole.DEVELOPER,
     UserRole.ORG_ADMIN,
     UserRole.SUPER_ADMIN,
   )
-  @ApiOperation({ summary: 'Get version history of prompt template' })
+  @ApiOperation({ summary: "Get version history of prompt template" })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Version history retrieved successfully',
+    description: "Version history retrieved successfully",
     type: [PromptTemplateResponseDto],
   })
-  @ApiParam({ name: 'id', description: 'Template ID' })
+  @ApiParam({ name: "id", description: "Template ID" })
   async getVersionHistory(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Request() req: any,
   ): Promise<PromptTemplateResponseDto[]> {
     const templates = await this.promptTemplateService.getVersionHistory(
@@ -292,17 +292,17 @@ export class PromptTemplateController {
     );
   }
 
-  @Post('render')
+  @Post("render")
   @Roles(
     UserRole.VIEWER,
     UserRole.DEVELOPER,
     UserRole.ORG_ADMIN,
     UserRole.SUPER_ADMIN,
   )
-  @ApiOperation({ summary: 'Render a prompt template with variables' })
+  @ApiOperation({ summary: "Render a prompt template with variables" })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Template rendered successfully',
+    description: "Template rendered successfully",
     type: String,
   })
   @UsePipes(new ValidationPipe({ transform: true }))
@@ -318,22 +318,87 @@ export class PromptTemplateController {
     return { rendered };
   }
 
-  @Post(':id/rate')
+  @Post("validate")
   @Roles(
     UserRole.VIEWER,
     UserRole.DEVELOPER,
     UserRole.ORG_ADMIN,
     UserRole.SUPER_ADMIN,
   )
-  @ApiOperation({ summary: 'Rate a prompt template' })
+  @ApiOperation({ summary: "Validate a prompt template" })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Template rated successfully',
+    description: "Template validation result",
+  })
+  async validateTemplate(
+    @Body() body: { content: string; variables: Record<string, any> },
+    @Request() req: any,
+  ): Promise<{ valid: boolean; errors?: string[] }> {
+    return this.promptTemplateService.validateTemplate(
+      body.content,
+      body.variables,
+    );
+  }
+
+  @Post(":id/render-with-context")
+  @Roles(
+    UserRole.VIEWER,
+    UserRole.DEVELOPER,
+    UserRole.ORG_ADMIN,
+    UserRole.SUPER_ADMIN,
+  )
+  @ApiOperation({ summary: "Render template with full context" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Template rendered with context successfully",
+  })
+  @ApiParam({ name: "id", description: "Template ID" })
+  async renderWithContext(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body()
+    body: {
+      variables: Record<string, any>;
+      context?: {
+        sessionId?: string;
+        memory?: Record<string, any>;
+        toolOutputs?: Record<string, any>;
+        knowledgeChunks?: any[];
+      };
+    },
+    @Request() req: any,
+  ): Promise<{
+    rendered: string;
+    metadata: {
+      templateId: string;
+      version: string;
+      variablesUsed: string[];
+      renderTime: number;
+      tokensEstimate: number;
+    };
+  }> {
+    return this.promptTemplateService.renderWithContext(id, body.variables, {
+      userId: req.user.sub,
+      organizationId: req.user.organizationId,
+      ...body.context,
+    });
+  }
+
+  @Post(":id/rate")
+  @Roles(
+    UserRole.VIEWER,
+    UserRole.DEVELOPER,
+    UserRole.ORG_ADMIN,
+    UserRole.SUPER_ADMIN,
+  )
+  @ApiOperation({ summary: "Rate a prompt template" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Template rated successfully",
     type: PromptTemplateResponseDto,
   })
-  @ApiParam({ name: 'id', description: 'Template ID' })
+  @ApiParam({ name: "id", description: "Template ID" })
   async rateTemplate(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param("id", ParseUUIDPipe) id: string,
     @Body() body: { rating: number },
     @Request() req: any,
   ): Promise<PromptTemplateResponseDto> {

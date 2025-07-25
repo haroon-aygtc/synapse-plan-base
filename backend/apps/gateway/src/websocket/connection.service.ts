@@ -1,12 +1,12 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Socket } from 'socket.io';
-import { Inject } from '@nestjs/common';
-import Redis from 'ioredis';
-import { v4 as uuidv4 } from 'uuid';
+import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { Socket } from "socket.io";
+import { Inject } from "@nestjs/common";
+import Redis from "ioredis";
+import { v4 as uuidv4 } from "uuid";
 import {
   ConnectionStats,
   MessageTrackingInfo,
@@ -14,7 +14,7 @@ import {
   Subscription,
   ConnectionStatsEntity,
   MessageTrackingEntity,
-} from '@database/entities';
+} from "@database/entities";
 import {
   IConnectionInfo,
   ISubscriptionInfo,
@@ -26,13 +26,13 @@ import {
   IEventReplay,
   ICrossModuleEvent,
   ISessionContext,
-} from '@shared/interfaces';
+} from "@shared/interfaces";
 import {
   EventType,
   WebSocketEventType,
   EventTargetType,
   EventPriority,
-} from '@shared/enums';
+} from "@shared/enums";
 
 export interface ConnectionInfo extends IConnectionInfo {}
 export interface MessageProtocol extends IWebSocketMessage {}
@@ -49,15 +49,15 @@ export class ConnectionService implements OnModuleDestroy {
   private readonly connectionTimeout = 60000; // 60 seconds
   private heartbeatTimer: NodeJS.Timeout;
   private statsTimer: NodeJS.Timeout;
-  private readonly REDIS_CONNECTION_PREFIX = 'ws:conn:';
-  private readonly REDIS_SUBSCRIPTION_PREFIX = 'ws:sub:';
-  private readonly REDIS_EVENT_PREFIX = 'ws:event:';
-  private readonly REDIS_STATS_PREFIX = 'ws:stats:';
+  private readonly REDIS_CONNECTION_PREFIX = "ws:conn:";
+  private readonly REDIS_SUBSCRIPTION_PREFIX = "ws:sub:";
+  private readonly REDIS_EVENT_PREFIX = "ws:event:";
+  private readonly REDIS_STATS_PREFIX = "ws:stats:";
   private redisSubscriber: Redis;
 
   constructor(
     private readonly configService: ConfigService,
-    @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    @Inject("REDIS_CLIENT") private readonly redis: Redis,
     @InjectRepository(ConnectionStatsEntity)
     private readonly connectionStatsRepository: Repository<ConnectionStatsEntity>,
     @InjectRepository(MessageTrackingEntity)
@@ -97,7 +97,7 @@ export class ConnectionService implements OnModuleDestroy {
       role,
       connectedAt: new Date(),
       lastHeartbeat: new Date(),
-      userAgent: socket.handshake.headers['user-agent'],
+      userAgent: socket.handshake.headers["user-agent"],
       ipAddress: socket.handshake.address,
       subscriptions: new Set<string>(),
     };
@@ -120,7 +120,7 @@ export class ConnectionService implements OnModuleDestroy {
     // Store in Redis for horizontal scalability
     await this.redis.hset(
       `${this.REDIS_CONNECTION_PREFIX}${connectionId}`,
-      'data',
+      "data",
       JSON.stringify(connectionInfo),
     );
     await this.redis.sadd(`ws:user:${userId}`, connectionId);
@@ -141,7 +141,7 @@ export class ConnectionService implements OnModuleDestroy {
     this.sessionContexts.set(connectionId, sessionContext);
 
     // Track connection stats
-    await this.updateConnectionStats('connect', organizationId, role);
+    await this.updateConnectionStats("connect", organizationId, role);
 
     // Emit connection event
     this.eventEmitter.emit(WebSocketEventType.CONNECTION_ESTABLISHED, {
@@ -171,41 +171,72 @@ export class ConnectionService implements OnModuleDestroy {
     organizationId: string,
     role: string,
   ): Promise<{ valid: boolean; reason?: string }> {
-    // Validate tenant isolation
-    if (message.organization_id && message.organization_id !== organizationId) {
-      return {
-        valid: false,
-        reason: 'Cross-tenant access denied',
-      };
-    }
+    try {
+      // Validate message structure
+      if (!message || typeof message !== "object") {
+        return {
+          valid: false,
+          reason: "Invalid message format",
+        };
+      }
 
-    // Validate session ownership for session-specific messages
-    if (message.session_id) {
-      const sessionContext = this.sessionContexts.get(message.session_id);
+      // Validate tenant isolation
       if (
-        sessionContext &&
-        sessionContext.userId !== userId &&
-        !['SUPER_ADMIN', 'ORG_ADMIN'].includes(role)
+        message.organization_id &&
+        message.organization_id !== organizationId
       ) {
         return {
           valid: false,
-          reason: 'Session access denied',
+          reason: "Cross-tenant access denied",
         };
       }
-    }
 
-    // Validate message expiration
-    if (message.expires_at) {
-      const expiresAt = new Date(message.expires_at);
-      if (expiresAt < new Date()) {
+      // Validate session ownership for session-specific messages
+      if (message.session_id) {
+        const sessionContext = this.sessionContexts.get(message.session_id);
+        if (
+          sessionContext &&
+          sessionContext.userId !== userId &&
+          !["SUPER_ADMIN", "ORG_ADMIN"].includes(role)
+        ) {
+          return {
+            valid: false,
+            reason: "Session access denied",
+          };
+        }
+      }
+
+      // Validate message expiration
+      if (message.expires_at) {
+        const expiresAt = new Date(message.expires_at);
+        if (expiresAt < new Date()) {
+          return {
+            valid: false,
+            reason: "Message expired",
+          };
+        }
+      }
+
+      // Validate message size (prevent DoS)
+      const messageSize = JSON.stringify(message).length;
+      if (messageSize > 1024 * 1024) {
+        // 1MB limit
         return {
           valid: false,
-          reason: 'Message expired',
+          reason: "Message too large",
         };
       }
-    }
 
-    return { valid: true };
+      return { valid: true };
+    } catch (error) {
+      this.logger.error(
+        `Message security validation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {
+        valid: false,
+        reason: "Security validation error",
+      };
+    }
   }
 
   async enforceRateLimit(
@@ -230,12 +261,17 @@ export class ConnectionService implements OnModuleDestroy {
         };
       }
 
-      // Increment counter
-      await this.redis.multi().incr(key).expire(key, 60).exec();
+      // Increment counter with pipeline for better performance
+      const pipeline = this.redis.pipeline();
+      pipeline.incr(key);
+      pipeline.expire(key, 60);
+      await pipeline.exec();
 
       return { allowed: true };
     } catch (error) {
-      this.logger.error(`Rate limit check failed: ${error.message}`);
+      this.logger.error(
+        `Rate limit check failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       // Fail open for availability
       return { allowed: true };
     }
@@ -277,7 +313,7 @@ export class ConnectionService implements OnModuleDestroy {
 
       // Track disconnection stats
       await this.updateConnectionStats(
-        'disconnect',
+        "disconnect",
         connectionInfo.organizationId,
         connectionInfo.role,
       );
@@ -309,7 +345,7 @@ export class ConnectionService implements OnModuleDestroy {
 
       // Update in Redis
       await this.redis.hset(
-        'ws:connections',
+        "ws:connections",
         connectionId,
         JSON.stringify(connectionInfo),
       );
@@ -363,7 +399,7 @@ export class ConnectionService implements OnModuleDestroy {
     this.trackMessage({
       messageId: message.messageId,
       event,
-      organizationId: organizationId || '',
+      organizationId: organizationId || "",
       userId,
       timestamp: message.timestamp,
       payload,
@@ -477,7 +513,7 @@ export class ConnectionService implements OnModuleDestroy {
 
       for (const connectionId of userConnections) {
         const connectionData = await this.redis.hget(
-          'ws:connections',
+          "ws:connections",
           connectionId,
         );
         if (connectionData) {
@@ -514,7 +550,7 @@ export class ConnectionService implements OnModuleDestroy {
   }
 
   private async updateConnectionStats(
-    action: 'connect' | 'disconnect',
+    action: "connect" | "disconnect",
     organizationId: string,
     role?: string,
   ): Promise<void> {
@@ -522,13 +558,13 @@ export class ConnectionService implements OnModuleDestroy {
       const timestamp = new Date().toISOString().slice(0, 16); // Per minute
       const key = `ws:stats:${organizationId}:${timestamp}`;
 
-      if (action === 'connect') {
-        await this.redis.hincrby(key, 'connections', 1);
+      if (action === "connect") {
+        await this.redis.hincrby(key, "connections", 1);
         if (role) {
           await this.redis.hincrby(key, `role:${role}`, 1);
         }
       } else {
-        await this.redis.hincrby(key, 'disconnections', 1);
+        await this.redis.hincrby(key, "disconnections", 1);
         if (role) {
           await this.redis.hincrby(key, `role:${role}`, -1);
         }
@@ -563,7 +599,7 @@ export class ConnectionService implements OnModuleDestroy {
       eventType,
       connection.userId,
       connection.organizationId,
-      connection.role || 'VIEWER',
+      connection.role || "VIEWER",
       targetType,
       targetId,
     );
@@ -627,7 +663,7 @@ export class ConnectionService implements OnModuleDestroy {
     );
 
     this.logger.debug(
-      `Connection ${connectionId} subscribed to event: ${eventType} (${targetType}${targetId ? ':' + targetId : ''})`,
+      `Connection ${connectionId} subscribed to event: ${eventType} (${targetType}${targetId ? ":" + targetId : ""})`,
     );
     return true;
   }
@@ -781,11 +817,11 @@ export class ConnectionService implements OnModuleDestroy {
   ): Promise<void> {
     let eventPublication: IEventPublication;
 
-    if (typeof eventTypeOrPublication === 'string') {
+    if (typeof eventTypeOrPublication === "string") {
       eventPublication = {
         eventId: uuidv4(),
         eventType: eventTypeOrPublication,
-        sourceModule: options?.sourceModule || 'websocket',
+        sourceModule: options?.sourceModule || "websocket",
         targetModule: options?.targetModule,
         payload,
         targeting: targeting!,
@@ -931,11 +967,11 @@ export class ConnectionService implements OnModuleDestroy {
     }
 
     this.logger.debug(
-      `Publishing event ${eventType} to ${targetConnections.length} connections (${targeting.type}${targeting.targetId ? ':' + targeting.targetId : ''})`,
+      `Publishing event ${eventType} to ${targetConnections.length} connections (${targeting.type}${targeting.targetId ? ":" + targeting.targetId : ""})`,
     );
 
     // Emit internal event for WebSocketService to handle actual message delivery
-    this.eventEmitter.emit('websocket.publish', {
+    this.eventEmitter.emit("websocket.publish", {
       eventPublication,
       message,
       targetConnections,
@@ -948,16 +984,16 @@ export class ConnectionService implements OnModuleDestroy {
       this.redisSubscriber = this.redis.duplicate();
       await this.redisSubscriber.psubscribe(`${this.REDIS_EVENT_PREFIX}*`);
 
-      this.redisSubscriber.on('pmessage', async (pattern, channel, message) => {
+      this.redisSubscriber.on("pmessage", async (pattern, channel, message) => {
         try {
           const { eventPublication, message: eventMessage } =
             JSON.parse(message);
-          const eventType = channel.replace(this.REDIS_EVENT_PREFIX, '');
+          const eventType = channel.replace(this.REDIS_EVENT_PREFIX, "");
 
           // Only handle if this is not the originating instance
           if (
             eventPublication.sourceModule !==
-            this.configService.get('SERVICE_NAME', 'gateway')
+            this.configService.get("SERVICE_NAME", "gateway")
           ) {
             await this.handleEventPublication(eventPublication, eventMessage);
           }
@@ -966,7 +1002,7 @@ export class ConnectionService implements OnModuleDestroy {
         }
       });
 
-      this.logger.log('Redis event subscriptions established');
+      this.logger.log("Redis event subscriptions established");
     } catch (error) {
       this.logger.error(
         `Error setting up Redis subscriptions: ${error.message}`,
@@ -1008,35 +1044,35 @@ export class ConnectionService implements OnModuleDestroy {
   async replayEvents(replayRequest: IEventReplay): Promise<void> {
     try {
       const queryBuilder = this.eventLogRepository
-        .createQueryBuilder('event')
-        .where('event.organizationId = :organizationId', {
+        .createQueryBuilder("event")
+        .where("event.organizationId = :organizationId", {
           organizationId: replayRequest.organizationId,
         })
-        .andWhere('event.timestamp >= :fromTimestamp', {
+        .andWhere("event.timestamp >= :fromTimestamp", {
           fromTimestamp: replayRequest.fromTimestamp,
         })
-        .orderBy('event.timestamp', 'ASC');
+        .orderBy("event.timestamp", "ASC");
 
       if (replayRequest.toTimestamp) {
-        queryBuilder.andWhere('event.timestamp <= :toTimestamp', {
+        queryBuilder.andWhere("event.timestamp <= :toTimestamp", {
           toTimestamp: replayRequest.toTimestamp,
         });
       }
 
       if (replayRequest.eventTypes && replayRequest.eventTypes.length > 0) {
-        queryBuilder.andWhere('event.eventType IN (:...eventTypes)', {
+        queryBuilder.andWhere("event.eventType IN (:...eventTypes)", {
           eventTypes: replayRequest.eventTypes,
         });
       }
 
       if (replayRequest.userId) {
-        queryBuilder.andWhere('event.userId = :userId', {
+        queryBuilder.andWhere("event.userId = :userId", {
           userId: replayRequest.userId,
         });
       }
 
       if (replayRequest.correlationId) {
-        queryBuilder.andWhere('event.correlationId = :correlationId', {
+        queryBuilder.andWhere("event.correlationId = :correlationId", {
           correlationId: replayRequest.correlationId,
         });
       }
@@ -1056,7 +1092,7 @@ export class ConnectionService implements OnModuleDestroy {
         const eventPublication: IEventPublication = {
           eventId: event.eventId,
           eventType: event.eventType,
-          sourceModule: 'replay',
+          sourceModule: "replay",
           targetModule: event.targetModule,
           payload: event.payload,
           targeting: {
@@ -1155,7 +1191,7 @@ export class ConnectionService implements OnModuleDestroy {
       this.sessionContexts.set(connectionId, updated);
 
       // Emit session context update event
-      this.eventEmitter.emit('session.context.updated', {
+      this.eventEmitter.emit("session.context.updated", {
         connectionId,
         sessionContext: updated,
         timestamp: new Date(),
@@ -1165,7 +1201,7 @@ export class ConnectionService implements OnModuleDestroy {
 
   propagateSessionUpdate(
     sessionId: string,
-    moduleType: 'agent' | 'tool' | 'workflow' | 'knowledge' | 'hitl',
+    moduleType: "agent" | "tool" | "workflow" | "knowledge" | "hitl",
     contextUpdate: Record<string, any>,
   ): void {
     const sessionContext = this.sessionContexts.get(sessionId);
@@ -1181,7 +1217,7 @@ export class ConnectionService implements OnModuleDestroy {
       this.sessionContexts.set(sessionId, sessionContext);
 
       // Broadcast update to all connections for this session
-      this.eventEmitter.emit('session.cross.module.update', {
+      this.eventEmitter.emit("session.cross.module.update", {
         sessionId,
         moduleType,
         contextUpdate,
@@ -1202,23 +1238,23 @@ export class ConnectionService implements OnModuleDestroy {
   ): Promise<boolean> {
     // System events require admin permissions
     if (
-      eventType.startsWith('system.') &&
-      !['ORG_ADMIN', 'SUPER_ADMIN'].includes(role)
+      eventType.startsWith("system.") &&
+      !["ORG_ADMIN", "SUPER_ADMIN"].includes(role)
     ) {
       return false;
     }
 
     // Billing events require admin permissions
     if (
-      eventType.startsWith('billing.') &&
-      !['ORG_ADMIN', 'SUPER_ADMIN'].includes(role)
+      eventType.startsWith("billing.") &&
+      !["ORG_ADMIN", "SUPER_ADMIN"].includes(role)
     ) {
       return false;
     }
 
     // User-specific events can only be subscribed to by the user themselves or admins
     if (targetType === EventTargetType.USER && targetId) {
-      if (targetId !== userId && !['ORG_ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      if (targetId !== userId && !["ORG_ADMIN", "SUPER_ADMIN"].includes(role)) {
         return false;
       }
     }
@@ -1247,7 +1283,7 @@ export class ConnectionService implements OnModuleDestroy {
       const stats = this.getConnectionStats();
 
       const statsEntity = this.connectionStatsRepository.create({
-        organizationId: 'system', // System-wide stats
+        organizationId: "system", // System-wide stats
         totalConnections: stats.totalConnections,
         connectionsByOrg: stats.connectionsByOrg,
         connectionsByRole: stats.connectionsByRole,

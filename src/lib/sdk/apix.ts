@@ -1,651 +1,441 @@
 /**
- * APIX Client for Real-time Communication
+ * APIX Client Integration
+ * Provides real-time WebSocket communication using Socket.IO
  */
 
-import { io, Socket } from "socket.io-client";
-import { EventEmitter } from "events";
-import {
-  APXMessageType,
-  APXStreamState,
-  APXExecutionState,
-} from "../../types/apix";
-import { generateExecutionId, generateSessionId, retry } from "./utils";
-import { ConnectionError, TimeoutError, AuthenticationError } from "./errors";
+import { APXClient } from "../apix-client-sdk";
+import { SynapseAIConfig } from "./types";
+import { APXMessageType } from "../../types/apix";
 
-export interface APXClientOptions {
-  url: string;
-  token: string;
-  autoConnect?: boolean;
-  debug?: boolean;
-  timeout?: number;
-  reconnectAttempts?: number;
-  reconnectDelay?: number;
-}
-
-export interface APXConnectionState {
-  status: "connecting" | "connected" | "disconnected" | "error";
-  lastConnected?: Date;
-  reconnectAttempts: number;
-  latency?: number;
-  sessionId?: string;
-  connectionId?: string;
-}
-
-export interface APXSessionContext {
-  sessionId: string;
-  userId: string;
-  organizationId: string;
-  permissions: Record<string, any>;
-  crossModuleData: Record<string, any>;
-  executionState?: Record<string, any>;
-  createdAt: Date;
-  expiresAt: Date;
-}
-
-export interface APXMessage {
-  type: APXMessageType;
-  payload: any;
-  timestamp: Date;
-  messageId: string;
-  sessionId?: string;
-  correlationId?: string;
-}
-
-export interface APXSubscription {
-  messageType: APXMessageType;
-  callback: (message: APXMessage) => void;
-  filters?: Record<string, any>;
-  target_id?: string;
+/**
+ * Create and configure APIX client
+ */
+export function createAPXClient(config: SynapseAIConfig): APXClient {
+  return new APXClient({
+    url: config.wsURL || "http://localhost:3001",
+    token: config.apiKey || "",
+    autoReconnect: true,
+    maxReconnectAttempts: config.retryAttempts || 10,
+    reconnectDelay: config.retryDelay || 1000,
+    heartbeatInterval: 30000,
+    messageTimeout: config.timeout || 30000,
+    compression: true,
+    encryption: true,
+  });
 }
 
 /**
- * Production-ready APIX Client for real-time communication
+ * APIX event types for type safety
  */
-export class APXClient extends EventEmitter {
-  private socket: Socket | null = null;
-  private options: Required<APXClientOptions>;
-  private connectionState: APXConnectionState = {
-    status: "disconnected",
-    reconnectAttempts: 0,
-  };
-  private sessionContext: APXSessionContext | null = null;
-  private subscriptions = new Map<string, APXSubscription>();
-  private pendingRequests = new Map<
-    string,
-    {
-      resolve: (value: any) => void;
-      reject: (error: Error) => void;
-      timeout: NodeJS.Timeout;
-    }
-  >();
-  private heartbeatInterval: NodeJS.Timeout | null = null;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private lastPingTime = 0;
+export const APIX_EVENTS = {
+  // Connection events
+  CONNECTION_ACK: APXMessageType.CONNECTION_ACK,
+  CONNECTION_HEARTBEAT: APXMessageType.CONNECTION_HEARTBEAT,
 
-  constructor(options: APXClientOptions) {
-    super();
+  // Session events
+  SESSION_CREATED: APXMessageType.SESSION_CREATED,
+  SESSION_ENDED: APXMessageType.SESSION_ENDED,
 
-    this.options = {
-      url: options.url,
-      token: options.token,
-      autoConnect: options.autoConnect ?? true,
-      debug: options.debug ?? false,
-      timeout: options.timeout ?? 30000,
-      reconnectAttempts: options.reconnectAttempts ?? 5,
-      reconnectDelay: options.reconnectDelay ?? 1000,
-    };
+  // Agent events
+  AGENT_EXECUTION_STARTED: APXMessageType.AGENT_EXECUTION_STARTED,
+  AGENT_TEXT_CHUNK: APXMessageType.AGENT_TEXT_CHUNK,
+  AGENT_TOOL_CALL: APXMessageType.AGENT_TOOL_CALL,
+  AGENT_MEMORY_USED: APXMessageType.AGENT_MEMORY_USED,
+  AGENT_ERROR: APXMessageType.AGENT_ERROR,
+  AGENT_EXECUTION_COMPLETE: APXMessageType.AGENT_EXECUTION_COMPLETE,
 
-    if (this.options.autoConnect) {
-      this.connect().catch((error) => {
-        this.emit("error", error);
-      });
-    }
+  // Tool events
+  TOOL_CALL_START: APXMessageType.TOOL_CALL_START,
+  TOOL_CALL_RESULT: APXMessageType.TOOL_CALL_RESULT,
+  TOOL_CALL_ERROR: APXMessageType.TOOL_CALL_ERROR,
+
+  // Knowledge events
+  KB_SEARCH_PERFORMED: APXMessageType.KB_SEARCH_PERFORMED,
+  KB_CHUNK_INJECTED: APXMessageType.KB_CHUNK_INJECTED,
+
+  // HITL events
+  HITL_REQUEST_CREATED: APXMessageType.HITL_REQUEST_CREATED,
+  HITL_RESOLUTION_PENDING: APXMessageType.HITL_RESOLUTION_PENDING,
+  HITL_RESOLVED: APXMessageType.HITL_RESOLVED,
+  HITL_EXPIRED: APXMessageType.HITL_EXPIRED,
+
+  // Widget events
+  WIDGET_LOADED: APXMessageType.WIDGET_LOADED,
+  WIDGET_OPENED: APXMessageType.WIDGET_OPENED,
+  WIDGET_QUERY_SUBMITTED: APXMessageType.WIDGET_QUERY_SUBMITTED,
+  WIDGET_CONVERTED: APXMessageType.WIDGET_CONVERTED,
+
+  // Stream control
+  STREAM_PAUSE: APXMessageType.STREAM_PAUSE,
+  STREAM_RESUME: APXMessageType.STREAM_RESUME,
+
+  // System events
+  TOKEN_LIMIT_REACHED: APXMessageType.TOKEN_LIMIT_REACHED,
+  PROVIDER_FALLBACK: APXMessageType.PROVIDER_FALLBACK,
+
+  // Error events
+  VALIDATION_ERROR: APXMessageType.VALIDATION_ERROR,
+  PERMISSION_DENIED: APXMessageType.PERMISSION_DENIED,
+  RATE_LIMIT_EXCEEDED: APXMessageType.RATE_LIMIT_EXCEEDED,
+  SESSION_EXPIRED: APXMessageType.SESSION_EXPIRED,
+} as const;
+
+/**
+ * APIX client wrapper with enhanced error handling and reconnection
+ */
+export class EnhancedAPXClient {
+  private client: APXClient;
+  private connectionRetries = 0;
+  private maxRetries = 5;
+  private isReconnecting = false;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+
+  constructor(config: SynapseAIConfig) {
+    this.client = createAPXClient(config);
+    this.setupErrorHandling();
+    this.setupEventForwarding();
   }
 
-  /**
-   * Connect to APIX WebSocket server
-   */
-  async connect(token?: string): Promise<void> {
-    if (this.connectionState.status === "connected") {
-      return;
-    }
+  private setupErrorHandling(): void {
+    this.client.on("error", (error: Error) => {
+      console.error("APIX Client Error:", error);
 
-    const authToken = token || this.options.token;
-    if (!authToken) {
-      throw new AuthenticationError("No authentication token provided");
-    }
+      // Attempt reconnection on certain errors
+      if (this.shouldRetryConnection(error) && !this.isReconnecting) {
+        this.scheduleReconnection();
+      }
+    });
 
-    this.updateConnectionState({ status: "connecting" });
+    this.client.on("connected", () => {
+      this.connectionRetries = 0;
+      this.isReconnecting = false;
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
+    });
 
-    return new Promise((resolve, reject) => {
-      try {
-        this.socket = io(this.options.url, {
-          auth: { token: authToken },
-          transports: ["websocket", "polling"],
-          timeout: this.options.timeout,
-          autoConnect: true,
-          forceNew: true,
-          reconnection: false, // We handle reconnection manually
-        });
-
-        this.setupEventHandlers();
-
-        const connectTimeout = setTimeout(() => {
-          reject(new TimeoutError("Connection timeout", this.options.timeout));
-        }, this.options.timeout);
-
-        this.socket.on("connect", () => {
-          clearTimeout(connectTimeout);
-          this.updateConnectionState({
-            status: "connected",
-            lastConnected: new Date(),
-            reconnectAttempts: 0,
-          });
-          this.startHeartbeat();
-          resolve();
-        });
-
-        this.socket.on("connect_error", (error: Error) => {
-          clearTimeout(connectTimeout);
-          this.updateConnectionState({ status: "error" });
-          reject(
-            new ConnectionError(
-              "Failed to connect to APIX server",
-              error instanceof Error ? error.message : String(error),
-            ),
-          );
-        });
-      } catch (error) {
-        reject(
-          new ConnectionError(
-            "Failed to initialize APIX connection",
-            error instanceof Error ? error.message : String(error),
-          ),
-        );
+    this.client.on("disconnected", (data: any) => {
+      if (data.reason !== "io client disconnect" && !this.isReconnecting) {
+        this.scheduleReconnection();
       }
     });
   }
 
-  /**
-   * Disconnect from APIX server
-   */
-  disconnect(): void {
-    this.stopHeartbeat();
-    this.clearReconnectTimeout();
-
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-    }
-
-    // Reject all pending requests
-    for (const request of Array.from(this.pendingRequests.values())) {
-      clearTimeout(request.timeout);
-      request.reject(new ConnectionError("Connection closed"));
-    }
-    this.pendingRequests.clear();
-
-    this.updateConnectionState({ status: "disconnected" });
-    this.sessionContext = null;
-    this.subscriptions.clear();
+  private setupEventForwarding(): void {
+    // Forward all APIX events with proper typing
+    Object.values(APIX_EVENTS).forEach((eventType) => {
+      this.client.on(`message:${eventType}`, (payload: any, message: any) => {
+        this.client.emit(eventType, { payload, message });
+      });
+    });
   }
 
-  /**
-   * Check if connected
-   */
-  isConnected(): boolean {
-    return (
-      this.connectionState.status === "connected" &&
-      this.socket?.connected === true
+  private shouldRetryConnection(error: Error): boolean {
+    // Retry on network errors, but not on authentication errors
+    const nonRetryableErrors = [
+      "authentication",
+      "unauthorized",
+      "forbidden",
+      "invalid_token",
+      "token_expired",
+    ];
+
+    return !nonRetryableErrors.some((errorType) =>
+      error.message.toLowerCase().includes(errorType),
     );
   }
 
-  /**
-   * Get connection state
-   */
-  getConnectionState(): APXConnectionState {
-    return { ...this.connectionState };
-  }
-
-  /**
-   * Get session context
-   */
-  getSessionContext(): APXSessionContext | null {
-    return this.sessionContext ? { ...this.sessionContext } : null;
-  }
-
-  /**
-   * Update configuration
-   */
-  updateConfig(updates: Partial<APXClientOptions>): void {
-    this.options = { ...this.options, ...updates };
-  }
-
-  /**
-   * Authenticate with new token
-   */
-  async authenticate(token: string): Promise<void> {
-    this.options.token = token;
-
-    if (this.isConnected()) {
-      // Re-authenticate existing connection
-      await this.sendMessage("authenticate", { token });
-    } else {
-      // Connect with new token
-      await this.connect(token);
-    }
-  }
-
-  /**
-   * Subscribe to connection state changes
-   */
-  onConnectionStateChange(
-    callback: (state: APXConnectionState) => void,
-  ): () => void {
-    const listener = (state: APXConnectionState) => callback(state);
-    this.on("connectionStateChanged", listener);
-
-    return () => {
-      this.off("connectionStateChanged", listener);
-    };
-  }
-
-  /**
-   * Subscribe to APIX messages
-   */
-  subscribe(
-    messageType: APXMessageType,
-    callback: (message: APXMessage) => void,
-    options?: {
-      filters?: Record<string, any>;
-      target_id?: string;
-    },
-  ): () => void {
-    const subscriptionId = `${messageType}_${Date.now()}_${Math.random()}`;
-
-    const subscription: APXSubscription = {
-      messageType,
-      callback,
-      filters: options?.filters,
-      target_id: options?.target_id,
-    };
-
-    this.subscriptions.set(subscriptionId, subscription);
-
-    // Send subscription request to server
-    if (this.isConnected()) {
-      this.socket!.emit("subscribe", {
-        messageType,
-        filters: options?.filters,
-        targetId: options?.target_id,
-      });
+  private scheduleReconnection(): void {
+    if (this.connectionRetries >= this.maxRetries || this.isReconnecting) {
+      return;
     }
 
-    return () => {
-      this.subscriptions.delete(subscriptionId);
-      if (this.isConnected()) {
-        this.socket!.emit("unsubscribe", { messageType });
-      }
-    };
-  }
+    this.isReconnecting = true;
+    this.connectionRetries++;
 
-  /**
-   * Send message and wait for response
-   */
-  async sendMessage(
-    type: string,
-    payload: any,
-    options?: {
-      timeout?: number;
-      correlationId?: string;
-    },
-  ): Promise<any> {
-    if (!this.isConnected()) {
-      throw new ConnectionError("Not connected to APIX server");
-    }
+    const delay = Math.min(
+      1000 * Math.pow(2, this.connectionRetries - 1),
+      30000,
+    );
 
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const timeout = options?.timeout || this.options.timeout;
+    this.reconnectTimer = setTimeout(() => {
+      this.client.connect().catch((error) => {
+        console.error("Reconnection failed:", error);
+        this.isReconnecting = false;
 
-    return new Promise((resolve, reject) => {
-      const timeoutHandle = setTimeout(() => {
-        this.pendingRequests.delete(messageId);
-        reject(new TimeoutError(`Message timeout: ${type}`, timeout));
-      }, timeout);
-
-      this.pendingRequests.set(messageId, {
-        resolve,
-        reject,
-        timeout: timeoutHandle,
-      });
-
-      const message: APXMessage = {
-        type: type as APXMessageType,
-        payload,
-        timestamp: new Date(),
-        messageId,
-        sessionId: this.sessionContext?.sessionId,
-        correlationId: options?.correlationId,
-      };
-
-      this.socket!.emit("message", message);
-    });
-  }
-
-  /**
-   * Start agent execution
-   */
-  async startAgentExecution(
-    agentId: string,
-    prompt: string,
-    options?: {
-      model?: string;
-      parameters?: {
-        temperature?: number;
-        max_tokens?: number;
-        stream?: boolean;
-      };
-      tools_available?: string[];
-      memory_context?: Record<string, any>;
-    },
-  ): Promise<string> {
-    const executionId = generateExecutionId();
-
-    await this.sendMessage("agent_execute", {
-      execution_id: executionId,
-      agent_id: agentId,
-      prompt,
-      model: options?.model || "gpt-4",
-      parameters: {
-        temperature: 0.7,
-        max_tokens: 2000,
-        stream: true,
-        ...options?.parameters,
-      },
-      tools_available: options?.tools_available || [],
-      memory_context: options?.memory_context || {},
-    });
-
-    return executionId;
-  }
-
-  /**
-   * Call tool
-   */
-  async callTool(
-    toolId: string,
-    functionName: string,
-    parameters: Record<string, any>,
-    options?: {
-      caller_type?: "agent" | "workflow" | "user";
-      caller_id?: string;
-      timeout_ms?: number;
-    },
-  ): Promise<string> {
-    const toolCallId = `tool_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    await this.sendMessage("tool_call", {
-      tool_call_id: toolCallId,
-      tool_id: toolId,
-      function_name: functionName,
-      parameters,
-      caller_type: options?.caller_type || "user",
-      caller_id: options?.caller_id,
-      timeout_ms: options?.timeout_ms || 30000,
-    });
-
-    return toolCallId;
-  }
-
-  /**
-   * Search knowledge base
-   */
-  async searchKnowledge(
-    query: string,
-    options?: {
-      search_type?: "semantic" | "keyword" | "hybrid";
-      filters?: Record<string, any>;
-      max_results?: number;
-      threshold?: number;
-    },
-  ): Promise<string> {
-    const searchId = `search_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    await this.sendMessage("kb_search", {
-      search_id: searchId,
-      query,
-      search_type: options?.search_type || "semantic",
-      filters: options?.filters || {},
-      max_results: options?.max_results || 10,
-      threshold: options?.threshold || 0.7,
-    });
-
-    return searchId;
-  }
-
-  /**
-   * Create HITL request
-   */
-  async createHITLRequest(
-    requestType: "approval" | "input" | "decision" | "review",
-    title: string,
-    description: string,
-    options?: {
-      context?: Record<string, any>;
-      options?: Array<{ id: string; label: string; value: any }>;
-      priority?: "low" | "medium" | "high" | "urgent";
-      expires_at?: string;
-      assignee_roles?: string[];
-      assignee_users?: string[];
-    },
-  ): Promise<string> {
-    const requestId = `hitl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    await this.sendMessage("hitl_create", {
-      request_id: requestId,
-      request_type: requestType,
-      title,
-      description,
-      context: options?.context || {},
-      options: options?.options || [],
-      priority: options?.priority || "medium",
-      expires_at:
-        options?.expires_at ||
-        new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      assignee_roles: options?.assignee_roles || [],
-      assignee_users: options?.assignee_users || [],
-    });
-
-    return requestId;
-  }
-
-  /**
-   * Submit widget query
-   */
-  async submitWidgetQuery(
-    widgetId: string,
-    query: string,
-    options?: {
-      query_type?: "text" | "voice" | "structured";
-      context?: Record<string, any>;
-    },
-  ): Promise<string> {
-    const interactionId = `widget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    await this.sendMessage("widget_query", {
-      widget_id: widgetId,
-      interaction_id: interactionId,
-      query,
-      query_type: options?.query_type || "text",
-      context: options?.context || {},
-    });
-
-    return interactionId;
-  }
-
-  /**
-   * Pause stream
-   */
-  async pauseStream(executionId: string, reason?: string): Promise<void> {
-    await this.sendMessage("stream_pause", {
-      execution_id: executionId,
-      reason: reason || "User requested pause",
-    });
-  }
-
-  /**
-   * Resume stream
-   */
-  async resumeStream(executionId: string, reason?: string): Promise<void> {
-    await this.sendMessage("stream_resume", {
-      execution_id: executionId,
-      reason: reason || "User requested resume",
-    });
-  }
-
-  // Private methods
-
-  private setupEventHandlers(): void {
-    if (!this.socket) return;
-
-    this.socket.on("disconnect", (reason: string) => {
-      this.updateConnectionState({ status: "disconnected" });
-      this.stopHeartbeat();
-      this.handleDisconnect(reason);
-    });
-
-    this.socket.on("message", (message: APXMessage) => {
-      this.handleMessage(message);
-    });
-
-    this.socket.on("response", (response: any) => {
-      this.handleResponse(response);
-    });
-
-    this.socket.on("session_created", (sessionData: any) => {
-      this.sessionContext = {
-        sessionId: sessionData.session_id,
-        userId: sessionData.user_id,
-        organizationId: sessionData.organization_id,
-        permissions: sessionData.permissions,
-        crossModuleData: sessionData.initial_context,
-        createdAt: new Date(sessionData.created_at),
-        expiresAt: new Date(sessionData.expires_at),
-      };
-      this.updateConnectionState({ sessionId: sessionData.session_id });
-    });
-
-    this.socket.on("heartbeat_ack", () => {
-      if (this.lastPingTime > 0) {
-        const latency = Date.now() - this.lastPingTime;
-        this.updateConnectionState({ latency });
-      }
-    });
-
-    this.socket.on("error", (error: any) => {
-      this.emit(
-        "error",
-        new ConnectionError("APIX socket error", error.message),
-      );
-    });
-  }
-
-  private handleMessage(message: APXMessage): void {
-    // Emit to specific subscribers
-    for (const subscription of Array.from(this.subscriptions.values())) {
-      if (subscription.messageType === message.type) {
-        try {
-          subscription.callback(message);
-        } catch (error) {
-          this.emit("error", error);
-        }
-      }
-    }
-
-    // Emit generic message event
-    this.emit("message", message);
-  }
-
-  private handleResponse(response: any): void {
-    const { messageId, success, data, error } = response;
-
-    const pendingRequest = this.pendingRequests.get(messageId);
-    if (pendingRequest) {
-      clearTimeout(pendingRequest.timeout);
-      this.pendingRequests.delete(messageId);
-
-      if (success) {
-        pendingRequest.resolve(data);
-      } else {
-        pendingRequest.reject(new Error(error || "Request failed"));
-      }
-    }
-  }
-
-  private handleDisconnect(reason: string): void {
-    this.emit("disconnected", reason);
-
-    // Auto-reconnect if not intentional disconnect
-    if (
-      reason !== "io client disconnect" &&
-      this.connectionState.reconnectAttempts < this.options.reconnectAttempts
-    ) {
-      this.scheduleReconnect();
-    }
-  }
-
-  private scheduleReconnect(): void {
-    const attempts = this.connectionState.reconnectAttempts;
-    const delay = this.options.reconnectDelay * Math.pow(2, attempts);
-
-    this.reconnectTimeout = setTimeout(() => {
-      this.updateConnectionState({
-        status: "connecting",
-        reconnectAttempts: attempts + 1,
-      });
-
-      this.connect().catch((error) => {
-        this.emit("error", error);
-        if (attempts + 1 < this.options.reconnectAttempts) {
-          this.scheduleReconnect();
+        if (this.connectionRetries < this.maxRetries) {
+          this.scheduleReconnection();
         }
       });
     }, delay);
   }
 
-  private clearReconnectTimeout(): void {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
+  async connect(): Promise<void> {
+    return this.client.connect();
+  }
+
+  disconnect(): void {
+    this.isReconnecting = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
+    this.client.disconnect();
   }
 
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-
-    this.heartbeatInterval = setInterval(() => {
-      if (this.isConnected()) {
-        this.lastPingTime = Date.now();
-        this.socket!.emit("heartbeat", { timestamp: this.lastPingTime });
-      }
-    }, 30000); // 30 seconds
+  isConnected(): boolean {
+    return this.client.isConnected();
   }
 
-  private stopHeartbeat(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
+  getConnectionState(): string {
+    return this.client.getConnectionState();
+  }
+
+  getSessionId(): string | null {
+    return this.client.getSessionId();
+  }
+
+  // Delegate all other methods to the underlying client
+  async sendMessage<T = any>(
+    type: APXMessageType,
+    payload: any,
+    options?: {
+      correlation_id?: string;
+      priority?: "low" | "normal" | "high" | "critical";
+      expires_in_ms?: number;
+      metadata?: Record<string, any>;
+    },
+  ): Promise<T> {
+    return this.client.sendMessage(type, payload, options);
+  }
+
+  subscribe(
+    messageType: APXMessageType,
+    callback: (payload: any) => void,
+  ): () => void {
+    return this.client.subscribe(messageType, callback);
+  }
+
+  subscribeToExecution(
+    executionId: string,
+    callback: (message: any) => void,
+  ): () => void {
+    return this.client.subscribeToExecution(executionId, callback);
+  }
+
+  // Agent methods
+  async startAgentExecution(
+    agentId: string,
+    prompt: string,
+    options?: {
+      model?: string;
+      parameters?: Record<string, any>;
+      tools_available?: string[];
+      knowledge_sources?: string[];
+    },
+  ) {
+    return this.client.startAgentExecution(agentId, prompt, options);
+  }
+
+  async pauseStream(executionId: string, reason?: string) {
+    return this.client.pauseStream(executionId, reason);
+  }
+
+  async resumeStream(executionId: string) {
+    return this.client.resumeStream(executionId);
+  }
+
+  // Tool methods
+  async callTool(
+    toolId: string,
+    functionName: string,
+    parameters: Record<string, any>,
+  ) {
+    return this.client.callTool(toolId, functionName, parameters);
+  }
+
+  // HITL methods
+  async createHITLRequest(
+    requestType: string,
+    title: string,
+    description?: string,
+    options?: {
+      context?: Record<string, any>;
+      priority?: "low" | "medium" | "high" | "urgent";
+      expiration?: Date;
+      assignee_roles?: string[];
+      assignee_users?: string[];
+    },
+  ) {
+    return this.client.createHITLRequest(requestType, title, {
+      description,
+      ...options,
+    });
+  }
+
+  // Widget methods
+  async submitWidgetQuery(
+    widgetId: string,
+    query: string,
+    queryType: string,
+    context?: Record<string, any>,
+  ) {
+    return this.client.submitWidgetQuery(widgetId, query, queryType, context);
+  }
+
+  // Knowledge methods
+  async searchKnowledge(
+    query: string,
+    searchType: string,
+    knowledgeSources: string[],
+    options?: {
+      filters?: Record<string, any>;
+      top_k?: number;
+    },
+  ) {
+    return this.client.searchKnowledge(
+      query,
+      searchType,
+      knowledgeSources,
+      options,
+    );
+  }
+
+  // Event delegation
+  on(event: string, listener: (...args: any[]) => void): this {
+    this.client.on(event, listener);
+    return this;
+  }
+
+  off(event: string, listener: (...args: any[]) => void): this {
+    this.client.off(event, listener);
+    return this;
+  }
+
+  emit(event: string, ...args: any[]): boolean {
+    return this.client.emit(event, ...args);
+  }
+
+  // Utility methods for common patterns
+
+  /**
+   * Subscribe to all events for a specific execution
+   */
+  subscribeToExecutionEvents(
+    executionId: string,
+    callbacks: {
+      onStart?: (data: any) => void;
+      onChunk?: (data: any) => void;
+      onComplete?: (data: any) => void;
+      onError?: (data: any) => void;
+    },
+  ): () => void {
+    const unsubscribers: (() => void)[] = [];
+
+    if (callbacks.onStart) {
+      unsubscribers.push(
+        this.subscribe(APIX_EVENTS.AGENT_EXECUTION_STARTED, (payload) => {
+          if (payload.execution_id === executionId) {
+            callbacks.onStart!(payload);
+          }
+        }),
+      );
     }
-  }
 
-  private updateConnectionState(updates: Partial<APXConnectionState>): void {
-    this.connectionState = { ...this.connectionState, ...updates };
-    this.emit("connectionStateChanged", this.connectionState);
-  }
-
-  private debug(message: string, data?: any): void {
-    if (this.options.debug) {
-      console.log(`[APXClient] ${message}`, data || "");
+    if (callbacks.onChunk) {
+      unsubscribers.push(
+        this.subscribe(APIX_EVENTS.AGENT_TEXT_CHUNK, (payload) => {
+          if (payload.execution_id === executionId) {
+            callbacks.onChunk!(payload);
+          }
+        }),
+      );
     }
+
+    if (callbacks.onComplete) {
+      unsubscribers.push(
+        this.subscribe(APIX_EVENTS.AGENT_EXECUTION_COMPLETE, (payload) => {
+          if (payload.execution_id === executionId) {
+            callbacks.onComplete!(payload);
+          }
+        }),
+      );
+    }
+
+    if (callbacks.onError) {
+      unsubscribers.push(
+        this.subscribe(APIX_EVENTS.AGENT_ERROR, (payload) => {
+          if (payload.execution_id === executionId) {
+            callbacks.onError!(payload);
+          }
+        }),
+      );
+    }
+
+    return () => {
+      unsubscribers.forEach((unsub) => unsub());
+    };
+  }
+
+  /**
+   * Subscribe to all HITL events for a specific request
+   */
+  subscribeToHITLEvents(
+    requestId: string,
+    callbacks: {
+      onCreated?: (data: any) => void;
+      onAssigned?: (data: any) => void;
+      onResolved?: (data: any) => void;
+      onExpired?: (data: any) => void;
+    },
+  ): () => void {
+    const unsubscribers: (() => void)[] = [];
+
+    if (callbacks.onCreated) {
+      unsubscribers.push(
+        this.subscribe(APIX_EVENTS.HITL_REQUEST_CREATED, (payload) => {
+          if (payload.request_id === requestId) {
+            callbacks.onCreated!(payload);
+          }
+        }),
+      );
+    }
+
+    if (callbacks.onAssigned) {
+      unsubscribers.push(
+        this.subscribe(APIX_EVENTS.HITL_RESOLUTION_PENDING, (payload) => {
+          if (payload.request_id === requestId) {
+            callbacks.onAssigned!(payload);
+          }
+        }),
+      );
+    }
+
+    if (callbacks.onResolved) {
+      unsubscribers.push(
+        this.subscribe(APIX_EVENTS.HITL_RESOLVED, (payload) => {
+          if (payload.request_id === requestId) {
+            callbacks.onResolved!(payload);
+          }
+        }),
+      );
+    }
+
+    if (callbacks.onExpired) {
+      unsubscribers.push(
+        this.subscribe(APIX_EVENTS.HITL_EXPIRED, (payload) => {
+          if (payload.request_id === requestId) {
+            callbacks.onExpired!(payload);
+          }
+        }),
+      );
+    }
+
+    return () => {
+      unsubscribers.forEach((unsub) => unsub());
+    };
   }
 }
+
+export default EnhancedAPXClient;

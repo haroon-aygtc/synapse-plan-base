@@ -8,11 +8,16 @@ import {
   TestExecution,
   MockData,
   DebugSession,
+  SandboxRun,
+  SandboxEvent,
 } from '@database/entities';
 import { AgentModule } from '../agent/agent.module';
 import { ToolModule } from '../tool/tool.module';
 import { WorkflowModule } from '../workflow/workflow.module';
 import { WebSocketModule } from '../websocket/websocket.module';
+import { SessionModule } from '../session/session.module';
+import { AIProviderModule } from '../ai-provider/ai-provider.module';
+import { PromptTemplateModule } from '../prompt-template/prompt-template.module';
 
 @Module({
   imports: [
@@ -22,11 +27,16 @@ import { WebSocketModule } from '../websocket/websocket.module';
       TestExecution,
       MockData,
       DebugSession,
+      SandboxRun,
+      SandboxEvent,
     ]),
     AgentModule,
     ToolModule,
     WorkflowModule,
     WebSocketModule,
+    SessionModule,
+    AIProviderModule,
+    PromptTemplateModule,
   ],
   controllers: [TestingSandboxController],
   providers: [TestingSandboxService],

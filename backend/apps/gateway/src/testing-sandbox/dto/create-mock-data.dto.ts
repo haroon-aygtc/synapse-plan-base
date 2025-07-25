@@ -2,68 +2,147 @@ import {
   IsString,
   IsOptional,
   IsObject,
-  IsEnum,
   IsArray,
-  IsBoolean,
+  IsEnum,
+  ValidateNested,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export enum MockDataType {
-  JSON = 'json',
-  XML = 'xml',
-  CSV = 'csv',
-  TEXT = 'text',
-  BINARY = 'binary',
-  API_RESPONSE = 'api_response',
-  DATABASE_RECORD = 'database_record',
+export class MockDataSchemaDto {
+  @ApiProperty({
+    example: 'object',
+    description: 'Data type',
+    enum: ['object', 'array', 'string', 'number', 'boolean'],
+  })
+  @IsEnum(['object', 'array', 'string', 'number', 'boolean'])
+  type: 'object' | 'array' | 'string' | 'number' | 'boolean';
+
+  @ApiPropertyOptional({ description: 'Object properties schema' })
+  @IsOptional()
+  @IsObject()
+  properties?: Record<string, MockDataSchemaDto>;
+
+  @ApiPropertyOptional({ description: 'Array items schema' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MockDataSchemaDto)
+  items?: MockDataSchemaDto;
+
+  @ApiPropertyOptional({ example: 'email', description: 'String format' })
+  @IsOptional()
+  @IsString()
+  format?: string;
+
+  @ApiPropertyOptional({
+    example: '^[a-zA-Z]+$',
+    description: 'String pattern',
+  })
+  @IsOptional()
+  @IsString()
+  pattern?: string;
+
+  @ApiPropertyOptional({ example: 0, description: 'Minimum number value' })
+  @IsOptional()
+  minimum?: number;
+
+  @ApiPropertyOptional({ example: 100, description: 'Maximum number value' })
+  @IsOptional()
+  maximum?: number;
+
+  @ApiPropertyOptional({ example: 1, description: 'Minimum string length' })
+  @IsOptional()
+  minLength?: number;
+
+  @ApiPropertyOptional({ example: 255, description: 'Maximum string length' })
+  @IsOptional()
+  maxLength?: number;
+
+  @ApiPropertyOptional({
+    example: ['option1', 'option2'],
+    description: 'Enum values',
+  })
+  @IsOptional()
+  @IsArray()
+  enum?: any[];
+}
+
+export class MockDataRuleDto {
+  @ApiProperty({ example: 'rule-1', description: 'Rule ID' })
+  @IsString()
+  id: string;
+
+  @ApiProperty({
+    example: 'input.type === "test"',
+    description: 'Rule condition',
+  })
+  @IsString()
+  condition: string;
+
+  @ApiProperty({
+    example: 'return',
+    description: 'Rule action',
+    enum: ['return', 'modify', 'delay', 'error'],
+  })
+  @IsEnum(['return', 'modify', 'delay', 'error'])
+  action: 'return' | 'modify' | 'delay' | 'error';
+
+  @ApiPropertyOptional({ description: 'Return value' })
+  @IsOptional()
+  value?: any;
+
+  @ApiPropertyOptional({ example: 1000, description: 'Delay in milliseconds' })
+  @IsOptional()
+  delay?: number;
+
+  @ApiPropertyOptional({ example: 500, description: 'Error code' })
+  @IsOptional()
+  errorCode?: number;
+
+  @ApiPropertyOptional({
+    example: 'Internal Server Error',
+    description: 'Error message',
+  })
+  @IsOptional()
+  @IsString()
+  errorMessage?: string;
 }
 
 export class CreateMockDataDto {
-  @ApiProperty({ description: 'Mock data name' })
+  @ApiProperty({ example: 'User Mock Data', description: 'Mock data name' })
   @IsString()
   name: string;
 
-  @ApiProperty({ description: 'Mock data description' })
+  @ApiPropertyOptional({
+    example: 'Mock data for user objects',
+    description: 'Mock data description',
+  })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiProperty({ description: 'Mock data type', enum: MockDataType })
-  @IsEnum(MockDataType)
-  type: MockDataType;
+  @ApiProperty({ example: 'user', description: 'Data type' })
+  @IsString()
+  dataType: string;
+
+  @ApiProperty({ description: 'Data schema definition' })
+  @ValidateNested()
+  @Type(() => MockDataSchemaDto)
+  schema: MockDataSchemaDto;
 
   @ApiProperty({ description: 'Mock data content' })
   @IsObject()
-  data: Record<string, any>;
+  data: any;
 
-  @ApiProperty({ description: 'Data schema for validation' })
-  @IsOptional()
-  @IsObject()
-  schema?: Record<string, any>;
-
-  @ApiProperty({ description: 'Generation rules for dynamic data' })
-  @IsOptional()
-  @IsObject()
-  generationRules?: {
-    count?: number;
-    template?: Record<string, any>;
-    faker?: Record<string, any>;
-    relationships?: Record<string, any>;
-  };
-
-  @ApiProperty({ description: 'Enable data persistence', default: false })
-  @IsOptional()
-  @IsBoolean()
-  persistent?: boolean;
-
-  @ApiProperty({ description: 'Tags for categorization', type: [String] })
+  @ApiPropertyOptional({ description: 'Mock data rules' })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  tags?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => MockDataRuleDto)
+  rules?: MockDataRuleDto[];
 
-  @ApiProperty({ description: 'Mock data metadata' })
+  @ApiPropertyOptional({ description: 'Additional configuration' })
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  configuration?: Record<string, any>;
 }

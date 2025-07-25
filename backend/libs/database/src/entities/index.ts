@@ -39,6 +39,8 @@ export { TestScenario } from './test-scenario.entity';
 export { TestExecution } from './test-execution.entity';
 export { MockData } from './mock-data.entity';
 export { DebugSession } from './debug-session.entity';
+export { SandboxRun } from './sandbox-run.entity';
+export { SandboxEvent, SandboxEventType } from './sandbox-event.entity';
 export { HITLRequest, HITLComment, HITLVote } from './hitl-request.entity';
 
 // Knowledge entities (if they exist)

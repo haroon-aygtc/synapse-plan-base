@@ -16,6 +16,7 @@ import { TestScenario } from './test-scenario.entity';
 import { TestExecution } from './test-execution.entity';
 import { MockData } from './mock-data.entity';
 import { DebugSession } from './debug-session.entity';
+import { SandboxRun } from './sandbox-run.entity';
 
 export interface SandboxResourceLimits {
   memory: string;
@@ -124,4 +125,9 @@ export class TestingSandbox extends BaseEntity {
     cascade: true,
   })
   debugSessions: DebugSession[];
+
+  @OneToMany(() => SandboxRun, (run) => run.sandbox, {
+    cascade: true,
+  })
+  sandboxRuns: SandboxRun[];
 }

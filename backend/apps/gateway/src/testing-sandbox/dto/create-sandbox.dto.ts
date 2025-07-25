@@ -7,109 +7,90 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
-
-export enum SandboxType {
-  AGENT = 'agent',
-  TOOL = 'tool',
-  WORKFLOW = 'workflow',
-  INTEGRATION = 'integration',
-  PERFORMANCE = 'performance',
-}
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ResourceLimitsDto {
-  @ApiProperty({
-    description: 'Memory limit (e.g., 512m, 1g)',
-    default: '512m',
-  })
+  @ApiProperty({ example: '512m', description: 'Memory limit' })
   @IsString()
   memory: string;
 
-  @ApiProperty({ description: 'CPU limit (e.g., 0.5, 1.0)', default: '0.5' })
+  @ApiProperty({ example: '0.5', description: 'CPU limit' })
   @IsString()
   cpu: string;
 
-  @ApiProperty({ description: 'Timeout in milliseconds', default: 300000 })
-  @IsOptional()
-  timeout?: number;
+  @ApiProperty({ example: 300000, description: 'Timeout in milliseconds' })
+  timeout: number;
 
-  @ApiProperty({ description: 'Allow network access', default: true })
-  @IsOptional()
-  networkAccess?: boolean;
+  @ApiProperty({ example: true, description: 'Network access allowed' })
+  networkAccess: boolean;
 
-  @ApiProperty({ description: 'Allowed ports', type: [Number] })
-  @IsOptional()
+  @ApiProperty({ example: [80, 443, 3000], description: 'Allowed ports' })
   @IsArray()
-  allowedPorts?: number[];
+  allowedPorts: number[];
 }
 
 export class IsolationConfigDto {
-  @ApiProperty({ description: 'Filesystem isolation configuration' })
-  @IsOptional()
+  @ApiProperty()
   @IsObject()
-  filesystem?: {
+  filesystem: {
     readOnly: boolean;
     allowedPaths: string[];
   };
 
-  @ApiProperty({ description: 'Network isolation configuration' })
-  @IsOptional()
+  @ApiProperty()
   @IsObject()
-  network?: {
+  network: {
     allowedDomains: string[];
     blockedPorts: number[];
   };
 
-  @ApiProperty({ description: 'Environment isolation configuration' })
-  @IsOptional()
+  @ApiProperty()
   @IsObject()
-  environment?: {
+  environment: {
     allowedEnvVars: string[];
   };
 }
 
 export class CreateSandboxDto {
-  @ApiProperty({ description: 'Sandbox name' })
+  @ApiProperty({ example: 'My Test Sandbox', description: 'Sandbox name' })
   @IsString()
   name: string;
 
-  @ApiProperty({ description: 'Sandbox description' })
+  @ApiPropertyOptional({
+    example: 'Sandbox for testing agents',
+    description: 'Sandbox description',
+  })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiProperty({ description: 'Sandbox type', enum: SandboxType })
-  @IsEnum(SandboxType)
-  type: SandboxType;
+  @ApiProperty({
+    example: 'agent',
+    description: 'Sandbox type',
+    enum: ['agent', 'tool', 'workflow', 'integration'],
+  })
+  @IsEnum(['agent', 'tool', 'workflow', 'integration'])
+  type: string;
 
-  @ApiProperty({ description: 'Sandbox configuration' })
-  @IsOptional()
-  @IsObject()
-  configuration?: Record<string, any>;
-
-  @ApiProperty({ description: 'Resource limits', type: ResourceLimitsDto })
+  @ApiPropertyOptional({ description: 'Resource limits configuration' })
   @IsOptional()
   @ValidateNested()
   @Type(() => ResourceLimitsDto)
   resourceLimits?: ResourceLimitsDto;
 
-  @ApiProperty({
-    description: 'Isolation configuration',
-    type: IsolationConfigDto,
-  })
+  @ApiPropertyOptional({ description: 'Isolation configuration' })
   @IsOptional()
   @ValidateNested()
   @Type(() => IsolationConfigDto)
   isolationConfig?: IsolationConfigDto;
 
-  @ApiProperty({ description: 'Tags for categorization', type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  tags?: string[];
-
-  @ApiProperty({ description: 'Additional metadata' })
+  @ApiPropertyOptional({ description: 'Additional configuration' })
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  configuration?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: 'Environment variables' })
+  @IsOptional()
+  @IsObject()
+  environment?: Record<string, any>;
 }

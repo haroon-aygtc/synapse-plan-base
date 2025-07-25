@@ -2,102 +2,67 @@ import {
   IsString,
   IsOptional,
   IsObject,
-  IsEnum,
   IsArray,
   IsBoolean,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
-
-export enum ModuleType {
-  AGENT = 'agent',
-  TOOL = 'tool',
-  WORKFLOW = 'workflow',
-  KNOWLEDGE = 'knowledge',
-  WIDGET = 'widget',
-  HITL = 'hitl',
-}
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class IntegrationTestStepDto {
-  @ApiProperty({ description: 'Step name' })
-  @IsString()
-  name: string;
-
-  @ApiProperty({ description: 'Module type', enum: ModuleType })
-  @IsEnum(ModuleType)
-  moduleType: ModuleType;
-
-  @ApiProperty({ description: 'Module ID' })
+  @ApiProperty({ example: 'agent-1', description: 'Module ID' })
   @IsString()
   moduleId: string;
 
-  @ApiProperty({ description: 'Step input data' })
-  @IsObject()
-  input: Record<string, any>;
+  @ApiProperty({
+    example: 'agent',
+    description: 'Module type',
+    enum: ['agent', 'tool', 'workflow'],
+  })
+  @IsString()
+  moduleType: 'agent' | 'tool' | 'workflow';
 
-  @ApiProperty({ description: 'Expected output' })
+  @ApiProperty({ description: 'Input data for the module' })
+  @IsObject()
+  input: any;
+
+  @ApiPropertyOptional({ description: 'Context data' })
   @IsOptional()
   @IsObject()
-  expectedOutput?: Record<string, any>;
+  context?: any;
 
-  @ApiProperty({ description: 'Function name for tools' })
+  @ApiPropertyOptional({ description: 'Variables for workflow steps' })
+  @IsOptional()
+  @IsObject()
+  variables?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    example: 'execute',
+    description: 'Function name for tools',
+  })
   @IsOptional()
   @IsString()
   functionName?: string;
-
-  @ApiProperty({ description: 'Step configuration' })
-  @IsOptional()
-  @IsObject()
-  configuration?: Record<string, any>;
-
-  @ApiProperty({ description: 'Step order' })
-  @IsOptional()
-  order?: number;
-
-  @ApiProperty({ description: 'Dependencies on other steps' })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  dependencies?: string[];
 }
 
 export class RunIntegrationTestDto {
-  @ApiProperty({ description: 'Integration test name' })
+  @ApiProperty({ example: 'Integration Test 1', description: 'Test name' })
   @IsString()
   testName: string;
 
-  @ApiProperty({ description: 'Test description' })
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @ApiProperty({
-    description: 'Test flow steps',
-    type: [IntegrationTestStepDto],
-  })
+  @ApiProperty({ description: 'Test flow steps' })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => IntegrationTestStepDto)
   testFlow: IntegrationTestStepDto[];
 
-  @ApiProperty({ description: 'Fail fast on first error', default: false })
+  @ApiPropertyOptional({ example: true, description: 'Stop on first failure' })
   @IsOptional()
   @IsBoolean()
   failFast?: boolean;
 
-  @ApiProperty({ description: 'Enable data flow tracking', default: true })
-  @IsOptional()
-  @IsBoolean()
-  trackDataFlow?: boolean;
-
-  @ApiProperty({ description: 'Test configuration' })
+  @ApiPropertyOptional({ description: 'Test configuration' })
   @IsOptional()
   @IsObject()
   configuration?: Record<string, any>;
-
-  @ApiProperty({ description: 'Test metadata' })
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, any>;
 }

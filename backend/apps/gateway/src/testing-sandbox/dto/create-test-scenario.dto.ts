@@ -2,80 +2,129 @@ import {
   IsString,
   IsOptional,
   IsObject,
-  IsEnum,
   IsArray,
+  IsEnum,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
-import { TestType } from './execute-test.dto';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class TestStepDto {
-  @ApiProperty({ description: 'Step name' })
+export class TestScenarioStepDto {
+  @ApiProperty({ example: 'step-1', description: 'Step ID' })
+  @IsString()
+  id: string;
+
+  @ApiProperty({ example: 'Execute Agent', description: 'Step name' })
   @IsString()
   name: string;
 
-  @ApiProperty({ description: 'Step description' })
-  @IsOptional()
+  @ApiProperty({ example: 'agent', description: 'Step type' })
   @IsString()
-  description?: string;
-
-  @ApiProperty({ description: 'Step type', enum: TestType })
-  @IsEnum(TestType)
-  type: TestType;
+  type: string;
 
   @ApiProperty({ description: 'Step input data' })
   @IsObject()
-  input: Record<string, any>;
+  input: any;
 
   @ApiProperty({ description: 'Expected output' })
-  @IsOptional()
   @IsObject()
-  expectedOutput?: Record<string, any>;
+  expectedOutput: any;
 
-  @ApiProperty({ description: 'Step configuration' })
+  @ApiPropertyOptional({
+    example: 30000,
+    description: 'Timeout in milliseconds',
+  })
   @IsOptional()
-  @IsObject()
-  configuration?: Record<string, any>;
+  timeout?: number;
 
-  @ApiProperty({ description: 'Step order' })
+  @ApiPropertyOptional({ example: 3, description: 'Number of retries' })
   @IsOptional()
-  order?: number;
+  retries?: number;
+}
+
+export class TestScenarioAssertionDto {
+  @ApiProperty({ example: 'assertion-1', description: 'Assertion ID' })
+  @IsString()
+  id: string;
+
+  @ApiProperty({
+    example: 'equals',
+    description: 'Assertion type',
+    enum: ['equals', 'contains', 'matches', 'custom'],
+  })
+  @IsEnum(['equals', 'contains', 'matches', 'custom'])
+  type: 'equals' | 'contains' | 'matches' | 'custom';
+
+  @ApiProperty({ example: 'output.result', description: 'Field to assert' })
+  @IsString()
+  field: string;
+
+  @ApiProperty({ description: 'Expected value' })
+  expected: any;
+
+  @ApiPropertyOptional({
+    description: 'Actual value (filled during execution)',
+  })
+  @IsOptional()
+  actual?: any;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Whether assertion passed',
+  })
+  @IsOptional()
+  passed?: boolean;
+
+  @ApiPropertyOptional({
+    example: 'Assertion failed',
+    description: 'Assertion message',
+  })
+  @IsOptional()
+  @IsString()
+  message?: string;
 }
 
 export class CreateTestScenarioDto {
-  @ApiProperty({ description: 'Scenario name' })
+  @ApiProperty({ example: 'Agent Test Scenario', description: 'Scenario name' })
   @IsString()
   name: string;
 
-  @ApiProperty({ description: 'Scenario description' })
+  @ApiPropertyOptional({
+    example: 'Test scenario for agent execution',
+    description: 'Scenario description',
+  })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiProperty({ description: 'Scenario type', enum: TestType })
-  @IsEnum(TestType)
-  type: TestType;
+  @ApiProperty({ example: 'agent', description: 'Scenario type' })
+  @IsString()
+  type: string;
 
-  @ApiProperty({ description: 'Test steps', type: [TestStepDto] })
+  @ApiProperty({ description: 'Test scenario steps' })
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => TestStepDto)
-  steps: TestStepDto[];
+  @Type(() => TestScenarioStepDto)
+  steps: TestScenarioStepDto[];
 
-  @ApiProperty({ description: 'Scenario configuration' })
+  @ApiProperty({ description: 'Test scenario assertions' })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TestScenarioAssertionDto)
+  assertions: TestScenarioAssertionDto[];
+
+  @ApiPropertyOptional({ description: 'Input data for the scenario' })
+  @IsOptional()
+  @IsObject()
+  inputData?: any;
+
+  @ApiPropertyOptional({ description: 'Expected output for the scenario' })
+  @IsOptional()
+  @IsObject()
+  expectedOutput?: any;
+
+  @ApiPropertyOptional({ description: 'Scenario configuration' })
   @IsOptional()
   @IsObject()
   configuration?: Record<string, any>;
-
-  @ApiProperty({ description: 'Tags for categorization', type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  tags?: string[];
-
-  @ApiProperty({ description: 'Scenario metadata' })
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, any>;
 }

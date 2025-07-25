@@ -4,42 +4,42 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Between } from 'typeorm';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { ConfigService } from '@nestjs/config';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
-import { Cache } from 'cache-manager';
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository, In, Between } from "typeorm";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { ConfigService } from "@nestjs/config";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Inject } from "@nestjs/common";
+import { Cache } from "cache-manager";
 import {
   AIProvider,
   AIProviderExecution,
   AIProviderMetrics,
-} from '@database/entities';
+} from "@database/entities";
 import {
   ProviderType,
   ProviderStatus,
   RoutingRule,
-} from '@database/entities/ai-provider.entity';
-import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
-import { ProviderAdapterService } from './provider-adapter.service';
-import { ProviderRoutingService } from './provider-routing.service';
-import { ProviderHealthService } from './provider-health.service';
-import { ProviderCostService } from './provider-cost.service';
+} from "@database/entities/ai-provider.entity";
+import { ExecutionType } from "@database/entities/ai-provider-execution.entity";
+import { ProviderAdapterService } from "./provider-adapter.service";
+import { ProviderRoutingService } from "./provider-routing.service";
+import { ProviderHealthService } from "./provider-health.service";
+import { ProviderCostService } from "./provider-cost.service";
 import {
   CreateProviderDto,
   UpdateProviderDto,
   ProviderConfigDto,
   ProviderRoutingRuleDto,
-} from './dto';
-import { AgentEventType } from '@shared/enums';
-import { v4 as uuidv4 } from 'uuid';
+} from "./dto";
+import { AgentEventType } from "@shared/enums";
+import { v4 as uuidv4 } from "uuid";
 
 @Injectable()
 export class AIProviderService {
   private readonly logger = new Logger(AIProviderService.name);
-  private readonly cachePrefix = 'ai-provider:';
+  private readonly cachePrefix = "ai-provider:";
 
   constructor(
     @InjectRepository(AIProvider)
@@ -96,7 +96,7 @@ export class AIProviderService {
       status: ProviderStatus.ACTIVE,
       healthCheck: {
         lastCheck: new Date(),
-        status: 'healthy',
+        status: "healthy",
         responseTime: testResult.responseTime || 0,
         errorRate: 0,
         uptime: 100,
@@ -146,8 +146,8 @@ export class AIProviderService {
 
     return this.providerRepository.find({
       where,
-      order: { priority: 'DESC', createdAt: 'DESC' },
-      relations: ['user'],
+      order: { priority: "DESC", createdAt: "DESC" },
+      relations: ["user"],
     });
   }
 
@@ -159,7 +159,7 @@ export class AIProviderService {
     if (!provider) {
       provider = await this.providerRepository.findOne({
         where: { id, organizationId },
-        relations: ['user'],
+        relations: ["user"],
       });
 
       if (provider) {
@@ -168,7 +168,7 @@ export class AIProviderService {
     }
 
     if (!provider) {
-      throw new NotFoundException('AI Provider not found');
+      throw new NotFoundException("AI Provider not found");
     }
 
     return provider;
@@ -304,57 +304,57 @@ export class AIProviderService {
     return [
       {
         type: ProviderType.OPENAI,
-        name: 'OpenAI',
-        description: 'GPT models from OpenAI',
-        models: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-        features: ['Chat', 'Completions', 'Function Calling', 'Vision'],
+        name: "OpenAI",
+        description: "GPT models from OpenAI",
+        models: ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
+        features: ["Chat", "Completions", "Function Calling", "Vision"],
       },
       {
         type: ProviderType.CLAUDE,
-        name: 'Anthropic Claude',
-        description: 'Claude models from Anthropic',
-        models: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
-        features: ['Chat', 'Long Context', 'Code Generation'],
+        name: "Anthropic Claude",
+        description: "Claude models from Anthropic",
+        models: ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
+        features: ["Chat", "Long Context", "Code Generation"],
       },
       {
         type: ProviderType.GEMINI,
-        name: 'Google Gemini',
-        description: 'Gemini models from Google',
-        models: ['gemini-pro', 'gemini-pro-vision'],
-        features: ['Chat', 'Vision', 'Code Generation'],
+        name: "Google Gemini",
+        description: "Gemini models from Google",
+        models: ["gemini-pro", "gemini-pro-vision"],
+        features: ["Chat", "Vision", "Code Generation"],
       },
       {
         type: ProviderType.MISTRAL,
-        name: 'Mistral AI',
-        description: 'Mistral models',
-        models: ['mistral-large', 'mistral-medium', 'mistral-small'],
-        features: ['Chat', 'Code Generation', 'Multilingual'],
+        name: "Mistral AI",
+        description: "Mistral models",
+        models: ["mistral-large", "mistral-medium", "mistral-small"],
+        features: ["Chat", "Code Generation", "Multilingual"],
       },
       {
         type: ProviderType.GROQ,
-        name: 'Groq',
-        description: 'High-speed inference with Groq',
-        models: ['llama2-70b-4096', 'mixtral-8x7b-32768'],
-        features: ['High Speed', 'Chat', 'Long Context'],
+        name: "Groq",
+        description: "High-speed inference with Groq",
+        models: ["llama2-70b-4096", "mixtral-8x7b-32768"],
+        features: ["High Speed", "Chat", "Long Context"],
       },
       {
         type: ProviderType.OPENROUTER,
-        name: 'OpenRouter',
-        description: 'Access to multiple AI models through OpenRouter',
+        name: "OpenRouter",
+        description: "Access to multiple AI models through OpenRouter",
         models: [
-          'openai/gpt-4-turbo',
-          'openai/gpt-3.5-turbo',
-          'anthropic/claude-3-opus',
-          'anthropic/claude-3-sonnet',
-          'google/gemini-pro',
-          'meta-llama/llama-2-70b-chat',
-          'mistralai/mistral-7b-instruct',
+          "openai/gpt-4-turbo",
+          "openai/gpt-3.5-turbo",
+          "anthropic/claude-3-opus",
+          "anthropic/claude-3-sonnet",
+          "google/gemini-pro",
+          "meta-llama/llama-2-70b-chat",
+          "mistralai/mistral-7b-instruct",
         ],
         features: [
-          'Multi-Provider',
-          'Chat',
-          'Cost Optimization',
-          'Model Variety',
+          "Multi-Provider",
+          "Chat",
+          "Cost Optimization",
+          "Model Variety",
         ],
       },
     ];
@@ -376,7 +376,7 @@ export class AIProviderService {
 
   async getUsageStats(
     organizationId: string,
-    period: 'day' | 'week' | 'month',
+    period: "day" | "week" | "month",
   ): Promise<{
     totalRequests: number;
     totalCost: number;
@@ -411,7 +411,7 @@ export class AIProviderService {
         organizationId,
         createdAt: Between(startDate, endDate),
       },
-      relations: ['provider'],
+      relations: ["provider"],
     });
 
     const totalRequests = executions.length;
@@ -432,7 +432,7 @@ export class AIProviderService {
       if (!providerStats.has(key)) {
         providerStats.set(key, {
           providerId: exec.providerId,
-          providerName: exec.provider?.name || 'Unknown',
+          providerName: exec.provider?.name || "Unknown",
           requests: 0,
           cost: 0,
           totalResponseTime: 0,
@@ -522,22 +522,22 @@ export class AIProviderService {
 
   async getOptimizationSuggestions(organizationId: string): Promise<{
     costOptimizations: Array<{
-      type: 'switch_provider' | 'adjust_routing' | 'model_downgrade';
+      type: "switch_provider" | "adjust_routing" | "model_downgrade";
       description: string;
       potentialSavings: number;
-      impact: 'low' | 'medium' | 'high';
+      impact: "low" | "medium" | "high";
       recommendation: string;
     }>;
     performanceOptimizations: Array<{
-      type: 'switch_provider' | 'adjust_routing' | 'load_balance';
+      type: "switch_provider" | "adjust_routing" | "load_balance";
       description: string;
       expectedImprovement: string;
-      impact: 'low' | 'medium' | 'high';
+      impact: "low" | "medium" | "high";
       recommendation: string;
     }>;
   }> {
     const providers = await this.getProviders(organizationId);
-    const usageStats = await this.getUsageStats(organizationId, 'week');
+    const usageStats = await this.getUsageStats(organizationId, "week");
 
     const costOptimizations = [];
     const performanceOptimizations = [];
@@ -547,12 +547,12 @@ export class AIProviderService {
       if (providerStat.cost > 100 && providerStat.errorRate < 0.05) {
         // Suggest cheaper alternatives
         costOptimizations.push({
-          type: 'switch_provider' as const,
+          type: "switch_provider" as const,
           description: `High cost provider ${providerStat.providerName} could be replaced for non-critical tasks`,
           potentialSavings: providerStat.cost * 0.3,
-          impact: 'medium' as const,
+          impact: "medium" as const,
           recommendation:
-            'Consider using a more cost-effective provider for routine tasks',
+            "Consider using a more cost-effective provider for routine tasks",
         });
       }
     }
@@ -561,12 +561,12 @@ export class AIProviderService {
     for (const providerStat of usageStats.providerBreakdown) {
       if (providerStat.avgResponseTime > 5000) {
         performanceOptimizations.push({
-          type: 'switch_provider' as const,
+          type: "switch_provider" as const,
           description: `Slow response times from ${providerStat.providerName}`,
-          expectedImprovement: '40% faster response times',
-          impact: 'high' as const,
+          expectedImprovement: "40% faster response times",
+          impact: "high" as const,
           recommendation:
-            'Switch to a faster provider or implement load balancing',
+            "Switch to a faster provider or implement load balancing",
         });
       }
     }
@@ -580,7 +580,7 @@ export class AIProviderService {
   async getProviderMetrics(
     id: string,
     organizationId: string,
-    period: 'hour' | 'day' | 'week' | 'month',
+    period: "hour" | "day" | "week" | "month",
   ): Promise<{
     current: {
       requests: number;
@@ -631,7 +631,7 @@ export class AIProviderService {
           lte: endDate,
         } as any,
       },
-      order: { timestamp: 'ASC' },
+      order: { timestamp: "ASC" },
     });
 
     const historical = metrics.map((metric) => ({
@@ -692,19 +692,42 @@ export class AIProviderService {
     model?: string,
     context?: Record<string, any>,
   ): Promise<AIProvider> {
-    return this.providerRouting.selectProvider(
-      organizationId,
-      executionType,
-      model,
-      context,
-    );
+    try {
+      return await this.providerRouting.selectProvider(
+        organizationId,
+        executionType,
+        model,
+        context,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Provider selection failed for org ${organizationId}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+
+      // Try to get a fallback provider
+      const providers = await this.getProviders(organizationId);
+      if (providers.length > 0) {
+        const fallbackProvider = providers.find(
+          (p) => p.isActive && p.status === ProviderStatus.ACTIVE,
+        );
+        if (fallbackProvider) {
+          this.logger.warn(
+            `Using fallback provider ${fallbackProvider.id} due to selection failure`,
+          );
+          return fallbackProvider;
+        }
+      }
+
+      throw error;
+    }
   }
 
   // Unified AI completion endpoint
   async executeCompletion(
     request: {
       messages: Array<{
-        role: 'system' | 'user' | 'assistant' | 'tool';
+        role: "system" | "user" | "assistant" | "tool";
         content: string;
         tool_calls?: any[];
       }>;
@@ -742,7 +765,7 @@ export class AIProviderService {
       );
 
       // Emit provider selected event
-      this.eventEmitter.emit('provider.selected', {
+      this.eventEmitter.emit("provider.selected", {
         executionId,
         providerId: selectedProvider.id,
         providerType: selectedProvider.type,
@@ -792,7 +815,7 @@ export class AIProviderService {
         this.providerRouting.isCircuitBreakerOpen &&
         this.providerRouting.isCircuitBreakerOpen(primaryProvider.id)
       ) {
-        throw new Error('Circuit breaker is open for this provider');
+        throw new Error("Circuit breaker is open for this provider");
       }
 
       const providerRequest = {
@@ -833,7 +856,7 @@ export class AIProviderService {
       this.providerRouting.recordSuccess(primaryProvider.id);
 
       // Emit completion event
-      this.eventEmitter.emit('provider.complete', {
+      this.eventEmitter.emit("provider.complete", {
         executionId,
         providerId: primaryProvider.id,
         tokensUsed: response.tokensUsed,
@@ -863,7 +886,7 @@ export class AIProviderService {
       this.providerRouting.recordFailure(primaryProvider.id);
 
       // Emit error event
-      this.eventEmitter.emit('provider.error', {
+      this.eventEmitter.emit("provider.error", {
         executionId,
         providerId: primaryProvider.id,
         error: error.message,
@@ -892,7 +915,7 @@ export class AIProviderService {
 
         if (fallbackProvider) {
           // Emit provider switched event
-          this.eventEmitter.emit('provider.switched', {
+          this.eventEmitter.emit("provider.switched", {
             executionId,
             originalProvider: primaryProvider.id,
             fallbackProvider: fallbackProvider.id,
@@ -994,7 +1017,7 @@ export class AIProviderService {
           capabilities: this.getModelCapabilities(modelName),
           costPerToken: this.getModelCostPerToken(modelName),
           maxTokens: this.getModelMaxTokens(modelName),
-          isAvailable: provider.healthCheck?.status === 'healthy',
+          isAvailable: provider.healthCheck?.status === "healthy",
         });
       }
     }
@@ -1004,29 +1027,29 @@ export class AIProviderService {
 
   private getDefaultModelsForProvider(providerType: ProviderType): string[] {
     const defaultModels = {
-      [ProviderType.OPENAI]: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+      [ProviderType.OPENAI]: ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
       [ProviderType.CLAUDE]: [
-        'claude-3-opus',
-        'claude-3-sonnet',
-        'claude-3-haiku',
+        "claude-3-opus",
+        "claude-3-sonnet",
+        "claude-3-haiku",
       ],
-      [ProviderType.GEMINI]: ['gemini-pro', 'gemini-pro-vision'],
+      [ProviderType.GEMINI]: ["gemini-pro", "gemini-pro-vision"],
       [ProviderType.MISTRAL]: [
-        'mistral-large',
-        'mistral-medium',
-        'mistral-small',
+        "mistral-large",
+        "mistral-medium",
+        "mistral-small",
       ],
-      [ProviderType.GROQ]: ['llama2-70b-4096', 'mixtral-8x7b-32768'],
+      [ProviderType.GROQ]: ["llama2-70b-4096", "mixtral-8x7b-32768"],
       [ProviderType.OPENROUTER]: [
-        'openai/gpt-4-turbo',
-        'openai/gpt-3.5-turbo',
-        'anthropic/claude-3-opus',
-        'anthropic/claude-3-sonnet',
-        'google/gemini-pro',
+        "openai/gpt-4-turbo",
+        "openai/gpt-3.5-turbo",
+        "anthropic/claude-3-opus",
+        "anthropic/claude-3-sonnet",
+        "google/gemini-pro",
       ],
     };
 
-    return defaultModels[providerType] || ['gpt-3.5-turbo'];
+    return defaultModels[providerType] || ["gpt-3.5-turbo"];
   }
 
   private getDefaultModelForProvider(providerType: ProviderType): string {
@@ -1035,65 +1058,65 @@ export class AIProviderService {
 
   private getModelCapabilities(modelName: string): string[] {
     const capabilities = {
-      'gpt-4': ['chat', 'function-calling', 'code-generation'],
-      'gpt-4-turbo': ['chat', 'function-calling', 'code-generation', 'vision'],
-      'gpt-3.5-turbo': ['chat', 'function-calling'],
-      'claude-3-opus': ['chat', 'long-context', 'code-generation'],
-      'claude-3-sonnet': ['chat', 'long-context', 'code-generation'],
-      'claude-3-haiku': ['chat', 'fast-response'],
-      'gemini-pro': ['chat', 'code-generation'],
-      'gemini-pro-vision': ['chat', 'vision', 'multimodal'],
-      'mistral-large': ['chat', 'code-generation', 'multilingual'],
-      'mistral-medium': ['chat', 'code-generation'],
-      'mistral-small': ['chat'],
-      'llama2-70b-4096': ['chat', 'long-context'],
-      'mixtral-8x7b-32768': ['chat', 'long-context'],
+      "gpt-4": ["chat", "function-calling", "code-generation"],
+      "gpt-4-turbo": ["chat", "function-calling", "code-generation", "vision"],
+      "gpt-3.5-turbo": ["chat", "function-calling"],
+      "claude-3-opus": ["chat", "long-context", "code-generation"],
+      "claude-3-sonnet": ["chat", "long-context", "code-generation"],
+      "claude-3-haiku": ["chat", "fast-response"],
+      "gemini-pro": ["chat", "code-generation"],
+      "gemini-pro-vision": ["chat", "vision", "multimodal"],
+      "mistral-large": ["chat", "code-generation", "multilingual"],
+      "mistral-medium": ["chat", "code-generation"],
+      "mistral-small": ["chat"],
+      "llama2-70b-4096": ["chat", "long-context"],
+      "mixtral-8x7b-32768": ["chat", "long-context"],
     };
 
-    return capabilities[modelName] || ['chat'];
+    return capabilities[modelName] || ["chat"];
   }
 
   private getModelCostPerToken(modelName: string): number {
     const costs = {
-      'gpt-4': 0.00003,
-      'gpt-4-turbo': 0.00001,
-      'gpt-3.5-turbo': 0.000002,
-      'claude-3-opus': 0.000015,
-      'claude-3-sonnet': 0.000003,
-      'claude-3-haiku': 0.00000025,
-      'gemini-pro': 0.000001,
-      'mistral-large': 0.000006,
-      'mistral-medium': 0.000003,
-      'mistral-small': 0.000001,
-      'llama2-70b-4096': 0.0000007,
-      'mixtral-8x7b-32768': 0.0000006,
+      "gpt-4": 0.00003,
+      "gpt-4-turbo": 0.00001,
+      "gpt-3.5-turbo": 0.000002,
+      "claude-3-opus": 0.000015,
+      "claude-3-sonnet": 0.000003,
+      "claude-3-haiku": 0.00000025,
+      "gemini-pro": 0.000001,
+      "mistral-large": 0.000006,
+      "mistral-medium": 0.000003,
+      "mistral-small": 0.000001,
+      "llama2-70b-4096": 0.0000007,
+      "mixtral-8x7b-32768": 0.0000006,
     };
 
-    return costs[modelName] || costs['gpt-3.5-turbo'];
+    return costs[modelName] || costs["gpt-3.5-turbo"];
   }
 
   private getModelMaxTokens(modelName: string): number {
     const maxTokens = {
-      'gpt-4': 8192,
-      'gpt-4-turbo': 128000,
-      'gpt-3.5-turbo': 4096,
-      'claude-3-opus': 200000,
-      'claude-3-sonnet': 200000,
-      'claude-3-haiku': 200000,
-      'gemini-pro': 32768,
-      'gemini-pro-vision': 32768,
-      'mistral-large': 32768,
-      'mistral-medium': 32768,
-      'mistral-small': 32768,
-      'llama2-70b-4096': 4096,
-      'mixtral-8x7b-32768': 32768,
+      "gpt-4": 8192,
+      "gpt-4-turbo": 128000,
+      "gpt-3.5-turbo": 4096,
+      "claude-3-opus": 200000,
+      "claude-3-sonnet": 200000,
+      "claude-3-haiku": 200000,
+      "gemini-pro": 32768,
+      "gemini-pro-vision": 32768,
+      "mistral-large": 32768,
+      "mistral-medium": 32768,
+      "mistral-small": 32768,
+      "llama2-70b-4096": 4096,
+      "mixtral-8x7b-32768": 32768,
     };
 
     return maxTokens[modelName] || 4096;
   }
 
   private estimateCost(model?: string, maxTokens: number = 1000): number {
-    const costPerToken = this.getModelCostPerToken(model || 'gpt-3.5-turbo');
+    const costPerToken = this.getModelCostPerToken(model || "gpt-3.5-turbo");
     return costPerToken * maxTokens;
   }
 
@@ -1125,7 +1148,7 @@ export class AIProviderService {
       organizationId,
       userId,
       error,
-      status: error ? 'FAILED' : 'COMPLETED',
+      status: error ? "FAILED" : "COMPLETED",
       startedAt: new Date(Date.now() - responseTimeMs),
       completedAt: new Date(),
     });
@@ -1143,7 +1166,7 @@ export class AIProviderService {
     });
 
     // Emit cost update event
-    this.eventEmitter.emit('cost.update', {
+    this.eventEmitter.emit("cost.update", {
       organizationId,
       userId,
       providerId,
@@ -1164,13 +1187,13 @@ export class AIProviderService {
   private getStartDateForPeriod(period: string): Date {
     const now = new Date();
     switch (period) {
-      case 'hour':
+      case "hour":
         return new Date(now.getTime() - 60 * 60 * 1000);
-      case 'day':
+      case "day":
         return new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      case 'week':
+      case "week":
         return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      case 'month':
+      case "month":
         return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       default:
         return new Date(now.getTime() - 24 * 60 * 60 * 1000);
