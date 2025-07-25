@@ -23,7 +23,6 @@ import {
   EventPriority,
   APXMessageType,
   APXStreamState,
-  APXExecutionState,
 } from '@shared/enums';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -450,8 +449,8 @@ export class WebSocketService implements OnModuleInit {
       );
     } catch (error: any) {
       this.logger.error(
-        `Failed to handle agent execution start: ${error.message}`,
-        error.stack,
+        `Failed to handle agent execution start: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -513,8 +512,8 @@ export class WebSocketService implements OnModuleInit {
       );
     } catch (error: any) {
       this.logger.error(
-        `Failed to handle tool call start: ${error.message}`,
-        error.stack,
+        `Failed to handle tool call start: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -548,10 +547,10 @@ export class WebSocketService implements OnModuleInit {
       this.logger.log(
         `HITL request created: ${payload.request_id} with priority ${payload.priority}`,
       );
-    } catch (error: any   ) {
+    } catch (error: any) {
       this.logger.error(
-        `Failed to handle HITL request: ${error.message}`,
-        error.stack,
+        `Failed to handle HITL request: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -598,8 +597,8 @@ export class WebSocketService implements OnModuleInit {
       );
     } catch (error: any) {
       this.logger.error(
-        `Failed to handle knowledge search: ${error.message}`,
-        error.stack,
+        `Failed to handle knowledge search: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -632,8 +631,8 @@ export class WebSocketService implements OnModuleInit {
       );
     } catch (error: any) {
       this.logger.error(
-        `Failed to handle widget query: ${error.message}`,
-        error.stack,
+        `Failed to handle widget query: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -678,8 +677,8 @@ export class WebSocketService implements OnModuleInit {
       );
     } catch (error: any) {
       this.logger.error(
-        `Failed to handle stream control: ${error.message}`,
-        error.stack,
+        `Failed to handle stream control: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -738,8 +737,8 @@ export class WebSocketService implements OnModuleInit {
       );
     } catch (error: any) {
       this.logger.error(
-        `Failed to stream text chunk: ${error.message}`,
-        error.stack,
+        `Failed to stream text chunk: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
     }
   }
@@ -773,8 +772,8 @@ export class WebSocketService implements OnModuleInit {
       );
     } catch (error: any) {
       this.logger.error(
-        `Failed to stream provider event: ${error.message}`,
-        error.stack,
+        `Failed to stream provider event: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
     }
   }
@@ -829,8 +828,8 @@ export class WebSocketService implements OnModuleInit {
       );
     } catch (error: any) {
       this.logger.error(
-        `Failed to complete execution: ${error.message}`,
-        error.stack,
+        `Failed to complete execution: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
     }
   }
@@ -878,8 +877,8 @@ export class WebSocketService implements OnModuleInit {
       );
     } catch (error: any) {
       this.logger.error(
-        `Failed to handle execution error: ${error.message}`,
-        error.stack,
+        `Failed to handle execution error: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
     }
   }
@@ -959,7 +958,8 @@ export class WebSocketService implements OnModuleInit {
     };
 
     return (
-      suggestions[errorType.toLowerCase() as keyof typeof suggestions] || 'Contact support for assistance'
+      suggestions[errorType.toLowerCase() as keyof typeof suggestions] ||
+      'Contact support for assistance'
     );
   }
 }
