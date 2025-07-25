@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { UserRole } from '@shared/interfaces';
+import { ExecutionType } from '@database/entities';
 import { AIProviderService } from './ai-provider.service';
 import { ProviderHealthService } from './provider-health.service';
 import { ProviderCostService } from './provider-cost.service';
@@ -248,7 +249,7 @@ export class AIProviderController {
       temperature?: number;
       maxTokens?: number;
       tools?: any[];
-      executionType: 'agent' | 'tool' | 'workflow' | 'knowledge';
+      executionType: ExecutionType;
       resourceId: string;
       sessionId?: string;
       streamResponse?: boolean;

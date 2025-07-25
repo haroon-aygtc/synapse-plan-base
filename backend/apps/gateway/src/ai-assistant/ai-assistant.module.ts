@@ -9,11 +9,13 @@ import { MultiLanguageSupportService } from './services/multi-language-support.s
 import { LearningSystemService } from './services/learning-system.service';
 import { VisualBuilderService } from './services/visual-builder.service';
 import { APIPatternDetectionService } from './services/api-pattern-detection.service';
+import { AIProviderModule } from '../ai-provider/ai-provider.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Agent, PromptTemplate]),
     HttpModule,
+    AIProviderModule,
   ],
   controllers: [AIAssistantController],
   providers: [

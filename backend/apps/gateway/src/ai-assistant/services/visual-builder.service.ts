@@ -425,7 +425,7 @@ Make the template production-ready and optimized for the specified use case.
       this.logger.error('Failed to handle collaborative edit', error);
       return {
         success: false,
-        conflicts: [error.message],
+        conflicts: [error instanceof Error ? error.message : String(error)],
         activeEditors: [],
       };
     }

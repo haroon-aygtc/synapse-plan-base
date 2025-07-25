@@ -195,6 +195,11 @@ export class ProviderRoutingService {
     this.circuitBreakers.set(providerId, state);
   }
 
+  // Public method to check circuit breaker status
+  checkCircuitBreakerOpen(providerId: string): boolean {
+    return this.isCircuitBreakerOpen(providerId);
+  }
+
   private isCircuitBreakerOpen(providerId: string): boolean {
     const state = this.circuitBreakers.get(providerId);
     if (!state || state.state === 'CLOSED') {

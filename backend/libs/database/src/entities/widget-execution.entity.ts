@@ -132,6 +132,18 @@ export class WidgetExecution extends BaseEntity {
   })
   costUsd!: number;
 
+  @Column({ name: 'message', nullable: true })
+  message?: string;
+
+  @Column({ name: 'action', nullable: true })
+  action?: string;
+
+  @Column({ name: 'file_upload', nullable: true })
+  fileUpload?: string;
+
+  @Column({ name: 'voice_input', nullable: true })
+  voiceInput?: string;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
 

@@ -13,6 +13,7 @@ import {
   ExplainAgentDto,
   PersonalityProfileDto,
 } from './dto';
+import { AIProviderService } from '../ai-provider/ai-provider.service';
 
 @Injectable()
 export class AIAssistantService {
@@ -25,6 +26,7 @@ export class AIAssistantService {
     @InjectRepository(PromptTemplate)
     private readonly promptTemplateRepository: Repository<PromptTemplate>,
     private readonly configService: ConfigService,
+    private readonly aiProviderService: AIProviderService,
   ) {
     this.openai = new OpenAI({
       apiKey: this.configService.get<string>('OPENAI_API_KEY'),

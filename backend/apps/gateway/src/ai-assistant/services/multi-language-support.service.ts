@@ -31,7 +31,7 @@ export class MultiLanguageSupportService {
     'en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh', 'ar', 'hi', 'nl', 'sv', 'no', 'da'
   ];
 
-  private readonly languageNames = {
+  private readonly languageNames: { [key: string]: string } = {
     'en': 'English',
     'es': 'Spanish',
     'fr': 'French',

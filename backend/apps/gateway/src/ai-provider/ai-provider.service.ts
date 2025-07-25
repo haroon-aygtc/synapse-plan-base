@@ -157,10 +157,11 @@ export class AIProviderService {
     let provider = await this.cacheManager.get<AIProvider>(cacheKey);
 
     if (!provider) {
-      provider = await this.providerRepository.findOne({
+      const foundProvider = await this.providerRepository.findOne({
         where: { id, organizationId },
         relations: ["user"],
       });
+      provider = foundProvider || undefined;
 
       if (provider) {
         await this.cacheProvider(provider);
@@ -676,7 +677,7 @@ export class AIProviderService {
         results.push(provider);
       } catch (error) {
         this.logger.error(
-          `Failed to create provider ${providerConfig.name}: ${error.message}`,
+          `Failed to create provider ${providerConfig.name}: ${error instanceof Error ? error.message : String(error)}`,
         );
         // Continue with other providers
       }
@@ -790,8 +791,8 @@ export class AIProviderService {
       return result;
     } catch (error) {
       this.logger.error(
-        `Completion execution failed: ${error.message}`,
-        error.stack,
+        `Completion execution failed: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -811,10 +812,7 @@ export class AIProviderService {
 
     try {
       // Check circuit breaker
-      if (
-        this.providerRouting.isCircuitBreakerOpen &&
-        this.providerRouting.isCircuitBreakerOpen(primaryProvider.id)
-      ) {
+      if (this.providerRouting.checkCircuitBreakerOpen(primaryProvider.id)) {
         throw new Error("Circuit breaker is open for this provider");
       }
 
@@ -889,7 +887,7 @@ export class AIProviderService {
       this.eventEmitter.emit("provider.error", {
         executionId,
         providerId: primaryProvider.id,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         executionTime,
         organizationId,
         userId,
@@ -919,7 +917,7 @@ export class AIProviderService {
             executionId,
             originalProvider: primaryProvider.id,
             fallbackProvider: fallbackProvider.id,
-            reason: error.message,
+            reason: error instanceof Error ? error.message : String(error),
             organizationId,
             userId,
             timestamp: new Date(),
@@ -950,7 +948,7 @@ export class AIProviderService {
         executionTime,
         organizationId,
         userId,
-        error.message,
+        error instanceof Error ? error.message : String(error),
       );
 
       throw error;
@@ -979,10 +977,7 @@ export class AIProviderService {
     for (const provider of availableProviders.sort(
       (a, b) => b.priority - a.priority,
     )) {
-      if (
-        !this.providerRouting.isCircuitBreakerOpen ||
-        !this.providerRouting.isCircuitBreakerOpen(provider.id)
-      ) {
+      if (!this.providerRouting.checkCircuitBreakerOpen(provider.id)) {
         return provider;
       }
     }
@@ -1057,7 +1052,7 @@ export class AIProviderService {
   }
 
   private getModelCapabilities(modelName: string): string[] {
-    const capabilities = {
+    const capabilities: { [key: string]: string[] } = {
       "gpt-4": ["chat", "function-calling", "code-generation"],
       "gpt-4-turbo": ["chat", "function-calling", "code-generation", "vision"],
       "gpt-3.5-turbo": ["chat", "function-calling"],
@@ -1077,7 +1072,7 @@ export class AIProviderService {
   }
 
   private getModelCostPerToken(modelName: string): number {
-    const costs = {
+    const costs: { [key: string]: number } = {
       "gpt-4": 0.00003,
       "gpt-4-turbo": 0.00001,
       "gpt-3.5-turbo": 0.000002,
@@ -1096,7 +1091,7 @@ export class AIProviderService {
   }
 
   private getModelMaxTokens(modelName: string): number {
-    const maxTokens = {
+    const maxTokens: { [key: string]: number } = {
       "gpt-4": 8192,
       "gpt-4-turbo": 128000,
       "gpt-3.5-turbo": 4096,

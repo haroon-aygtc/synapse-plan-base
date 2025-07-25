@@ -1227,6 +1227,7 @@ export class WidgetService {
       token?: string;
     },
     userId?: string,
+    organizationId?: string,
   ) {
     const startTime = Date.now();
     this.logger.log(
@@ -1238,7 +1239,7 @@ export class WidgetService {
     if (!widget) {
       widget = await this.widgetRepository.findOne({
         where: { id, isActive: true },
-        relations: ['user', 'organization'],
+        relations: ['user', 'organization', 'template', 'template.user', 'template.organization'],
       });
 
       if (widget) {
@@ -1263,7 +1264,7 @@ export class WidgetService {
     await this.checkRateLimit(
       widget.id,
       executionData.sessionId,
-      widget.organizationId,
+      organizationId,
     );
 
     // Validate origin if security settings exist
@@ -1280,11 +1281,11 @@ export class WidgetService {
     }
 
     // Create execution record with enhanced context
-    const execution = await this.widgetExecutionRepository.create({
+    const execution = this.widgetExecutionRepository.create({
       widgetId: id,
       sessionId: executionData.sessionId,
       userId,
-      status: 'pending',
+      status: ExecutionStatus.PENDING,
       input: {
         type: this.detectInputType(executionData.input),
         content: executionData.input,
@@ -1312,9 +1313,13 @@ export class WidgetService {
         cacheHits: 0,
         cacheMisses: 0,
       },
+      message: 'Executing widget',
+      action: 'execute',
+      fileUpload: null,
+      voiceInput: null,
     });
 
-    const savedExecution: WidgetExecution = await this.widgetExecutionRepository.save(execution);
+    const savedExecution = await this.widgetExecutionRepository.save(execution) as WidgetExecution;
 
     // Mark execution as running
     savedExecution.markAsRunning();
@@ -1328,7 +1333,7 @@ export class WidgetService {
         widgetId: widget.id,
         sessionId: executionData.sessionId,
         userId,
-        organizationId: widget.organizationId,
+        organizationId: organizationId,
         context: executionData.context,
       };
 
@@ -1425,7 +1430,7 @@ export class WidgetService {
       return {
         executionId: savedExecution.id,
         result: result.content || result,
-        status: 'completed',
+        status: ExecutionStatus.COMPLETED,
         tokensUsed: result.tokensUsed || 0,
         executionTime,
         cost: savedExecution.costUsd,
@@ -1963,8 +1968,8 @@ export class WidgetComponent {
   private async executeAgent(agentId: string, input: any, context: any) {
     // Execute agent using real agent service with production logic
     return await this.agentService.execute(
+      agentId,
       {
-        agentId,
         input,
         sessionId: context.sessionId,
         context: {
@@ -1982,11 +1987,9 @@ export class WidgetComponent {
         },
         includeToolCalls: true,
         includeKnowledgeSearch: true,
-        timeout: 30000,
       },
       context.userId,
       context.organizationId,
-      context.sessionId,
     );
   }
 
@@ -2576,54 +2579,27 @@ export class WidgetComponent {
     templateId: string,
     options: { page: number; limit: number },
   ): Promise<any> {
-    // For now, return mock reviews since we don't have a reviews table
-    // In production, you'd query a separate reviews/ratings table
-    const mockReviews = [
-      {
-        id: '1',
-        userId: 'user1',
-        userName: 'John Doe',
-        userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john',
-        rating: 5,
-        review: 'Excellent template! Very easy to customize and deploy.',
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-        helpful: 12,
-      },
-      {
-        id: '2',
-        userId: 'user2',
-        userName: 'Jane Smith',
-        userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=jane',
-        rating: 4,
-        review:
-          'Good template with solid functionality. Could use more customization options.',
-        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-        helpful: 8,
-      },
-      {
-        id: '3',
-        userId: 'user3',
-        userName: 'Mike Johnson',
-        userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike',
-        rating: 5,
-        review: 'Perfect for our use case. Saved us hours of development time.',
-        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-        helpful: 15,
-      },
-    ];
 
-    const { page, limit } = options;
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedReviews = mockReviews.slice(startIndex, endIndex);
+    const reviews = await this.widgetRepository.find({
+      where: { id: templateId, isTemplate: true, isActive: true },
+      order: { createdAt: 'DESC' },
+      skip: (options.page - 1) * options.limit,
+      take: options.limit,
+      relations: ['user', 'organization', 'template', 'template.user', 'template.organization', 'template.templateReviews', 'template.templateReviews.user', 'template.templateReviews.organization'],
+    });
+
+    const totalReviews = await this.widgetRepository.count({
+      where: { id: templateId, isTemplate: true, isActive: true },
+      relations: ['user', 'organization', 'template', 'template.user', 'template.organization', 'template.templateReviews', 'template.templateReviews.user', 'template.templateReviews.organization'],  
+    });
 
     return {
-      data: paginatedReviews,
+      data: reviews,
       pagination: {
-        page,
-        limit,
-        total: mockReviews.length,
-        totalPages: Math.ceil(mockReviews.length / limit),
+        page: options.page,
+        limit: options.limit,
+        total: totalReviews,
+        totalPages: Math.ceil(totalReviews / options.limit),
       },
     };
   }

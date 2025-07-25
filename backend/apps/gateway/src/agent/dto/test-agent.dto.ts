@@ -39,18 +39,3 @@ export class TestAgentDto {
   @IsObject()
   metadata?: Record<string, any>;
 }
-
-export class BatchTestAgentDto {
-  @ApiProperty({ description: 'Array of test cases', type: [TestAgentDto] })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => TestAgentDto)
-  testCases: TestAgentDto[];
-
-  @ApiPropertyOptional({
-    description: 'Maximum concurrent tests',
-    default: 5,
-  })
-  @IsOptional()
-  maxConcurrency?: number;
-}
