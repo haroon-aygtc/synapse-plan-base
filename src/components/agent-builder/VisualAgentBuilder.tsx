@@ -13,11 +13,10 @@ import ReactFlow, {
   Background,
   BackgroundVariant,
   ReactFlowProvider,
-  useReactFlow,
   NodeTypes,
   Position,
   MarkerType,
-  ReactFlowInstance,
+  ConnectionLineType,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,8 +34,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import {
   Dialog,
   DialogContent,
@@ -54,7 +52,6 @@ import {
   MessageSquare,
   Zap,
   GitBranch,
-  Plus,
   Trash2,
   Copy,
   Eye,
@@ -70,12 +67,10 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { AgentConfiguration } from "@/lib/ai-assistant";
 import { useAgentBuilder } from "@/hooks/useAgentBuilder";
-import { api } from "@/lib/api";
 import { useAgentBuilderStore } from "@/store/agentBuilderStore";
 import { usePromptTemplates } from "@/hooks/usePromptTemplates";
 import { PromptTemplateManager } from "@/components/prompt-templates/PromptTemplateManager";
-import { PromptTemplate } from "@/lib/prompt-template-api";
-import { AgentAPI, Agent } from "@/lib/agent-api";
+import { Agent } from "@/lib/agent-api";
 import { getToken } from "@/lib/auth";
 
 interface VisualAgentBuilderProps {
@@ -83,44 +78,54 @@ interface VisualAgentBuilderProps {
   currentConfiguration: Partial<AgentConfiguration>;
 }
 
-interface AgentNode {
-  id: string;
-  type: "agent" | "tool" | "knowledge" | "trigger" | "condition" | "output";
-  position: { x: number; y: number };
-  data: {
-    label: string;
-    config: Record<string, any>;
-    status?: "idle" | "running" | "success" | "error";
-    metrics?: {
-      executionTime?: number;
-      cost?: number;
-      tokensUsed?: number;
-    };
-    nodeType?: string;
-    onDelete?: (id: string) => void;
-    onUpdate?: (id: string, config: Record<string, any>) => void;
-  };
+interface AgentNodeMetrics {
+  executionTime?: number;
+  cost?: number;
+  tokensUsed?: number;
+  toolCalls?: number;
+  knowledgeSearches?: number;
 }
 
-interface AgentEdge {
-  id: string;
-  source: string;
-  target: string;
-  type?: string;
-  animated?: boolean;
+interface AgentNodeConfig {
+  agentId?: string;
+  agentName?: string;
+  promptTemplateId?: string;
+  promptTemplateName?: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  prompt?: string;
+  toolId?: string;
+  toolName?: string;
+  parameters?: Record<string, unknown>;
+  knowledgeId?: string;
+  knowledgeName?: string;
+  query?: string;
+  limit?: number;
+  condition?: string;
   label?: string;
-  data?: {
-    condition?: string;
-    weight?: number;
-  };
 }
+
+interface AgentNodeData {
+  label: string;
+  config: AgentNodeConfig;
+  status?: "idle" | "running" | "success" | "error";
+  metrics?: AgentNodeMetrics;
+  nodeType: "agent" | "tool" | "knowledge" | "trigger" | "condition" | "output";
+  onDelete?: (id: string) => void;
+  onUpdate?: (id: string, config: AgentNodeConfig) => void;
+}
+
+type AgentNode = Node<AgentNodeData>;
+
+
 
 interface Tool {
   id: string;
   name: string;
   description?: string;
   type: string;
-  configuration: Record<string, any>;
+  configuration: Record<string, unknown>;
 }
 
 interface KnowledgeDocument {
@@ -131,14 +136,22 @@ interface KnowledgeDocument {
   status: string;
 }
 
-const CustomNode = ({
+interface ExecutionResult {
+  output: string | unknown;
+  data?: unknown;
+  metrics?: AgentNodeMetrics;
+}
+
+interface CustomNodeProps {
+  data: AgentNodeData;
+  selected: boolean;
+  id: string;
+}
+
+const CustomNode: React.FC<CustomNodeProps> = ({
   data,
   selected,
   id,
-}: {
-  data: any;
-  selected: boolean;
-  id: string;
 }) => {
   const getNodeColor = (nodeType: string) => {
     switch (nodeType) {
@@ -268,20 +281,16 @@ const nodeTypes: NodeTypes = {
 };
 
 function VisualAgentBuilderInner({
-  onConfigurationUpdate,
   currentConfiguration,
 }: VisualAgentBuilderProps) {
   const { toast } = useToast();
-  const reactFlowInstance = useReactFlow();
-  const { executeAgent, testAgent, createAgent, updateAgent } =
-    useAgentBuilder();
-  const { currentAgent, updateAgentConfiguration } = useAgentBuilderStore();
+  const { executeAgent, createAgent } = useAgentBuilder();
   const { addComponent, setSelectedComponent } = useAgentBuilderStore();
-  const [nodes, setNodes, onNodesChange] = useNodesState<AgentNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<AgentEdge>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [selectedNode, setSelectedNode] = useState<AgentNode | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [executionResults, setExecutionResults] = useState<Record<string, any>>(
+  const [executionResults, setExecutionResults] = useState<Record<string, ExecutionResult>>(
     {},
   );
   const [testInput, setTestInput] = useState("");
@@ -299,7 +308,6 @@ function VisualAgentBuilderInner({
 
   const {
     templates: promptTemplates,
-    renderTemplate,
     loading: templatesLoading,
   } = usePromptTemplates();
 
@@ -353,7 +361,7 @@ function VisualAgentBuilderInner({
   const onConnect = useCallback(
     (params: Connection) => {
       if (params.source && params.target) {
-        const newEdge: AgentEdge = {
+        const newEdge: Edge = {
           id: `edge-${params.source}-${params.target}-${Date.now()}`,
           source: params.source,
           target: params.target,
@@ -377,9 +385,9 @@ function VisualAgentBuilderInner({
   );
 
   const onNodeClick = useCallback(
-    (event: React.MouseEvent, node: Node) => {
-      const agentNode = nodes.find((n) => n.id === node.id);
-      setSelectedNode(agentNode as AgentNode | null);
+    (_event: React.MouseEvent, node: Node) => {
+      const agentNode = nodes.find((n) => n.id === node.id) as AgentNode | undefined;
+      setSelectedNode(agentNode || null);
     },
     [nodes],
   );
@@ -389,7 +397,7 @@ function VisualAgentBuilderInner({
   }, []);
 
   const addNode = useCallback(
-    (nodeType: AgentNode["type"], position?: { x: number; y: number }) => {
+    (nodeType: "agent" | "tool" | "knowledge" | "trigger" | "condition" | "output", position?: { x: number; y: number }) => {
       const id = `${nodeType}-${Date.now()}`;
       const newNode: AgentNode = {
         id,
@@ -407,12 +415,12 @@ function VisualAgentBuilderInner({
         },
       };
 
-      setNodes((nds) => [...nds, newNode as Node<AgentNode, string>]);
+      setNodes((nds) => [...nds, newNode]);
       setSelectedNode(newNode);
-      addComponent(newNode);
-      setSelectedComponent(newNode);
+      addComponent(newNode as any);
+      setSelectedComponent(newNode as any);
     },
-    [setNodes],
+    [setNodes, addComponent, setSelectedComponent],
   );
 
   const deleteNode = useCallback(
@@ -429,7 +437,7 @@ function VisualAgentBuilderInner({
   );
 
   const updateNodeConfig = useCallback(
-    (nodeId: string, config: Record<string, any>) => {
+    (nodeId: string, config: Partial<AgentNodeConfig>) => {
       setNodes((nds) =>
         nds.map((node) =>
           node.id === nodeId
@@ -486,8 +494,8 @@ function VisualAgentBuilderInner({
       );
 
       // Execute nodes in topological order
-      const sortedNodes = topologicalSort(nodes as AgentNode[], edges as AgentEdge[]);
-      const results: Record<string, any> = {};
+      const sortedNodes = topologicalSort(nodes as AgentNode[], edges);
+      const results: Record<string, ExecutionResult> = {};
       const log: string[] = [];
 
       log.push(`Starting workflow execution with ${sortedNodes.length} nodes`);
@@ -565,9 +573,9 @@ function VisualAgentBuilderInner({
 
   const executeNode = async (
     node: AgentNode,
-    previousResults: Record<string, any>,
+    previousResults: Record<string, ExecutionResult>,
     input: string,
-  ) => {
+  ): Promise<ExecutionResult> => {
     const startTime = Date.now();
 
     switch (node.type) {
@@ -726,7 +734,7 @@ function VisualAgentBuilderInner({
 
   const evaluateCondition = (
     condition: string,
-    previousResults: Record<string, any>,
+    previousResults: Record<string, ExecutionResult>,
     input: string,
   ): boolean => {
     try {
@@ -743,7 +751,7 @@ function VisualAgentBuilderInner({
 
   const topologicalSort = (
     nodes: AgentNode[],
-    edges: AgentEdge[],
+    edges: Edge[],
   ): AgentNode[] => {
     const graph = new Map<string, string[]>();
     const inDegree = new Map<string, number>();
@@ -1242,7 +1250,7 @@ function VisualAgentBuilderInner({
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
-            connectionLineType="smoothstep"
+            connectionLineType={ConnectionLineType.SmoothStep}
             connectionLineStyle={{
               stroke: "#3b82f6",
               strokeWidth: 2,
@@ -1316,7 +1324,7 @@ function VisualAgentBuilderInner({
                           <Card key={nodeId}>
                             <CardHeader className="pb-2">
                               <CardTitle className="text-sm">
-                                {node?.data.label || nodeId}
+                                {node?.data?.label || nodeId}
                               </CardTitle>
                             </CardHeader>
                             <CardContent>

@@ -9,6 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Monitor, Smartphone, Tablet, MessageCircle, Send, Minimize2, X, Bot, Wrench, Workflow } from 'lucide-react';
 import { WidgetConfiguration } from '@/lib/sdk/types';
 
+interface Message {
+  id: number;
+  type: 'bot' | 'user';
+  content: string;
+  timestamp: Date;
+}
+
 interface WidgetPreviewProps {
   configuration: WidgetConfiguration;
   sourceType?: 'agent' | 'tool' | 'workflow';
@@ -18,11 +25,11 @@ interface WidgetPreviewProps {
 export function WidgetPreview({ configuration, sourceType, sourceName }: WidgetPreviewProps) {
   const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isMinimized, setIsMinimized] = useState(false);
-  const [messages, setMessages] = useState([
+  const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
-      type: 'bot' as const,
-      content: configuration.behavior.showWelcomeMessage 
+      type: 'bot',
+      content: configuration.behavior.showWelcomeMessage
         ? `Hello! I'm your ${sourceType || 'AI'} assistant. How can I help you today?`
         : 'Hello! How can I help you today?',
       timestamp: new Date(),
@@ -42,9 +49,9 @@ export function WidgetPreview({ configuration, sourceType, sourceName }: WidgetP
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
 
-    const userMessage = {
+    const userMessage: Message = {
       id: messages.length + 1,
-      type: 'user' as const,
+      type: 'user',
       content: inputValue,
       timestamp: new Date(),
     };
@@ -59,9 +66,9 @@ export function WidgetPreview({ configuration, sourceType, sourceName }: WidgetP
     // Simulate bot response
     setTimeout(() => {
       setIsTyping(false);
-      const botMessage = {
+      const botMessage: Message = {
         id: messages.length + 2,
-        type: 'bot' as const,
+        type: 'bot',
         content: `This is a preview response from your ${sourceType || 'AI assistant'}. In the actual widget, this would be powered by your ${sourceName || sourceType || 'source'}.`,
         timestamp: new Date(),
       };

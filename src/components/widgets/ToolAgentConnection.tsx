@@ -19,7 +19,7 @@ import {
   CheckCircle,
   ExternalLink,
 } from 'lucide-react';
-import api from '@/lib/api';
+import { apiClient } from '@/lib/api';
 
 interface AgentConnection {
   id: string;
@@ -54,7 +54,7 @@ export function ToolAgentConnection({
       setLoading(true);
       setError(null);
       
-      const response = await api.get(`/tools/${toolId}/agent-connections`);
+      const response = await apiClient.get(`/tools/${toolId}/agent-connections`);
       
       if (response.data.success) {
         setConnections(response.data.data);
@@ -77,7 +77,7 @@ export function ToolAgentConnection({
         ? `/tools/${toolId}/disconnect-agent/${agentId}`
         : `/tools/${toolId}/connect-agent/${agentId}`;
       
-      const response = await api.post(endpoint);
+      const response = await apiClient.post(endpoint);
       
       if (response.data.success) {
         await fetchConnections(); // Refresh the list

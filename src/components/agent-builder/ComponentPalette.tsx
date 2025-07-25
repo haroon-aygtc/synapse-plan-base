@@ -25,7 +25,7 @@ import {
   Settings,
 } from "lucide-react";
 import { AgentConfiguration } from "@/lib/ai-assistant";
-import api from "@/lib/api";
+import { apiClient } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
 
 interface ComponentPaletteProps {
@@ -363,7 +363,7 @@ export default function ComponentPalette({
 
   const loadCustomComponents = async () => {
     try {
-      const response = await api.get("/components/custom");
+      const response = await apiClient.get("/components/custom");
       if (response.data.success) {
         setCustomComponents(response.data.data || []);
       }

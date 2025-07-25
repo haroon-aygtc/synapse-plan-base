@@ -80,7 +80,7 @@
     "cmdk": "^1.0.4",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
-    "csurf": "^1.11.0",
+    "csurf": "^1.2.2",
     "dd-trace": "^5.60.0",
     "embla-carousel-react": "^8.5.2",
     "firebase-admin": "^13.4.0",

@@ -260,7 +260,7 @@ export class WebSocketService implements OnModuleInit {
           // Send to user's room
           this.server.to(`user:${connection.userId}`).emit('message', message);
           deliveredCount++;
-        } catch (error) {
+        } catch (error: any) {
           this.logger.error(
             `Failed to deliver message to connection ${connectionId}: ${error.message}`,
           );
@@ -448,7 +448,7 @@ export class WebSocketService implements OnModuleInit {
       this.logger.log(
         `Agent execution started: ${payload.execution_id} for agent ${payload.agent_id}`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to handle agent execution start: ${error.message}`,
         error.stack,
@@ -511,7 +511,7 @@ export class WebSocketService implements OnModuleInit {
       this.logger.log(
         `Tool call started: ${payload.tool_call_id} for tool ${payload.tool_id}`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to handle tool call start: ${error.message}`,
         error.stack,
@@ -548,7 +548,7 @@ export class WebSocketService implements OnModuleInit {
       this.logger.log(
         `HITL request created: ${payload.request_id} with priority ${payload.priority}`,
       );
-    } catch (error) {
+    } catch (error: any   ) {
       this.logger.error(
         `Failed to handle HITL request: ${error.message}`,
         error.stack,
@@ -596,7 +596,7 @@ export class WebSocketService implements OnModuleInit {
       this.logger.log(
         `Knowledge search performed: ${payload.search_id} with query "${payload.query}"`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to handle knowledge search: ${error.message}`,
         error.stack,
@@ -630,7 +630,7 @@ export class WebSocketService implements OnModuleInit {
       this.logger.log(
         `Widget query submitted: ${payload.interaction_id} for widget ${payload.widget_id}`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to handle widget query: ${error.message}`,
         error.stack,
@@ -676,7 +676,7 @@ export class WebSocketService implements OnModuleInit {
       this.logger.log(
         `Stream ${action}d: ${executionId} by user ${context.userId}`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to handle stream control: ${error.message}`,
         error.stack,
@@ -736,7 +736,7 @@ export class WebSocketService implements OnModuleInit {
       this.logger.debug(
         `Streamed text chunk ${chunkId} for execution ${executionId} (${text.length} chars)`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to stream text chunk: ${error.message}`,
         error.stack,
@@ -771,7 +771,7 @@ export class WebSocketService implements OnModuleInit {
       this.logger.debug(
         `Streamed provider event ${eventType} to organization ${organizationId}`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to stream provider event: ${error.message}`,
         error.stack,
@@ -827,7 +827,7 @@ export class WebSocketService implements OnModuleInit {
       this.logger.log(
         `Execution completed: ${executionId} in ${executionTimeMs}ms`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to complete execution: ${error.message}`,
         error.stack,
@@ -876,7 +876,7 @@ export class WebSocketService implements OnModuleInit {
       this.logger.error(
         `Execution error: ${executionId} - ${errorType}: ${errorMessage}`,
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
         `Failed to handle execution error: ${error.message}`,
         error.stack,
@@ -959,7 +959,7 @@ export class WebSocketService implements OnModuleInit {
     };
 
     return (
-      suggestions[errorType.toLowerCase()] || 'Contact support for assistance'
+      suggestions[errorType.toLowerCase() as keyof typeof suggestions] || 'Contact support for assistance'
     );
   }
 }

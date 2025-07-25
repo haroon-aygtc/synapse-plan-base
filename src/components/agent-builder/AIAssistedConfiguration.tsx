@@ -206,19 +206,13 @@ export function AIAssistedConfiguration() {
 
     setIsPreviewLoading(true);
     try {
-      const preview = await previewAgentResponse(
-        agentPrompt,
-        selectedModel,
-        temperature[0],
-        personalityTraits.reduce(
-          (acc, trait) => ({
-            ...acc,
-            [trait.name.toLowerCase()]: trait.value,
-          }),
-          {},
-        ),
-        "Hello! Can you help me with a quick question?",
-      );
+      const preview = await previewAgentResponse({
+        name: agentName || "Preview Agent",
+        prompt: agentPrompt,
+        model: selectedModel,
+        // Note: temperature is not part of the previewAgentResponse API
+        // It's used in the actual agent execution
+      });
 
       setPreviewResponse(preview.response);
     } catch (error) {

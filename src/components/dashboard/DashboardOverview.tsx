@@ -18,7 +18,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import QuickAccessPanel from './QuickAccessPanel';
 import { useAuth } from '@/hooks/useAuth';
-import { api as apiClient } from '@/lib/api';
+import {  apiClient } from '@/lib/api';
 import { wsService } from '@/lib/websocket';
 import {
   DashboardData,
