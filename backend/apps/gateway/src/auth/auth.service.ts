@@ -13,8 +13,8 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { UserService } from './user.service';
 import { OrganizationService } from './organization.service';
-import { RegisterDto, LoginDto } from './dto';
-import { IJwtPayload, IUser, ISession } from '@shared/interfaces';
+import { RegisterDto, LoginDto, InviteUserDto } from './dto';
+import { IJwtPayload, IUser, ISession, UserRole } from '@shared/interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EventType } from '@shared/enums';
 import { SessionService } from '../session/session.service';
@@ -79,10 +79,20 @@ export class AuthService {
       firstName,
       lastName,
       organizationId: organization?.id,
+      role: organization ? UserRole.ORG_ADMIN : UserRole.DEVELOPER, // First user in org becomes admin
     });
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
+
+    // Emit registration event for audit logging
+    this.eventEmitter.emit(EventType.USER_CREATED, {
+      userId: user.id,
+      organizationId: user.organizationId,
+      email: user.email,
+      role: user.role,
+      timestamp: new Date(),
+    });
 
     return {
       user: this.sanitizeUser(user),
@@ -121,6 +131,15 @@ export class AuthService {
 
     // Update last login
     await this.userService.updateLastLogin(user.id);
+
+    // Emit login event for audit logging
+    this.eventEmitter.emit(EventType.USER_LOGIN, {
+      userId: user.id,
+      organizationId: user.organizationId,
+      userAgent,
+      ipAddress,
+      timestamp: new Date(),
+    });
 
     return {
       user: this.sanitizeUser(user),
@@ -382,5 +401,56 @@ export class AuthService {
       default:
         return 3600;
     }
+  }
+
+  async inviteUser(
+    inviteUserDto: InviteUserDto,
+    organizationId: string,
+    invitedBy: string,
+  ) {
+    const { email, firstName, lastName, role, permissions, message } =
+      inviteUserDto;
+
+    // Check if user already exists
+    const existingUser = await this.userService.findByEmail(email);
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    // Generate temporary password and invitation token
+    const tempPassword = crypto.randomBytes(16).toString('hex');
+    const invitationToken = crypto.randomBytes(32).toString('hex');
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+    // Create user with invitation token
+    const user = await this.userService.create({
+      email,
+      passwordHash,
+      firstName,
+      lastName,
+      organizationId,
+      role,
+      permissions,
+      isActive: false, // User must activate account
+      emailVerificationToken: invitationToken,
+    });
+
+    // Emit user invitation event
+    this.eventEmitter.emit(EventType.USER_CREATED, {
+      userId: user.id,
+      organizationId,
+      email,
+      role,
+      invitedBy,
+      invitationToken,
+      message,
+      timestamp: new Date(),
+    });
+
+    return {
+      user: this.sanitizeUser(user),
+      invitationToken,
+      tempPassword, // In production, this would be sent via email
+    };
   }
 }

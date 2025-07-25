@@ -1,29 +1,19 @@
-import { api } from './api';
-import { UserRole } from '@/types/global';
+import { api } from "./api";
+import { UserRole } from "@/types/global";
 
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
-  organizationId: string;
   role: UserRole;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
   lastLoginAt?: string;
   avatar?: string;
-  preferences?: Record<string, any>;
   permissions?: string[];
-}
-
-export interface InviteUserRequest {
-  email: string;
-  firstName: string;
-  lastName: string;
-  role: UserRole;
-  permissions?: string[];
-  message?: string;
+  organizationId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface UserSearchFilters {
@@ -31,7 +21,7 @@ export interface UserSearchFilters {
   role?: UserRole;
   isActive?: boolean;
   sortBy?: string;
-  sortOrder?: 'ASC' | 'DESC';
+  sortOrder?: "ASC" | "DESC";
 }
 
 export interface PaginatedUsers {
@@ -51,74 +41,79 @@ export interface UserStats {
   byRole: Record<UserRole, number>;
 }
 
+export interface InviteUserRequest {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: UserRole;
+  permissions?: string[];
+  message?: string;
+}
+
 export interface BulkActionResult {
   success: number;
   failed: number;
   errors: string[];
 }
 
-class UserAPI {
+export const userAPI = {
   async getUsers(
     page: number = 1,
     limit: number = 10,
-    filters?: UserSearchFilters,
+    filters: UserSearchFilters = {},
   ): Promise<PaginatedUsers> {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
-      ...(filters?.search && { search: filters.search }),
-      ...(filters?.role && { role: filters.role }),
-      ...(filters?.isActive !== undefined && {
-        isActive: filters.isActive.toString(),
-      }),
-      ...(filters?.sortBy && { sortBy: filters.sortBy }),
-      ...(filters?.sortOrder && { sortOrder: filters.sortOrder }),
+      ...Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value !== undefined),
+      ),
     });
 
     const response = await api.get(`/auth/users?${params}`);
-    return {
-      users: response.data.data,
-      pagination: response.data.pagination,
-    };
-  }
+    return response.data;
+  },
 
   async getUserById(id: string): Promise<User> {
     const response = await api.get(`/auth/users/${id}`);
     return response.data.data;
-  }
+  },
 
-  async inviteUser(
-    userData: InviteUserRequest,
-  ): Promise<{ invitationId: string; email: string }> {
-    const response = await api.post('/auth/users/invite', userData);
+  async getUserStats(): Promise<UserStats> {
+    const response = await api.get("/auth/users/stats");
     return response.data.data;
-  }
+  },
+
+  async inviteUser(userData: InviteUserRequest): Promise<any> {
+    const response = await api.post("/auth/users/invite", userData);
+    return response.data;
+  },
 
   async activateUser(userId: string): Promise<void> {
-    await api.post('/auth/users/activate', { userId });
-  }
+    await api.post("/auth/users/activate", { userId });
+  },
 
   async deactivateUser(userId: string, reason?: string): Promise<void> {
-    await api.post('/auth/users/deactivate', { userId, reason });
-  }
+    await api.post("/auth/users/deactivate", { userId, reason });
+  },
 
   async updateUser(id: string, userData: Partial<User>): Promise<User> {
     const response = await api.put(`/auth/users/${id}`, userData);
     return response.data.data;
-  }
+  },
 
   async bulkAction(
     userIds: string[],
-    action: 'activate' | 'deactivate' | 'delete',
+    action: "activate" | "deactivate" | "delete",
     reason?: string,
   ): Promise<BulkActionResult> {
-    const response = await api.post('/auth/users/bulk-action', {
+    const response = await api.post("/auth/users/bulk-action", {
       userIds,
       action,
       reason,
     });
     return response.data.data;
-  }
+  },
 
   async searchUsers(
     searchTerm: string,
@@ -130,21 +125,27 @@ class UserAPI {
   ): Promise<User[]> {
     const params = new URLSearchParams({
       search: searchTerm,
-      ...(filters?.role && { role: filters.role }),
-      ...(filters?.isActive !== undefined && {
-        isActive: filters.isActive.toString(),
-      }),
-      ...(filters?.limit && { limit: filters.limit.toString() }),
+      ...Object.fromEntries(
+        Object.entries(filters || {}).filter(
+          ([_, value]) => value !== undefined,
+        ),
+      ),
     });
 
-    const response = await api.get(`/auth/users?${params}`);
+    const response = await api.get(`/auth/users/search?${params}`);
     return response.data.data;
-  }
+  },
 
-  async getUserStats(): Promise<UserStats> {
-    const response = await api.get('/auth/users/stats');
+  async resetPassword(userId: string): Promise<void> {
+    await api.post(`/auth/users/${userId}/reset-password`);
+  },
+
+  async impersonateUser(userId: string): Promise<{ token: string }> {
+    const response = await api.post("/auth/impersonate", { userId });
     return response.data.data;
-  }
-}
+  },
 
-export const userAPI = new UserAPI();
+  async stopImpersonation(): Promise<void> {
+    await api.post("/auth/stop-impersonation");
+  },
+};

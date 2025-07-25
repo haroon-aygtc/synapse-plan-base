@@ -1,74 +1,102 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
 import {
   userAPI,
   User,
   UserSearchFilters,
-  PaginatedUsers,
-  UserStats,
   InviteUserRequest,
-  BulkActionResult,
-} from '@/lib/user-api';
-import { UserRole } from '@/types/global';
-import { useToast } from '@/components/ui/use-toast';
+} from "@/lib/user-api";
+import { UserRole } from "@/types/global";
 
-export interface UseUserManagementOptions {
-  initialPage?: number;
-  initialLimit?: number;
-  initialFilters?: UserSearchFilters;
+interface UseUserManagementReturn {
+  users: User[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  filters: UserSearchFilters;
+  stats: {
+    total: number;
+    active: number;
+    inactive: number;
+    byRole: Record<UserRole, number>;
+  } | null;
+  selectedUsers: string[];
+  loading: boolean;
+  error: string | null;
+  fetchUsers: () => Promise<void>;
+  inviteUser: (userData: InviteUserRequest) => Promise<any>;
+  activateUser: (userId: string) => Promise<void>;
+  deactivateUser: (userId: string, reason?: string) => Promise<void>;
+  updateUser: (id: string, userData: Partial<User>) => Promise<User>;
+  bulkAction: (
+    userIds: string[],
+    action: "activate" | "deactivate" | "delete",
+    reason?: string,
+  ) => Promise<void>;
+  updateFilters: (newFilters: UserSearchFilters) => void;
+  changePage: (page: number) => void;
+  toggleUserSelection: (userId: string) => void;
+  selectAllUsers: () => void;
+  clearSelection: () => void;
+  hasSelection: boolean;
+  allSelected: boolean;
 }
 
-export function useUserManagement(options: UseUserManagementOptions = {}) {
-  const { initialPage = 1, initialLimit = 10, initialFilters = {} } = options;
-  const { toast } = useToast();
-
+export function useUserManagement(): UseUserManagementReturn {
   const [users, setUsers] = useState<User[]>([]);
   const [pagination, setPagination] = useState({
-    page: initialPage,
-    limit: initialLimit,
+    page: 1,
+    limit: 10,
     total: 0,
     totalPages: 0,
   });
-  const [filters, setFilters] = useState<UserSearchFilters>(initialFilters);
+  const [filters, setFilters] = useState<UserSearchFilters>({
+    search: "",
+    role: undefined,
+    isActive: undefined,
+    sortBy: "createdAt",
+    sortOrder: "DESC" as const,
+  });
+  const [stats, setStats] = useState<{
+    total: number;
+    active: number;
+    inactive: number;
+    byRole: Record<UserRole, number>;
+  } | null>(null);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
-  const fetchUsers = useCallback(
-    async (page?: number, newFilters?: UserSearchFilters) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const currentPage = page || pagination.page;
-        const currentFilters = newFilters || filters;
-
-        const result = await userAPI.getUsers(
-          currentPage,
-          pagination.limit,
-          currentFilters,
-        );
-        setUsers(result.users);
-        setPagination(result.pagination);
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch users');
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch users',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    },
-    [pagination.page, pagination.limit, filters, toast],
-  );
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await userAPI.getUsers(
+        pagination.page,
+        pagination.limit,
+        filters,
+      );
+      setUsers(response.users);
+      setPagination((prev) => ({
+        ...prev,
+        total: response.pagination.total,
+        totalPages: response.pagination.totalPages,
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch users");
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.page, pagination.limit, filters]);
 
   const fetchStats = useCallback(async () => {
     try {
       const userStats = await userAPI.getUserStats();
       setStats(userStats);
-    } catch (err: any) {
-      console.error('Failed to fetch user stats:', err);
+    } catch (err) {
+      console.error("Failed to fetch user stats:", err);
     }
   }, []);
 
@@ -76,157 +104,82 @@ export function useUserManagement(options: UseUserManagementOptions = {}) {
     async (userData: InviteUserRequest) => {
       try {
         const result = await userAPI.inviteUser(userData);
-        toast({
-          title: 'Success',
-          description: `Invitation sent to ${userData.email}`,
-        });
         await fetchUsers();
+        await fetchStats();
         return result;
-      } catch (err: any) {
-        toast({
-          title: 'Error',
-          description: err.message || 'Failed to send invitation',
-          variant: 'destructive',
-        });
+      } catch (err) {
         throw err;
       }
     },
-    [fetchUsers, toast],
+    [fetchUsers, fetchStats],
   );
 
   const activateUser = useCallback(
     async (userId: string) => {
       try {
         await userAPI.activateUser(userId);
-        toast({
-          title: 'Success',
-          description: 'User activated successfully',
-        });
         await fetchUsers();
         await fetchStats();
-      } catch (err: any) {
-        toast({
-          title: 'Error',
-          description: err.message || 'Failed to activate user',
-          variant: 'destructive',
-        });
+      } catch (err) {
         throw err;
       }
     },
-    [fetchUsers, fetchStats, toast],
+    [fetchUsers, fetchStats],
   );
 
   const deactivateUser = useCallback(
     async (userId: string, reason?: string) => {
       try {
         await userAPI.deactivateUser(userId, reason);
-        toast({
-          title: 'Success',
-          description: 'User deactivated successfully',
-        });
         await fetchUsers();
         await fetchStats();
-      } catch (err: any) {
-        toast({
-          title: 'Error',
-          description: err.message || 'Failed to deactivate user',
-          variant: 'destructive',
-        });
+      } catch (err) {
         throw err;
       }
     },
-    [fetchUsers, fetchStats, toast],
+    [fetchUsers, fetchStats],
   );
 
   const updateUser = useCallback(
     async (id: string, userData: Partial<User>) => {
       try {
         const updatedUser = await userAPI.updateUser(id, userData);
-        toast({
-          title: 'Success',
-          description: 'User updated successfully',
-        });
         await fetchUsers();
+        await fetchStats();
         return updatedUser;
-      } catch (err: any) {
-        toast({
-          title: 'Error',
-          description: err.message || 'Failed to update user',
-          variant: 'destructive',
-        });
+      } catch (err) {
         throw err;
       }
     },
-    [fetchUsers, toast],
+    [fetchUsers, fetchStats],
   );
 
   const bulkAction = useCallback(
     async (
       userIds: string[],
-      action: 'activate' | 'deactivate' | 'delete',
+      action: "activate" | "deactivate" | "delete",
       reason?: string,
-    ): Promise<BulkActionResult> => {
+    ) => {
       try {
-        const result = await userAPI.bulkAction(userIds, action, reason);
-        toast({
-          title: 'Bulk Action Complete',
-          description: `${result.success} users processed successfully. ${result.failed} failed.`,
-        });
+        await userAPI.bulkAction(userIds, action, reason);
         await fetchUsers();
         await fetchStats();
         setSelectedUsers([]);
-        return result;
-      } catch (err: any) {
-        toast({
-          title: 'Error',
-          description: err.message || 'Bulk action failed',
-          variant: 'destructive',
-        });
+      } catch (err) {
         throw err;
       }
     },
-    [fetchUsers, fetchStats, toast],
+    [fetchUsers, fetchStats],
   );
 
-  const searchUsers = useCallback(
-    async (
-      searchTerm: string,
-      searchFilters?: {
-        role?: UserRole;
-        isActive?: boolean;
-        limit?: number;
-      },
-    ) => {
-      try {
-        const results = await userAPI.searchUsers(searchTerm, searchFilters);
-        return results;
-      } catch (err: any) {
-        toast({
-          title: 'Error',
-          description: err.message || 'Search failed',
-          variant: 'destructive',
-        });
-        throw err;
-      }
-    },
-    [toast],
-  );
+  const updateFilters = useCallback((newFilters: UserSearchFilters) => {
+    setFilters(newFilters);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, []);
 
-  const updateFilters = useCallback(
-    (newFilters: UserSearchFilters) => {
-      setFilters(newFilters);
-      fetchUsers(1, newFilters);
-    },
-    [fetchUsers],
-  );
-
-  const changePage = useCallback(
-    (page: number) => {
-      setPagination((prev) => ({ ...prev, page }));
-      fetchUsers(page);
-    },
-    [fetchUsers],
-  );
+  const changePage = useCallback((page: number) => {
+    setPagination((prev) => ({ ...prev, page }));
+  }, []);
 
   const toggleUserSelection = useCallback((userId: string) => {
     setSelectedUsers((prev) =>
@@ -244,13 +197,18 @@ export function useUserManagement(options: UseUserManagementOptions = {}) {
     setSelectedUsers([]);
   }, []);
 
+  const hasSelection = selectedUsers.length > 0;
+  const allSelected = users.length > 0 && selectedUsers.length === users.length;
+
   useEffect(() => {
     fetchUsers();
+  }, [fetchUsers]);
+
+  useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   return {
-    // Data
     users,
     pagination,
     filters,
@@ -258,26 +216,18 @@ export function useUserManagement(options: UseUserManagementOptions = {}) {
     selectedUsers,
     loading,
     error,
-
-    // Actions
     fetchUsers,
-    fetchStats,
     inviteUser,
     activateUser,
     deactivateUser,
     updateUser,
     bulkAction,
-    searchUsers,
     updateFilters,
     changePage,
-
-    // Selection
     toggleUserSelection,
     selectAllUsers,
     clearSelection,
-
-    // Computed
-    hasSelection: selectedUsers.length > 0,
-    allSelected: selectedUsers.length === users.length && users.length > 0,
+    hasSelection,
+    allSelected,
   };
 }

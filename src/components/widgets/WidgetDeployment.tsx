@@ -57,85 +57,37 @@ export function WidgetDeployment({
   const [enableCaching, setEnableCaching] = useState(true);
 
   const generateEmbedCode = () => {
-    const baseUrl =
-      widget.deploymentInfo?.urls?.embed || "https://widgets.synapseai.com";
-    const widgetId = widget.id;
+    if (!widget.isDeployed || !widget.deploymentInfo) {
+      return "<!-- Widget must be deployed to generate embed code -->";
+    }
 
-    switch (embedFormat) {
-      case "javascript":
-        return `<!-- SynapseAI Widget -->
-<script>
-  (function() {
-    var script = document.createElement('script');
-    script.src = '${baseUrl}/embed.js';
-    script.setAttribute('data-widget-id', '${widgetId}');
-    script.setAttribute('data-theme', 'auto');
-    document.head.appendChild(script);
-  })();
-</script>`;
+    const embedGenerator =
+      new (require("@/lib/widget-runtime/embed-generator").WidgetEmbedGenerator)();
 
-      case "iframe":
-        return `<iframe
-  src="${baseUrl}/${widgetId}"
-  width="${widget.configuration.layout.width}"
-  height="${widget.configuration.layout.height}"
-  frameborder="0"
-  style="border: none; border-radius: 8px;"
-  title="${widget.name}"
-></iframe>`;
+    const embedOptions = {
+      format: embedFormat,
+      width: widget.configuration.layout.width + "px",
+      height: widget.configuration.layout.height + "px",
+      responsive: widget.configuration.layout.responsive,
+      enableAnalytics,
+      enableCaching,
+      customDomain,
+      theme: {
+        primaryColor: widget.configuration.theme.primaryColor,
+        secondaryColor: widget.configuration.theme.secondaryColor,
+        backgroundColor: widget.configuration.theme.backgroundColor,
+        textColor: widget.configuration.theme.textColor,
+        borderRadius: widget.configuration.theme.borderRadius,
+        fontSize: widget.configuration.theme.fontSize,
+        fontFamily: widget.configuration.theme.fontFamily,
+      },
+    };
 
-      case "react":
-        return `import { SynapseWidget } from '@synapseai/react-widget';
-
-function MyComponent() {
-  return (
-    <SynapseWidget
-      widgetId="${widgetId}"
-      theme="auto"
-      width={${widget.configuration.layout.width}}
-      height={${widget.configuration.layout.height}}
-    />
-  );
-}`;
-
-      case "vue":
-        return `<template>
-  <SynapseWidget
-    :widget-id="'${widgetId}'"
-    theme="auto"
-    :width="${widget.configuration.layout.width}"
-    :height="${widget.configuration.layout.height}"
-  />
-</template>
-
-<script>
-import { SynapseWidget } from '@synapseai/vue-widget';
-
-export default {
-  components: {
-    SynapseWidget
-  }
-};
-</script>`;
-
-      case "angular":
-        return `import { Component } from '@angular/core';
-
-@Component({
-  selector: 'app-widget',
-  template: \`
-    <synapse-widget
-      widgetId="${widgetId}"
-      theme="auto"
-      [width]="${widget.configuration.layout.width}"
-      [height]="${widget.configuration.layout.height}">
-    </synapse-widget>
-  \`
-})
-export class WidgetComponent {}`;
-
-      default:
-        return "";
+    try {
+      return embedGenerator.generateEmbedCode(widget, embedOptions);
+    } catch (error) {
+      console.error("Failed to generate embed code:", error);
+      return `<!-- Error generating embed code: ${error.message} -->`;
     }
   };
 

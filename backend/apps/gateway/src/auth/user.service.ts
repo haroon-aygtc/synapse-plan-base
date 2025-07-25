@@ -18,6 +18,9 @@ interface CreateUserData {
   lastName: string;
   organizationId?: string;
   role?: UserRole;
+  permissions?: string[];
+  isActive?: boolean;
+  emailVerificationToken?: string;
 }
 
 interface UpdateUserData {
@@ -60,8 +63,11 @@ export class UserService {
     const user = this.userRepository.create({
       ...userData,
       role: userData.role || UserRole.DEVELOPER,
-      isActive: true,
+      isActive: userData.isActive !== undefined ? userData.isActive : true,
       emailVerified: false,
+      permissions:
+        userData.permissions ||
+        this.getDefaultPermissions(userData.role || UserRole.DEVELOPER),
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -538,5 +544,114 @@ export class UserService {
     });
 
     return stats;
+  }
+
+  private getDefaultPermissions(role: UserRole): string[] {
+    const rolePermissions = {
+      [UserRole.SUPER_ADMIN]: [
+        'system:admin',
+        'system:monitor',
+        'org:read',
+        'org:update',
+        'org:delete',
+        'org:settings',
+        'org:billing',
+        'user:create',
+        'user:read',
+        'user:update',
+        'user:delete',
+        'user:invite',
+        'agent:create',
+        'agent:read',
+        'agent:update',
+        'agent:delete',
+        'agent:execute',
+        'tool:create',
+        'tool:read',
+        'tool:update',
+        'tool:delete',
+        'tool:execute',
+        'workflow:create',
+        'workflow:read',
+        'workflow:update',
+        'workflow:delete',
+        'workflow:execute',
+        'workflow:approve',
+        'knowledge:create',
+        'knowledge:read',
+        'knowledge:update',
+        'knowledge:delete',
+        'knowledge:search',
+        'analytics:read',
+        'analytics:export',
+      ],
+      [UserRole.ORG_ADMIN]: [
+        'org:read',
+        'org:update',
+        'org:settings',
+        'org:billing',
+        'user:create',
+        'user:read',
+        'user:update',
+        'user:delete',
+        'user:invite',
+        'agent:create',
+        'agent:read',
+        'agent:update',
+        'agent:delete',
+        'agent:execute',
+        'tool:create',
+        'tool:read',
+        'tool:update',
+        'tool:delete',
+        'tool:execute',
+        'workflow:create',
+        'workflow:read',
+        'workflow:update',
+        'workflow:delete',
+        'workflow:execute',
+        'workflow:approve',
+        'knowledge:create',
+        'knowledge:read',
+        'knowledge:update',
+        'knowledge:delete',
+        'knowledge:search',
+        'analytics:read',
+        'analytics:export',
+      ],
+      [UserRole.DEVELOPER]: [
+        'agent:create',
+        'agent:read',
+        'agent:update',
+        'agent:delete',
+        'agent:execute',
+        'tool:create',
+        'tool:read',
+        'tool:update',
+        'tool:delete',
+        'tool:execute',
+        'workflow:create',
+        'workflow:read',
+        'workflow:update',
+        'workflow:delete',
+        'workflow:execute',
+        'knowledge:create',
+        'knowledge:read',
+        'knowledge:update',
+        'knowledge:delete',
+        'knowledge:search',
+        'analytics:read',
+      ],
+      [UserRole.VIEWER]: [
+        'agent:read',
+        'tool:read',
+        'workflow:read',
+        'knowledge:read',
+        'knowledge:search',
+        'analytics:read',
+      ],
+    };
+
+    return rolePermissions[role] || rolePermissions[UserRole.VIEWER];
   }
 }

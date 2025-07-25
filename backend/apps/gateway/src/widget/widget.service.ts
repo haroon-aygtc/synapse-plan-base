@@ -2,12 +2,25 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
+  ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, In } from 'typeorm';
+import { Repository, Like, In, Between } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { Widget } from '@database/entities/widget.entity';
+import { ConfigService } from '@nestjs/config';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Inject } from '@nestjs/common';
+import { Cache } from 'cache-manager';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import {
+  Widget,
+  WidgetConfiguration,
+  WidgetDeploymentInfo,
+  WidgetAnalyticsData,
+} from '@database/entities/widget.entity';
 import { WidgetExecution } from '@database/entities/widget-execution.entity';
 import { WidgetAnalytics } from '@database/entities/widget-analytics.entity';
 import { Agent } from '@database/entities/agent.entity';
@@ -30,15 +43,20 @@ import { AgentService } from '../agent/agent.service';
 import { ToolService } from '../tool/tool.service';
 import { WorkflowService } from '../workflow/workflow.service';
 import { SessionService } from '../session/session.service';
-import { WebsocketService } from '../websocket/websocket.service';
-import {
-  WidgetConfiguration,
-  WidgetDeploymentInfo,
-  WidgetAnalyticsData,
-} from '@libs/shared/interfaces/widget.interface';
+import { WebSocketService } from '../websocket/websocket.service';
+import * as crypto from 'crypto';
+import * as jwt from 'jsonwebtoken';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class WidgetService {
+  private readonly logger = new Logger(WidgetService.name);
+  private readonly baseURL: string;
+  private readonly cdnURL: string;
+  private readonly jwtSecret: string;
+  private readonly maxWidgetsPerOrg: number;
+  private readonly maxExecutionsPerMinute: number;
+
   constructor(
     @InjectRepository(Widget)
     private widgetRepository: Repository<Widget>,
@@ -60,12 +78,31 @@ export class WidgetService {
     private sessionRepository: Repository<Session>,
     @InjectQueue('widget-processing')
     private widgetQueue: Queue,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
+    private configService: ConfigService,
+    private eventEmitter: EventEmitter2,
     private agentService: AgentService,
     private toolService: ToolService,
     private workflowService: WorkflowService,
     private sessionService: SessionService,
-    private websocketService: WebsocketService,
-  ) {}
+    private websocketService: WebSocketService,
+  ) {
+    this.baseURL = this.configService.get(
+      'WIDGET_BASE_URL',
+      'https://widgets.synapseai.com',
+    );
+    this.cdnURL = this.configService.get(
+      'CDN_BASE_URL',
+      'https://cdn.synapseai.com',
+    );
+    this.jwtSecret = this.configService.get('JWT_SECRET');
+    this.maxWidgetsPerOrg = this.configService.get('MAX_WIDGETS_PER_ORG', 100);
+    this.maxExecutionsPerMinute = this.configService.get(
+      'MAX_EXECUTIONS_PER_MINUTE',
+      1000,
+    );
+  }
 
   async create(
     createWidgetData: CreateWidgetDto & {
@@ -73,13 +110,45 @@ export class WidgetService {
       organizationId: string;
     },
   ): Promise<Widget> {
-    // Validate source exists
-    await this.validateSource(createWidgetData.sourceId, createWidgetData.type);
+    this.logger.log(
+      `Creating widget: ${createWidgetData.name} for user ${createWidgetData.userId}`,
+    );
 
-    // Create default configuration if not provided
-    const configuration =
-      createWidgetData.configuration ||
-      this.createDefaultConfiguration(createWidgetData.type);
+    // Check organization widget limits
+    await this.checkOrganizationLimits(createWidgetData.organizationId);
+
+    // Validate source exists and user has access
+    await this.validateSourceAccess(
+      createWidgetData.sourceId,
+      createWidgetData.type,
+      createWidgetData.userId,
+      createWidgetData.organizationId,
+    );
+
+    // Check for duplicate names within organization
+    const existingWidget = await this.widgetRepository.findOne({
+      where: {
+        name: createWidgetData.name,
+        organizationId: createWidgetData.organizationId,
+      },
+    });
+
+    if (existingWidget) {
+      throw new ConflictException(
+        `Widget with name '${createWidgetData.name}' already exists in this organization`,
+      );
+    }
+
+    // Create configuration with security defaults
+    const configuration = createWidgetData.configuration
+      ? this.mergeWithDefaults(
+          createWidgetData.configuration,
+          createWidgetData.type,
+        )
+      : this.createDefaultConfiguration(createWidgetData.type);
+
+    // Validate configuration
+    this.validateConfiguration(configuration);
 
     const widget = this.widgetRepository.create({
       name: createWidgetData.name,
@@ -92,7 +161,12 @@ export class WidgetService {
       userId: createWidgetData.userId,
       organizationId: createWidgetData.organizationId,
       version: createWidgetData.version || '1.0.0',
-      metadata: createWidgetData.metadata || {},
+      metadata: {
+        ...createWidgetData.metadata,
+        createdBy: createWidgetData.userId,
+        createdAt: new Date(),
+        lastModified: new Date(),
+      },
       analyticsData: {
         views: 0,
         interactions: 0,
@@ -109,13 +183,34 @@ export class WidgetService {
 
     const savedWidget = await this.widgetRepository.save(widget);
 
-    // Emit widget created event
-    this.websocketService.emitToOrganization(
-      createWidgetData.organizationId,
-      'widget:created',
+    // Cache widget for quick access
+    await this.cacheManager.set(
+      `widget:${savedWidget.id}`,
       savedWidget,
+      300000, // 5 minutes
     );
 
+    // Emit widget created event
+    await this.websocketService.broadcastToOrganization(
+      createWidgetData.organizationId,
+      'widget:created',
+      {
+        widget: savedWidget,
+        createdBy: createWidgetData.userId,
+        timestamp: new Date(),
+      },
+    );
+
+    // Track analytics event
+    this.eventEmitter.emit('widget.created', {
+      widgetId: savedWidget.id,
+      userId: createWidgetData.userId,
+      organizationId: createWidgetData.organizationId,
+      type: savedWidget.type,
+      timestamp: new Date(),
+    });
+
+    this.logger.log(`Widget created successfully: ${savedWidget.id}`);
     return savedWidget;
   }
 
@@ -253,61 +348,150 @@ export class WidgetService {
     id: string,
     deployOptions: DeployWidgetDto,
     organizationId: string,
+    userId: string,
   ) {
+    this.logger.log(
+      `Deploying widget: ${id} to ${deployOptions.environment || 'production'}`,
+    );
+
     const widget = await this.findOne(id, organizationId);
 
     if (!widget.isActive) {
       throw new BadRequestException('Cannot deploy inactive widget');
     }
 
-    const baseUrl =
-      process.env.WIDGET_BASE_URL || 'https://widgets.synapseai.com';
+    if (widget.isDeployed) {
+      throw new ConflictException(
+        'Widget is already deployed. Undeploy first to redeploy.',
+      );
+    }
+
+    // Validate deployment permissions
+    await this.validateDeploymentPermissions(widget, userId);
+
+    // Validate custom domain if provided
+    if (deployOptions.customDomain) {
+      await this.validateCustomDomain(
+        deployOptions.customDomain,
+        organizationId,
+      );
+    }
+
     const environment = deployOptions.environment || 'production';
-    const customDomain = deployOptions.customDomain;
     const enableAnalytics = deployOptions.enableAnalytics ?? true;
     const enableCaching = deployOptions.enableCaching ?? true;
 
+    // Generate secure deployment tokens
+    const deploymentToken = this.generateDeploymentToken(
+      widget.id,
+      organizationId,
+    );
+    const apiKey = this.generateAPIKey(widget.id);
+
+    // Create deployment URLs
+    const baseUrl = deployOptions.customDomain
+      ? `https://${deployOptions.customDomain}`
+      : this.baseURL;
+
     const deploymentInfo: WidgetDeploymentInfo = {
       environment,
-      customDomain,
+      customDomain: deployOptions.customDomain,
       enableAnalytics,
       enableCaching,
       deployedAt: new Date(),
       lastUpdated: new Date(),
       status: 'active',
       embedCode: {
-        javascript: widget.generateEmbedCode('javascript'),
-        iframe: widget.generateEmbedCode('iframe'),
-        react: widget.generateEmbedCode('react'),
-        vue: widget.generateEmbedCode('vue'),
-        angular: widget.generateEmbedCode('angular'),
+        javascript: this.generateSecureEmbedCode(
+          widget,
+          'javascript',
+          deploymentToken,
+        ),
+        iframe: this.generateSecureEmbedCode(widget, 'iframe', deploymentToken),
+        react: this.generateSecureEmbedCode(widget, 'react', deploymentToken),
+        vue: this.generateSecureEmbedCode(widget, 'vue', deploymentToken),
+        angular: this.generateSecureEmbedCode(
+          widget,
+          'angular',
+          deploymentToken,
+        ),
       },
       urls: {
-        standalone: `${baseUrl}/widget/${widget.id}`,
-        embed: `${baseUrl}/embed/${widget.id}`,
+        standalone: `${baseUrl}/widget/${widget.id}?token=${deploymentToken}`,
+        embed: `${baseUrl}/embed/${widget.id}?token=${deploymentToken}`,
         api: `${baseUrl}/api/widgets/${widget.id}`,
       },
     };
 
+    // Update widget with deployment info
     widget.isDeployed = true;
     widget.deploymentInfo = deploymentInfo;
     widget.updatedAt = new Date();
+    widget.metadata = {
+      ...widget.metadata,
+      deployedBy: userId,
+      deploymentToken,
+      apiKey,
+      lastDeployment: new Date(),
+    };
 
     const deployedWidget = await this.widgetRepository.save(widget);
 
-    // Queue deployment tasks
-    await this.widgetQueue.add('deploy-widget', {
-      widgetId: widget.id,
+    // Cache deployment info
+    await this.cacheManager.set(
+      `widget:deployment:${widget.id}`,
       deploymentInfo,
-    });
-
-    // Emit deployment event
-    this.websocketService.emitToOrganization(
-      organizationId,
-      'widget:deployed',
-      deployedWidget,
+      3600000, // 1 hour
     );
 
+    // Queue deployment tasks
+    await this.widgetQueue.add(
+      'deploy-widget',
+      {
+        widgetId: widget.id,
+        deploymentInfo,
+        userId,
+        organizationId,
+        environment,
+      },
+      {
+        priority: environment === 'production' ? 1 : 5,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+      },
+    );
+
+    // Set up monitoring and health checks
+    await this.setupWidgetMonitoring(widget.id, deploymentInfo);
+
+    // Emit deployment event
+    await this.websocketService.broadcastToOrganization(
+      organizationId,
+      'widget:deployed',
+      {
+        widget: deployedWidget,
+        deploymentInfo,
+        deployedBy: userId,
+        timestamp: new Date(),
+      },
+    );
+
+    // Track deployment analytics
+    this.eventEmitter.emit('widget.deployed', {
+      widgetId: widget.id,
+      userId,
+      organizationId,
+      environment,
+      customDomain: deployOptions.customDomain,
+      timestamp: new Date(),
+    });
+
+    this.logger.log(
+      `Widget deployed successfully: ${widget.id} to ${environment}`,
+    );
     return deploymentInfo;
   }
 
@@ -759,12 +943,27 @@ export class WidgetService {
       input: any;
       sessionId: string;
       context?: any;
+      token?: string;
     },
     userId?: string,
   ) {
-    const widget = await this.widgetRepository.findOne({
-      where: { id, isActive: true },
-    });
+    const startTime = Date.now();
+    this.logger.log(
+      `Executing widget: ${id} for session ${executionData.sessionId}`,
+    );
+
+    // Get widget with caching
+    let widget = await this.cacheManager.get<Widget>(`widget:${id}`);
+    if (!widget) {
+      widget = await this.widgetRepository.findOne({
+        where: { id, isActive: true },
+        relations: ['user', 'organization'],
+      });
+
+      if (widget) {
+        await this.cacheManager.set(`widget:${id}`, widget, 300000); // 5 minutes
+      }
+    }
 
     if (!widget) {
       throw new NotFoundException('Widget not found or inactive');
@@ -774,26 +973,54 @@ export class WidgetService {
       throw new BadRequestException('Widget is not deployed');
     }
 
-    // Create execution record
+    // Validate execution token if provided
+    if (executionData.token) {
+      await this.validateExecutionToken(executionData.token, widget.id);
+    }
+
+    // Check rate limiting
+    await this.checkRateLimit(
+      widget.id,
+      executionData.sessionId,
+      widget.organizationId,
+    );
+
+    // Validate origin if security settings exist
+    if (widget.configuration.security.allowedDomains.length > 0) {
+      const origin = executionData.context?.origin;
+      if (
+        !this.validateOrigin(
+          origin,
+          widget.configuration.security.allowedDomains,
+        )
+      ) {
+        throw new ForbiddenException('Origin not allowed for this widget');
+      }
+    }
+
+    // Create execution record with enhanced context
     const execution = this.widgetExecutionRepository.create({
       widgetId: id,
       sessionId: executionData.sessionId,
       userId,
       status: 'pending',
       input: {
-        type: 'message',
+        type: this.detectInputType(executionData.input),
         content: executionData.input,
-        metadata: executionData.context,
+        metadata: {
+          ...executionData.context,
+          timestamp: new Date(),
+          inputSize: JSON.stringify(executionData.input).length,
+        },
       },
       context: {
         userAgent: executionData.context?.userAgent || 'Unknown',
         ipAddress: executionData.context?.ipAddress || '0.0.0.0',
+        referrer: executionData.context?.referrer,
         sessionId: executionData.sessionId,
-        deviceType: executionData.context?.deviceType || 'desktop',
-        browserInfo: executionData.context?.browserInfo || {
-          name: 'Unknown',
-          version: '0.0',
-        },
+        deviceType: this.detectDeviceType(executionData.context?.userAgent),
+        browserInfo: this.parseBrowserInfo(executionData.context?.userAgent),
+        geolocation: executionData.context?.geolocation,
       },
       metrics: {
         startTime: new Date(),
@@ -808,62 +1035,110 @@ export class WidgetService {
 
     const savedExecution = await this.widgetExecutionRepository.save(execution);
 
+    // Mark execution as running
+    savedExecution.markAsRunning();
+    await this.widgetExecutionRepository.save(savedExecution);
+
     try {
-      // Execute based on widget type
+      // Execute based on widget type with enhanced context
       let result;
+      const executionContext = {
+        executionId: savedExecution.id,
+        widgetId: widget.id,
+        sessionId: executionData.sessionId,
+        userId,
+        organizationId: widget.organizationId,
+        context: executionData.context,
+      };
+
       switch (widget.type) {
         case 'agent':
           result = await this.executeAgent(
             widget.sourceId,
             executionData.input,
-            executionData.sessionId,
+            executionContext,
           );
           break;
         case 'tool':
           result = await this.executeTool(
             widget.sourceId,
             executionData.input,
-            executionData.sessionId,
+            executionContext,
           );
           break;
         case 'workflow':
           result = await this.executeWorkflow(
             widget.sourceId,
             executionData.input,
-            executionData.sessionId,
+            executionContext,
           );
           break;
         default:
           throw new BadRequestException('Unsupported widget type');
       }
 
+      const executionTime = Date.now() - startTime;
+
       // Update execution with result
       savedExecution.markAsCompleted(
         {
           type: 'response',
-          content: result,
-          metadata: { executedAt: new Date() },
+          content: result.content || result,
+          metadata: {
+            executedAt: new Date(),
+            provider: result.provider,
+            model: result.model,
+            cached: result.cached || false,
+          },
         },
         {
           endTime: new Date(),
           tokensUsed: result.tokensUsed || 0,
           apiCalls: result.apiCalls || 1,
+          duration: executionTime,
         },
       );
 
+      // Calculate cost
+      savedExecution.calculateCost();
       await this.widgetExecutionRepository.save(savedExecution);
 
       // Update widget analytics
       widget.updateAnalytics({
         interactions: widget.analyticsData.interactions + 1,
+        lastAccessed: new Date(),
       });
       await this.widgetRepository.save(widget);
 
-      // Track analytics
-      await this.trackAnalytics(
-        widget.id,
-        'interaction',
-        executionData.context,
+      // Track detailed analytics
+      await this.trackAnalytics(widget.id, 'interaction', {
+        ...executionData.context,
+        executionId: savedExecution.id,
+        executionTime,
+        tokensUsed: result.tokensUsed || 0,
+        cost: savedExecution.costUsd,
+        cached: result.cached || false,
+      });
+
+      // Emit real-time execution update
+      await this.websocketService.broadcastToOrganization(
+        widget.organizationId,
+        'widget:execution:completed',
+        {
+          widgetId: widget.id,
+          executionId: savedExecution.id,
+          result: result.content || result,
+          metrics: {
+            executionTime,
+            tokensUsed: result.tokensUsed || 0,
+            cost: savedExecution.costUsd,
+          },
+          timestamp: new Date(),
+        },
+      );
+
+      this.logger.log(
+        `Widget execution completed: ${savedExecution.id} in ${executionTime}ms`,
       );
 
       return {
@@ -871,51 +1146,478 @@ export class WidgetService {
         result: result.content || result,
         status: 'completed',
         tokensUsed: result.tokensUsed || 0,
-        executionTime: savedExecution.executionTimeMs,
+        executionTime,
+        cost: savedExecution.costUsd,
+        cached: result.cached || false,
+        metadata: {
+          provider: result.provider,
+          model: result.model,
+          apiCalls: result.apiCalls || 1,
+        },
       };
     } catch (error) {
+      const executionTime = Date.now() - startTime;
+
       // Update execution with error
-      savedExecution.markAsFailed(error.message, { error: error.stack });
+      savedExecution.markAsFailed(error.message, {
+        error: error.stack,
+        errorType: error.constructor.name,
+        executionTime,
+      });
       await this.widgetExecutionRepository.save(savedExecution);
 
       // Track error analytics
-      await this.trackAnalytics(
-        widget.id,
-        'error',
-        executionData.context,
-        error.message,
+      await this.trackAnalytics(widget.id, 'error', {
+        ...executionData.context,
+        executionId: savedExecution.id,
+        errorMessage: error.message,
+        errorType: error.constructor.name,
+        executionTime,
+      });
+
+      // Emit error event
+      await this.websocketService.broadcastToOrganization(
+        widget.organizationId,
+        'widget:execution:failed',
+        {
+          widgetId: widget.id,
+          executionId: savedExecution.id,
+          error: error.message,
+          timestamp: new Date(),
+        },
       );
 
+      this.logger.error(
+        `Widget execution failed: ${savedExecution.id} - ${error.message}`,
+      );
       throw error;
     }
   }
 
   // Private helper methods
 
-  private async validateSource(
+  private async checkOrganizationLimits(organizationId: string): Promise<void> {
+    const widgetCount = await this.widgetRepository.count({
+      where: { organizationId, isActive: true },
+    });
+
+    if (widgetCount >= this.maxWidgetsPerOrg) {
+      throw new BadRequestException(
+        `Organization has reached the maximum limit of ${this.maxWidgetsPerOrg} widgets`,
+      );
+    }
+  }
+
+  private async validateSourceAccess(
     sourceId: string,
     type: 'agent' | 'tool' | 'workflow',
+    userId: string,
+    organizationId: string,
   ): Promise<void> {
     let source;
     switch (type) {
       case 'agent':
         source = await this.agentRepository.findOne({
-          where: { id: sourceId },
+          where: { id: sourceId, organizationId, isActive: true },
         });
         break;
       case 'tool':
-        source = await this.toolRepository.findOne({ where: { id: sourceId } });
+        source = await this.toolRepository.findOne({
+          where: { id: sourceId, organizationId, isActive: true },
+        });
         break;
       case 'workflow':
         source = await this.workflowRepository.findOne({
-          where: { id: sourceId },
+          where: { id: sourceId, organizationId, isActive: true },
         });
         break;
     }
 
     if (!source) {
-      throw new NotFoundException(`${type} with ID ${sourceId} not found`);
+      throw new NotFoundException(
+        `${type} with ID ${sourceId} not found or not accessible`,
+      );
     }
+
+    // Check if user has access to the source
+    if (source.userId !== userId && source.organizationId !== organizationId) {
+      throw new ForbiddenException(`Access denied to ${type} ${sourceId}`);
+    }
+  }
+
+  private validateConfiguration(configuration: WidgetConfiguration): void {
+    // Validate security settings
+    if (configuration.security.allowedDomains) {
+      for (const domain of configuration.security.allowedDomains) {
+        if (!this.isValidDomain(domain)) {
+          throw new BadRequestException(`Invalid domain: ${domain}`);
+        }
+      }
+    }
+
+    // Validate rate limiting
+    if (configuration.security.rateLimiting.requestsPerMinute > 10000) {
+      throw new BadRequestException(
+        'Rate limit cannot exceed 10,000 requests per minute',
+      );
+    }
+
+    // Validate layout dimensions
+    if (configuration.layout.width < 200 || configuration.layout.width > 2000) {
+      throw new BadRequestException(
+        'Widget width must be between 200 and 2000 pixels',
+      );
+    }
+
+    if (
+      configuration.layout.height < 300 ||
+      configuration.layout.height > 2000
+    ) {
+      throw new BadRequestException(
+        'Widget height must be between 300 and 2000 pixels',
+      );
+    }
+  }
+
+  private isValidDomain(domain: string): boolean {
+    const domainRegex =
+      /^(?:\*\.)?[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    return domainRegex.test(domain);
+  }
+
+  private mergeWithDefaults(
+    configuration: Partial<WidgetConfiguration>,
+    type: 'agent' | 'tool' | 'workflow',
+  ): WidgetConfiguration {
+    const defaults = this.createDefaultConfiguration(type);
+    return {
+      theme: { ...defaults.theme, ...configuration.theme },
+      layout: { ...defaults.layout, ...configuration.layout },
+      behavior: { ...defaults.behavior, ...configuration.behavior },
+      branding: { ...defaults.branding, ...configuration.branding },
+      security: {
+        ...defaults.security,
+        ...configuration.security,
+        rateLimiting: {
+          ...defaults.security.rateLimiting,
+          ...configuration.security?.rateLimiting,
+        },
+      },
+    };
+  }
+
+  private async validateDeploymentPermissions(
+    widget: Widget,
+    userId: string,
+  ): Promise<void> {
+    // Check if user is owner or has deployment permissions
+    if (widget.userId !== userId) {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user || (user.role !== 'ORG_ADMIN' && user.role !== 'SUPER_ADMIN')) {
+        throw new ForbiddenException(
+          'Insufficient permissions to deploy widget',
+        );
+      }
+    }
+  }
+
+  private async validateCustomDomain(
+    domain: string,
+    organizationId: string,
+  ): Promise<void> {
+    if (!this.isValidDomain(domain)) {
+      throw new BadRequestException('Invalid custom domain format');
+    }
+
+    // Check if domain is already in use
+    const existingWidget = await this.widgetRepository.findOne({
+      where: {
+        organizationId,
+        isDeployed: true,
+      },
+    });
+
+    if (existingWidget?.deploymentInfo?.customDomain === domain) {
+      throw new ConflictException('Custom domain is already in use');
+    }
+  }
+
+  private generateDeploymentToken(
+    widgetId: string,
+    organizationId: string,
+  ): string {
+    const payload = {
+      widgetId,
+      organizationId,
+      type: 'deployment',
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60, // 1 year
+    };
+
+    return jwt.sign(payload, this.jwtSecret);
+  }
+
+  private generateAPIKey(widgetId: string): string {
+    const timestamp = Date.now().toString();
+    const random = crypto.randomBytes(16).toString('hex');
+    return `wapi_${Buffer.from(`${widgetId}:${timestamp}:${random}`).toString('base64')}`;
+  }
+
+  private generateSecureEmbedCode(
+    widget: Widget,
+    format: 'javascript' | 'iframe' | 'react' | 'vue' | 'angular',
+    token: string,
+  ): string {
+    const baseUrl = widget.deploymentInfo?.customDomain
+      ? `https://${widget.deploymentInfo.customDomain}`
+      : this.baseURL;
+
+    const config = {
+      widgetId: widget.id,
+      token,
+      baseUrl,
+      cdnUrl: this.cdnURL,
+      configuration: widget.configuration,
+    };
+
+    switch (format) {
+      case 'javascript':
+        return this.generateJavaScriptEmbed(config);
+      case 'iframe':
+        return this.generateIframeEmbed(config);
+      case 'react':
+        return this.generateReactEmbed(config);
+      case 'vue':
+        return this.generateVueEmbed(config);
+      case 'angular':
+        return this.generateAngularEmbed(config);
+      default:
+        return '';
+    }
+  }
+
+  private generateJavaScriptEmbed(config: any): string {
+    return `
+<!-- SynapseAI Widget -->
+<script>
+(function() {
+  var script = document.createElement('script');
+  script.src = '${config.cdnUrl}/widget-loader.js';
+  script.setAttribute('data-widget-id', '${config.widgetId}');
+  script.setAttribute('data-token', '${config.token}');
+  script.setAttribute('data-base-url', '${config.baseUrl}');
+  script.setAttribute('data-config', '${JSON.stringify(config.configuration)}');
+  script.async = true;
+  document.head.appendChild(script);
+})();
+</script>`;
+  }
+
+  private generateIframeEmbed(config: any): string {
+    const { width, height } = config.configuration.layout;
+    return `<iframe
+  src="${config.baseUrl}/embed/${config.widgetId}?token=${config.token}"
+  width="${width}"
+  height="${height}"
+  frameborder="0"
+  allow="microphone; camera; geolocation"
+  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+  title="SynapseAI Widget"
+></iframe>`;
+  }
+
+  private generateReactEmbed(config: any): string {
+    return `import { SynapseWidget } from '@synapseai/react-widget';
+
+function MyComponent() {
+  return (
+    <SynapseWidget
+      widgetId="${config.widgetId}"
+      token="${config.token}"
+      baseUrl="${config.baseUrl}"
+      config={${JSON.stringify(config.configuration, null, 6)}}
+    />
+  );
+}`;
+  }
+
+  private generateVueEmbed(config: any): string {
+    return `<template>
+  <SynapseWidget
+    :widget-id="'${config.widgetId}'"
+    :token="'${config.token}'"
+    :base-url="'${config.baseUrl}'"
+    :config="widgetConfig"
+  />
+</template>
+
+<script>
+import { SynapseWidget } from '@synapseai/vue-widget';
+
+export default {
+  components: { SynapseWidget },
+  data() {
+    return {
+      widgetConfig: ${JSON.stringify(config.configuration, null, 6)}
+    };
+  }
+};
+</script>`;
+  }
+
+  private generateAngularEmbed(config: any): string {
+    return `import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-widget',
+  template: \`
+    <synapse-widget
+      widgetId="${config.widgetId}"
+      token="${config.token}"
+      baseUrl="${config.baseUrl}"
+      [config]="widgetConfig">
+    </synapse-widget>
+  \`
+})
+export class WidgetComponent {
+  widgetConfig = ${JSON.stringify(config.configuration, null, 2)};
+}`;
+  }
+
+  private async setupWidgetMonitoring(
+    widgetId: string,
+    deploymentInfo: WidgetDeploymentInfo,
+  ): Promise<void> {
+    // Set up health check monitoring
+    await this.widgetQueue.add(
+      'setup-monitoring',
+      {
+        widgetId,
+        urls: deploymentInfo.urls,
+        environment: deploymentInfo.environment,
+      },
+      {
+        repeat: { cron: '*/5 * * * *' }, // Every 5 minutes
+      },
+    );
+  }
+
+  private async checkRateLimit(
+    widgetId: string,
+    sessionId: string,
+    organizationId: string,
+  ): Promise<void> {
+    const key = `rate_limit:${widgetId}:${sessionId}`;
+    const orgKey = `rate_limit:org:${organizationId}`;
+    const now = Date.now();
+    const window = 60 * 1000; // 1 minute
+
+    // Check session-level rate limit
+    const sessionCount = (await this.cacheManager.get<number>(key)) || 0;
+    if (sessionCount >= 60) {
+      // 60 requests per minute per session
+      throw new BadRequestException('Rate limit exceeded for this session');
+    }
+
+    // Check organization-level rate limit
+    const orgCount = (await this.cacheManager.get<number>(orgKey)) || 0;
+    if (orgCount >= this.maxExecutionsPerMinute) {
+      throw new BadRequestException('Organization rate limit exceeded');
+    }
+
+    // Increment counters
+    await this.cacheManager.set(key, sessionCount + 1, window);
+    await this.cacheManager.set(orgKey, orgCount + 1, window);
+  }
+
+  private validateOrigin(origin: string, allowedDomains: string[]): boolean {
+    if (!origin || allowedDomains.length === 0) {
+      return true;
+    }
+
+    try {
+      const url = new URL(origin);
+      const domain = url.hostname;
+
+      return allowedDomains.some((allowed) => {
+        if (allowed.startsWith('*.')) {
+          const baseDomain = allowed.substring(2);
+          return domain.endsWith(baseDomain);
+        }
+        return domain === allowed;
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  private async validateExecutionToken(
+    token: string,
+    widgetId: string,
+  ): Promise<void> {
+    try {
+      const decoded = jwt.verify(token, this.jwtSecret) as any;
+      if (decoded.widgetId !== widgetId || decoded.type !== 'deployment') {
+        throw new ForbiddenException('Invalid execution token');
+      }
+    } catch (error) {
+      throw new ForbiddenException('Invalid or expired execution token');
+    }
+  }
+
+  private detectInputType(input: any): string {
+    if (typeof input === 'string') {
+      return 'message';
+    } else if (input && typeof input === 'object') {
+      if (input.type) {
+        return input.type;
+      } else if (input.file) {
+        return 'file_upload';
+      } else if (input.action) {
+        return 'action';
+      }
+    }
+    return 'unknown';
+  }
+
+  private detectDeviceType(
+    userAgent?: string,
+  ): 'desktop' | 'mobile' | 'tablet' {
+    if (!userAgent) return 'desktop';
+
+    if (/Mobile|Android|iPhone/.test(userAgent)) {
+      return /iPad|tablet/i.test(userAgent) ? 'tablet' : 'mobile';
+    }
+    return 'desktop';
+  }
+
+  private parseBrowserInfo(userAgent?: string): {
+    name: string;
+    version: string;
+  } {
+    if (!userAgent) return { name: 'Unknown', version: '0.0' };
+
+    let name = 'Unknown';
+    let version = '0.0';
+
+    if (userAgent.includes('Chrome')) {
+      name = 'Chrome';
+      const match = userAgent.match(/Chrome\/(\d+\.\d+)/);
+      if (match) version = match[1];
+    } else if (userAgent.includes('Firefox')) {
+      name = 'Firefox';
+      const match = userAgent.match(/Firefox\/(\d+\.\d+)/);
+      if (match) version = match[1];
+    } else if (userAgent.includes('Safari')) {
+      name = 'Safari';
+      const match = userAgent.match(/Version\/(\d+\.\d+)/);
+      if (match) version = match[1];
+    }
+
+    return { name, version };
   }
 
   private createDefaultConfiguration(
@@ -977,34 +1679,63 @@ export class WidgetService {
     }
   }
 
-  private async executeAgent(agentId: string, input: any, sessionId: string) {
+  private async executeAgent(agentId: string, input: any, context: any) {
+    this.logger.debug(
+      `Executing agent ${agentId} for widget ${context.widgetId}`,
+    );
+
     return await this.agentService.execute({
       agentId,
       input,
-      sessionId,
-      context: { source: 'widget' },
+      sessionId: context.sessionId,
+      context: {
+        source: 'widget',
+        widgetId: context.widgetId,
+        executionId: context.executionId,
+        userId: context.userId,
+        organizationId: context.organizationId,
+        ...context.context,
+      },
     });
   }
 
-  private async executeTool(toolId: string, input: any, sessionId: string) {
+  private async executeTool(toolId: string, input: any, context: any) {
+    this.logger.debug(
+      `Executing tool ${toolId} for widget ${context.widgetId}`,
+    );
+
     return await this.toolService.execute({
       toolId,
       input,
-      sessionId,
-      context: { source: 'widget' },
+      sessionId: context.sessionId,
+      context: {
+        source: 'widget',
+        widgetId: context.widgetId,
+        executionId: context.executionId,
+        userId: context.userId,
+        organizationId: context.organizationId,
+        ...context.context,
+      },
     });
   }
 
-  private async executeWorkflow(
-    workflowId: string,
-    input: any,
-    sessionId: string,
-  ) {
+  private async executeWorkflow(workflowId: string, input: any, context: any) {
+    this.logger.debug(
+      `Executing workflow ${workflowId} for widget ${context.widgetId}`,
+    );
+
     return await this.workflowService.execute({
       workflowId,
       input,
-      sessionId,
-      context: { source: 'widget' },
+      sessionId: context.sessionId,
+      context: {
+        source: 'widget',
+        widgetId: context.widgetId,
+        executionId: context.executionId,
+        userId: context.userId,
+        organizationId: context.organizationId,
+        ...context.context,
+      },
     });
   }
 
@@ -1014,30 +1745,107 @@ export class WidgetService {
     context?: any,
     errorMessage?: string,
   ) {
-    const analyticsData = {
-      widgetId,
-      eventType,
-      date: new Date(),
-      sessionId: context?.sessionId || 'unknown',
-      pageUrl: context?.pageUrl || 'unknown',
-      userAgent: context?.userAgent || 'unknown',
-      ipAddress: context?.ipAddress || '0.0.0.0',
-      deviceType: context?.deviceType || 'desktop',
-      browserName: context?.browserInfo?.name || 'unknown',
-      browserVersion: context?.browserInfo?.version || '0.0',
-      operatingSystem: context?.operatingSystem || 'unknown',
-      country: context?.geolocation?.country,
-      region: context?.geolocation?.region,
-      city: context?.geolocation?.city,
-      errorMessage,
-      isUniqueVisitor: true, // This would be determined by more complex logic
-      isReturningVisitor: false,
-      isBounce: false,
-      pageDepth: 1,
-    };
+    try {
+      // Determine visitor status
+      const sessionKey = `visitor:${widgetId}:${context?.sessionId}`;
+      const isReturningVisitor =
+        (await this.cacheManager.get(sessionKey)) !== null;
+      const isUniqueVisitor = !isReturningVisitor;
 
-    const analytics = this.widgetAnalyticsRepository.create(analyticsData);
-    await this.widgetAnalyticsRepository.save(analytics);
+      // Cache visitor for 24 hours
+      if (isUniqueVisitor) {
+        await this.cacheManager.set(sessionKey, true, 86400000); // 24 hours
+      }
+
+      // Determine bounce status (simplified logic)
+      const isBounce = eventType === 'view' && !isReturningVisitor;
+
+      const analyticsData = {
+        widgetId,
+        eventType,
+        date: new Date(),
+        sessionId: context?.sessionId || 'unknown',
+        pageUrl: context?.pageUrl || context?.referrer || 'unknown',
+        referrerUrl: context?.referrer,
+        userAgent: context?.userAgent || 'unknown',
+        ipAddress: this.anonymizeIP(context?.ipAddress || '0.0.0.0'),
+        deviceType:
+          context?.deviceType || this.detectDeviceType(context?.userAgent),
+        browserName:
+          context?.browserInfo?.name ||
+          this.parseBrowserInfo(context?.userAgent).name,
+        browserVersion:
+          context?.browserInfo?.version ||
+          this.parseBrowserInfo(context?.userAgent).version,
+        operatingSystem: this.detectOS(context?.userAgent),
+        screenResolution: context?.screenResolution,
+        country: context?.geolocation?.country,
+        region: context?.geolocation?.region,
+        city: context?.geolocation?.city,
+        timezone: context?.timezone,
+        errorMessage,
+        isUniqueVisitor,
+        isReturningVisitor,
+        isBounce,
+        pageDepth: context?.pageDepth || 1,
+        durationMs: context?.executionTime,
+        conversionValue:
+          eventType === 'conversion' ? context?.conversionValue : null,
+        conversionType:
+          eventType === 'conversion' ? context?.conversionType : null,
+        metadata: {
+          executionId: context?.executionId,
+          tokensUsed: context?.tokensUsed,
+          cost: context?.cost,
+          cached: context?.cached,
+          errorType: context?.errorType,
+        },
+      };
+
+      const analytics = this.widgetAnalyticsRepository.create(analyticsData);
+      await this.widgetAnalyticsRepository.save(analytics);
+
+      // Queue analytics processing for real-time updates
+      await this.widgetQueue.add(
+        'process-analytics',
+        {
+          widgetId,
+          eventType,
+          analyticsData,
+        },
+        {
+          priority: 10,
+          delay: 1000, // 1 second delay for batching
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to track analytics: ${error.message}`,
+        error.stack,
+      );
+      // Don't throw error to avoid breaking widget execution
+    }
+  }
+
+  private anonymizeIP(ipAddress: string): string {
+    // Anonymize IP address for privacy compliance
+    const parts = ipAddress.split('.');
+    if (parts.length === 4) {
+      return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
+    }
+    return ipAddress;
+  }
+
+  private detectOS(userAgent?: string): string {
+    if (!userAgent) return 'Unknown';
+
+    if (userAgent.includes('Windows')) return 'Windows';
+    if (userAgent.includes('Mac')) return 'macOS';
+    if (userAgent.includes('Linux')) return 'Linux';
+    if (userAgent.includes('Android')) return 'Android';
+    if (userAgent.includes('iOS')) return 'iOS';
+
+    return 'Unknown';
   }
 
   private aggregateAnalytics(analytics: WidgetAnalytics[]) {
