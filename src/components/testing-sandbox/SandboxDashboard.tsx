@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
+import {  
   Dialog,
   DialogContent,
   DialogDescription,
@@ -62,7 +62,7 @@ import {
   Square,
   RefreshCw,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { apiClient } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
@@ -298,7 +298,7 @@ export default function SandboxDashboard() {
   const loadSandboxes = async () => {
     setLoading(true);
     try {
-      const response = await api.get("/testing-sandbox", {
+      const response = await apiClient.get("/testing-sandbox", {
         params: {
           userId: user?.id,
           type: typeFilter !== "all" ? typeFilter : undefined,
@@ -321,7 +321,7 @@ export default function SandboxDashboard() {
 
   const createSandbox = async () => {
     try {
-      const response = await api.post("/testing-sandbox", newSandbox);
+      const response = await apiClient.post("/testing-sandbox", newSandbox);
       if (response.data) {
         setSandboxes([response.data, ...sandboxes]);
         setShowCreateDialog(false);
@@ -349,7 +349,7 @@ export default function SandboxDashboard() {
     if (!confirm("Are you sure you want to delete this sandbox?")) return;
 
     try {
-      await api.delete(`/testing-sandbox/${sandboxId}`);
+      await apiClient.delete(`/testing-sandbox/${sandboxId}`);
       setSandboxes(sandboxes.filter((sandbox) => sandbox.id !== sandboxId));
     } catch (error) {
       console.error("Failed to delete sandbox:", error);
@@ -358,7 +358,7 @@ export default function SandboxDashboard() {
 
   const cleanupSandbox = async (sandboxId: string) => {
     try {
-      await api.post(`/testing-sandbox/${sandboxId}/cleanup`);
+      await apiClient.post(`/testing-sandbox/${sandboxId}/cleanup`);
       await loadSandboxes(); // Refresh the list
     } catch (error) {
       console.error("Failed to cleanup sandbox:", error);
@@ -368,7 +368,7 @@ export default function SandboxDashboard() {
   const loadAnalytics = async (sandboxId: string) => {
     setLoadingAnalytics(true);
     try {
-      const response = await api.get(
+      const response = await apiClient.get(
         `/testing-sandbox/${sandboxId}/analytics`,
         {
           params: {
@@ -388,7 +388,7 @@ export default function SandboxDashboard() {
   const loadResourceUsage = async (sandboxId: string) => {
     setLoadingResourceUsage(true);
     try {
-      const response = await api.get(`/testing-sandbox/${sandboxId}/resources`);
+      const response = await apiClient.get(`/testing-sandbox/${sandboxId}/resources`);
       setResourceUsage(response.data);
     } catch (error) {
       console.error("Failed to load resource usage:", error);
@@ -476,7 +476,7 @@ export default function SandboxDashboard() {
                 <Input
                   placeholder="Search sandboxes..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
               </div>
@@ -671,7 +671,7 @@ export default function SandboxDashboard() {
                 <label className="text-sm font-medium">Type</label>
                 <Select
                   value={newSandbox.type}
-                  onValueChange={(value) =>
+                  onValueChange={(value: string) =>
                     setNewSandbox({ ...newSandbox, type: value })
                   }
                 >
@@ -706,7 +706,7 @@ export default function SandboxDashboard() {
                 <label className="text-sm font-medium">Memory Limit</label>
                 <Select
                   value={newSandbox.resourceLimits.memory}
-                  onValueChange={(value) =>
+                  onValueChange={(value: string) =>
                     setNewSandbox({
                       ...newSandbox,
                       resourceLimits: {
@@ -731,7 +731,7 @@ export default function SandboxDashboard() {
                 <label className="text-sm font-medium">CPU Limit</label>
                 <Select
                   value={newSandbox.resourceLimits.cpu}
-                  onValueChange={(value) =>
+                  onValueChange={(value: string) =>
                     setNewSandbox({
                       ...newSandbox,
                       resourceLimits: {

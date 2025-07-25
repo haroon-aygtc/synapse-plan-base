@@ -257,13 +257,13 @@ export function UserManagement({ className }: UserManagementProps) {
               <Input
                 placeholder="Search users by name or email..."
                 value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
             <Select
               value={filters.role || ''}
-              onValueChange={(value) =>
+              onValueChange={(value: string) =>
                 handleFilterChange('role', value || undefined)
               }
             >
@@ -282,7 +282,7 @@ export function UserManagement({ className }: UserManagementProps) {
             </Select>
             <Select
               value={filters.isActive?.toString() || ''}
-              onValueChange={(value) =>
+              onValueChange={(value: string) =>
                 handleFilterChange(
                   'isActive',
                   value === '' ? undefined : value === 'true',
@@ -343,7 +343,7 @@ export function UserManagement({ className }: UserManagementProps) {
                   <TableHead className="w-12">
                     <Checkbox
                       checked={allSelected}
-                      onCheckedChange={(checked) => {
+                      onCheckedChange={(checked: boolean) => {
                         if (checked) {
                           selectAllUsers();
                         } else {
@@ -378,7 +378,7 @@ export function UserManagement({ className }: UserManagementProps) {
                       <TableCell>
                         <Checkbox
                           checked={selectedUsers.includes(user.id)}
-                          onCheckedChange={() => toggleUserSelection(user.id)}
+                          onCheckedChange={(checked: boolean) => toggleUserSelection(user.id)}
                         />
                       </TableCell>
                       <TableCell>
@@ -526,7 +526,7 @@ export function UserManagement({ className }: UserManagementProps) {
             <Textarea
               placeholder="Reason for deactivation (optional)"
               value={deactivationReason}
-              onChange={(e) => setDeactivationReason(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDeactivationReason(e.target.value)}
             />
           </div>
           <AlertDialogFooter>
@@ -558,7 +558,7 @@ export function UserManagement({ className }: UserManagementProps) {
               <Textarea
                 placeholder="Reason for deactivation (optional)"
                 value={deactivationReason}
-                onChange={(e) => setDeactivationReason(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDeactivationReason(e.target.value)}
               />
             </div>
           )}

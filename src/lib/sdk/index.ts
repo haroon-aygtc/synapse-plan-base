@@ -3,13 +3,13 @@
  * Production-ready TypeScript SDK for all platform features
  */
 
+import SynapseAI from "./client";
+
 export * from "./client";
 export * from "./types";
 export * from "./modules";
 export * from "./utils";
-export * from "./errors";
 export * from "./apix";
-
 // Main SDK export
 export { SynapseAI, createClient } from "./client";
 

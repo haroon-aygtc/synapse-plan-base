@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { api } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 
 interface WorkflowNode {
@@ -59,14 +59,14 @@ export default function WorkflowPropertiesPanel({
     try {
       setLoading(true);
       const [agentsResponse, toolsResponse] = await Promise.all([
-        api.get('/agents', {
+        apiClient.get('/agents', {
           params: {
             page: 1,
             limit: 100,
             isActive: true
           }
         }),
-        api.get('/tools', {
+        apiClient.get('/tools', {
           params: {
             page: 1,
             limit: 100,
@@ -318,7 +318,7 @@ export default function WorkflowPropertiesPanel({
           <h4 className="font-medium text-sm mb-2">Examples:</h4>
           <div className="text-xs text-gray-600 space-y-1">
             <div>• ${`{status}`} === 'approved'</div>
-            <div>• ${`{count}`} > 10</div>
+                    <div>• ${`{count}`} &gt; 10</div>
             <div>• ${`{steps.step1.result}`} !== null</div>
           </div>
         </div>

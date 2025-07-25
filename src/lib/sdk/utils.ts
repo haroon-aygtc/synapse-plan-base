@@ -353,7 +353,7 @@ export async function retry<T>(
  */
 export class LRUCache<K, V> {
   private capacity: number;
-  private cache = new Map<K, V>();
+  private cache: Map<K, V> = new Map<K, V>();
 
   constructor(capacity: number) {
     this.capacity = capacity;
@@ -376,7 +376,7 @@ export class LRUCache<K, V> {
       this.cache.delete(key);
     } else if (this.cache.size >= this.capacity) {
       // Remove least recently used (first item)
-      const firstKey = this.cache.keys().next().value;
+      const firstKey = this.cache.keys().next().value as K;
       this.cache.delete(firstKey);
     }
 
@@ -461,10 +461,10 @@ export class RateLimiter {
 export const Environment = {
   isBrowser: typeof window !== "undefined",
   isNode: typeof process !== "undefined" && process.versions?.node,
-  isWebWorker: typeof importScripts === "function",
-  isDevelopment: process.env.NODE_ENV === "development",
-  isProduction: process.env.NODE_ENV === "production",
-  isTest: process.env.NODE_ENV === "test",
+  isWebWorker: typeof self === "object" && typeof (self as any).importScripts === "function",
+  isDevelopment: typeof process !== "undefined" && process.env.NODE_ENV === "development",
+  isProduction: typeof process !== "undefined" && process.env.NODE_ENV === "production",
+  isTest: typeof process !== "undefined" && process.env.NODE_ENV === "test",
 };
 
 /**

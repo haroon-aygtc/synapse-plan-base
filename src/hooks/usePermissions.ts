@@ -13,9 +13,9 @@ export function usePermissions() {
     }
 
     // Fall back to role-based permissions
-    const rolePermissions = ROLE_PERMISSIONS[user.role] || [];
-    return rolePermissions.includes(permission);
-  };
+    const rolePermissions = ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || [];
+    return rolePermissions.includes(permission as any);
+  };  
 
   const hasAnyPermission = (permissions: Permission[]): boolean => {
     return permissions.some((permission) => hasPermission(permission));
@@ -32,7 +32,7 @@ export function usePermissions() {
       return user.permissions as Permission[];
     }
 
-    return ROLE_PERMISSIONS[user.role] || [];
+    return ROLE_PERMISSIONS[user.role as keyof typeof ROLE_PERMISSIONS] || [];
   };
 
   const canAccessModule = (module: string): boolean => {

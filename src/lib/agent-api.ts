@@ -1,4 +1,4 @@
-import apiClient, { ApiResponse } from './api';
+import { apiClient, ApiResponse } from './api';
 
 export interface Agent {
   id: string;
@@ -91,6 +91,7 @@ export interface BatchTestAgentRequest {
 }
 
 export class AgentAPI {
+
   // CRUD Operations
   async getAgents(params?: {
     page?: number;
@@ -133,7 +134,7 @@ export class AgentAPI {
   async getExecution(executionId: string): Promise<ApiResponse<AgentExecution>> {
     return apiClient.get(`/agent-executions/${executionId}`);
   }
-
+  
   async getExecutions(agentId?: string, params?: {
     page?: number;
     limit?: number;

@@ -199,7 +199,7 @@ export function UserInvitation({
         message: '',
       });
       setCustomPermissions(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to invite user:', error);
     } finally {
       setLoading(false);
@@ -219,7 +219,7 @@ export function UserInvitation({
   const handlePermissionToggle = (permission: string) => {
     const currentPermissions = formData.permissions || [];
     const newPermissions = currentPermissions.includes(permission)
-      ? currentPermissions.filter((p) => p !== permission)
+      ? currentPermissions.filter((p: string) => p !== permission)
       : [...currentPermissions, permission];
 
     setFormData({ ...formData, permissions: newPermissions });
@@ -391,7 +391,12 @@ export function UserInvitation({
                 <Checkbox
                   id="customPermissions"
                   checked={customPermissions}
-                  onCheckedChange={setCustomPermissions}
+                  onCheckedChange={(checked: boolean) => setCustomPermissions(checked)}
+                /> 
+                <Checkbox
+                  id="customPermissions"
+                  checked={customPermissions}
+                  onCheckedChange={(checked: boolean) => setCustomPermissions(checked)}
                 />
                 <Label htmlFor="customPermissions">Customize permissions</Label>
               </div>
@@ -448,7 +453,7 @@ export function UserInvitation({
                   id="message"
                   placeholder="Add a personal message to the invitation email..."
                   value={formData.message}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                     setFormData({ ...formData, message: e.target.value })
                   }
                   rows={3}

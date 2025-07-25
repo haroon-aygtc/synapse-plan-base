@@ -112,25 +112,25 @@ program
         }
 
         config.profiles[profileName] = {
-          apiKey: authResult.data.accessToken,
+          apiKey: authResult.data.accessToken || "",
           baseURL: process.env.SYNAPSE_API_URL || "http://localhost:3001/api",
-          organizationId: authResult.data.user.organizationId,
+          organizationId: authResult.data.user?.organizationId || "",
         };
 
         config.currentProfile = profileName;
         saveConfig(config);
 
         console.log(
-          `✅ Successfully logged in as ${authResult.data.user.email}`,
+          `✅ Successfully logged in as ${authResult.data.user?.email || ""}`,
         );
         console.log(`📁 Profile: ${profileName}`);
-        console.log(`🏢 Organization: ${authResult.data.user.organizationId}`);
+        console.log(`🏢 Organization: ${authResult.data.user?.organizationId || ""}`);
       } else {
         console.error("❌ Login failed:", authResult.error);
         process.exit(1);
       }
     } catch (error) {
-      console.error("❌ Login error:", error.message);
+      console.error("❌ Login error:", error instanceof Error ? error.message : "Unknown error");
       process.exit(1);
     }
   });
@@ -163,7 +163,7 @@ agentCmd
         console.log("");
       });
     } catch (error) {
-      console.error("❌ Error listing agents:", error.message);
+      console.error("❌ Error listing agents:", error instanceof Error ? error.message : "Unknown error");
       process.exit(1);
     }
   });
@@ -187,7 +187,7 @@ agentCmd
       if (options.stream) {
         // Stream response
         const executionId = await client.agents.execute(agentId, {
-          input: prompt,
+          prompt,
           stream: true,
         });
 
@@ -206,17 +206,17 @@ agentCmd
       } else {
         // Regular response
         const result = await client.agents.execute(agentId, {
-          input: prompt,
+          prompt,
         });
 
         console.log("📤 Response:");
-        console.log(result.data?.output);
-        console.log(`\n⏱️  Execution time: ${result.data?.executionTimeMs}ms`);
-        console.log(`🎯 Tokens used: ${result.data?.tokensUsed}`);
-        console.log(`💰 Cost: $${result.data?.cost?.toFixed(4)}`);
+        console.log(result.output);
+        console.log(`\n⏱️  Execution time: ${result.executionTimeMs}ms`);
+        console.log(`🎯 Tokens used: ${result.tokensUsed}`);
+        console.log(`💰 Cost: $${result.cost?.toFixed(4)}`);
       }
     } catch (error) {
-      console.error("❌ Error testing agent:", error.message);
+      console.error("❌ Error testing agent:", error instanceof Error ? error.message : "Unknown error");
       process.exit(1);
     }
   });
@@ -242,7 +242,7 @@ toolCmd
         console.log("");
       });
     } catch (error) {
-      console.error("❌ Error listing tools:", error.message);
+      console.error("❌ Error listing tools:", error instanceof Error ? error.message : "Unknown error");
       process.exit(1);
     }
   });
@@ -266,7 +266,7 @@ configCmd
   .description("Set configuration value")
   .action((key, value) => {
     const config = loadConfig();
-    config[key] = value;
+    config[key as keyof CLIConfig] = value;
     saveConfig(config);
     console.log(`✅ Set ${key} = ${value}`);
   });
@@ -349,4 +349,4 @@ function promptPassword(question: string): Promise<string> {
 }
 
 // Parse command line arguments
-program.parse();
+program.parse(process.argv);

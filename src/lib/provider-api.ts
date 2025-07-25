@@ -1,5 +1,4 @@
-import axios from "axios";
-import { api } from "./api";
+import { apiClient } from "./api";
 import { getToken } from "./auth";
 
 export interface AIProvider {
@@ -15,6 +14,7 @@ export interface AIProvider {
     rateLimits?: {
       requestsPerMinute: number;
       tokensPerMinute: number;
+      enabled: boolean;
     };
     models?: string[];
     customHeaders?: Record<string, string>;
@@ -52,6 +52,7 @@ export interface CreateProviderRequest {
     rateLimits?: {
       requestsPerMinute: number;
       tokensPerMinute: number;
+      enabled: boolean;
     };
     models?: string[];
     customHeaders?: Record<string, string>;
@@ -211,7 +212,7 @@ class ProviderAPI {
   }
 
   async getProviders(includeInactive = false): Promise<AIProvider[]> {
-    const response = await axios.get(`${this.baseURL}`, {
+    const response = await apiClient.get(`${this.baseURL}`, {
       headers: await this.getAuthHeaders(),
       params: { includeInactive },
     });
@@ -219,14 +220,14 @@ class ProviderAPI {
   }
 
   async getProvider(id: string): Promise<AIProvider> {
-    const response = await axios.get(`${this.baseURL}/${id}`, {
+    const response = await apiClient.get(`${this.baseURL}/${id}`, {
       headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
 
   async createProvider(data: CreateProviderRequest): Promise<AIProvider> {
-    const response = await axios.post(`${this.baseURL}`, data, {
+    const response = await apiClient.post(`${this.baseURL}`, data, {
       headers: await this.getAuthHeaders(),
     });
     return response.data;
@@ -236,14 +237,14 @@ class ProviderAPI {
     id: string,
     data: UpdateProviderRequest,
   ): Promise<AIProvider> {
-    const response = await axios.put(`${this.baseURL}/${id}`, data, {
+    const response = await apiClient.put(`${this.baseURL}/${id}`, data, {
       headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
 
   async deleteProvider(id: string): Promise<void> {
-    await axios.delete(`${this.baseURL}/${id}`, {
+    await apiClient.delete(`${this.baseURL}/${id}`, {
       headers: await this.getAuthHeaders(),
     });
   }
@@ -251,7 +252,7 @@ class ProviderAPI {
   async testProvider(
     id: string,
   ): Promise<{ success: boolean; responseTime?: number; error?: string }> {
-    const response = await axios.post(
+    const response = await apiClient.post(
       `${this.baseURL}/${id}/test`,
       {},
       {
@@ -262,7 +263,7 @@ class ProviderAPI {
   }
 
   async rotateApiKey(id: string, newApiKey: string): Promise<AIProvider> {
-    const response = await axios.post(
+    const response = await apiClient.post(
       `${this.baseURL}/${id}/rotate-key`,
       { newApiKey },
       {
@@ -281,7 +282,7 @@ class ProviderAPI {
       features: string[];
     }>
   > {
-    const response = await axios.get(`${this.baseURL}/available`, {
+    const response = await apiClient.get(`${this.baseURL}/available`, {
       headers: await this.getAuthHeaders(),
     });
     return response.data;
@@ -297,7 +298,7 @@ class ProviderAPI {
       isAvailable: boolean;
     }>;
   }> {
-    const response = await axios.get(`${this.baseURL}/models`, {
+    const response = await apiClient.get(`${this.baseURL}/models`, {
       headers: await this.getAuthHeaders(),
     });
     return response.data;
@@ -330,14 +331,14 @@ class ProviderAPI {
     toolCalls?: any[];
     metadata?: any;
   }> {
-    const response = await axios.post(`${this.baseURL}/ai/complete`, request, {
+    const response = await apiClient.post(`${this.baseURL}/ai/complete`, request, {
       headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
 
   async getProviderHealth(): Promise<ProviderHealthResponse> {
-    const response = await axios.get(`${this.baseURL}/health`, {
+      const response = await apiClient.get(`${this.baseURL}/health`, {
       headers: await this.getAuthHeaders(),
     });
     return response.data;
@@ -347,7 +348,7 @@ class ProviderAPI {
     startDate?: string,
     endDate?: string,
   ): Promise<CostAnalytics> {
-    const response = await axios.get(`${this.baseURL}/costs`, {
+    const response = await apiClient.get(`${this.baseURL}/costs`, {
       headers: await this.getAuthHeaders(),
       params: { startDate, endDate },
     });
@@ -357,7 +358,7 @@ class ProviderAPI {
   async getUsageStats(
     period: "day" | "week" | "month" = "week",
   ): Promise<UsageStats> {
-    const response = await axios.get(`${this.baseURL}/usage-stats`, {
+    const response = await apiClient.get(`${this.baseURL}/usage-stats`, {
       headers: await this.getAuthHeaders(),
       params: { period },
     });
@@ -365,21 +366,21 @@ class ProviderAPI {
   }
 
   async getRoutingRules(): Promise<RoutingRule[]> {
-    const response = await axios.get(`${this.baseURL}/routing-rules`, {
+    const response = await apiClient.get(`${this.baseURL}/routing-rules`, {
       headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
 
   async createRoutingRule(rule: Omit<RoutingRule, "id">): Promise<RoutingRule> {
-    const response = await axios.post(`${this.baseURL}/routing-rules`, rule, {
+    const response = await apiClient.post(`${this.baseURL}/routing-rules`, rule, {
       headers: await this.getAuthHeaders(),
     });
     return response.data;
   }
 
   async getOptimizationSuggestions(): Promise<OptimizationSuggestions> {
-    const response = await axios.get(
+    const response = await apiClient.get(
       `${this.baseURL}/optimization-suggestions`,
       {
         headers: await this.getAuthHeaders(),
@@ -408,7 +409,7 @@ class ProviderAPI {
       errorRate: number;
     }>;
   }> {
-    const response = await axios.get(`${this.baseURL}/${id}/metrics`, {
+    const response = await apiClient.get(`${this.baseURL}/${id}/metrics`, {
       headers: await this.getAuthHeaders(),
       params: { period },
     });
@@ -427,7 +428,7 @@ class ProviderAPI {
       isActive?: boolean;
     }>,
   ): Promise<AIProvider[]> {
-    const response = await axios.post(
+    const response = await apiClient.post(
       `${this.baseURL}/bulk-configure`,
       { providers },
       {

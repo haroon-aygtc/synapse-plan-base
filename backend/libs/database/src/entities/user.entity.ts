@@ -14,6 +14,7 @@ import { Workflow } from './workflow.entity';
 import { Session } from './session.entity';
 import { APXSession } from './apix-session.entity';
 import { APXExecution } from './apix-execution.entity';
+import { AIProvider } from './ai-provider.entity';
 import { UserRole } from '@shared/interfaces';
 
 @Entity('users')
@@ -83,12 +84,19 @@ export class User extends BaseEntity {
   sessions: Session[];
 
   @OneToMany(() => APXSession, (session) => session.user)
-  apixSessions: APXSession[];
+  apixSessions: APXSession[] = [];
 
   @OneToMany(() => APXExecution, (execution) => execution.user)
-  apixExecutions: APXExecution[];
+  apixExecutions: APXExecution[] = [];
+
+  @OneToMany(() => AIProvider, (provider) => provider.user)
+  aiProviders: AIProvider[] = [];
 
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`;
+  }
+
+  get name(): string {
+    return this.fullName;
   }
 }

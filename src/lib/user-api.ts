@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { apiClient } from "./api";
 import { UserRole } from "@/types/global";
 
 export interface User {
@@ -70,35 +70,35 @@ export const userAPI = {
       ),
     });
 
-    const response = await api.get(`/auth/users?${params}`);
+    const response = await apiClient.get(`/auth/users?${params}`);
     return response.data;
   },
 
   async getUserById(id: string): Promise<User> {
-    const response = await api.get(`/auth/users/${id}`);
+    const response = await apiClient.get(`/auth/users/${id}`);
     return response.data.data;
   },
 
   async getUserStats(): Promise<UserStats> {
-    const response = await api.get("/auth/users/stats");
+    const response = await apiClient.get("/auth/users/stats");
     return response.data.data;
   },
 
   async inviteUser(userData: InviteUserRequest): Promise<any> {
-    const response = await api.post("/auth/users/invite", userData);
+    const response = await apiClient.post("/auth/users/invite", userData);
     return response.data;
   },
 
   async activateUser(userId: string): Promise<void> {
-    await api.post("/auth/users/activate", { userId });
+    await apiClient.post("/auth/users/activate", { userId });
   },
 
   async deactivateUser(userId: string, reason?: string): Promise<void> {
-    await api.post("/auth/users/deactivate", { userId, reason });
+    await apiClient.post("/auth/users/deactivate", { userId, reason });
   },
 
   async updateUser(id: string, userData: Partial<User>): Promise<User> {
-    const response = await api.put(`/auth/users/${id}`, userData);
+    const response = await apiClient.put(`/auth/users/${id}`, userData);
     return response.data.data;
   },
 
@@ -107,7 +107,7 @@ export const userAPI = {
     action: "activate" | "deactivate" | "delete",
     reason?: string,
   ): Promise<BulkActionResult> {
-    const response = await api.post("/auth/users/bulk-action", {
+    const response = await apiClient.post("/auth/users/bulk-action", {
       userIds,
       action,
       reason,
@@ -132,20 +132,20 @@ export const userAPI = {
       ),
     });
 
-    const response = await api.get(`/auth/users/search?${params}`);
+    const response = await apiClient.get(`/auth/users/search?${params}`);
     return response.data.data;
   },
 
   async resetPassword(userId: string): Promise<void> {
-    await api.post(`/auth/users/${userId}/reset-password`);
+    await apiClient.post(`/auth/users/${userId}/reset-password`);
   },
 
   async impersonateUser(userId: string): Promise<{ token: string }> {
-    const response = await api.post("/auth/impersonate", { userId });
+    const response = await apiClient.post("/auth/impersonate", { userId });
     return response.data.data;
   },
 
   async stopImpersonation(): Promise<void> {
-    await api.post("/auth/stop-impersonation");
+    await apiClient.post("/auth/stop-impersonation");
   },
 };

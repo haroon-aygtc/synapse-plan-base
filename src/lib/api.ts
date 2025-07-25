@@ -12,24 +12,8 @@ const USER_DATA_KEY = 'tempo_user_data';
 const ORG_DATA_KEY = 'tempo_org_data';
 
 // Types
-export interface ApiResponse<T = any> {
-  data: T;
-  message?: string;
-  success: boolean;
-  meta?: {
-    page?: number;
-    limit?: number;
-    total?: number;
-    totalPages?: number;
-  };
-}
-
-export interface ApiError {
-  message: string;
-  code?: string;
-  statusCode: number;
-  details?: any;
-}
+import { ApiResponse, ApiError } from './api-types';
+export type { ApiResponse, ApiError } from './api-types';
 
 export interface AuthTokens {
   accessToken: string;
@@ -381,16 +365,54 @@ class ApiClient {
 }
 
 // Create singleton instance
-const apiClient = new ApiClient();
-
-export default apiClient;
+export const apiClient = new ApiClient();
 
 // Export specific API modules
 export * from './agent-api';
-export * from './tool-api';
-export * from './workflow-api';
-export * from './widget-api';
-export * from './knowledge-api';
-export * from './prompt-template-api';
 export * from './user-api';
-export * from './analytics-api';
+export * from './prompt-template-api';
+export * from './provider-api';
+
+// Export analytics API with explicit re-exports to resolve naming conflicts
+export type {
+  AnalyticsQuery,
+  AnalyticsDataPoint,
+  AnalyticsReport,
+  RealTimeMetrics,
+  UserBehaviorAnalytics,
+  HITLAnalytics,
+  WidgetAnalytics as WidgetAnalyticsMetrics,
+  ToolAnalytics,
+  ProviderAnalytics,
+  KnowledgeAnalytics,
+  WorkflowAnalytics,
+  AnalyticsDashboard
+} from './analytics-api';
+
+export {
+  AnalyticsAPI,
+  analyticsAPI
+} from './analytics-api';
+
+// Export widget API with explicit re-exports to resolve naming conflicts
+export type {
+  Widget,
+  WidgetTheme,
+  WidgetLayout,
+  WidgetBehavior,
+  WidgetBranding,
+  WidgetSecurity,
+  WidgetConfiguration,
+  WidgetExecution,
+  WidgetAnalytics as WidgetAnalyticsEvent,
+  CreateWidgetRequest,
+  UpdateWidgetRequest,
+  DeployWidgetRequest,
+  GenerateEmbedCodeRequest,
+  TestWidgetRequest
+} from './widget-api';
+
+export {
+  WidgetAPI,
+  widgetAPI
+} from './widget-api';

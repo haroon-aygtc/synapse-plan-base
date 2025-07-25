@@ -14,7 +14,7 @@ declare module 'lucide-react' {
 declare module '@/components/ui/button' {
   export interface ButtonProps {
     className?: string;
-    onClick?: () => void | Promise<void>;
+    onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
     disabled?: boolean;
     variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
     size?: 'default' | 'sm' | 'lg' | 'icon';

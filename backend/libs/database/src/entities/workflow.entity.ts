@@ -15,16 +15,16 @@ import { WorkflowExecution } from './workflow-execution.entity';
 @Index(['organizationId', 'name'])
 export class Workflow extends BaseEntity {
   @Column({ type: 'varchar', length: 255 })
-  name: string;
+  name!: string;
 
   @Column({ type: 'text', nullable: true })
   description?: string;
 
   @Column({ type: 'jsonb' })
-  definition: Record<string, any>;
+  definition!: Record<string, any>;
 
   @Column({ type: 'varchar', length: 50, default: '1.0.0' })
-  version: string;
+  version!: string;
 
   @Column({ type: 'jsonb', nullable: true })
   settings?: Record<string, any>;
@@ -33,19 +33,19 @@ export class Workflow extends BaseEntity {
   metadata?: Record<string, any>;
 
   @Column({ type: 'boolean', default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @Column({ type: 'uuid' })
-  userId: string;
+  userId!: string;
 
   @ManyToOne(() => Organization, (organization) => organization.workflows)
   @JoinColumn({ name: 'organizationId' })
-  organization: Organization;
+  organization!: Organization;
 
   @ManyToOne(() => User, (user) => user.workflows)
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user!: User;
 
   @OneToMany(() => WorkflowExecution, (execution) => execution.workflow)
-  executions: WorkflowExecution[];
+  executions!: WorkflowExecution[];
 }

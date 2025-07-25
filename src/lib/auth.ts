@@ -14,6 +14,8 @@ interface User {
   role: string;
   organizationId: string;
   isActive: boolean;
+  accessToken: string;
+  refreshToken: string;
 }
 
 interface AuthState {
@@ -60,7 +62,7 @@ export function getUser(): User | null {
     return null;
   }
   try {
-    return JSON.parse(userJson);
+    return JSON.parse(userJson) as User;
   } catch (error) {
     console.error('Failed to parse user from localStorage:', error);
     return null;
@@ -77,7 +79,7 @@ export function setUser(user: User): void {
 
 // Check if user is authenticated
 export function isAuthenticated(): boolean {
-  return !!getToken();
+  return !!getToken();  
 }
 
 // Get current auth state
@@ -96,7 +98,7 @@ export function getAuthState(): AuthState {
 
 // Login function
 export async function login(email: string, password: string): Promise<AuthState> {
-  try {
+  try { 
     const response = await axios.post(
       `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/auth/login`,
       { email, password }

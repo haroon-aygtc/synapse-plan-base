@@ -59,15 +59,15 @@ export interface WidgetPerformanceData {
 @Index(['userId', 'date'])
 export class WidgetAnalytics extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ name: 'widget_id' })
   @Index()
-  widgetId: string;
+  widgetId!: string;
 
   @ManyToOne(() => Widget, { eager: false })
   @JoinColumn({ name: 'widget_id' })
-  widget: Widget;
+  widget!: Widget;
 
   @Column({ name: 'user_id', nullable: true })
   @Index()
@@ -79,7 +79,7 @@ export class WidgetAnalytics extends BaseEntity {
 
   @Column({ type: 'date' })
   @Index()
-  date: Date;
+  date!: Date;
 
   @Column({
     name: 'event_type',
@@ -87,23 +87,23 @@ export class WidgetAnalytics extends BaseEntity {
     enum: ['view', 'interaction', 'conversion', 'error', 'performance'],
   })
   @Index()
-  eventType: 'view' | 'interaction' | 'conversion' | 'error' | 'performance';
+  eventType!: 'view' | 'interaction' | 'conversion' | 'error' | 'performance';
 
   @Column({ name: 'session_id' })
   @Index()
-  sessionId: string;
+  sessionId!: string;
 
   @Column({ name: 'page_url', type: 'text' })
-  pageUrl: string;
+  pageUrl!: string;
 
   @Column({ name: 'referrer_url', type: 'text', nullable: true })
   referrerUrl?: string;
 
   @Column({ name: 'user_agent', type: 'text' })
-  userAgent: string;
+  userAgent!: string;
 
   @Column({ name: 'ip_address', length: 45 })
-  ipAddress: string;
+  ipAddress!: string;
 
   @Column({
     name: 'device_type',
@@ -111,17 +111,17 @@ export class WidgetAnalytics extends BaseEntity {
     enum: ['desktop', 'mobile', 'tablet'],
   })
   @Index()
-  deviceType: 'desktop' | 'mobile' | 'tablet';
+  deviceType!: 'desktop' | 'mobile' | 'tablet';
 
   @Column({ name: 'browser_name', length: 100 })
   @Index()
-  browserName: string;
+  browserName!: string;
 
   @Column({ name: 'browser_version', length: 50 })
-  browserVersion: string;
+  browserVersion!: string;
 
   @Column({ name: 'operating_system', length: 100 })
-  operatingSystem: string;
+  operatingSystem!: string;
 
   @Column({ name: 'screen_resolution', length: 20, nullable: true })
   screenResolution?: string;
@@ -170,27 +170,27 @@ export class WidgetAnalytics extends BaseEntity {
 
   @Column({ name: 'is_unique_visitor', default: false })
   @Index()
-  isUniqueVisitor: boolean;
+  isUniqueVisitor!: boolean;
 
   @Column({ name: 'is_returning_visitor', default: false })
   @Index()
-  isReturningVisitor: boolean;
+  isReturningVisitor!: boolean;
 
   @Column({ name: 'is_bounce', default: false })
   @Index()
-  isBounce: boolean;
+  isBounce!: boolean;
 
   @Column({ name: 'page_depth', default: 1 })
-  pageDepth: number;
+  pageDepth!: number;
 
   @Column({ name: 'time_on_page_ms', nullable: true })
   timeOnPageMs?: number;
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Helper methods
   static createViewEvent(

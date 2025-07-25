@@ -155,7 +155,7 @@ export class KnowledgeDocumentChunk {
   @Column({ type: 'text' })
   content: string;
 
-  @Column({ type: 'vector', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   embedding?: number[];
 
   @Column({ type: 'int' })

@@ -53,7 +53,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { api } from '@/lib/api';
+import {apiClient} from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -121,7 +121,7 @@ export default function ToolsPage() {
   const loadTools = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/tools', {
+      const response = await apiClient.get('/tools', {
         params: {
           page: 1,
           limit: 50,
@@ -148,7 +148,7 @@ export default function ToolsPage() {
   const loadToolAnalytics = async (toolId: string) => {
     setLoadingAnalytics(true);
     try {
-      const response = await api.get(`/tools/${toolId}/analytics`, {
+      const response = await apiClient.get(`/tools/${toolId}/analytics`, {
         params: {
           startDate: new Date(
             Date.now() - 30 * 24 * 60 * 60 * 1000,
@@ -167,7 +167,7 @@ export default function ToolsPage() {
   const loadCostAnalysis = async (toolId: string) => {
     setLoadingCostAnalysis(true);
     try {
-      const response = await api.get(`/tools/${toolId}/cost-analysis`, {
+      const response = await apiClient.get(`/tools/${toolId}/cost-analysis`, {
         params: {
           startDate: new Date(
             Date.now() - 30 * 24 * 60 * 60 * 1000,
@@ -186,7 +186,7 @@ export default function ToolsPage() {
   const loadToolConnections = async (toolId: string) => {
     setLoadingConnections(true);
     try {
-      const response = await api.get(`/tools/${toolId}/connections`);
+      const response = await apiClient.get(`/tools/${toolId}/connections`);
       setToolConnections(response.data);
     } catch (error) {
       console.error('Failed to load connections:', error);
@@ -199,7 +199,7 @@ export default function ToolsPage() {
     if (!confirm('Are you sure you want to delete this tool?')) return;
 
     try {
-      await api.delete(`/tools/${toolId}`);
+      await apiClient.delete(`/tools/${toolId}`);
       setTools(tools.filter((tool) => tool.id !== toolId));
     } catch (error) {
       console.error('Failed to delete tool:', error);
@@ -208,7 +208,7 @@ export default function ToolsPage() {
 
   const toggleToolStatus = async (toolId: string, isActive: boolean) => {
     try {
-      await api.put(`/tools/${toolId}`, { isActive: !isActive });
+      await apiClient.put(`/tools/${toolId}`, { isActive: !isActive });
       setTools(
         tools.map((tool) =>
           tool.id === toolId ? { ...tool, isActive: !isActive } : tool,
@@ -230,7 +230,7 @@ export default function ToolsPage() {
   const testToolInContext = async (toolId: string, testPayload: any) => {
     setLoadingContextTest(true);
     try {
-      const response = await api.post(`/tools/${toolId}/test-context`, testPayload);
+      const response = await apiClient.post(`/tools/${toolId}/test-context`, testPayload);
       setContextTestResult(response.data);
     } catch (error) {
       console.error('Context test failed:', error);
@@ -1191,7 +1191,7 @@ export default function ToolsPage() {
                 <select 
                   className="w-full mt-1 p-2 border rounded"
                   value={contextTestData?.contextType || 'workflow'}
-                  onChange={(e) => setContextTestData(prev => ({ ...prev, contextType: e.target.value }))}
+                  onChange={(e) => setContextTestData((prev: any) => ({ ...prev, contextType: e.target.value }))}
                 >
                   <option value="workflow">Workflow Context</option>
                   <option value="agent">Agent Context</option>
@@ -1205,7 +1205,7 @@ export default function ToolsPage() {
                   className="w-full mt-1 p-2 border rounded"
                   placeholder="Enter workflow/agent ID"
                   value={contextTestData?.contextId || ''}
-                  onChange={(e) => setContextTestData(prev => ({ ...prev, contextId: e.target.value }))}
+                  onChange={(e) => setContextTestData((prev: any) => ({ ...prev, contextId: e.target.value }))}
                 />
               </div>
             </div>
@@ -1219,7 +1219,7 @@ export default function ToolsPage() {
                 onChange={(e) => {
                   try {
                     const params = JSON.parse(e.target.value);
-                    setContextTestData(prev => ({ ...prev, parameters: params }));
+                    setContextTestData((prev: any) => ({ ...prev, parameters: params }));
                   } catch (error) {
                     // Invalid JSON, keep the text for user to fix
                   }
@@ -1236,7 +1236,7 @@ export default function ToolsPage() {
                 onChange={(e) => {
                   try {
                     const context = JSON.parse(e.target.value);
-                    setContextTestData(prev => ({ ...prev, context }));
+                    setContextTestData((prev: any) => ({ ...prev, context }));
                   } catch (error) {
                     // Invalid JSON, keep the text for user to fix
                   }
@@ -1344,3 +1344,6 @@ export default function ToolsPage() {
         </DialogContent>
       </Dialog>
 
+    </div>
+  );
+}

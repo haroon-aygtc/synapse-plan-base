@@ -11,7 +11,6 @@ import { Separator } from "@/components/ui/separator";
 import {
   Search,
   Bot,
-  Wrench,
   Database,
   Zap,
   GitBranch,
@@ -23,12 +22,10 @@ import {
   Plus,
   Sparkles,
   Heart,
-  Download,
-  Share,
   Settings,
 } from "lucide-react";
 import { AgentConfiguration } from "@/lib/ai-assistant";
-import { api } from "@/lib/api";
+import api from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
 
 interface ComponentPaletteProps {
@@ -37,7 +34,7 @@ interface ComponentPaletteProps {
   userExperience: "beginner" | "intermediate" | "advanced";
   searchContext: string;
   canvasNodes: any[];
-  canvasEdges: any[];
+  canvasEdges?: any[]; // Made optional since it's unused
 }
 
 interface ComponentTemplate {
@@ -213,7 +210,6 @@ export default function ComponentPalette({
   userExperience,
   searchContext,
   canvasNodes,
-  canvasEdges,
 }: ComponentPaletteProps) {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
@@ -420,8 +416,12 @@ export default function ComponentPalette({
     setFavorites(newFavorites);
     localStorage.setItem(
       "component-favorites",
-      JSON.stringify([...newFavorites]),
+      JSON.stringify(Array.from(newFavorites)),
     );
+  };
+
+  const handleFavoriteClick = (componentId: string) => () => {
+    toggleFavorite(componentId);
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -453,23 +453,26 @@ export default function ComponentPalette({
               </p>
             </div>
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 w-6 p-0"
+          <div
             onClick={(e) => {
               e.stopPropagation();
-              toggleFavorite(component.id);
             }}
           >
-            <Heart
-              className={`h-3 w-3 ${
-                component.isFavorite
-                  ? "fill-red-500 text-red-500"
-                  : "text-gray-400"
-              }`}
-            />
-          </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+              onClick={handleFavoriteClick(component.id)}
+            >
+              <Heart
+                className={`h-3 w-3 ${
+                  component.isFavorite
+                    ? "fill-red-500 text-red-500"
+                    : "text-gray-400"
+                }`}
+              />
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between mb-2">

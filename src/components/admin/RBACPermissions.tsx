@@ -406,9 +406,9 @@ export function RBACPermissions({
                       <div className="grid grid-cols-2 gap-3 pl-4">
                         {categoryPermissions.map((permission) => {
                           const isSelected =
-                            selectedPermissions.includes(permission);
+                            selectedPermissions.includes(permission as string);
                           const isDefaultForRole =
-                            rolePermissions.includes(permission);
+                            rolePermissions.includes(permission as any);
                           const isCustom = isSelected !== isDefaultForRole;
 
                           return (

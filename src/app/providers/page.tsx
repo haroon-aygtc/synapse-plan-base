@@ -153,7 +153,19 @@ export default function ProvidersPage() {
           </TabsContent>
 
           <TabsContent value="models" className="space-y-6">
-            <ModelDirectory />
+            <Card>
+              <CardHeader>
+                <CardTitle>Model Directory</CardTitle>
+                <CardDescription>
+                  Browse and manage available AI models across providers
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Model directory functionality coming soon...
+                </p>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="health" className="space-y-6">
@@ -169,11 +181,35 @@ export default function ProvidersPage() {
           </TabsContent>
 
           <TabsContent value="testing" className="space-y-6">
-            <ProviderTestPlayground />
+            <Card>
+              <CardHeader>
+                <CardTitle>Provider Testing</CardTitle>
+                <CardDescription>
+                  Test and validate provider configurations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Provider testing playground coming soon...
+                </p>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="events" className="space-y-6">
-            <StreamingEventsConsole />
+            <Card>
+              <CardHeader>
+                <CardTitle>Streaming Events</CardTitle>
+                <CardDescription>
+                  Monitor real-time provider events and streaming responses
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Streaming events console coming soon...
+                </p>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

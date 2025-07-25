@@ -393,9 +393,9 @@ export interface Widget {
   organizationId: string;
   userId: string;
   isActive: boolean;
-  isDeployed?: boolean;
+  isDeployed: boolean;
   usageCount?: number;
-  version?: string;
+  version: string;
   createdAt: Date;
   updatedAt: Date;
   deploymentInfo?: WidgetDeploymentInfo;
@@ -407,8 +407,8 @@ export interface WidgetConfiguration {
   layout: WidgetLayout;
   behavior: WidgetBehavior;
   branding: WidgetBranding;
-  security: WidgetSecurity;
-}
+  security?: WidgetSecurity;
+} 
 
 export interface WidgetTheme {
   primaryColor: string;
@@ -429,8 +429,16 @@ export interface WidgetLayout {
     | "bottom-left"
     | "top-right"
     | "top-left"
-    | "center";
+    | "center"
+    | "fullscreen";
   responsive: boolean;
+  zIndex?: number;
+  margin?: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
 }
 
 export interface WidgetBehavior {
@@ -448,14 +456,15 @@ export interface WidgetBranding {
   poweredByText?: string;
   customHeader?: string;
   customFooter?: string;
-}
+  }
 
 export interface WidgetSecurity {
   allowedDomains: string[];
   requireAuth: boolean;
   rateLimiting: {
-    enabled: boolean;
+    enabled: boolean; 
     requestsPerMinute: number;
+    tokensPerMinute: number;
   };
 }
 
@@ -529,16 +538,32 @@ export interface WidgetExecutionResult {
   status: 'completed' | 'failed' | 'timeout';
   tokensUsed?: number;
   executionTime: number;
-  error?: string;
+  error?: string; 
+  cost?: number;
+  cacheHit?: boolean;
+  apiCalls?: number;
+  model?: string;
+  provider?: string;
 }
 
 export interface WidgetConnection {
   id: string;
   widgetId: string;
   parentOrigin: string;
+  userId?: string;
+  organizationId?: string;
+  user?: User;
+  organization?: Organization;
+  permissions?: Permission[];
+  metadata?: Record<string, any>;
   established: Date;
   lastActivity: Date;
   isActive: boolean;
+  sessionId?: string; 
+  deviceInfo?: DeviceInfo;
+  geolocation?: GeolocationData;
+  customData?: Record<string, any>;
+  messageHandler?: (event: MessageEvent) => void;
 }
 
 export interface WidgetEvent {
@@ -661,11 +686,6 @@ export type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
-export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
-
-export type OptionalFields<T, K extends keyof T> = Omit<T, K> &
-  Partial<Pick<T, K>>;
-
 // Event Types
 export interface SDKEvent {
   type: string;
@@ -680,7 +700,7 @@ export interface CacheEntry<T = any> {
   value: T;
   expiresAt: Date;
   createdAt: Date;
-}
+  }
 
 // Request Options
 export interface RequestOptions {

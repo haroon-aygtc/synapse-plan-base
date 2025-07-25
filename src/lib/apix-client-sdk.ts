@@ -5,6 +5,7 @@ import {
   APXSecurityLevel,
   APXPermissionLevel,
 } from "@/types/apix";
+import { getUser } from "./auth";
 
 interface APXMessage {
   type: APXMessageType;
@@ -31,8 +32,15 @@ interface APXClientConfig {
   reconnectDelay?: number;
   heartbeatInterval?: number;
   messageTimeout?: number;
-  compression?: boolean;
+  compression?: boolean;  
   encryption?: boolean;
+  debug?: boolean;
+  debugMaxSize?: number;
+  debugMaxFiles?: number;
+  debugMaxFileAge?: number;
+  debugMaxFileCount?: number;
+  debugLevel?: "debug" | "info" | "warn" | "error";
+  debugFile?: string;
 }
 
 interface QueuedMessage {
@@ -68,6 +76,13 @@ export class APXClient extends EventEmitter {
       messageTimeout: 30000,
       compression: true,
       encryption: true,
+      debug: false,
+      debugMaxSize: 1024 * 1024 * 10,
+      debugMaxFiles: 10,
+      debugMaxFileAge: 1000 * 60 * 60 * 24,
+      debugMaxFileCount: 10,
+      debugLevel: "info",
+      debugFile: "apix-debug.log",
       ...config,
     };
   }
@@ -86,7 +101,7 @@ export class APXClient extends EventEmitter {
     return new Promise((resolve, reject) => {
       try {
         this.socket = io(this.config.url, {
-          auth: { token: this.config.token },
+          auth: { token: this.config.token || getUser()?.accessToken },
           transports: ["websocket", "polling"],
           timeout: 10000,
           autoConnect: true,
@@ -154,7 +169,7 @@ export class APXClient extends EventEmitter {
       priority?: "low" | "normal" | "high" | "critical";
       expires_in_ms?: number;
       metadata?: Record<string, any>;
-    },
+    }
   ): Promise<T> {
     const message: APXMessage = {
       type,
@@ -183,7 +198,7 @@ export class APXClient extends EventEmitter {
         timeout,
       };
 
-      if (this.connectionState === "connected" && this.ws) {
+      if (this.connectionState === "connected" && this.socket) {
         this.sendQueuedMessage(queuedMessage);
       } else {
         this.messageQueue.push(queuedMessage);
@@ -228,7 +243,7 @@ export class APXClient extends EventEmitter {
       parameters?: Record<string, any>;
       tools_available?: string[];
       knowledge_sources?: string[];
-    },
+    }
   ) {
     const executionId = this.generateRequestId();
 
@@ -250,10 +265,11 @@ export class APXClient extends EventEmitter {
     });
   }
 
-  async resumeStream(executionId: string) {
+  async resumeStream(executionId: string, reason?: string) {
     return this.sendMessage(APXMessageType.STREAM_RESUME, {
       execution_id: executionId,
       action: "resume",
+      reason,
     });
   }
 
@@ -262,6 +278,11 @@ export class APXClient extends EventEmitter {
     toolId: string,
     functionName: string,
     parameters: Record<string, any>,
+    options?: {
+      caller_type?: "agent" | "workflow" | "user";
+      caller_id?: string;
+      timeout_ms?: number;
+    }
   ) {
     const toolCallId = this.generateRequestId();
 
@@ -286,7 +307,7 @@ export class APXClient extends EventEmitter {
       expiration?: Date;
       assignee_roles?: string[];
       assignee_users?: string[];
-    },
+    }
   ) {
     const requestId = this.generateRequestId();
 
@@ -310,7 +331,7 @@ export class APXClient extends EventEmitter {
     widgetId: string,
     query: string,
     queryType: string,
-    context?: Record<string, any>,
+    context?: Record<string, any>
   ) {
     const interactionId = this.generateRequestId();
 
@@ -333,7 +354,7 @@ export class APXClient extends EventEmitter {
     options?: {
       filters?: Record<string, any>;
       top_k?: number;
-    },
+    }
   ) {
     const searchId = this.generateRequestId();
 
@@ -402,21 +423,22 @@ export class APXClient extends EventEmitter {
     } catch (error) {
       this.emit(
         "error",
-        new Error(`Failed to parse message: ${error.message}`),
+        new Error(`Failed to parse message: ${error instanceof Error ? error.message : 'Unknown error'}`)
       );
+      console.error('Failed to parse message:', error);
     }
   }
 
   private handleDisconnection(code: number, reason: string): void {
-    this.connectionState = "disconnected";
+    this.connectionState = 'disconnected';
     this.stopHeartbeat();
     this.socket = null;
 
     // Reject all pending requests
-    for (const [requestId, pending] of this.pendingRequests.entries()) {
+    this.pendingRequests.forEach((pending) => {
       clearTimeout(pending.timeout);
-      pending.reject(new Error("Connection lost"));
-    }
+      pending.reject(new Error('Connection lost'));
+    });
     this.pendingRequests.clear();
 
     this.emit("disconnected", { code, reason });

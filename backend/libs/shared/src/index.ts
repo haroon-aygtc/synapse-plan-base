@@ -5,7 +5,7 @@ export * from './interfaces';
 export * from './enums';
 
 // Decorators
-export * from './decorators/roles.decorator';
+export { Roles, Permissions, Public, RequireOrgAdmin, RequireSuperAdmin, RequireDeveloper, RequireViewer, RequireTenantContext, RequireResourceOwnership, AllowCrossOrganization } from './decorators/roles.decorator';
 
 // Filters
 export * from './filters';
@@ -22,7 +22,7 @@ export * from './monitoring/monitoring.service';
 export * from './health/health.service';
 
 // Logger alias
-export { LoggerService as CustomLoggerService } from './logger/logger.service';
+export { CustomLoggerService } from './logger/logger.service';
 
 // DataDog functions
 export * from './monitoring/datadog.config';

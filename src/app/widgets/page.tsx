@@ -430,14 +430,7 @@ export default function WidgetsPage() {
                             {new Date(widget.createdAt).toLocaleDateString()}
                           </span>
                         </div>
-                        {widget.lastUsed && (
-                          <div className="flex justify-between">
-                            <span>Last used:</span>
-                            <span>
-                              {new Date(widget.lastUsed).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
+                        
                       </div>
 
                       <div className="flex gap-2 pt-2">

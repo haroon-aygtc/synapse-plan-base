@@ -62,11 +62,12 @@ import {
   Copy,
   ExternalLink,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import {apiClient} from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
+import { Widget, WidgetConfiguration } from "@/lib/sdk/types";
 import { AIConfigurationInterface } from "@/components/widgets/AIConfigurationInterface";
 import { VisualToolBuilder } from "@/components/widgets/VisualToolBuilder";
-import { ToolTemplates } from "@/components/widgets/ToolTemplates";
+import ToolTemplates from "@/components/widgets/ToolTemplates";
 import { ToolPerformanceMetrics } from "@/components/widgets/ToolPerformanceMetrics";
 import { ToolAgentConnection } from "@/components/widgets/ToolAgentConnection";
 import { ToolWorkflowConnection } from "@/components/widgets/ToolWorkflowConnection";
@@ -75,75 +76,14 @@ import { WidgetPreview } from "@/components/widgets/WidgetPreview";
 import { WidgetDeployment } from "@/components/widgets/WidgetDeployment";
 import { WidgetAnalytics } from "@/components/widgets/WidgetAnalytics";
 
-interface WidgetConfiguration {
-  theme: {
-    primaryColor: string;
-    secondaryColor: string;
-    backgroundColor: string;
-    textColor: string;
-    borderRadius: number;
-    fontSize: number;
-    fontFamily?: string;
-    customCSS?: string;
-  };
-  layout: {
-    width: number;
-    height: number;
-    position:
-      | "bottom-right"
-      | "bottom-left"
-      | "top-right"
-      | "top-left"
-      | "center"
-      | "fullscreen";
-    responsive: boolean;
-    zIndex?: number;
-    margin?: { top: number; right: number; bottom: number; left: number };
-  };
-  behavior: {
-    autoOpen: boolean;
-    showWelcomeMessage: boolean;
-    enableTypingIndicator: boolean;
-    enableSoundNotifications: boolean;
-    sessionTimeout?: number;
-    maxMessages?: number;
-    enableFileUpload?: boolean;
-    enableVoiceInput?: boolean;
-  };
-  branding: {
-    showLogo: boolean;
-    companyName?: string;
-    logoUrl?: string;
-    customHeader?: string;
-    customFooter?: string;
-    poweredByText?: string;
-    showPoweredBy?: boolean;
-  };
-  security: {
-    allowedDomains: string[];
-    requireAuth: boolean;
-    rateLimiting: {
-      enabled: boolean;
-      requestsPerMinute: number;
-      burstLimit?: number;
-    };
-    enableCORS?: boolean;
-    csrfProtection?: boolean;
-    encryptData?: boolean;
-  };
-}
-
-interface Widget {
+// Interface for widget creation state (before it's saved to the server)
+interface WidgetCreationState extends Omit<Widget, 'id' | 'organizationId' | 'userId' | 'createdAt' | 'updatedAt'> {
   id?: string;
-  name: string;
-  description?: string;
-  type: "agent" | "tool" | "workflow";
-  sourceId: string;
-  configuration: WidgetConfiguration;
-  isActive: boolean;
+  organizationId?: string;
+  userId?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
   isDeployed: boolean;
-  version: string;
-  metadata?: Record<string, any>;
 }
 
 export default function CreateWidgetPage() {
@@ -167,14 +107,14 @@ export default function CreateWidgetPage() {
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [loadingSources, setLoadingSources] = useState(true);
 
-  const [widget, setWidget] = useState<Widget>({
+  const [widget, setWidget] = useState<WidgetCreationState>({
     name: "",
     description: "",
     type: "agent",
     sourceId: "",
     isActive: true,
-    isDeployed: false,
-    version: "1.0.0",
+    isDeployed: false as unknown as boolean,
+    version: "1.0.0" as unknown as string,
     configuration: {
       theme: {
         primaryColor: "#3b82f6",
@@ -190,18 +130,12 @@ export default function CreateWidgetPage() {
         height: 600,
         position: "bottom-right",
         responsive: true,
-        zIndex: 1000,
-        margin: { top: 20, right: 20, bottom: 20, left: 20 },
       },
       behavior: {
         autoOpen: false,
         showWelcomeMessage: true,
         enableTypingIndicator: true,
         enableSoundNotifications: false,
-        sessionTimeout: 1800,
-        maxMessages: 100,
-        enableFileUpload: false,
-        enableVoiceInput: false,
       },
       branding: {
         showLogo: true,
@@ -215,11 +149,8 @@ export default function CreateWidgetPage() {
         rateLimiting: {
           enabled: true,
           requestsPerMinute: 60,
-          burstLimit: 10,
+          tokensPerMinute: 60,
         },
-        enableCORS: true,
-        csrfProtection: true,
-        encryptData: true,
       },
     },
   });
@@ -236,9 +167,9 @@ export default function CreateWidgetPage() {
     try {
       setLoadingSources(true);
       const [agentsRes, toolsRes, workflowsRes] = await Promise.all([
-        api.get("/agents"),
-        api.get("/tools"),
-        api.get("/workflows"),
+        apiClient.get("/agents"),
+        apiClient.get("/tools"),
+        apiClient.get("/workflows"),
       ]);
 
       if (agentsRes.data.success) setAgents(agentsRes.data.data);
@@ -256,7 +187,7 @@ export default function CreateWidgetPage() {
     }
   };
 
-  const handleWidgetUpdate = useCallback((updates: Partial<Widget>) => {
+  const handleWidgetUpdate = useCallback((updates: Partial<WidgetCreationState>) => {
     setWidget((prev) => ({ ...prev, ...updates }));
   }, []);
 
@@ -284,7 +215,7 @@ export default function CreateWidgetPage() {
       errors.push("Please select a source (agent, tool, or workflow)");
     }
 
-    if (widget.configuration.security.allowedDomains.length === 0) {
+    if (widget.configuration?.security?.allowedDomains?.length === 0) {
       errors.push("At least one allowed domain is required for security");
     }
 
@@ -304,7 +235,7 @@ export default function CreateWidgetPage() {
 
     try {
       setIsSaving(true);
-      const response = await api.post("/widgets", {
+      const response = await apiClient.post("/widgets", {
         ...widget,
         userId: user?.id,
         organizationId: user?.organizationId,
@@ -312,6 +243,7 @@ export default function CreateWidgetPage() {
 
       if (response.data.success) {
         const createdWidget = response.data.data;
+        setWidget(createdWidget); // Update with the complete widget from server
         toast({
           title: "Widget Created",
           description: `Widget "${widget.name}" has been created successfully`,
@@ -348,7 +280,7 @@ export default function CreateWidgetPage() {
 
     try {
       setIsTesting(true);
-      const response = await api.post("/widgets/test", {
+      const response = await apiClient.post("/widgets/test", {
         configuration: widget.configuration,
         sourceId: widget.sourceId,
         type: widget.type,
@@ -397,14 +329,14 @@ export default function CreateWidgetPage() {
 
     try {
       setIsDeploying(true);
-      const response = await api.post(`/widgets/${widget.id}/deploy`, {
+      const response = await apiClient.post(`/widgets/${widget.id}/deploy`, {
         environment: "production",
         enableAnalytics: true,
         enableCaching: true,
       });
 
       if (response.data.success) {
-        setWidget((prev) => ({ ...prev, isDeployed: true }));
+        setWidget((prev) => ({ ...prev, isDeployed: true, deploymentInfo: response.data.data }));
         toast({
           title: "Deployment Successful",
           description: "Widget has been deployed successfully",
@@ -660,7 +592,7 @@ export default function CreateWidgetPage() {
 
                 <TabsContent value="ai-config">
                   <AIConfigurationInterface
-                    widget={widget}
+                    widget={widget as Widget}
                     onUpdate={handleWidgetUpdate}
                     onConfigurationUpdate={handleConfigurationUpdate}
                   />
@@ -668,7 +600,7 @@ export default function CreateWidgetPage() {
 
                 <TabsContent value="visual-builder">
                   <VisualToolBuilder
-                    widget={widget}
+                    widget={widget as Widget}
                     onUpdate={handleWidgetUpdate}
                     onConfigurationUpdate={handleConfigurationUpdate}
                   />
@@ -700,7 +632,7 @@ export default function CreateWidgetPage() {
 
                 <TabsContent value="analytics">
                   {widget.id ? (
-                    <WidgetAnalytics widget={widget} />
+                    <WidgetAnalytics widget={widget as Widget} />
                   ) : (
                     <div className="text-center py-12">
                       <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -713,7 +645,7 @@ export default function CreateWidgetPage() {
 
                 <TabsContent value="deploy">
                   <WidgetDeployment
-                    widget={widget}
+                    widget={widget as Widget}
                     onDeploy={handleDeploy}
                     isDeploying={isDeploying}
                   />
@@ -761,7 +693,7 @@ export default function CreateWidgetPage() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <WidgetPreview widget={widget} device={previewDevice} />
+                    <WidgetPreview widget={widget  as Widget} device={previewDevice as "desktop" | "tablet" | "mobile"} />
                   </CardContent>
                 </Card>
               )}

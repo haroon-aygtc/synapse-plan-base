@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,12 +12,7 @@ import {
   Brain,
   Sparkles,
   Target,
-  Tag,
-  TrendingUp,
-  AlertCircle,
-  CheckCircle,
   Lightbulb,
-  Zap
 } from 'lucide-react';
 import { aiAssistant } from '@/lib/ai-assistant';
 import type { IntentAnalysis, SemanticAnalysis } from '@/lib/ai-assistant';

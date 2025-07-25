@@ -89,6 +89,7 @@ export interface ComponentPaletteState {
   recentlyUsed: string[];
   customComponents: any[];
   intelligentSuggestions: any[];
+  selectedComponent: any;
 }
 
 export interface AgentBuilderStore {
@@ -135,7 +136,8 @@ export interface AgentBuilderStore {
   toggleAIAssistant: () => void;
   toggleVisualBuilder: () => void;
   toggleComponentPalette: () => void;
-
+  addComponent: (component: any) => void;
+  setSelectedComponent: (component: any) => void;
   // Onboarding actions
   startOnboarding: () => void;
   completeOnboardingStep: (stepId: string) => void;
@@ -180,9 +182,9 @@ export interface AgentBuilderStore {
   addFavoriteComponent: (componentId: string) => void;
   removeFavoriteComponent: (componentId: string) => void;
   addRecentlyUsed: (componentId: string) => void;
+  setRecentlyUsed: (componentId: string) => void;
   addCustomComponent: (component: any) => void;
   updateIntelligentSuggestions: (suggestions: any[]) => void;
-
   // Persistence actions
   saveToLocalStorage: () => void;
   loadFromLocalStorage: () => void;
@@ -279,6 +281,7 @@ const initialState = {
     recentlyUsed: [],
     customComponents: [],
     intelligentSuggestions: [],
+    selectedComponent: null,
   },
   isLoading: false,
   isSaving: false,
@@ -335,6 +338,25 @@ export const useAgentBuilderStore = create<AgentBuilderStore>()(
             ) {
               state.onboarding.featuresDiscovered.push("component-palette");
             }
+          }),
+
+        addComponent: (component) =>
+          set((state) => {
+            if (state.currentAgent.capabilities && Array.isArray(state.currentAgent.capabilities)) {
+              state.currentAgent.capabilities.push(component);
+            } else {
+              state.currentAgent.capabilities = [component] as any;
+            }
+          }),
+
+        setRecentlyUsed: (componentId) =>
+          set((state) => {
+            state.componentPalette.recentlyUsed.unshift(componentId);
+          }),
+
+        setSelectedComponent: (component) =>
+          set((state) => {
+            state.componentPalette.selectedComponent = component;
           }),
 
         // Onboarding actions

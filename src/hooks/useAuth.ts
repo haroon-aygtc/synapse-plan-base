@@ -36,7 +36,7 @@ export function useAuth() {
 
   // Initialize auth state
   useEffect(() => {
-    refreshAuthState();
+    refreshAuthState(); 
   }, [refreshAuthState]);
 
   // Login function

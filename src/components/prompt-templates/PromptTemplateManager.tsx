@@ -62,7 +62,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { usePromptTemplates } from "@/hooks/usePromptTemplates";
-import { PromptTemplate } from "@/lib/prompt-template-api";
+import { CreatePromptTemplateRequest, PromptTemplate } from "@/lib/prompt-template-api";
 import { PromptTemplateEditor } from "./PromptTemplateEditor";
 
 interface PromptTemplateManagerProps {
@@ -255,7 +255,7 @@ export function PromptTemplateManager({
                     variant="ghost"
                     size="sm"
                     className="h-8 w-8 p-0"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => e.stopPropagation()}
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
@@ -369,7 +369,7 @@ export function PromptTemplateManager({
             <Input
               placeholder="Search templates..."
               value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSearch(e.target.value)}
               className="pl-10"
             />
           </div>
@@ -439,7 +439,7 @@ export function PromptTemplateManager({
               <Input
                 placeholder="Search templates..."
                 value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement> ) => handleSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -527,7 +527,7 @@ export function PromptTemplateManager({
               if (editingTemplate) {
                 await updateTemplate(editingTemplate.id, data);
               } else {
-                await createTemplate(data);
+                await createTemplate(data as unknown as CreatePromptTemplateRequest);
               }
               setShowEditor(false);
               setEditingTemplate(null);

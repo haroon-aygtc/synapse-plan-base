@@ -43,6 +43,19 @@ export { SandboxRun } from './sandbox-run.entity';
 export { SandboxEvent, SandboxEventType } from './sandbox-event.entity';
 export { HITLRequest, HITLComment, HITLVote } from './hitl-request.entity';
 
-// Knowledge entities (if they exist)
-export type KnowledgeDocument = any;
-export type KnowledgeSearch = any;
+// Widget entities
+export { Widget, WidgetConfiguration, WidgetDeploymentInfo, WidgetAnalyticsData } from './widget.entity';
+export { WidgetExecution } from './widget-execution.entity';
+export { WidgetAnalytics } from './widget-analytics.entity';
+
+// Knowledge entities
+export { KnowledgeDocument } from './knowledge-document.entity';
+export { KnowledgeSearch } from './knowledge-search.entity';
+
+// APIX entities
+export { APXSession } from './apix-session.entity';
+export { APXExecution } from './apix-execution.entity';
+
+// Notification entities
+export { NotificationDelivery } from './notification-delivery.entity';
+export { NotificationTemplate } from './notification-template.entity';

@@ -10,16 +10,16 @@ import { ExecutionStatus } from '@shared/enums';
 @Index(['userId', 'status'])
 export class WorkflowExecution extends BaseEntity {
   @Column({ type: 'uuid' })
-  workflowId: string;
+  workflowId!: string;
 
   @Column({ type: 'uuid' })
-  sessionId: string;
+  sessionId!: string;
 
   @Column({ type: 'uuid' })
-  userId: string;
+  userId!: string;
 
   @Column({ type: 'jsonb' })
-  input: Record<string, any>;
+  input!: Record<string, any>;
 
   @Column({ type: 'jsonb', nullable: true })
   output?: Record<string, any>;
@@ -29,7 +29,7 @@ export class WorkflowExecution extends BaseEntity {
     enum: ExecutionStatus,
     default: ExecutionStatus.PENDING,
   })
-  status: ExecutionStatus;
+  status!: ExecutionStatus;
 
   @Column({ type: 'jsonb', nullable: true })
   context?: Record<string, any>;
@@ -173,5 +173,5 @@ export class WorkflowExecution extends BaseEntity {
 
   @ManyToOne(() => Workflow, (workflow) => workflow.executions)
   @JoinColumn({ name: 'workflowId' })
-  workflow: Workflow;
+  workflow!: Workflow;
 }

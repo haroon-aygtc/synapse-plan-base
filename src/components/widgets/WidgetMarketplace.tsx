@@ -159,11 +159,11 @@ export function WidgetMarketplace({
       });
 
       router.push(`/widgets/${widget.id}/edit`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating widget from template:', error);
       toast({
         title: 'Error',
-        description: error.message || 'Failed to create widget from template.',
+        description: (error as Error).message || 'Failed to create widget from template.',
         variant: 'destructive',
       });
     }
@@ -175,7 +175,7 @@ export function WidgetMarketplace({
       const response = await fetch(`/api/${type}s?limit=100&isActive=true`);
       const data = await response.json();
       return data.success ? data.data : [];
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error fetching ${type}s:`, error);
       return [];
     }

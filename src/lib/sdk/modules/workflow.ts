@@ -115,7 +115,7 @@ export class WorkflowModule extends BaseModule {
   /**
    * Get workflow by ID
    */
-  async get(
+  async getWorkflow(
     id: string,
     options: RequestOptions = {},
   ): Promise<APIResponse<Workflow>> {
@@ -123,7 +123,8 @@ export class WorkflowModule extends BaseModule {
 
     this.debug("Getting workflow", { id });
 
-    return this.get<Workflow>(`/${id}`, options);
+    const response = await this.get<Workflow>(`/${id}`, options);
+    return response;
   }
 
   /**
@@ -172,7 +173,7 @@ export class WorkflowModule extends BaseModule {
   /**
    * Delete workflow
    */
-  async delete(
+  async deleteWorkflow(
     id: string,
     options: RequestOptions = {},
   ): Promise<APIResponse<void>> {
@@ -189,9 +190,9 @@ export class WorkflowModule extends BaseModule {
   /**
    * Execute workflow
    */
-  async execute(
-    id: string,
-    data: ExecuteWorkflowRequest,
+  async executeWorkflow(
+    id: string, 
+    data: ExecuteWorkflowRequest & { executionId: string },
     options: RequestOptions = {},
   ): Promise<APIResponse<WorkflowExecution>> {
     this.validateRequired({ id }, ["id"]);
@@ -260,7 +261,7 @@ export class WorkflowModule extends BaseModule {
     );
 
     // Start execution
-    await this.execute(id, { ...data, executionId }, options);
+    await this.executeWorkflow(id, { ...data, executionId }, options);
 
     return executionId;
   }
@@ -268,7 +269,7 @@ export class WorkflowModule extends BaseModule {
   /**
    * Get workflow execution by ID
    */
-  async getExecution(
+  async getWorkflowExecution(
     executionId: string,
     options: RequestOptions = {},
   ): Promise<APIResponse<WorkflowExecution>> {

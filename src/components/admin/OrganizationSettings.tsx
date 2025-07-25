@@ -591,8 +591,7 @@ export function OrganizationSettings({ className }: OrganizationSettingsProps) {
                       <Input
                         id={key}
                         type="number"
-                        value={
-                          config.features[key as keyof typeof config.features]
+                        value={config.features[key as keyof typeof config.features] as unknown as string
                         }
                         onChange={(e) =>
                           setConfig({

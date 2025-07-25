@@ -60,23 +60,23 @@ export interface WidgetExecutionMetrics {
 @Index(['userId', 'createdAt'])
 export class WidgetExecution extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ name: 'widget_id' })
   @Index()
-  widgetId: string;
+  widgetId!: string;
 
   @ManyToOne(() => Widget, { eager: false })
   @JoinColumn({ name: 'widget_id' })
-  widget: Widget;
+  widget!: Widget;
 
   @Column({ name: 'session_id' })
   @Index()
-  sessionId: string;
+  sessionId!: string;
 
   @ManyToOne(() => Session, { eager: false })
   @JoinColumn({ name: 'session_id' })
-  session: Session;
+  session!: Session;
 
   @Column({ name: 'user_id', nullable: true })
   @Index()
@@ -91,13 +91,13 @@ export class WidgetExecution extends BaseEntity {
     enum: ['pending', 'running', 'completed', 'failed', 'timeout'],
   })
   @Index()
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
+  status!: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
 
   @Column({ type: 'jsonb' })
-  context: WidgetExecutionContext;
+  context!: WidgetExecutionContext;
 
   @Column({ type: 'jsonb' })
-  input: WidgetExecutionInput;
+  input!: WidgetExecutionInput;
 
   @Column({ type: 'jsonb', nullable: true })
   output?: WidgetExecutionOutput;
@@ -115,13 +115,13 @@ export class WidgetExecution extends BaseEntity {
   executionTimeMs?: number;
 
   @Column({ name: 'tokens_used', default: 0 })
-  tokensUsed: number;
+  tokensUsed!: number;
 
   @Column({ name: 'api_calls_made', default: 0 })
-  apiCallsMade: number;
+  apiCallsMade!: number;
 
   @Column({ name: 'cache_hit', default: false })
-  cacheHit: boolean;
+  cacheHit!: boolean;
 
   @Column({
     name: 'cost_usd',
@@ -130,16 +130,16 @@ export class WidgetExecution extends BaseEntity {
     scale: 6,
     default: 0,
   })
-  costUsd: number;
+  costUsd!: number;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Helper methods
   markAsRunning(): void {

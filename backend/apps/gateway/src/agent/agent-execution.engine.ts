@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { Agent, AgentExecution } from '@database/entities';
 import {
   AgentEventType,
@@ -10,21 +10,20 @@ import {
   HITLRequestType,
   HITLRequestPriority,
 } from '@shared/enums';
+import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
 import { WebSocketService } from '../websocket/websocket.service';
 import { SessionService } from '../session/session.service';
 import { ToolService } from '../tool/tool.service';
-import { KnowledgeService } from '../knowledge/knowledge.service';
 import { AIProviderService } from '../ai-provider/ai-provider.service';
 import { ProviderAdapterService } from '../ai-provider/provider-adapter.service';
-import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
-import { v4 as uuidv4 } from 'uuid';
 import { HITLService } from '../hitl/hitl.service';
+import { Injectable, Logger } from '@nestjs/common';
 
 export interface AgentExecutionOptions {
   input: string;
   sessionId?: string;
-  context?: Record<string, any>;
-  metadata?: Record<string, any>;
+  context?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   includeToolCalls?: boolean;
   includeKnowledgeSearch?: boolean;
   streamResponse?: boolean;
@@ -39,30 +38,19 @@ export interface AgentExecutionResult {
   executionTimeMs: number;
   toolCalls?: Array<{
     toolId: string;
-    input: Record<string, any>;
-    output: Record<string, any>;
+    input: Record<string, unknown>;
+    output: Record<string, unknown>;
     executionTime: number;
   }>;
   knowledgeSearches?: Array<{
     query: string;
-    results: any[];
+    results: unknown[];
     sources: string[];
   }>;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
-interface ToolTestParams {
-  functionName: string;
-  parameters: Record<string, any>;
-  expectedResult: any;
-}
-
-interface ToolTestResult {
-  success: boolean;
-  result?: any;
-  error?: string;
-  executionTime?: number;
-}
+// Removed unused interfaces - they can be added back when needed
 
 @Injectable()
 export class AgentExecutionEngine {
@@ -74,11 +62,9 @@ export class AgentExecutionEngine {
     private readonly sessionService: SessionService,
     private readonly websocketService: WebSocketService,
     private readonly toolService: ToolService,
-    private readonly knowledgeService: KnowledgeService,
     private readonly aiProviderService: AIProviderService,
     private readonly providerAdapter: ProviderAdapterService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly configService: ConfigService,
     private readonly hitlService: HITLService,
   ) {}
 
@@ -129,7 +115,7 @@ export class AgentExecutionEngine {
 
     try {
       // Get session context if sessionId provided
-      let sessionContext = null;
+      let sessionContext: any = null;
       if (options.sessionId) {
         sessionContext = await this.sessionService.getSessionContext(
           options.sessionId,
@@ -137,8 +123,8 @@ export class AgentExecutionEngine {
       }
 
       // Prepare conversation context
-      const conversationHistory =
-        sessionContext?.agentContext?.memory?.conversationHistory || [];
+      const conversationHistory: any[] =
+        sessionContext?.agentContext?.memory?.conversationHistory ?? [];
 
       // Build messages for AI provider
       const messages = [
@@ -148,7 +134,7 @@ export class AgentExecutionEngine {
         },
         ...conversationHistory.map((msg: any) => ({
           role: msg.role as 'system' | 'user' | 'assistant',
-          content: msg.content,
+          content: msg.content as string,
         })),
         {
           role: 'user' as const,
@@ -157,11 +143,11 @@ export class AgentExecutionEngine {
       ];
 
       // Prepare tools if agent has them
-      const tools: any[] = [];
+      const tools: unknown[] = [];
       const toolCalls: Array<{
         toolId: string;
-        input: Record<string, any>;
-        output: Record<string, any>;
+        input: Record<string, unknown>;
+        output: Record<string, unknown>;
         executionTime: number;
       }> = [];
 
@@ -173,18 +159,19 @@ export class AgentExecutionEngine {
         for (const toolId of agent.tools) {
           try {
             const tool = await this.toolService.findOne(toolId);
-            if (tool && tool.isActive) {
+            if (tool?.isActive) {
               tools.push({
                 type: 'function',
                 function: {
                   name: tool.name,
-                  description: tool.description || '',
+                  description: tool.description ?? '',
                   parameters: tool.schema,
                 },
               });
             }
           } catch (error) {
-            this.logger.warn(`Failed to load tool ${toolId}: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.logger.warn(`Failed to load tool ${toolId}: ${errorMessage}`);
           }
         }
       }
@@ -192,7 +179,7 @@ export class AgentExecutionEngine {
       // Handle knowledge search if enabled
       const knowledgeSearches: Array<{
         query: string;
-        results: any[];
+        results: unknown[];
         sources: string[];
       }> = [];
 
@@ -216,7 +203,7 @@ export class AgentExecutionEngine {
             sources: [],
           };
 
-          if (searchResults && searchResults.results.length > 0) {
+          if (searchResults?.results?.length > 0) {
             knowledgeSearches.push({
               query: options.input,
               results: searchResults.results,
@@ -237,13 +224,13 @@ export class AgentExecutionEngine {
         } catch (error) {
           this.logger.error(
             `Knowledge search failed for agent ${agent.id}`,
-            error,
+            error instanceof Error ? error.stack : error,
           );
         }
       }
 
       // Handle HITL requests if needed
-      if (agent.requiresApproval) {
+      if ((agent as any).requiresApproval === true) {
         const hitlRequest = await this.hitlService.createRequest(
           {
             title: `Agent Execution Approval Required`,
@@ -308,23 +295,23 @@ export class AgentExecutionEngine {
         {
           streamResponse: options.streamResponse,
           onChunk: options.streamResponse
-            ? (chunk: string) => {
-                // Stream text chunks via WebSocket
-                this.websocketService.streamTextChunk(
-                  executionId,
-                  uuidv4(),
-                  chunk,
-                  false,
-                  1, // Approximate token count per chunk
-                  {
-                    agentId: agent.id,
-                    providerId: selectedProvider.id,
-                    model: agent.model,
-                  },
-                );
-              }
+            ? (chunk: string): void => {
+              // Stream text chunks via WebSocket
+              this.websocketService.streamTextChunk(
+                executionId,
+                uuidv4(),
+                chunk,
+                false,
+                1, // Approximate token count per chunk
+                {
+                  agentId: agent.id,
+                  providerId: selectedProvider.id,
+                  model: agent.model,
+                },
+              );
+            }
             : undefined,
-          onComplete: (response) => {
+          onComplete: (response: any): void => {
             // Emit completion event
             this.websocketService.streamProviderEvent(
               'provider_complete',
@@ -339,7 +326,7 @@ export class AgentExecutionEngine {
               options.sessionId,
             );
           },
-          onError: (error) => {
+          onError: (error: Error): void => {
             // Emit error event
             this.websocketService.streamProviderEvent(
               'provider_error',
@@ -370,21 +357,21 @@ export class AgentExecutionEngine {
         options.sessionId,
       );
 
-      let finalOutput = providerResponse.content;
-      const tokensUsed = providerResponse.tokensUsed;
-      const cost = providerResponse.cost;
+      let finalOutput: string = providerResponse.content;
+      const tokensUsed: number = providerResponse.tokensUsed;
+      const cost: number = providerResponse.cost;
 
       // Handle tool calls if present in response
-      if (providerResponse.toolCalls && providerResponse.toolCalls.length > 0) {
+      if (providerResponse.toolCalls && Array.isArray(providerResponse.toolCalls) && providerResponse.toolCalls.length > 0) {
         for (const toolCall of providerResponse.toolCalls) {
-          const toolStartTime = Date.now();
+          const toolStartTime: number = Date.now();
 
           try {
             this.eventEmitter.emit(AgentEventType.TOOL_EXECUTION_STARTED, {
               executionId,
               agentId: agent.id,
               toolId: toolCall.function.name,
-              input: JSON.parse(toolCall.function.arguments),
+              input: JSON.parse(toolCall.function.arguments) as Record<string, unknown>,
               timestamp: new Date(),
             });
 
@@ -393,7 +380,7 @@ export class AgentExecutionEngine {
               toolCall.function.name,
               {
                 functionName: toolCall.function.name,
-                parameters: JSON.parse(toolCall.function.arguments),
+                parameters: JSON.parse(toolCall.function.arguments) as Record<string, unknown>,
                 callerType: 'agent',
                 callerId: agent.id,
               },
@@ -404,8 +391,8 @@ export class AgentExecutionEngine {
 
             toolCalls.push({
               toolId: toolCall.function.name,
-              input: JSON.parse(toolCall.function.arguments),
-              output: toolResult.result,
+              input: JSON.parse(toolCall.function.arguments) as Record<string, unknown>,
+              output: toolResult.result as Record<string, unknown>,
               executionTime: Date.now() - toolStartTime,
             });
 
@@ -416,20 +403,18 @@ export class AgentExecutionEngine {
               toolResult,
               timestamp: new Date(),
             });
-          } catch (toolError: unknown) {
+          } catch (toolError) {
+            const errorMessage: string = toolError instanceof Error ? toolError.message : 'Unknown error';
             this.logger.error(
               `Tool execution failed: ${toolCall.function.name}`,
-              toolError,
+              toolError instanceof Error ? toolError.stack : toolError,
             );
 
             toolCalls.push({
               toolId: toolCall.function.name,
-              input: JSON.parse(toolCall.function.arguments),
+              input: JSON.parse(toolCall.function.arguments) as Record<string, unknown>,
               output: {
-                error:
-                  toolError instanceof Error
-                    ? toolError.message
-                    : 'Unknown error',
+                error: errorMessage,
               },
               executionTime: Date.now() - toolStartTime,
             });
@@ -448,7 +433,7 @@ export class AgentExecutionEngine {
             ...toolCalls.map((toolCall, index) => ({
               role: 'tool' as const,
               tool_call_id:
-                providerResponse.toolCalls[index]?.id || `tool_${index}`,
+                providerResponse.toolCalls?.[index]?.id ?? `tool_${index}`,
               content: JSON.stringify(toolCall.output),
             })),
           ];
@@ -464,11 +449,11 @@ export class AgentExecutionEngine {
             },
           );
 
-          finalOutput = finalResponse.content || finalOutput;
+          finalOutput = finalResponse.content ?? finalOutput;
         }
       }
 
-      const executionTime = Date.now() - startTime;
+      const executionTime: number = Date.now() - startTime;
 
       // Update execution record
       execution.output = finalOutput;
@@ -521,7 +506,7 @@ export class AgentExecutionEngine {
               },
             ].slice(-20), // Keep last 20 messages
             toolCalls: [
-              ...(sessionContext.agentContext?.toolCalls || []),
+              ...(sessionContext.agentContext?.toolCalls ?? []),
               ...toolCalls,
             ].slice(-10),
           },
@@ -573,13 +558,13 @@ export class AgentExecutionEngine {
       );
 
       return result;
-    } catch (error: unknown) {
+    } catch (error) {
       const executionTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
       // Update execution record with error
       execution.status = ExecutionStatus.FAILED;
-      execution.error =
-        error instanceof Error ? error.message : 'Unknown error';
+      execution.error = errorMessage;
       execution.executionTimeMs = executionTime;
       execution.completedAt = new Date();
       await this.agentExecutionRepository.save(execution);
@@ -590,7 +575,7 @@ export class AgentExecutionEngine {
         agentId: agent.id,
         userId,
         organizationId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
         executionTime,
         timestamp: new Date(),
       });
@@ -603,7 +588,7 @@ export class AgentExecutionEngine {
           executionId,
           agentId: agent.id,
           status: ExecutionStatus.FAILED,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: errorMessage,
         },
       );
 
@@ -616,17 +601,5 @@ export class AgentExecutionEngine {
     }
   }
 
-  private calculateCost(model: string, tokens: number): number {
-    // Simplified cost calculation - in production, use actual pricing
-    const costPerToken: Record<string, number> = {
-      'gpt-4': 0.00003,
-      'gpt-3.5-turbo': 0.000002,
-      'claude-3-opus': 0.000015,
-      'claude-3-sonnet': 0.000003,
-      'gemini-pro': 0.000001,
-      'mistral-large': 0.000006,
-    };
-
-    return (costPerToken[model] || costPerToken['gpt-3.5-turbo']) * tokens;
-  }
+  // Removed unused calculateCost method - cost calculation is handled by the provider adapter
 }

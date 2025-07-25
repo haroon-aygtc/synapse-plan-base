@@ -4,7 +4,7 @@
  */
 
 import { WidgetEvent, DeviceInfo, GeolocationData } from '@/lib/sdk/types';
-import { api } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 
 export interface AnalyticsConfig {
   widgetId: string;
@@ -47,10 +47,40 @@ export interface PerformanceMetrics {
 }
 
 export class WidgetAnalyticsTracker {
-  private config: AnalyticsConfig;
-  private session: UserSession;
+  private config: AnalyticsConfig = {
+    widgetId: '',
+    sessionId: '',
+    enableGeolocation: false,
+    enablePerformanceTracking: true,
+    batchSize: 10,
+    flushInterval: 30000,
+    debug: false
+  };
+  private session: UserSession = {
+    sessionId: '',
+    startTime: new Date(),
+    lastActivity: new Date(),
+    pageViews: 0,
+    interactions: 0,
+    conversions: 0,
+    deviceInfo: {
+      type: 'desktop',
+      userAgent: '',
+      screenResolution: { width: 0, height: 0 },
+      browserInfo: { name: '', version: '' },
+      operatingSystem: ''
+    },
+    referrer: '',
+    utmParams: {}
+  };
   private eventQueue: WidgetEvent[] = [];
-  private performanceMetrics: PerformanceMetrics;
+  private performanceMetrics: PerformanceMetrics = {
+    loadTime: 0,
+    renderTime: 0,
+    interactionTime: 0,
+    errorCount: 0,
+    apiResponseTimes: []
+  };
   private flushTimer?: NodeJS.Timeout;
   private isTracking: boolean = false;
   private observers: Map<string, IntersectionObserver | PerformanceObserver> = new Map();
@@ -271,7 +301,7 @@ export class WidgetAnalyticsTracker {
     this.eventQueue = [];
 
     try {
-      await api.post('/analytics/widget-events', {
+      await apiClient.post('/analytics/widget-events', {
         widgetId: this.config.widgetId,
         sessionId: this.config.sessionId,
         events,

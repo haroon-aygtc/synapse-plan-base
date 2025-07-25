@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -24,14 +22,13 @@ import {
   Brain,
   MessageSquare,
   Settings,
-  Zap,
   User,
   Bot,
   Lightbulb,
   Target,
   Palette,
-  Volume2,
-} from "lucide-react";
+  TrendingUp,
+  } from "lucide-react";
 
 import { useAgentBuilder } from "@/hooks/useAgentBuilder";
 import { useAIAssistant } from "@/hooks/useAIAssistant";
@@ -44,17 +41,7 @@ interface PersonalityTrait {
   icon: React.ReactNode;
 }
 
-interface AgentTemplate {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  personality: PersonalityTrait[];
-  prompt: string;
-  model: string;
-  temperature: number;
-  tools: string[];
-}
+
 
 const PERSONALITY_TRAITS: PersonalityTrait[] = [
   {
@@ -192,8 +179,8 @@ export function AIAssistedConfiguration() {
       setSelectedModel(config.model);
       setTemperature([config.temperature]);
 
-      // Track feature discovery
-      discoverFeature("ai-configuration-assistant");
+      // Track feature discovery - placeholder for analytics
+      // discoverFeature("ai-configuration-assistant");
 
       toast({
         title: "Configuration Generated",
@@ -212,7 +199,6 @@ export function AIAssistedConfiguration() {
     selectedUseCase,
     personalityTraits,
     generateAgentConfig,
-    discoverFeature,
   ]);
 
   const generatePreview = useCallback(async () => {
@@ -533,7 +519,7 @@ export function AIAssistedConfiguration() {
 
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={generatePreview}>
-              <Zap className="h-4 w-4 mr-2" />
+              <TrendingUp className="h-4 w-4 mr-2" />
               Preview Response
             </Button>
             <Button onClick={saveConfiguration}>Save Configuration</Button>

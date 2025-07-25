@@ -36,7 +36,7 @@ import {
   Shield,
   Palette,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { apiClient } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
 
 interface AIConfigurationInterfaceProps {
@@ -123,7 +123,7 @@ export function AIConfigurationInterface({
         });
       }, 200);
 
-      const response = await api.post("/ai-assistant/analyze-widget", {
+      const response = await apiClient.post("/ai-assistant/analyze-widget", {
         description: userDescription,
         targetAudience,
         useCases,

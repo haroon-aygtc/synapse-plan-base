@@ -36,9 +36,9 @@ export function WidgetConfiguration({ configuration, onChange }: WidgetConfigura
   };
 
   const addDomain = () => {
-    if (newDomain && !configuration.security.allowedDomains.includes(newDomain)) {
+    if (newDomain && !configuration.security?.allowedDomains.includes(newDomain)) {
       updateConfiguration('security.allowedDomains', [
-        ...configuration.security.allowedDomains,
+        ...(configuration.security?.allowedDomains || []),
         newDomain
       ]);
       setNewDomain('');
@@ -47,7 +47,7 @@ export function WidgetConfiguration({ configuration, onChange }: WidgetConfigura
 
   const removeDomain = (domain: string) => {
     updateConfiguration('security.allowedDomains', 
-      configuration.security.allowedDomains.filter(d => d !== domain)
+      configuration.security?.allowedDomains.filter(d => d !== domain)
     );
   };
 
@@ -383,7 +383,7 @@ export function WidgetConfiguration({ configuration, onChange }: WidgetConfigura
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {configuration.security.allowedDomains.map((domain) => (
+                {configuration.security?.allowedDomains.map((domain) => (
                   <Badge key={domain} variant="secondary" className="flex items-center gap-1">
                     {domain}
                     <button
@@ -395,7 +395,7 @@ export function WidgetConfiguration({ configuration, onChange }: WidgetConfigura
                   </Badge>
                 ))}
               </div>
-              {configuration.security.allowedDomains.length === 0 && (
+              {configuration.security?.allowedDomains.length === 0 && (
                 <p className="text-sm text-gray-500">No domain restrictions (widget can be embedded anywhere)</p>
               )}
             </CardContent>
@@ -410,7 +410,7 @@ export function WidgetConfiguration({ configuration, onChange }: WidgetConfigura
               <div className="flex items-center space-x-2">
                 <Switch
                   id="requireAuth"
-                  checked={configuration.security.requireAuth}
+                  checked={configuration.security?.requireAuth}
                   onCheckedChange={(checked) => updateConfiguration('security.requireAuth', checked)}
                 />
                 <Label htmlFor="requireAuth">Require user authentication</Label>
@@ -427,18 +427,18 @@ export function WidgetConfiguration({ configuration, onChange }: WidgetConfigura
               <div className="flex items-center space-x-2">
                 <Switch
                   id="rateLimitingEnabled"
-                  checked={configuration.security.rateLimiting.enabled}
+                  checked={configuration.security?.rateLimiting.enabled}
                   onCheckedChange={(checked) => updateConfiguration('security.rateLimiting.enabled', checked)}
                 />
                 <Label htmlFor="rateLimitingEnabled">Enable rate limiting</Label>
               </div>
-              {configuration.security.rateLimiting.enabled && (
+              {configuration.security?.rateLimiting.enabled && (
                 <div>
                   <Label htmlFor="requestsPerMinute">Requests per minute</Label>
                   <Input
                     id="requestsPerMinute"
                     type="number"
-                    value={configuration.security.rateLimiting.requestsPerMinute}
+                    value={configuration.security?.rateLimiting.requestsPerMinute}
                     onChange={(e) => updateConfiguration('security.rateLimiting.requestsPerMinute', parseInt(e.target.value))}
                     min={1}
                     max={1000}

@@ -19,11 +19,11 @@ export class TrackEventDto {
     enum: AnalyticsEventType,
   })
   @IsEnum(AnalyticsEventType)
-  eventType: AnalyticsEventType;
+  eventType!: AnalyticsEventType;
 
   @ApiProperty({ description: 'Session ID for tracking user sessions' })
   @IsString()
-  sessionId: string;
+  sessionId!: string;
 
   @ApiProperty({ description: 'Page URL where event occurred', required: false })
   @IsOptional()

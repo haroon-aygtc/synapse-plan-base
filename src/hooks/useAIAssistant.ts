@@ -36,6 +36,34 @@ export interface PromptSuggestion {
   variables: string[];
 }
 
+export interface AgentTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  industry: string;
+  useCase: string;
+  prompt: string;
+  model: string;
+  temperature: number;
+  maxTokens: number;
+  tools: string[];
+  knowledgeSources: string[];
+  settings: Record<string, any>;
+  metadata: Record<string, any>;
+  personalityTraits: Record<string, number>;
+  rating: number;
+  downloads: number;
+  author: string;
+  tags: string[];
+  preview: {
+    input: string;
+    output: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function useAIAssistant() {
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
@@ -56,7 +84,7 @@ export function useAIAssistant() {
         const response = await fetch("/api/ai-assistant/generate-config", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${user.accessToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(params),
@@ -96,7 +124,7 @@ export function useAIAssistant() {
         const response = await fetch("/api/ai-assistant/analyze-agent", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${user.accessToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(agentData),
@@ -178,7 +206,7 @@ export function useAIAssistant() {
         const response = await fetch("/api/ai-assistant/optimize-prompt", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${user.accessToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(params),
@@ -219,7 +247,7 @@ export function useAIAssistant() {
         const response = await fetch("/api/ai-assistant/generate-test-cases", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${user.token}`,
+                Authorization: `Bearer ${user.accessToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(params),
@@ -259,7 +287,7 @@ export function useAIAssistant() {
         const response = await fetch("/api/ai-assistant/explain-agent", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${user.accessToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(agentData),
@@ -296,7 +324,7 @@ export function useAIAssistant() {
         const response = await fetch("/api/ai-assistant/personality-profile", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${user.token}`,
+            Authorization: `Bearer ${user.accessToken}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ traits }),
@@ -318,7 +346,102 @@ export function useAIAssistant() {
     [user],
   );
 
-  return {
+  const previewAgentResponse = useCallback(
+    async (agentData: {
+      name: string;
+      prompt: string;
+      model: string;
+      tools?: string[];
+      knowledgeSources?: string[];
+    }): Promise<{
+      preview: string;
+      response: string;
+      reasoning: string;
+      confidence: number;
+      metadata: Record<string, any>;
+    }> => {
+      if (!user) throw new Error("User not authenticated");
+
+      try {
+        const response = await fetch("/api/ai-assistant/preview-agent-response", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(agentData),
+        });
+
+        if (response.ok) {
+          return await response.json();
+        } else {
+          const error = await response.json();
+          throw new Error(error.message || "Failed to preview agent response");
+        }
+      } catch (error) {
+        console.error("Error previewing agent response:", error);
+        throw error;
+      }
+    },
+    [user],
+  );
+
+  const getAgentTemplates = useCallback(
+    async (): Promise<AgentTemplate[]> => {
+      if (!user) throw new Error("User not authenticated"); 
+
+      try {
+        const response = await fetch("/api/ai-assistant/agent-templates", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`,
+            "Content-Type": "application/json",   
+          },
+        });
+
+        if (response.ok) {
+          return await response.json();
+        } else {    
+          const error = await response.json();
+          throw new Error(error.message || "Failed to get agent templates");
+        }
+      } catch (error) {
+        console.error("Error getting agent templates:", error);
+        throw error;
+      }
+    },
+    [user],
+  );
+
+  const deployTemplate = useCallback(
+    async (templateId: string): Promise<void> => {
+      if (!user) throw new Error("User not authenticated");
+
+      try {
+        const response = await fetch("/api/ai-assistant/deploy-template", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ templateId }),
+        });
+
+        if (response.ok) {
+          return;
+        } else {
+          const error = await response.json();
+          throw new Error(error.message || "Failed to deploy template");
+        }
+      } catch (error) {
+        console.error("Error deploying template:", error);
+        throw error;
+      }
+    },
+    [user],
+  );
+
+    return {
     isGenerating,
     isAnalyzing,
     generateAgentConfig,

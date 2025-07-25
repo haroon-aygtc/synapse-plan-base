@@ -19,7 +19,7 @@ import {
   CheckCircle,
   ExternalLink,
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
 
 interface AgentConnection {
   id: string;
@@ -229,3 +229,4 @@ export function ToolAgentConnection({
       </CardContent>
     </Card>
   );
+}

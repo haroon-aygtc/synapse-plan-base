@@ -3,7 +3,6 @@ import {
   APXSecurityLevel,
   APXPermissionLevel,
   APXStreamState,
-  APXExecutionState,
 } from '../enums';
 
 export interface IAPXMessage {

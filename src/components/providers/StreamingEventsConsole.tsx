@@ -283,7 +283,7 @@ export function StreamingEventsConsole() {
               <Switch
                 id="pause"
                 checked={!isPaused}
-                onCheckedChange={(checked) => setIsPaused(!checked)}
+                onCheckedChange={(checked: boolean) => setIsPaused(!checked)}
               />
               <Label htmlFor="pause" className="flex items-center gap-2">
                 {isPaused ? (

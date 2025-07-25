@@ -44,7 +44,7 @@ import {
   WidgetAnalytics as WidgetAnalyticsType,
 } from "@/hooks/useWidgets";
 import { Widget } from "@/lib/sdk/types";
-import { api } from "@/lib/api";
+import { apiClient } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
 
 interface WidgetAnalyticsProps {
@@ -181,19 +181,19 @@ export function WidgetAnalytics({ widget, className }: WidgetAnalyticsProps) {
       // Load additional analytics data
       const [funnelRes, journeyRes, heatmapRes, performanceRes, retentionRes] =
         await Promise.all([
-          api.get(
+          apiClient.get(
             `/widgets/${widget.id}/analytics/conversion-funnel?start=${period.start.toISOString()}&end=${period.end.toISOString()}`,
           ),
-          api.get(
+          apiClient.get(
             `/widgets/${widget.id}/analytics/user-journey?start=${period.start.toISOString()}&end=${period.end.toISOString()}`,
           ),
-          api.get(
+          apiClient.get(
             `/widgets/${widget.id}/analytics/heatmap?start=${period.start.toISOString()}&end=${period.end.toISOString()}`,
           ),
-          api.get(
+          apiClient.get(
             `/widgets/${widget.id}/analytics/performance-metrics?start=${period.start.toISOString()}&end=${period.end.toISOString()}`,
           ),
-          api.get(
+          apiClient.get(
             `/widgets/${widget.id}/analytics/retention?start=${period.start.toISOString()}&end=${period.end.toISOString()}`,
           ),
         ]);

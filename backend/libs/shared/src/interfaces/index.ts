@@ -1,3 +1,5 @@
+import { UserRole } from '../enums';
+
 export interface IUser {
   id: string;
   email: string;
@@ -81,12 +83,6 @@ export interface IUsageMetric {
   timestamp: Date;
 }
 
-export enum UserRole {
-  SUPER_ADMIN = 'SUPER_ADMIN',
-  ORG_ADMIN = 'ORG_ADMIN',
-  DEVELOPER = 'DEVELOPER',
-  VIEWER = 'VIEWER',
-}
 
 export enum SubscriptionPlan {
   FREE = 'FREE',
@@ -109,7 +105,8 @@ export {
   EventPriority,
   EventTargetType,
   WebSocketEventType,
-  EventType
+  AgentEventType, // Changed EventType to AgentEventType
+  UserRole
 } from '../enums';
 
 export interface IJwtPayload {

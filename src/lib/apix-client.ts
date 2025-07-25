@@ -8,6 +8,7 @@ import {
   APXPermissionLevel,
   APXSecurityLevel,
 } from '@/types/apix';
+import { getUser } from './auth';
 
 export interface APXConnectionConfig {
   url?: string;
@@ -165,8 +166,7 @@ class APXClient {
 
       this.updateConnectionState({ status: 'connecting' });
 
-      const authToken = token || this.config.token || 
-        (typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null);
+      const authToken = token || this.config.token || getUser()?.accessToken;
 
       this.socket = io(this.config.url!, {
         auth: { token: authToken },

@@ -1,14 +1,6 @@
 "use client";
 
 import React from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Play,
@@ -151,7 +143,7 @@ export default function WorkflowComponentPalette({
               key={component.type}
               className={`p-3 rounded-lg border-2 border-dashed cursor-move hover:shadow-md transition-all duration-200 ${component.color}`}
               draggable
-              onDragStart={(e) => handleDragStart(e, component.type)}
+              onDragStart={(e: React.DragEvent) => handleDragStart(e, component.type)}
               onClick={() => handleAddNode(component.type)}
             >
               <div className="flex items-center gap-2 mb-2">

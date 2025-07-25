@@ -7,6 +7,7 @@ import { Workflow } from './workflow.entity';
 import { Session } from './session.entity';
 import { APXSession } from './apix-session.entity';
 import { APXExecution } from './apix-execution.entity';
+import { AIProvider } from './ai-provider.entity';
 import { SubscriptionPlan } from '@shared/interfaces';
 
 @Entity('organizations')
@@ -63,4 +64,7 @@ export class Organization extends BaseEntity {
 
   @OneToMany(() => APXExecution, (execution) => execution.organization)
   apixExecutions!: APXExecution[];
+
+  @OneToMany(() => AIProvider, (provider) => provider.organization)
+  aiProviders!: AIProvider[];
 }

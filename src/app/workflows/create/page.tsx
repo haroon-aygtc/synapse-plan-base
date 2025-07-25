@@ -37,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { api } from "@/lib/api";
+import { apiClient } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 import { useWebSocket } from "@/lib/websocket";
@@ -380,7 +380,7 @@ export default function CreateWorkflowPage() {
       }
 
       // Test the workflow directly without creating it
-      const testResponse = await api.post("/workflows/test", {
+      const testResponse = await apiClient.post("/workflows/test", {
         definition: workflowDefinition,
         input,
         variables,
@@ -474,7 +474,7 @@ export default function CreateWorkflowPage() {
         },
       };
 
-      const response = await api.post("/workflows", workflowData, {
+      const response = await apiClient    .post("/workflows", workflowData, {
         headers: {
           "Content-Type": "application/json",
         },

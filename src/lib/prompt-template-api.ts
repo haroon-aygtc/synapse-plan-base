@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { apiClient } from "./api";
 
 export interface PromptTemplate {
   id: string;
@@ -76,7 +76,7 @@ export class PromptTemplateAPI {
   static async createTemplate(
     data: CreatePromptTemplateRequest,
   ): Promise<PromptTemplate> {
-    const response = await api.post("/prompt-templates", data);
+    const response = await apiClient.post("/prompt-templates", data);
     return response.data;
   }
 
@@ -91,7 +91,7 @@ export class PromptTemplateAPI {
         }
       });
     }
-    const response = await api.get(`/prompt-templates?${params.toString()}`);
+    const response = await apiClient.get(`/prompt-templates?${params.toString()}`);
     return response.data;
   }
 
@@ -110,7 +110,7 @@ export class PromptTemplateAPI {
         }
       });
     }
-    const response = await api.get(
+    const response = await apiClient.get(
       `/prompt-templates/${id}?${params.toString()}`,
     );
     return response.data;
@@ -120,18 +120,18 @@ export class PromptTemplateAPI {
     id: string,
     data: UpdatePromptTemplateRequest,
   ): Promise<PromptTemplate> {
-    const response = await api.patch(`/prompt-templates/${id}`, data);
+    const response = await apiClient.patch(`/prompt-templates/${id}`, data);
     return response.data;
   }
 
   static async deleteTemplate(id: string): Promise<void> {
-    await api.delete(`/prompt-templates/${id}`);
+    await apiClient.delete(`/prompt-templates/${id}`);
   }
 
   static async renderTemplate(
     data: RenderTemplateRequest,
   ): Promise<RenderTemplateResponse> {
-    const response = await api.post("/prompt-templates/render", data);
+    const response = await apiClient.post("/prompt-templates/render", data);
     return response.data;
   }
 
@@ -140,7 +140,7 @@ export class PromptTemplateAPI {
     version: string,
     changes: Record<string, any>,
   ): Promise<PromptTemplate> {
-    const response = await api.post(`/prompt-templates/${id}/versions`, {
+    const response = await apiClient.post(`/prompt-templates/${id}/versions`, {
       version,
       changes,
     });
@@ -148,7 +148,7 @@ export class PromptTemplateAPI {
   }
 
   static async getVersionHistory(id: string): Promise<PromptTemplate[]> {
-    const response = await api.get(`/prompt-templates/${id}/versions`);
+    const response = await apiClient.get(`/prompt-templates/${id}/versions`);
     return response.data;
   }
 
@@ -156,7 +156,7 @@ export class PromptTemplateAPI {
     id: string,
     rating: number,
   ): Promise<PromptTemplate> {
-    const response = await api.post(`/prompt-templates/${id}/rate`, { rating });
+    const response = await apiClient.post(`/prompt-templates/${id}/rate`, { rating });
     return response.data;
   }
 

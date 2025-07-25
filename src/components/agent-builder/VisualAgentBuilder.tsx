@@ -276,7 +276,7 @@ function VisualAgentBuilderInner({
   const { executeAgent, testAgent, createAgent, updateAgent } =
     useAgentBuilder();
   const { currentAgent, updateAgentConfiguration } = useAgentBuilderStore();
-
+  const { addComponent, setSelectedComponent } = useAgentBuilderStore();
   const [nodes, setNodes, onNodesChange] = useNodesState<AgentNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<AgentEdge>([]);
   const [selectedNode, setSelectedNode] = useState<AgentNode | null>(null);
@@ -379,7 +379,7 @@ function VisualAgentBuilderInner({
   const onNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       const agentNode = nodes.find((n) => n.id === node.id);
-      setSelectedNode(agentNode || null);
+      setSelectedNode(agentNode as AgentNode | null);
     },
     [nodes],
   );
@@ -407,8 +407,10 @@ function VisualAgentBuilderInner({
         },
       };
 
-      setNodes((nds) => [...nds, newNode]);
+      setNodes((nds) => [...nds, newNode as Node<AgentNode, string>]);
       setSelectedNode(newNode);
+      addComponent(newNode);
+      setSelectedComponent(newNode);
     },
     [setNodes],
   );
@@ -484,7 +486,7 @@ function VisualAgentBuilderInner({
       );
 
       // Execute nodes in topological order
-      const sortedNodes = topologicalSort(nodes, edges);
+      const sortedNodes = topologicalSort(nodes as AgentNode[], edges as AgentEdge[]);
       const results: Record<string, any> = {};
       const log: string[] = [];
 

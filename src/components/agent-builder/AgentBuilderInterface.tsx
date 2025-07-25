@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAgentBuilderStore } from "@/store/agentBuilderStore";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,7 +27,7 @@ import {
 // Import all the components
 import { AIAssistedConfiguration } from "./AIAssistedConfiguration";
 import { VisualAgentBuilder } from "./VisualAgentBuilder";
-import { ComponentPalette } from "./ComponentPalette";
+import ComponentPalette from "./ComponentPalette";
 import AgentTestingInterface from "./AgentTestingInterface";
 import { AgentPerformanceDashboard } from "./AgentPerformanceDashboard";
 import { AgentToolLinking } from "./AgentToolLinking";
@@ -35,6 +35,7 @@ import { AgentKnowledgeIntegration } from "./AgentKnowledgeIntegration";
 import { AgentMarketplace } from "./AgentMarketplace";
 import { OnboardingSystem } from "./OnboardingSystem";
 import { NaturalLanguageProcessor } from "./NaturalLanguageProcessor";
+import { AgentConfiguration } from "@/lib/ai-assistant";
 
 const COMPONENT_CATEGORIES = [
   {
@@ -157,6 +158,7 @@ export function AgentBuilderInterface() {
     }
   };
 
+
   return (
     <div className="h-full flex flex-col">
       {/* Onboarding System */}
@@ -235,7 +237,16 @@ export function AgentBuilderInterface() {
                   <span>Components</span>
                 </h3>
               </div>
-              <ComponentPalette categories={COMPONENT_CATEGORIES} />
+              <ComponentPalette
+                onAddComponent={(component) => {
+                  // Handle component addition logic here
+                  console.log('Adding component:', component);
+                }}
+                currentConfiguration={currentAgent || {}}
+                userExperience="intermediate"
+                searchContext={currentAgent?.description || ""}
+                canvasNodes={[]}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -320,7 +331,7 @@ export function AgentBuilderInterface() {
 
               <TabsContent value="visual" className="h-full m-0 p-0">
                 {showVisualBuilder ? (
-                  <VisualAgentBuilder />
+                  <VisualAgentBuilder onConfigurationUpdate={() => {}} currentConfiguration={currentAgent as AgentConfiguration} />
                 ) : (
                   <div className="h-full flex items-center justify-center">
                     <Card className="w-96">
@@ -345,7 +356,11 @@ export function AgentBuilderInterface() {
 
               <TabsContent value="testing" className="h-full m-0 p-0">
                 <AgentTestingInterface
-                  agentId={currentAgent?.id || ""}
+                  agentId={
+                    'id' in (currentAgent || {})
+                      ? (currentAgent as { id: string }).id
+                      : "test-agent"
+                  }
                   agentConfiguration={currentAgent || {}}
                   className="h-full"
                 />

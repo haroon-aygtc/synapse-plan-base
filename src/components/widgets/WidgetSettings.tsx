@@ -33,63 +33,7 @@ import {
   Tablet,
 } from 'lucide-react';
 
-interface WidgetConfiguration {
-  theme: {
-    primaryColor: string;
-    secondaryColor: string;
-    backgroundColor: string;
-    textColor: string;
-    borderRadius: number;
-    fontSize: number;
-    fontFamily?: string;
-    customCSS?: string;
-  };
-  layout: {
-    width: number;
-    height: number;
-    position:
-      | 'bottom-right'
-      | 'bottom-left'
-      | 'top-right'
-      | 'top-left'
-      | 'center'
-      | 'fullscreen';
-    responsive: boolean;
-    zIndex?: number;
-    margin?: { top: number; right: number; bottom: number; left: number };
-  };
-  behavior: {
-    autoOpen: boolean;
-    showWelcomeMessage: boolean;
-    enableTypingIndicator: boolean;
-    enableSoundNotifications: boolean;
-    sessionTimeout?: number;
-    maxMessages?: number;
-    enableFileUpload?: boolean;
-    enableVoiceInput?: boolean;
-  };
-  branding: {
-    showLogo: boolean;
-    companyName?: string;
-    logoUrl?: string;
-    customHeader?: string;
-    customFooter?: string;
-    poweredByText?: string;
-    showPoweredBy?: boolean;
-  };
-  security: {
-    allowedDomains: string[];
-    requireAuth: boolean;
-    rateLimiting: {
-      enabled: boolean;
-      requestsPerMinute: number;
-      burstLimit?: number;
-    };
-    enableCORS?: boolean;
-    csrfProtection?: boolean;
-    encryptData?: boolean;
-  };
-}
+import { WidgetConfiguration } from '@/lib/sdk/types';
 
 interface WidgetSettingsProps {
   configuration: WidgetConfiguration;
@@ -146,11 +90,17 @@ export function WidgetSettings({
 
   const handleSecurityUpdate = (
     updates: Partial<WidgetConfiguration['security']>,
-  ) => {
+  ) => {  
     onUpdate({
       security: {
         ...configuration.security,
-        ...updates,
+        allowedDomains: updates?.allowedDomains || [],
+        requireAuth: updates?.requireAuth || false,
+        rateLimiting: updates?.rateLimiting || {
+          enabled: false,
+          requestsPerMinute: 60,  
+          tokensPerMinute: 60,
+        },
       },
     });
   };
@@ -455,8 +405,10 @@ export function WidgetSettings({
                       onChange={(e) =>
                         handleLayoutUpdate({
                           margin: {
-                            ...configuration.layout.margin,
                             top: parseInt(e.target.value) || 20,
+                            right: configuration.layout.margin?.right || 20,
+                            bottom: configuration.layout.margin?.bottom || 20,
+                            left: configuration.layout.margin?.left || 20,
                           },
                         })
                       }
@@ -472,8 +424,10 @@ export function WidgetSettings({
                       onChange={(e) =>
                         handleLayoutUpdate({
                           margin: {
-                            ...configuration.layout.margin,
+                            top: configuration.layout.margin?.top || 20,
                             right: parseInt(e.target.value) || 20,
+                            bottom: configuration.layout.margin?.bottom || 20,
+                            left: configuration.layout.margin?.left || 20,
                           },
                         })
                       }
@@ -489,8 +443,10 @@ export function WidgetSettings({
                       onChange={(e) =>
                         handleLayoutUpdate({
                           margin: {
-                            ...configuration.layout.margin,
+                            top: configuration.layout.margin?.top || 20,
+                            right: configuration.layout.margin?.right || 20,
                             bottom: parseInt(e.target.value) || 20,
+                            left: configuration.layout.margin?.left || 20,
                           },
                         })
                       }
@@ -506,7 +462,9 @@ export function WidgetSettings({
                       onChange={(e) =>
                         handleLayoutUpdate({
                           margin: {
-                            ...configuration.layout.margin,
+                            top: configuration.layout.margin?.top || 20,
+                            right: configuration.layout.margin?.right || 20,
+                            bottom: configuration.layout.margin?.bottom || 20,
                             left: parseInt(e.target.value) || 20,
                           },
                         })
@@ -584,64 +542,6 @@ export function WidgetSettings({
                   </Label>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="enableFileUpload"
-                    checked={configuration.behavior.enableFileUpload || false}
-                    onCheckedChange={(checked) =>
-                      handleBehaviorUpdate({ enableFileUpload: checked })
-                    }
-                  />
-                  <Label htmlFor="enableFileUpload">Enable file upload</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="enableVoiceInput"
-                    checked={configuration.behavior.enableVoiceInput || false}
-                    onCheckedChange={(checked) =>
-                      handleBehaviorUpdate({ enableVoiceInput: checked })
-                    }
-                  />
-                  <Label htmlFor="enableVoiceInput">Enable voice input</Label>
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="sessionTimeout">
-                    Session Timeout (seconds)
-                  </Label>
-                  <Input
-                    id="sessionTimeout"
-                    type="number"
-                    value={configuration.behavior.sessionTimeout || 1800}
-                    onChange={(e) =>
-                      handleBehaviorUpdate({
-                        sessionTimeout: parseInt(e.target.value) || 1800,
-                      })
-                    }
-                    min="60"
-                    max="7200"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="maxMessages">Max Messages per Session</Label>
-                  <Input
-                    id="maxMessages"
-                    type="number"
-                    value={configuration.behavior.maxMessages || 100}
-                    onChange={(e) =>
-                      handleBehaviorUpdate({
-                        maxMessages: parseInt(e.target.value) || 100,
-                      })
-                    }
-                    min="10"
-                    max="1000"
-                  />
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -760,7 +660,7 @@ export function WidgetSettings({
                 <Label htmlFor="allowedDomains">Allowed Domains</Label>
                 <Textarea
                   id="allowedDomains"
-                  value={configuration.security.allowedDomains.join('\n')}
+                  value={configuration.security?.allowedDomains.join('\n')}
                   onChange={(e) =>
                     handleSecurityUpdate({
                       allowedDomains: e.target.value
@@ -779,7 +679,7 @@ export function WidgetSettings({
               <div className="flex items-center space-x-2">
                 <Switch
                   id="requireAuth"
-                  checked={configuration.security.requireAuth}
+                  checked={configuration.security?.requireAuth}
                   onCheckedChange={(checked) =>
                     handleSecurityUpdate({ requireAuth: checked })
                   }
@@ -793,13 +693,15 @@ export function WidgetSettings({
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="rateLimitingEnabled"
-                    checked={configuration.security.rateLimiting.enabled}
+                    checked={configuration.security?.rateLimiting.enabled ?? false}
                     onCheckedChange={(checked) =>
                       handleSecurityUpdate({
                         rateLimiting: {
-                          ...configuration.security.rateLimiting,
-                          enabled: checked,
-                        },
+                          ...configuration.security?.rateLimiting,
+                          enabled: checked ?? true,
+                          requestsPerMinute: configuration.security?.rateLimiting.requestsPerMinute ?? 60,
+                          tokensPerMinute: configuration.security?.rateLimiting.tokensPerMinute ?? 60,
+                        },  
                       })
                     }
                   />
@@ -808,89 +710,31 @@ export function WidgetSettings({
                   </Label>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="requestsPerMinute">
-                      Requests per Minute
-                    </Label>
-                    <Input
-                      id="requestsPerMinute"
-                      type="number"
-                      value={
-                        configuration.security.rateLimiting.requestsPerMinute
-                      }
-                      onChange={(e) =>
-                        handleSecurityUpdate({
-                          rateLimiting: {
-                            ...configuration.security.rateLimiting,
-                            requestsPerMinute: parseInt(e.target.value) || 60,
-                          },
-                        })
-                      }
-                      min="1"
-                      max="1000"
-                      disabled={!configuration.security.rateLimiting.enabled}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="burstLimit">Burst Limit</Label>
-                    <Input
-                      id="burstLimit"
-                      type="number"
-                      value={
-                        configuration.security.rateLimiting.burstLimit || 10
-                      }
-                      onChange={(e) =>
-                        handleSecurityUpdate({
-                          rateLimiting: {
-                            ...configuration.security.rateLimiting,
-                            burstLimit: parseInt(e.target.value) || 10,
-                          },
-                        })
-                      }
-                      min="1"
-                      max="100"
-                      disabled={!configuration.security.rateLimiting.enabled}
-                    />
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="requestsPerMinute">
+                  Requests per Minute
+                </Label>
+                <Input
+                  id="requestsPerMinute"
+                  type="number"
+                  value={
+                    configuration.security?.rateLimiting.requestsPerMinute ?? 60
+                  }
+                  onChange={(e) =>
+                    handleSecurityUpdate({
+                      rateLimiting: {
+                        ...configuration.security?.rateLimiting,
+                        requestsPerMinute: parseInt(e.target.value) || 60,
+                        enabled: configuration.security?.rateLimiting.enabled ?? false,
+                        tokensPerMinute: parseInt(e.target.value) || 60,
+                      },
+                    })
+                  }
+                  min="1"
+                  max="1000"
+                  disabled={!configuration.security?.rateLimiting.enabled}
+                />
               </div>
-
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="enableCORS"
-                    checked={configuration.security.enableCORS ?? true}
-                    onCheckedChange={(checked) =>
-                      handleSecurityUpdate({ enableCORS: checked })
-                    }
-                  />
-                  <Label htmlFor="enableCORS">Enable CORS</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="csrfProtection"
-                    checked={configuration.security.csrfProtection ?? true}
-                    onCheckedChange={(checked) =>
-                      handleSecurityUpdate({ csrfProtection: checked })
-                    }
-                  />
-                  <Label htmlFor="csrfProtection">CSRF Protection</Label>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="encryptData"
-                    checked={configuration.security.encryptData ?? true}
-                    onCheckedChange={(checked) =>
-                      handleSecurityUpdate({ encryptData: checked })
-                    }
-                  />
-                  <Label htmlFor="encryptData">Encrypt data in transit</Label>
-                </div>
               </div>
             </CardContent>
           </Card>

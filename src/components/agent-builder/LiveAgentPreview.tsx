@@ -13,7 +13,6 @@ import {
   Bot, 
   User, 
   Loader2, 
-  Settings, 
   Trash2,
   Copy,
   ThumbsUp,

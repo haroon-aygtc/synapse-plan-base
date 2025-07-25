@@ -216,7 +216,7 @@ export interface PaginatedResponse<T> extends ApiResponse<T[]> {
   };
 }
 
-export interface Permission {
+export interface PermissionList {
   id: string;
   name: string;
   description: string;
@@ -228,61 +228,61 @@ export interface RolePermissions {
   permissions: string[];
 }
 
-export const PERMISSIONS = {
-  // System permissions
-  SYSTEM_ADMIN: "system:admin",
-  SYSTEM_MONITOR: "system:monitor",
-
-  // Organization permissions
-  ORG_READ: "org:read",
-  ORG_UPDATE: "org:update",
-  ORG_DELETE: "org:delete",
-  ORG_SETTINGS: "org:settings",
-  ORG_BILLING: "org:billing",
-
-  // User permissions
-  USER_CREATE: "user:create",
-  USER_READ: "user:read",
-  USER_UPDATE: "user:update",
-  USER_DELETE: "user:delete",
-  USER_INVITE: "user:invite",
-
-  // Agent permissions
-  AGENT_CREATE: "agent:create",
-  AGENT_READ: "agent:read",
-  AGENT_UPDATE: "agent:update",
-  AGENT_DELETE: "agent:delete",
-  AGENT_EXECUTE: "agent:execute",
-
-  // Tool permissions
-  TOOL_CREATE: "tool:create",
-  TOOL_READ: "tool:read",
-  TOOL_UPDATE: "tool:update",
-  TOOL_DELETE: "tool:delete",
-  TOOL_EXECUTE: "tool:execute",
-
-  // Workflow permissions
-  WORKFLOW_CREATE: "workflow:create",
-  WORKFLOW_READ: "workflow:read",
-  WORKFLOW_UPDATE: "workflow:update",
-  WORKFLOW_DELETE: "workflow:delete",
-  WORKFLOW_EXECUTE: "workflow:execute",
-  WORKFLOW_APPROVE: "workflow:approve",
-
-  // Knowledge permissions
-  KNOWLEDGE_CREATE: "knowledge:create",
-  KNOWLEDGE_READ: "knowledge:read",
-  KNOWLEDGE_UPDATE: "knowledge:update",
-  KNOWLEDGE_DELETE: "knowledge:delete",
-  KNOWLEDGE_SEARCH: "knowledge:search",
-
-  // Analytics permissions
-  ANALYTICS_READ: "analytics:read",
-  ANALYTICS_EXPORT: "analytics:export",
+export const PERMISSIONS_LIST = {
+   // System permissions
+   SYSTEM_ADMIN: "system:admin",
+   SYSTEM_MONITOR: "system:monitor",
+ 
+   // Organization permissions
+   ORG_READ: "org:read",
+   ORG_UPDATE: "org:update",
+   ORG_DELETE: "org:delete",
+   ORG_SETTINGS: "org:settings",
+   ORG_BILLING: "org:billing",
+ 
+   // User permissions
+   USER_CREATE: "user:create",
+   USER_READ: "user:read",
+   USER_UPDATE: "user:update",
+   USER_DELETE: "user:delete",
+   USER_INVITE: "user:invite",
+ 
+   // Agent permissions
+   AGENT_CREATE: "agent:create",
+   AGENT_READ: "agent:read",
+   AGENT_UPDATE: "agent:update",
+   AGENT_DELETE: "agent:delete",
+   AGENT_EXECUTE: "agent:execute",
+ 
+   // Tool permissions
+   TOOL_CREATE: "tool:create",
+   TOOL_READ: "tool:read",
+   TOOL_UPDATE: "tool:update",
+   TOOL_DELETE: "tool:delete",
+   TOOL_EXECUTE: "tool:execute",
+ 
+   // Workflow permissions
+   WORKFLOW_CREATE: "workflow:create",
+   WORKFLOW_READ: "workflow:read",
+   WORKFLOW_UPDATE: "workflow:update",
+   WORKFLOW_DELETE: "workflow:delete",
+   WORKFLOW_EXECUTE: "workflow:execute",
+   WORKFLOW_APPROVE: "workflow:approve",
+ 
+   // Knowledge permissions
+   KNOWLEDGE_CREATE: "knowledge:create",
+   KNOWLEDGE_READ: "knowledge:read",
+   KNOWLEDGE_UPDATE: "knowledge:update",
+   KNOWLEDGE_DELETE: "knowledge:delete",
+   KNOWLEDGE_SEARCH: "knowledge:search",
+ 
+   // Analytics permissions
+   ANALYTICS_READ: "analytics:read",
+   ANALYTICS_EXPORT: "analytics:export",
 } as const;
 
-export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  [UserRole.SUPER_ADMIN]: Object.values(PERMISSIONS),
+export const ROLE_PERMISSIONS_LIST: Record<UserRole, string[]> = {
+  [UserRole.SUPER_ADMIN]: Object.values(PERMISSIONS_LIST),
   [UserRole.ORG_ADMIN]: [
     PERMISSIONS.ORG_READ,
     PERMISSIONS.ORG_UPDATE,

@@ -60,7 +60,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { api } from '@/lib/api';
+import {apiClient} from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
@@ -154,7 +154,7 @@ export default function ToolCreationPage() {
   const loadTemplates = async () => {
     setLoadingTemplates(true);
     try {
-      const response = await api.get('/tools/templates');
+      const response = await apiClient.get('/tools/templates');
 
       if (response.data.success) {
         setTemplates(response.data.data || response.data);
@@ -174,7 +174,7 @@ export default function ToolCreationPage() {
 
     setAiConfiguring(true);
     try {
-      const response = await api.post('/tools/ai-configure', {
+      const response = await apiClient.post('/tools/ai-configure', {
         description: aiDescription,
         apiUrl: formData.endpoint,
         serviceType: formData.category,
@@ -216,23 +216,23 @@ export default function ToolCreationPage() {
         userId: user?.id,
       };
 
-      const createResponse = await api.post('/tools', tempTool);
+      const createResponse = await apiClient.post('/tools', tempTool);
       if (createResponse.data.success) {
         const toolId = createResponse.data.data?.id || createResponse.data.id;
 
         try {
-          const healthResponse = await api.get(`/tools/${toolId}/health`);
+          const healthResponse = await apiClient.get(`/tools/${toolId}/health`);
           setToolHealth(healthResponse.data);
         } finally {
           // Clean up temporary tool
-          await api.delete(`/tools/${toolId}`);
+          await apiClient.delete(`/tools/${toolId}`);
         }
       }
     } catch (error) {
       console.error('Health check failed:', error);
       setToolHealth({
         isHealthy: false,
-        error: error.response?.data?.message || error.message,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
       });
     } finally {
       setHealthChecking(false);
@@ -248,7 +248,7 @@ export default function ToolCreationPage() {
         params.append('category', marketplaceCategory);
       params.append('limit', '20');
 
-      const response = await api.get(`/tools/marketplace?${params.toString()}`);
+      const response = await apiClient.get(`/tools/marketplace?${params.toString()}`);
 
       if (response.data.success) {
         setMarketplaceTools(response.data.data || []);
@@ -269,7 +269,7 @@ export default function ToolCreationPage() {
 
   const installMarketplaceTool = async (toolId: string) => {
     try {
-      const response = await api.post(`/tools/marketplace/${toolId}/install`, {
+      const response = await apiClient.post(`/tools/marketplace/${toolId}/install`, {
         organizationId: user?.organizationId,
         userId: user?.id,
       });
@@ -312,7 +312,7 @@ export default function ToolCreationPage() {
 
     setSchemaDetecting(true);
     try {
-      const response = await api.post('/tools/detect-schema', {
+      const response = await apiClient.post('/tools/detect-schema', {
         endpoint: formData.endpoint,
         method: formData.method,
         headers: formData.headers,
@@ -364,7 +364,7 @@ export default function ToolCreationPage() {
         description: formData.description || 'Temporary tool for testing',
       };
 
-      const createResponse = await api.post('/tools', tempTool);
+      const createResponse = await apiClient.post('/tools', tempTool);
 
       if (!createResponse.data.success && !createResponse.data.id) {
         throw new Error(
@@ -376,7 +376,7 @@ export default function ToolCreationPage() {
 
       try {
         // Test the tool with real API call
-        const testResponse = await api.post(`/tools/${toolId}/test`, testData);
+        const testResponse = await apiClient.post(`/tools/${toolId}/test`, testData);
 
         const result = testResponse.data.data || testResponse.data;
         setTestResult({
@@ -394,7 +394,7 @@ export default function ToolCreationPage() {
       } finally {
         // Clean up temporary tool
         try {
-          await api.delete(`/tools/${toolId}`);
+          await apiClient.delete(`/tools/${toolId}`);
         } catch (cleanupError) {
           console.warn('Failed to cleanup temporary tool:', cleanupError);
         }
@@ -423,7 +423,7 @@ export default function ToolCreationPage() {
         userId: user.id,
       };
 
-      const response = await api.post('/tools', toolData);
+      const response = await apiClient.post('/tools', toolData);
 
       if (response.data.success) {
         const toolId = response.data.data?.id || response.data.id;

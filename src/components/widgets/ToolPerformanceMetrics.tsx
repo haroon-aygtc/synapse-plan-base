@@ -11,7 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { BarChart3, Clock, Zap, TrendingUp, AlertCircle } from 'lucide-react';
-import { api } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 
 interface PerformanceMetrics {
   averageResponseTime: number;
@@ -41,7 +41,7 @@ export function ToolPerformanceMetrics({
   const loadMetrics = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/${sourceType}s/${sourceId}/metrics`);
+      const response = await apiClient.get(`/${sourceType}s/${sourceId}/metrics`);
       if (response.data.success) {
         setMetrics(response.data.data);
       }

@@ -6,7 +6,7 @@ import { useAIAssistant } from '@/hooks/useAIAssistant';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';  
 import { Separator } from '@/components/ui/separator';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from '@/components/ui/use-toast';
@@ -97,7 +97,7 @@ export function AgentPerformanceDashboard() {
         } else {
           throw new Error('Failed to fetch metrics');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching metrics:', error);
         toast({
           title: 'Error',
@@ -151,7 +151,7 @@ export function AgentPerformanceDashboard() {
         title: 'Analysis Complete',
         description: 'Optimization suggestions have been generated',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating suggestions:', error);
       toast({
         title: 'Analysis Failed',

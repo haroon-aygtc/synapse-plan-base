@@ -96,7 +96,7 @@ export class WidgetService {
       'CDN_BASE_URL',
       'https://cdn.synapseai.com',
     );
-    this.jwtSecret = this.configService.get('JWT_SECRET');
+    this.jwtSecret = this.configService.get('JWT_SECRET', 'default-secret-key');
     this.maxWidgetsPerOrg = this.configService.get('MAX_WIDGETS_PER_ORG', 100);
     this.maxExecutionsPerMinute = this.configService.get(
       'MAX_EXECUTIONS_PER_MINUTE',
@@ -1312,7 +1312,7 @@ export class WidgetService {
       },
     });
 
-    const savedExecution = await this.widgetExecutionRepository.save(execution);
+    const savedExecution: WidgetExecution = await this.widgetExecutionRepository.save(execution);
 
     // Mark execution as running
     savedExecution.markAsRunning();

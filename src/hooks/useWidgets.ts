@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
-import { api } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 import { Widget, WidgetConfiguration } from '@/lib/sdk/types';
 
 export interface UseWidgetsOptions {
@@ -128,7 +128,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
       if (options.sortBy) params.append('sortBy', options.sortBy);
       if (options.sortOrder) params.append('sortOrder', options.sortOrder);
 
-      const response = await api.get(`/widgets?${params.toString()}`);
+      const response = await apiClient.get(`/widgets?${params.toString()}`);
 
       if (response.data.success) {
         setWidgets(response.data.data);
@@ -161,7 +161,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
       setError(null);
 
       try {
-        const response = await api.post('/widgets', widgetData);
+        const response = await apiClient.post('/widgets', widgetData);
 
         if (response.data.success) {
           await fetchWidgets(); // Refresh the list
@@ -194,7 +194,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
       setError(null);
 
       try {
-        const response = await api.put(`/widgets/${id}`, updates);
+        const response = await apiClient.put(`/widgets/${id}`, updates);
 
         if (response.data.success) {
           await fetchWidgets(); // Refresh the list
@@ -219,7 +219,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
       setError(null);
 
       try {
-        const response = await api.delete(`/widgets/${id}`);
+        const response = await apiClient.delete(`/widgets/${id}`);
 
         if (response.data.success) {
           await fetchWidgets(); // Refresh the list
@@ -252,7 +252,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
       setError(null);
 
       try {
-        const response = await api.post(
+        const response = await apiClient.post(
           `/widgets/${id}/deploy`,
           deploymentOptions,
         );
@@ -280,7 +280,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
       setError(null);
 
       try {
-        const response = await api.post(`/widgets/${id}/undeploy`);
+        const response = await apiClient.post(`/widgets/${id}/undeploy`);
 
         if (response.data.success) {
           await fetchWidgets(); // Refresh the list
@@ -314,7 +314,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
       setError(null);
 
       try {
-        const response = await api.post(`/widgets/${id}/embed-code`, options);
+        const response = await apiClient.post(`/widgets/${id}/embed-code`, options);
 
         if (response.data.success) {
           return response.data.data;
@@ -346,7 +346,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
       setError(null);
 
       try {
-        const response = await api.post(`/widgets/${id}/test`, testOptions);
+        const response = await apiClient.post(`/widgets/${id}/test`, testOptions);
 
         if (response.data.success) {
           return response.data.data;
@@ -374,7 +374,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
       setError(null);
 
       try {
-        const response = await api.post(
+        const response = await apiClient.post(
           `/widgets/${id}/preview`,
           previewOptions,
         );
@@ -407,7 +407,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
       setError(null);
 
       try {
-        const response = await api.post(`/widgets/${id}/clone`, cloneData);
+        const response = await apiClient.post(`/widgets/${id}/clone`, cloneData);
 
         if (response.data.success) {
           await fetchWidgets(); // Refresh the list
@@ -442,7 +442,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
           end: period.end.toISOString(),
         });
 
-        const response = await api.get(
+        const response = await apiClient.get(
           `/widgets/${id}/analytics?${params.toString()}`,
         );
 
@@ -478,7 +478,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
           format,
         });
 
-        const response = await api.get(
+        const response = await apiClient.get(
           `/widgets/${id}/analytics/export?${params.toString()}`,
           {
             responseType: 'blob',
@@ -510,7 +510,7 @@ export const useWidgets = (options: UseWidgetsOptions = {}) => {
     setError(null);
 
     try {
-      const response = await api.get(`/widgets/${id}`);
+      const response = await apiClient.get(`/widgets/${id}`);
 
       if (response.data.success) {
         return response.data.data;
@@ -587,7 +587,7 @@ export const useWidgetTemplates = () => {
           ? '/widgets/templates/featured'
           : `/widgets/templates?${params.toString()}`;
 
-        const response = await api.get(endpoint);
+        const response = await apiClient.get(endpoint);
 
         if (response.data.success) {
           setTemplates(response.data.data);
@@ -612,7 +612,7 @@ export const useWidgetTemplates = () => {
       setError(null);
 
       try {
-        const response = await api.get(`/widgets/templates/${templateId}`);
+        const response = await apiClient.get(`/widgets/templates/${templateId}`);
 
         if (response.data.success) {
           return response.data.data;
@@ -641,7 +641,7 @@ export const useWidgetTemplates = () => {
       setError(null);
 
       try {
-        const response = await api.post(
+        const response = await apiClient.post(
           `/widgets/templates/${templateId}/create`,
           widgetData,
         );
@@ -679,7 +679,7 @@ export const useWidgetTemplates = () => {
       setError(null);
 
       try {
-        const response = await api.post(
+        const response = await apiClient.post(
           `/widgets/${widgetId}/publish-template`,
           templateData,
         );
@@ -707,7 +707,7 @@ export const useWidgetTemplates = () => {
       setError(null);
 
       try {
-        const response = await api.post(
+        const response = await apiClient.post(
           `/widgets/templates/${templateId}/rate`,
           { rating, review },
         );
@@ -738,7 +738,7 @@ export const useWidgetTemplates = () => {
         if (options.page) params.append('page', options.page.toString());
         if (options.limit) params.append('limit', options.limit.toString());
 
-        const response = await api.get(
+        const response = await apiClient.get(
           `/widgets/templates/${templateId}/reviews?${params.toString()}`,
         );
 
@@ -760,7 +760,7 @@ export const useWidgetTemplates = () => {
     setError(null);
 
     try {
-      const response = await api.get('/widgets/templates/categories');
+      const response = await apiClient.get('/widgets/templates/categories');
 
       if (response.data.success) {
         return response.data.data;

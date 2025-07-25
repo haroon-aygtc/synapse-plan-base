@@ -129,59 +129,59 @@ export interface WidgetDeploymentInfo {
 @Index(['sourceId', 'sourceType'])
 export class Widget extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ length: 255 })
   @Index()
-  name: string;
+  name!: string;
 
   @Column({ type: 'text', nullable: true })
   description?: string;
 
   @Column({ type: 'enum', enum: ['agent', 'tool', 'workflow'] })
   @Index()
-  type: 'agent' | 'tool' | 'workflow';
+  type!: 'agent' | 'tool' | 'workflow';
 
   @Column({ name: 'source_id' })
   @Index()
-  sourceId: string;
+  sourceId!: string;
 
   @Column({
     name: 'source_type',
     type: 'enum',
     enum: ['agent', 'tool', 'workflow'],
   })
-  sourceType: 'agent' | 'tool' | 'workflow';
+  sourceType!: 'agent' | 'tool' | 'workflow';
 
   @Column({ type: 'jsonb' })
-  configuration: WidgetConfiguration;
+  configuration!: WidgetConfiguration;
 
   @Column({ name: 'is_active', default: true })
   @Index()
-  isActive: boolean;
+  isActive!: boolean;
 
   @Column({ name: 'is_deployed', default: false })
   @Index()
-  isDeployed: boolean;
+  isDeployed!: boolean;
 
   @Column({ type: 'jsonb', nullable: true })
   deploymentInfo?: WidgetDeploymentInfo;
 
   @Column({ type: 'jsonb', default: '{}' })
-  analyticsData: WidgetAnalyticsData;
+  analyticsData!: WidgetAnalyticsData;
 
   @Column({ name: 'template_id', nullable: true })
   templateId?: string;
 
   @Column({ name: 'is_template', default: false })
   @Index()
-  isTemplate: boolean;
+  isTemplate!: boolean;
 
   @Column({ name: 'template_category', nullable: true })
   templateCategory?: string;
 
   @Column({ type: 'text', array: true, default: '{}' })
-  templateTags: string[];
+  templateTags!: string[];
 
   @Column({
     name: 'template_rating',
@@ -190,14 +190,14 @@ export class Widget extends BaseEntity {
     scale: 2,
     default: 0,
   })
-  templateRating: number;
+  templateRating!: number;
 
   @Column({ name: 'template_downloads', default: 0 })
-  templateDownloads: number;
+  templateDownloads!: number;
 
   @Column({ name: 'is_public_template', default: false })
   @Index()
-  isPublicTemplate: boolean;
+  isPublicTemplate!: boolean;
 
   @Column({ name: 'template_preview_image', type: 'text', nullable: true })
   templatePreviewImage?: string;
@@ -206,20 +206,20 @@ export class Widget extends BaseEntity {
   templateDemoUrl?: string;
 
   @Column({ name: 'template_rating_count', default: 0 })
-  templateRatingCount: number;
+  templateRatingCount!: number;
 
   @Column({ name: 'template_featured', default: false })
   @Index()
-  templateFeatured: boolean;
+  templateFeatured!: boolean;
 
   @Column({ name: 'version', default: '1.0.0' })
-  version: string;
+  version!: string;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
 
   @Column({ name: 'usage_count', default: 0 })
-  usageCount: number;
+  usageCount!: number;
 
   @Column({ name: 'last_used_at', nullable: true })
   lastUsedAt?: Date;
@@ -254,19 +254,19 @@ export class Widget extends BaseEntity {
   // Relationships
   @Column({ name: 'user_id' })
   @Index()
-  userId: string;
+  userId!: string;
 
   @ManyToOne(() => User, { eager: false })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user!: User;
 
   @Column({ name: 'organization_id' })
   @Index()
-  organizationId: string;
+  organizationId!: string;
 
   @ManyToOne(() => Organization, { eager: false })
   @JoinColumn({ name: 'organization_id' })
-  organization: Organization;
+  organization!: Organization;
 
   // Dynamic relationships based on sourceType
   @ManyToOne(() => Agent, { eager: false, nullable: true })
@@ -282,10 +282,10 @@ export class Widget extends BaseEntity {
   workflow?: Workflow;
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Helper methods
   getSourceEntity(): Agent | Tool | Workflow | undefined {

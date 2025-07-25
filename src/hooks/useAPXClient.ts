@@ -16,7 +16,8 @@ interface UseAPXClientOptions {
 }
 
 export function useAPXClient(options: UseAPXClientOptions = {}) {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
+  const accessToken = localStorage.getItem("synapse_access_token");
   const clientRef = useRef<APXClient | null>(null);
   const [connectionState, setConnectionState] =
     useState<string>("disconnected");
@@ -25,19 +26,25 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
 
   // Initialize client
   useEffect(() => {
-    if (!token || !user) return;
+    if (!accessToken || !user) return;
 
     const config: APXClientConfig = {
       url: process.env.NEXT_PUBLIC_WS_URL || "http://localhost:3001",
-      token,
+      token: accessToken,
       autoReconnect: true,
       maxReconnectAttempts: 10,
       reconnectDelay: 1000,
       heartbeatInterval: 30000,
       messageTimeout: 30000,
       compression: true,
-      encryption: true,
+      encryption: true, 
       debug: process.env.NODE_ENV === "development",
+      debugLevel: process.env.NODE_ENV === "development" ? "debug" : "info",
+      debugFile: process.env.NODE_ENV === "development" ? "apix-debug.log" : undefined,
+      debugMaxSize: process.env.NODE_ENV === "development" ? 1024 * 1024 * 10 : undefined,
+      debugMaxFiles: process.env.NODE_ENV === "development" ? 10 : undefined,
+      debugMaxFileAge: process.env.NODE_ENV === "development" ? 1000 * 60 * 60 * 24 : undefined,
+      debugMaxFileCount: process.env.NODE_ENV === "development" ? 10 : undefined,
     };
 
     const client = createAPXClient(config);
@@ -78,7 +85,7 @@ export function useAPXClient(options: UseAPXClientOptions = {}) {
     return () => {
       client.disconnect();
     };
-  }, [token, user, options.autoConnect]);
+  }, [accessToken, user, options.autoConnect]);
 
   // Connection methods
   const connect = useCallback(async () => {

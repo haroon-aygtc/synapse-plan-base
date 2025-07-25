@@ -72,7 +72,7 @@ import {
 } from 'lucide-react';
 import AIConfigurationPanel from '@/components/ai-assistant/AIConfigurationPanel';
 import { VisualAgentBuilder } from '@/components/agent-builder/VisualAgentBuilder';
-import { ComponentPalette } from '@/components/agent-builder/ComponentPalette';
+import ComponentPalette from '@/components/agent-builder/ComponentPalette';
 import { type AgentConfiguration } from '@/lib/ai-assistant';
 
 // Tutorial and onboarding interfaces
@@ -871,11 +871,10 @@ export default function AgentCreatePage() {
     }
   };
 
+  const [visualWorkflowComponents, setVisualWorkflowComponents] = useState<any[]>([]);
+
   const handleAddComponent = (template: any) => {
-    setAgentConfiguration((prev) => ({
-      ...prev,
-      visualWorkflow: [...(prev.visualWorkflow || []), template],
-    }));
+    setVisualWorkflowComponents((prev) => [...prev, template]);
   };
 
   return (
@@ -1341,9 +1340,8 @@ export default function AgentCreatePage() {
                   currentConfiguration={agentConfiguration}
                   userExperience={userExperience}
                   searchContext={agentConfiguration.description || ''}
-                  canvasNodes={[]}
+                  canvasNodes={visualWorkflowComponents}
                   canvasEdges={[]}
-                  onConfigurationUpdate={handleConfigurationUpdate}
                 />
               </div>
             </div>

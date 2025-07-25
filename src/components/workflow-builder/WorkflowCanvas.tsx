@@ -18,6 +18,7 @@ import ReactFlow, {
   EdgeTypes,
   MarkerType,
   Position,
+  ConnectionLineType,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Trash2, Edit, Copy, Settings, Play } from "lucide-react";
@@ -301,7 +302,7 @@ function WorkflowCanvasInner({
         onEdgeClick={onEdgeClick}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        connectionLineType="smoothstep"
+        connectionLineType={ConnectionLineType.SmoothStep}
         connectionLineStyle={{
           stroke: "#3b82f6",
           strokeWidth: 2,

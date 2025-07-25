@@ -214,6 +214,7 @@ export function ProviderConfiguration() {
         rateLimits: {
           requestsPerMinute: formData.requestsPerMinute,
           tokensPerMinute: formData.tokensPerMinute,
+          enabled: true,
         },
         models: formData.models.length > 0 ? formData.models : undefined,
       },
@@ -231,7 +232,7 @@ export function ProviderConfiguration() {
       setShowCreateDialog(false);
       setFormData(initialFormData);
       setEditingProvider(null);
-    } catch (error) {
+    } catch (error: any) {
       // Error is handled in the hook
     }
   };
@@ -458,7 +459,7 @@ export function ProviderConfiguration() {
                   <Input
                     id="name"
                     value={formData.name}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setFormData({ ...formData, name: e.target.value })
                     }
                     placeholder="My OpenAI Provider"
@@ -468,7 +469,7 @@ export function ProviderConfiguration() {
                   <Label htmlFor="type">Provider Type *</Label>
                   <Select
                     value={formData.type}
-                    onValueChange={(value) => {
+                    onValueChange={(value: string) => {
                       const providerType = PROVIDER_TYPES.find(
                         (p) => p.type === value,
                       );
@@ -506,7 +507,7 @@ export function ProviderConfiguration() {
                     id="apiKey"
                     type={showApiKey ? 'text' : 'password'}
                     value={formData.apiKey}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setFormData({ ...formData, apiKey: e.target.value })
                     }
                     placeholder="Enter your API key"
@@ -543,7 +544,7 @@ export function ProviderConfiguration() {
                 <Input
                   id="baseUrl"
                   value={formData.baseUrl}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setFormData({ ...formData, baseUrl: e.target.value })
                   }
                   placeholder={selectedProviderType?.baseUrl}
@@ -559,7 +560,7 @@ export function ProviderConfiguration() {
                     min="1"
                     max="1000"
                     value={formData.priority}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setFormData({
                         ...formData,
                         priority: parseInt(e.target.value) || 100,
@@ -576,7 +577,7 @@ export function ProviderConfiguration() {
                     min="0.1"
                     max="10"
                     value={formData.costMultiplier}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setFormData({
                         ...formData,
                         costMultiplier: parseFloat(e.target.value) || 1.0,
@@ -590,7 +591,7 @@ export function ProviderConfiguration() {
                 <Switch
                   id="isActive"
                   checked={formData.isActive}
-                  onCheckedChange={(checked) =>
+                  onCheckedChange={(checked: boolean) =>
                     setFormData({ ...formData, isActive: checked })
                   }
                 />
@@ -608,7 +609,7 @@ export function ProviderConfiguration() {
                     min="1000"
                     max="300000"
                     value={formData.timeout}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setFormData({
                         ...formData,
                         timeout: parseInt(e.target.value) || 30000,
@@ -624,7 +625,7 @@ export function ProviderConfiguration() {
                     min="0"
                     max="10"
                     value={formData.maxRetries}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setFormData({
                         ...formData,
                         maxRetries: parseInt(e.target.value) || 3,
@@ -645,7 +646,7 @@ export function ProviderConfiguration() {
                     type="number"
                     min="1"
                     value={formData.requestsPerMinute}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setFormData({
                         ...formData,
                         requestsPerMinute: parseInt(e.target.value) || 60,
@@ -660,7 +661,7 @@ export function ProviderConfiguration() {
                     type="number"
                     min="1"
                     value={formData.tokensPerMinute}
-                    onChange={(e) =>
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setFormData({
                         ...formData,
                         tokensPerMinute: parseInt(e.target.value) || 100000,
@@ -679,7 +680,7 @@ export function ProviderConfiguration() {
                 </p>
                 <Textarea
                   value={formData.models.join('\n')}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                     setFormData({
                       ...formData,
                       models: e.target.value.split('\n').filter(Boolean),

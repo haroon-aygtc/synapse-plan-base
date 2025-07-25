@@ -19,7 +19,7 @@ import {
   Settings,
   Trash2,
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 
 interface Workflow {
@@ -52,7 +52,7 @@ export function ToolWorkflowConnection({
 
   const loadWorkflows = async () => {
     try {
-      const response = await api.get('/workflows');
+      const response = await apiClient.get('/workflows');
       if (response.data.success) {
         setWorkflows(response.data.data);
       }
@@ -64,7 +64,7 @@ export function ToolWorkflowConnection({
   const loadConnectedWorkflows = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/tools/${toolId}/workflows`);
+      const response = await apiClient.get(`/tools/${toolId}/workflows`);
       if (response.data.success) {
         setConnectedWorkflows(response.data.data);
       }
@@ -78,7 +78,7 @@ export function ToolWorkflowConnection({
   const connectWorkflow = async (workflowId: string) => {
     try {
       setConnecting(workflowId);
-      const response = await api.post(
+      const response = await apiClient.post(
         `/tools/${toolId}/workflows/${workflowId}`,
       );
       if (response.data.success) {
@@ -102,7 +102,7 @@ export function ToolWorkflowConnection({
 
   const disconnectWorkflow = async (workflowId: string) => {
     try {
-      const response = await api.delete(
+      const response = await apiClient.delete(
         `/tools/${toolId}/workflows/${workflowId}`,
       );
       if (response.data.success) {

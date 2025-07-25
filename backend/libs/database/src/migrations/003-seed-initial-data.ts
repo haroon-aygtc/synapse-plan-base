@@ -120,48 +120,48 @@ Please provide a helpful response.',
       FROM "organizations" o 
       CROSS JOIN "users" u
       WHERE o."slug" = 'default-org' AND u."email" = 'admin@system.local'
-      ON CONFLICT DO NOTHING
+      ON CONFLICT DO NOTHING;
     `);
 
-    await queryRunner.query(`
-      INSERT INTO "prompt_templates" (
-        "id", "organizationId", "userId", "name", "description", 
-        "template", "variables", "category", "isActive", "isPublic",
-        "createdAt", "updatedAt"
-      )
-      SELECT 
-        uuid_generate_v4(),
-        o."id",
-        u."id",
-        'Code Review Assistant',
-        'An AI assistant for code review and suggestions',
-        'You are an expert code reviewer. Please review the following code and provide constructive feedback.
-
-Programming Language: {{language}}
-Code to Review:
-```{{language}}
-{{code}}
-```
-
-Please provide:
-1. Overall code quality assessment
-2. Potential bugs or issues
-3. Performance improvements
-4. Best practice recommendations
-5. Security considerations (if applicable)
-
-Focus on being constructive and educational in your feedback.',
-        '[{"name": "language", "type": "string", "required": true}, {"name": "code", "type": "text", "required": true}]',
-        'Development',
-        true,
-        true,
-        NOW(),
-        NOW()
-      FROM "organizations" o 
-      CROSS JOIN "users" u
-      WHERE o."slug" = 'default-org' AND u."email" = 'admin@system.local'
-      ON CONFLICT DO NOTHING
-    `);
+                await queryRunner.query(`
+                  INSERT INTO "prompt_templates" (
+                    "id", "organizationId", "userId", "name", "description",
+                    "template", "variables", "category", "isActive", "isPublic",
+                    "createdAt", "updatedAt"
+                  )
+                  SELECT
+                    uuid_generate_v4(),
+                    o."id",
+                    u."id",
+                    'Code Review Assistant',
+                    'An AI assistant for code review and suggestions',
+                    'You are an expert code reviewer. Please review the following code and provide constructive feedback.
+        
+        Programming Language: {{language}}
+        Code to Review:
+        \`\`\`{{language}}
+        {{code}}
+        \`\`\`
+        
+        Please provide:
+        1. Overall code quality assessment
+        2. Potential bugs or issues
+        3. Performance improvements
+        4. Best practice recommendations
+        5. Security considerations (if applicable)
+        
+        Focus on being constructive and educational in your feedback.',
+                    '[{"name": "language", "type": "string", "required": true}, {"name": "code", "type": "text", "required": true}]',
+                    'Development',
+                    true,
+                    true,
+                    NOW(),
+                    NOW()
+                  FROM "organizations" o 
+                  CROSS JOIN "users" u
+                  WHERE o."slug" = 'default-org' AND u."email" = 'admin@system.local'
+                  ON CONFLICT DO NOTHING;
+                `);
 
     await queryRunner.query(`
       INSERT INTO "prompt_templates" (
@@ -200,7 +200,7 @@ Present your findings in a clear, structured format with actionable insights.',
       FROM "organizations" o 
       CROSS JOIN "users" u
       WHERE o."slug" = 'default-org' AND u."email" = 'admin@system.local'
-      ON CONFLICT DO NOTHING
+      ON CONFLICT DO NOTHING;
     `);
 
     // Create sample tools

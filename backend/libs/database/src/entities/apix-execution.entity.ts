@@ -24,7 +24,7 @@ export class APXExecution extends BaseEntity {
   @Column({ type: 'enum', enum: APXExecutionState, default: APXExecutionState.PENDING })
   state: APXExecutionState;
 
-  @Column({ type: 'enum', enum: APXStreamState, default: APXStreamState.IDLE })
+  @Column({ type: 'enum', enum: APXStreamState, default: APXStreamState.INITIALIZING })
   streamState: APXStreamState;
 
   @Column({ type: 'uuid' })

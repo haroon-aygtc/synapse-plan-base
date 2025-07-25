@@ -38,7 +38,6 @@ import {
   TestAgentDto,
   BatchTestAgentDto,
 } from './dto';
-import { Agent } from '@database/entities';
 import { plainToClass } from 'class-transformer';
 
 @ApiTags('agents')

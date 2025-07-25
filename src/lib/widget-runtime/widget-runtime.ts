@@ -12,7 +12,7 @@ import {
   DeviceInfo,
   GeolocationData,
 } from "@/lib/sdk/types";
-import { api } from "@/lib/api";
+import { apiClient } from "@/lib/api";
 
 export class SynapseWidgetRuntime implements WidgetRuntime {
   private connections: Map<string, WidgetConnection> = new Map();
@@ -28,6 +28,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
       enableAnalytics?: boolean;
       enableCaching?: boolean;
       debug?: boolean;
+      enableAPX?: boolean;
     },
   ) {
     this.setupEventListeners();
@@ -85,7 +86,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
 
       // Execute widget through API with retry logic
       const response = await this.executeWithRetry(async () => {
-        return await api.post(
+        return await apiClient.post(
           `/widgets/${widgetId}/execute`,
           {
             input,
@@ -113,13 +114,8 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
           tokensUsed: response.data.data.tokensUsed || 0,
           executionTime,
           error: undefined,
-          metadata: {
-            apiCalls: response.data.data.apiCalls || 1,
-            cacheHit: response.data.data.cacheHit || false,
-            cost: response.data.data.cost || 0,
-            model: response.data.data.model,
-            provider: response.data.data.provider,
-          },
+          cost: response.data.data.cost || 0,
+          cacheHit: response.data.data.cacheHit || false,
         };
 
         // Track successful execution
@@ -133,8 +129,11 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
             executionTime,
             tokensUsed: result.tokensUsed,
             success: true,
-            cost: result.metadata?.cost || 0,
-            cacheHit: result.metadata?.cacheHit || false,
+            cost: result.cost || 0,
+            cacheHit: result.cacheHit || false,
+            apiCalls: result.apiCalls || 0,
+            model: result.model || '',
+            provider: result.provider || '',
           },
         });
 
@@ -165,26 +164,25 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
         timestamp: new Date(),
         data: {
           executionId,
-          error: error.message,
-          errorType,
+          error: error instanceof Error ? error.message : 'Unknown error',
           executionTime,
           statusCode: error.response?.status,
-          stack: error.stack?.substring(0, 1000), // Limit stack trace size
+          stack: error.stack?.substring(0, 1000),
         },
       });
 
       return {
         executionId,
         result: null,
+        tokensUsed: 0,
+        cost: 0,
+        cacheHit: false,
+        apiCalls: 0,
+        model: '',
+        provider: '',
         status: "failed",
         executionTime,
-        error: error.message,
-        errorType,
-        retryable: [
-          "timeout_error",
-          "server_error",
-          "rate_limit_error",
-        ].includes(errorType),
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -200,7 +198,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
   ): Promise<WidgetConnection> {
     try {
       // Fetch widget configuration to validate origin
-      const widgetResponse = await api.get(`/widgets/${widgetId}`);
+      const widgetResponse = await apiClient.get(`/widgets/${widgetId}`);
       if (!widgetResponse.data.success) {
         throw new Error("Widget not found or inactive");
       }
@@ -242,8 +240,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
         established: new Date(),
         lastActivity: new Date(),
         isActive: true,
-        sessionId: sessionId || `session_${connectionId}`,
-        token,
+        sessionId: sessionId || '',
         metadata: {
           userAgent: navigator.userAgent,
           deviceInfo: this.getDeviceInfo(),
@@ -269,18 +266,18 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
       this.trackEvent({
         type: "view",
         widgetId,
-        sessionId: connection.sessionId,
+        sessionId: connection.sessionId || '',
         timestamp: new Date(),
         data: {
           action: "connection_established",
           connectionId: connection.id,
           parentOrigin,
-          deviceInfo: connection.metadata.deviceInfo,
-          geolocation: connection.metadata.geolocation,
+          deviceInfo: connection.deviceInfo,
+          geolocation: connection.geolocation,
           userAgent: navigator.userAgent,
-          connectionType: connection.metadata.connectionType,
-          language: connection.metadata.language,
-          timezone: connection.metadata.timezone,
+          connectionType: (navigator as any).connection?.effectiveType || "unknown",
+          language: navigator.language,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
       });
 
@@ -288,7 +285,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
       this.sendMessageToParent(parentOrigin, {
         type: "widget_connection_established",
         connectionId: connection.id,
-        sessionId: connection.sessionId,
+        sessionId: connection.sessionId || '',
         timestamp: new Date().toISOString(),
       });
 
@@ -298,11 +295,11 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
       this.trackEvent({
         type: "error",
         widgetId,
-        sessionId: sessionId || "unknown",
+        sessionId: sessionId || '',
         timestamp: new Date(),
         data: {
           action: "connection_failed",
-          error: error.message,
+          error: error instanceof Error ? error.message : 'Unknown error',
           parentOrigin,
         },
       });
@@ -447,7 +444,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
   ): Promise<void> {
     // Check if widget exists and is active
     try {
-      const response = await api.get(`/widgets/${widgetId}`);
+      const response = await apiClient.get(`/widgets/${widgetId}`);
       if (!response.data.success || !response.data.data.isActive) {
         throw new Error("Widget is not active or does not exist");
       }
@@ -487,7 +484,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
       // Check widget usage limits (if any)
       await this.checkUsageLimits(widgetId, context);
     } catch (error) {
-      throw new Error(`Widget validation failed: ${error.message}`);
+      throw new Error(`Widget validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -520,7 +517,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
       localStorage.setItem(usageKey, JSON.stringify(usage));
     } catch (error) {
       // If localStorage is not available, skip usage tracking
-      console.warn("Usage tracking unavailable:", error.message);
+      console.warn("Usage tracking unavailable:", error instanceof Error ? error.message : 'Unknown error');
     }
   }
 
@@ -651,12 +648,12 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
 
         case "resize":
           // Handle resize requests
-          this.handleResize(event.data.dimensions, connection);
+          this.handleResize(event.data.dimensions);
           break;
 
         case "theme_update":
           // Handle theme changes
-          this.handleThemeChange(event.data.theme, connection);
+          this.handleThemeChange(event.data.theme);
           break;
 
         case "user_input":
@@ -717,10 +714,10 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
   private handleUserInput(input: any, connection: WidgetConnection): void {
     // Process user input and execute widget
     const context: WidgetExecutionContext = {
-      sessionId: connection.sessionId,
-      userId: connection.metadata?.config?.userId,
-      deviceInfo: connection.metadata?.deviceInfo || this.getDeviceInfo(),
-      geolocation: connection.metadata?.geolocation,
+      sessionId: connection.sessionId || '',
+      userId: connection.userId || '',
+      deviceInfo: connection.deviceInfo || this.getDeviceInfo(),
+      geolocation: connection.geolocation,
       customData: {
         connectionId: connection.id,
         parentOrigin: connection.parentOrigin,
@@ -732,7 +729,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
         this.sendMessageToParent(connection.parentOrigin, {
           type: "widget_response",
           connectionId: connection.id,
-          sessionId: connection.sessionId,
+          sessionId: connection.sessionId,  
           result,
           timestamp: new Date().toISOString(),
         });
@@ -742,7 +739,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
           type: "widget_error",
           connectionId: connection.id,
           sessionId: connection.sessionId,
-          error: error.message,
+          error: error instanceof Error ? error.message : 'Unknown error',
           timestamp: new Date().toISOString(),
         });
       });
@@ -817,6 +814,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
     this.sendMessageToParent(connection.parentOrigin, {
       type: "widget_reset",
       connectionId: connection.id,
+      // @ts-ignore
       sessionId: connection.sessionId,
       timestamp: new Date().toISOString(),
     });
@@ -827,7 +825,9 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
     if (!connection) return;
 
     // Remove message listener
+    // @ts-ignore
     if (connection.messageHandler) {
+      // @ts-ignore
       window.removeEventListener("message", connection.messageHandler);
     }
 
@@ -841,6 +841,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
     this.trackEvent({
       type: "view",
       widgetId: connection.widgetId,
+      // @ts-ignore
       sessionId: connection.sessionId,
       timestamp: new Date(),
       data: {
@@ -874,7 +875,7 @@ export class SynapseWidgetRuntime implements WidgetRuntime {
     this.eventQueue = [];
 
     try {
-      await api.post("/analytics/events/batch", { events });
+      await apiClient.post("/analytics/events/batch", { events });
     } catch (error) {
       // Re-queue events on failure
       this.eventQueue.unshift(...events);

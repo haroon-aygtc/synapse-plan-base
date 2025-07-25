@@ -194,7 +194,7 @@ export class WidgetModule extends BaseModule {
   /**
    * Get widget by ID
    */
-  async get(
+  async getWidget(
     id: string,
     options: RequestOptions = {},
   ): Promise<APIResponse<Widget>> {
@@ -202,13 +202,13 @@ export class WidgetModule extends BaseModule {
 
     this.debug("Getting widget", { id });
 
-    return this.get<Widget>(`/${id}`, options);
+    return this.get<Widget>(`/${id}`, options) as unknown as Promise<APIResponse<Widget>>;
   }
 
   /**
    * List widgets with pagination and filtering
    */
-  async list(
+  async listWidgets(
     listOptions: WidgetListOptions = {},
     options: RequestOptions = {},
   ): Promise<PaginatedResponse<Widget>> {
@@ -248,7 +248,7 @@ export class WidgetModule extends BaseModule {
   /**
    * Delete widget
    */
-  async delete(
+  async deleteWidget(
     id: string,
     options: RequestOptions = {},
   ): Promise<APIResponse<void>> {
@@ -256,7 +256,7 @@ export class WidgetModule extends BaseModule {
 
     this.debug("Deleting widget", { id });
 
-    const response = await this.delete<void>(`/${id}`, options);
+    const response = await this.delete<void>(`/${id}`, options) as unknown as Promise<APIResponse<void>>;
 
     this.emit("widget:deleted", { id });
     return response;
@@ -297,7 +297,7 @@ export class WidgetModule extends BaseModule {
   /**
    * Get widget deployment info
    */
-  async getDeployment(
+  async getWidgetDeployment(
     id: string,
     options: RequestOptions = {},
   ): Promise<APIResponse<WidgetDeployment>> {
@@ -305,7 +305,7 @@ export class WidgetModule extends BaseModule {
 
     this.debug("Getting widget deployment", { id });
 
-    return this.get<WidgetDeployment>(`/${id}/deployment`, options);
+    return this.get<WidgetDeployment>(`/${id}/deployment`, options) as unknown as Promise<APIResponse<WidgetDeployment>>;
   }
 
   /**
@@ -485,10 +485,12 @@ export class WidgetModule extends BaseModule {
       end: period.end.toISOString(),
     };
 
-    return this.get<WidgetAnalytics>(
+    const response = await this.get<WidgetAnalytics>(
       `/${id}/analytics${this.buildQueryString(params)}`,
       options,
     );
+
+    return response;
   }
 
   /**
@@ -563,7 +565,7 @@ export class WidgetModule extends BaseModule {
 
     this.debug("Getting widget template", { templateId });
 
-    return this.get<WidgetTemplate>(`/templates/${templateId}`, options);
+    return this.get<WidgetTemplate>(`/templates/${templateId}`, options) as unknown as Promise<APIResponse<WidgetTemplate>>;
   }
 
   /**
@@ -687,6 +689,7 @@ export class WidgetModule extends BaseModule {
       rateLimiting: {
         enabled: true,
         requestsPerMinute: 60,
+        tokensPerMinute: 60,
       },
     };
 

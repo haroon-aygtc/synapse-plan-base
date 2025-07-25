@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -29,10 +29,9 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { useWidgetTemplates } from "@/hooks/useWidgets";
-import { WidgetTemplate, WidgetConfiguration } from "@/hooks/useWidgets";
+import { useWidgetTemplates, WidgetTemplate } from "@/hooks/useWidgets";
+import { WidgetConfiguration } from "@/lib/sdk/types";
 import {
   Search,
   Star,
@@ -134,7 +133,6 @@ export default function ToolTemplates({
     pagination,
     fetchTemplates,
     getTemplate,
-    createFromTemplate,
   } = useWidgetTemplates();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -399,7 +397,7 @@ export default function ToolTemplates({
                         className="w-full h-48 object-cover rounded-t-lg"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          target.src = `https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80`;
+                          target.src = 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80';
                         }}
                       />
                       <div className="absolute top-2 right-2">
@@ -459,7 +457,7 @@ export default function ToolTemplates({
                           <img
                             src={
                               template.createdBy.avatar ||
-                              `https://api.dicebear.com/7.x/avataaars/svg?seed=${template.createdBy.name}`
+                              `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(template.createdBy.name)}`
                             }
                             alt={template.createdBy.name}
                             className="w-4 h-4 rounded-full"
@@ -486,7 +484,7 @@ export default function ToolTemplates({
                         className="w-full h-full object-cover rounded-l-lg"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          target.src = `https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80`;
+                          target.src = 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=80';
                         }}
                       />
                     </div>
@@ -548,7 +546,7 @@ export default function ToolTemplates({
           <Button
             variant="outline"
             size="sm"
-            disabled={!pagination.hasPrev}
+            disabled={pagination.page <= 1}
             onClick={() => fetchTemplates({ page: pagination.page - 1 })}
           >
             Previous
@@ -559,7 +557,7 @@ export default function ToolTemplates({
           <Button
             variant="outline"
             size="sm"
-            disabled={!pagination.hasNext}
+            disabled={pagination.page >= pagination.totalPages}
             onClick={() => fetchTemplates({ page: pagination.page + 1 })}
           >
             Next
@@ -607,16 +605,16 @@ export default function ToolTemplates({
                       className="w-full h-64 object-cover rounded-lg"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = `https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80`;
+                        target.src = 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80';
                       }}
                     />
                     <Button
                       variant="outline"
                       size="sm"
                       className="absolute top-2 right-2 bg-white/90"
-                      onClick={() =>
-                        window.open(selectedTemplate.preview.demoUrl, "_blank")
-                      }
+                      onClick={() => {
+                        window.open(selectedTemplate.preview.demoUrl, "_blank");
+                      }}
                     >
                       <ExternalLink className="w-3 h-3 mr-1" />
                       Live Demo

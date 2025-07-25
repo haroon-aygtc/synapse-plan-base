@@ -1,4 +1,4 @@
-import { api } from './api';
+import { apiClient } from './api';
 
 export interface HITLRequest {
   id: string;
@@ -210,7 +210,7 @@ export interface HITLDashboardData {
 
 class HITLApi {
   async createRequest(data: CreateHITLRequestData): Promise<HITLRequest> {
-    const response = await api.post('/hitl/requests', data);
+    const response = await apiClient.post('/hitl/requests', data);
     return response.data.data;
   }
 
@@ -226,7 +226,7 @@ class HITLApi {
     sortBy?: string;
     sortOrder?: 'ASC' | 'DESC';
   }): Promise<HITLRequestsResponse> {
-    const response = await api.get('/hitl/requests', { params });
+    const response = await apiClient.get('/hitl/requests', { params });
     return {
       requests: response.data.data,
       total: response.data.total,
@@ -235,7 +235,7 @@ class HITLApi {
   }
 
   async getRequestById(id: string): Promise<HITLRequest> {
-    const response = await api.get(`/hitl/requests/${id}`);
+    const response = await apiClient.get(`/hitl/requests/${id}`);
     return response.data.data;
   }
 
@@ -243,7 +243,7 @@ class HITLApi {
     id: string,
     data: Partial<CreateHITLRequestData>,
   ): Promise<HITLRequest> {
-    const response = await api.put(`/hitl/requests/${id}`, data);
+    const response = await apiClient.put(`/hitl/requests/${id}`, data);
     return response.data.data;
   }
 
@@ -257,7 +257,7 @@ class HITLApi {
       metadata?: Record<string, any>;
     },
   ): Promise<HITLRequest> {
-    const response = await api.post(`/hitl/requests/${id}/resolve`, data);
+    const response = await apiClient.post(`/hitl/requests/${id}/resolve`, data);
     return response.data.data;
   }
 
@@ -270,7 +270,7 @@ class HITLApi {
       reason?: string;
     },
   ): Promise<HITLRequest> {
-    const response = await api.post(`/hitl/requests/${id}/assign`, data);
+    const response = await apiClient.post(`/hitl/requests/${id}/assign`, data);
     return response.data.data;
   }
 
@@ -282,7 +282,7 @@ class HITLApi {
       instructions?: string;
     },
   ): Promise<HITLRequest> {
-    const response = await api.post(`/hitl/requests/${id}/delegate`, data);
+    const response = await apiClient.post(`/hitl/requests/${id}/delegate`, data);
     return response.data.data;
   }
 
@@ -301,7 +301,7 @@ class HITLApi {
       justification?: string;
     },
   ): Promise<HITLRequest> {
-    const response = await api.post(`/hitl/requests/${id}/escalate`, data);
+    const response = await apiClient.post(`/hitl/requests/${id}/escalate`, data);
     return response.data.data;
   }
 
@@ -313,7 +313,7 @@ class HITLApi {
       metadata?: Record<string, any>;
     },
   ): Promise<HITLVote> {
-    const response = await api.post(`/hitl/requests/${id}/vote`, data);
+    const response = await apiClient.post(`/hitl/requests/${id}/vote`, data);
     return response.data.data;
   }
 
@@ -332,7 +332,7 @@ class HITLApi {
       metadata?: Record<string, any>;
     },
   ): Promise<HITLComment> {
-    const response = await api.post(`/hitl/requests/${id}/comments`, data);
+    const response = await apiClient.post(`/hitl/requests/${id}/comments`, data);
     return response.data.data;
   }
 
@@ -346,12 +346,12 @@ class HITLApi {
     assigneeId?: string;
     category?: string;
   }): Promise<HITLAnalytics> {
-    const response = await api.get('/hitl/analytics', { params });
+    const response = await apiClient.get('/hitl/analytics', { params });
     return response.data.data;
   }
 
   async getDashboard(): Promise<HITLDashboardData> {
-    const response = await api.get('/hitl/dashboard');
+    const response = await apiClient.get('/hitl/dashboard');
     return response.data.data;
   }
 }

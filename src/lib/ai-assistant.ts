@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+  import { OpenAI } from "openai";
 
 export interface AgentConfiguration {
   name: string;
@@ -85,7 +85,7 @@ Respond with JSON in this format:
       const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("No response from AI");
 
-      return JSON.parse(content);
+      return JSON.parse(content) as IntentAnalysis;
     } catch (error) {
       console.error("Intent analysis error:", error);
       return {
@@ -132,7 +132,7 @@ Provide configuration suggestions as JSON array:
       const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("No response from AI");
 
-      return JSON.parse(content);
+      return JSON.parse(content) as ConfigurationSuggestion[];
     } catch (error) {
       console.error("Configuration suggestions error:", error);
       return [];
@@ -327,7 +327,10 @@ Respond with JSON:
       const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("No response from AI");
 
-      return JSON.parse(content);
+        return JSON.parse(content) as {
+        optimizedConfig: Partial<AgentConfiguration>;
+        improvements: string[];
+      };
     } catch (error) {
       console.error("Configuration optimization error:", error);
       return {
@@ -518,7 +521,7 @@ class AIConfigurationAssistantExtended extends AIConfigurationAssistant {
       const content = response.choices[0]?.message?.content;
       if (!content) throw new Error("No response from AI");
 
-      return JSON.parse(content);
+      return JSON.parse(content) as SemanticAnalysis;
     } catch (error) {
       console.error("Semantic analysis error:", error);
       return {

@@ -481,9 +481,9 @@ export function ProviderHealthMonitor() {
         </TabsList>
 
         <TabsContent value="all" className="space-y-6">
-          {health?.providers?.length > 0 ? (
+          {health?.providers && health.providers.length && health.providers.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {health.providers.map((provider) => (
+              {health.providers.map((provider: any) => (
                 <ProviderHealthCard
                   key={provider.id}
                   provider={provider}
@@ -505,7 +505,9 @@ export function ProviderHealthMonitor() {
                   performance.
                 </p>
                 <Button
-                  onClick={() => (window.location.hash = "#add-provider")}
+                  onClick={() => {
+                    window.location.hash = "#add-provider";
+                  }}
                 >
                   <Settings className="h-4 w-4 mr-2" />
                   Configure Providers

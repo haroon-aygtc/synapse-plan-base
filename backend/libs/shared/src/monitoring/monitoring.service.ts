@@ -35,13 +35,6 @@ export class MonitoringService {
 
   // Custom metrics
   recordMetric(data: MetricData) {
-    const metric = {
-      ...data,
-      service: this.serviceName,
-      environment: this.environment,
-      timestamp: data.timestamp || new Date(),
-    };
-
     // Log metric for observability
     this.logger.logBusinessMetric(data.name, data.value, 'count', {
       tags: data.tags,
@@ -56,7 +49,7 @@ export class MonitoringService {
       } catch (error) {
         this.logger.error(
           'Failed to send metric to DataDog',
-          error.stack,
+          error instanceof Error ? error.stack : String(error),
           'MonitoringService',
         );
       }
@@ -65,13 +58,6 @@ export class MonitoringService {
 
   // Performance tracking
   recordTrace(data: TraceData) {
-    const trace = {
-      ...data,
-      service: this.serviceName,
-      environment: this.environment,
-      timestamp: new Date(),
-    };
-
     // Log performance metric
     this.logger.logPerformance(data.operationName, data.duration, {
       status: data.status,
@@ -100,7 +86,7 @@ export class MonitoringService {
       } catch (error) {
         this.logger.error(
           'Failed to send trace to DataDog',
-          error.stack,
+          error instanceof Error ? error.stack : String(error),
           'MonitoringService',
         );
       }
@@ -309,10 +295,10 @@ export class MonitoringService {
           .scope()
           .active()
           ?.setTag('error.stack', error.stack);
-      } catch (ddError) {
+      } catch (error) {
         this.logger.error(
           'Failed to record error in DataDog',
-          ddError.stack,
+          error instanceof Error ? error.stack : String(error),
           'MonitoringService',
         );
       }

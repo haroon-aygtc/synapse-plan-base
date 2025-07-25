@@ -82,7 +82,7 @@ export class TenantContextInterceptor implements NestInterceptor {
 export const RequiresTenantContext = (required: boolean = true) => {
   return (
     target: any,
-    propertyKey?: string,
+    _propertyKey?: string,
     descriptor?: PropertyDescriptor,
   ) => {
     if (descriptor) {
@@ -101,7 +101,7 @@ export const RequiresTenantContext = (required: boolean = true) => {
 export const Public = () => {
   return (
     target: any,
-    propertyKey?: string,
+    _propertyKey?: string,
     descriptor?: PropertyDescriptor,
   ) => {
     if (descriptor) {

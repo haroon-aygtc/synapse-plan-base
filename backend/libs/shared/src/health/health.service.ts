@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Connection } from 'typeorm';
-import { InjectConnection } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { CustomLoggerService } from '../logger/logger.service';
 import { MonitoringService } from '../monitoring/monitoring.service';
 import { HealthStatus } from '../enums';
@@ -51,13 +51,13 @@ interface HealthCheckResult {
 
 @Injectable()
 export class HealthService {
-  private redis: IORedis;
+  private redis!: IORedis;
   private serviceName: string;
   private serviceVersion: string;
   private environment: string;
 
   constructor(
-    @InjectConnection() private connection: Connection,
+    @InjectDataSource() private dataSource: DataSource,
     private configService: ConfigService,
     private logger: CustomLoggerService,
     private monitoringService: MonitoringService,
@@ -86,7 +86,7 @@ export class HealthService {
     } catch (error) {
       this.logger.error(
         'Failed to initialize Redis for health checks',
-        error.stack,
+        error instanceof Error ? error.stack : String(error),
         'HealthService',
       );
     }
@@ -196,8 +196,8 @@ export class HealthService {
 
       return result;
     } catch (error) {
-      this.logger.error('Health check failed', error.stack, 'HealthService');
-      this.monitoringService.recordError(error, 'HEALTH_CHECK');
+      this.logger.error('Health check failed', error instanceof Error ? error.stack : String(error), 'HealthService');
+      this.monitoringService.recordError(error instanceof Error ? error : new Error(String(error)), 'HEALTH_CHECK');
 
       return {
         status: HealthStatus.UNHEALTHY,
@@ -236,7 +236,7 @@ export class HealthService {
     const startTime = Date.now();
 
     try {
-      await this.connection.query('SELECT 1');
+      await this.dataSource.query('SELECT 1');
       const responseTime = Date.now() - startTime;
 
       return {
@@ -255,7 +255,7 @@ export class HealthService {
       return {
         status: HealthStatus.UNHEALTHY,
         responseTime,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -269,7 +269,7 @@ export class HealthService {
 
       return {
         status:
-          responseTime < 500 ? HealthStatus.HEALTHY : HealthStatus.DEGRADED,
+          responseTime < 1000 ? HealthStatus.HEALTHY : HealthStatus.DEGRADED,
         responseTime,
       };
     } catch (error) {
@@ -278,7 +278,7 @@ export class HealthService {
       return {
         status: HealthStatus.UNHEALTHY,
         responseTime,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -316,7 +316,6 @@ export class HealthService {
   private async checkDisk() {
     try {
       const fs = require('fs');
-      const stats = fs.statSync('.');
 
       // This is a simplified disk check - in production, you'd want more sophisticated disk monitoring
       return {

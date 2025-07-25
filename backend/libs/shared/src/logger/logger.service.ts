@@ -13,6 +13,7 @@ export class CustomLoggerService implements LoggerService {
     context?: string,
   ) {
     this.context = context || 'Application';
+    this.logger = winston.createLogger(); // Initialize with a default logger
     this.createLogger();
   }
 

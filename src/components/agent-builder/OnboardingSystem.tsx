@@ -360,7 +360,7 @@ export function OnboardingSystem() {
   return (
     <>
       <Dialog open={onboarding.isActive} onOpenChange={() => {}}>
-        <DialogContent className="max-w-2xl" hideCloseButton>
+        <DialogContent className="max-w-2xl" >
           <DialogHeader>
             <div className="flex items-center justify-between">
               <div>

@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/table';
 import { DatePickerWithRange } from '@/components/ui/date-picker-with-range';
 import { usePermissions } from '@/hooks/usePermissions';
-import { PERMISSIONS } from '@/types/global';
+import { PERMISSIONS_LIST, Permission } from '@/types/global';
 
 interface AuditLogEntry {
   id: string;
@@ -156,7 +156,7 @@ export function AuditLog({ className }: AuditLogProps) {
     }));
   }, []);
 
-  if (!hasPermission(PERMISSIONS.SYSTEM_MONITOR)) {
+    if (!hasPermission(PERMISSIONS_LIST.SYSTEM_MONITOR  as Permission)) {
     return (
       <Card className={className}>
         <CardContent className="flex items-center justify-center py-8">

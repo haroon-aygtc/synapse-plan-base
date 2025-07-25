@@ -1,4 +1,5 @@
-import apiClient, { ApiResponse } from './api';
+import { apiClient } from './api';
+import { ApiResponse } from './api-types';
 
 export interface Widget {
   id: string;
@@ -7,23 +8,69 @@ export interface Widget {
   name: string;
   description?: string;
   type: string;
-  config: Record<string, any>;
-  styling: Record<string, any>;
-  behavior: Record<string, any>;
-  agentId?: string;
-  workflowId?: string;
-  version: number;
+  configuration: WidgetConfiguration;
   isActive: boolean;
-  isPublic: boolean;
-  deploymentUrl?: string;
-  embedCode?: string;
+  isDeployed: boolean;
+  version: string;
   tags?: string[];
   metadata?: Record<string, any>;
-  performanceMetrics?: Record<string, any>;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
-
+export interface WidgetTheme {
+  primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string;
+  textColor: string;
+  borderRadius: number;
+  fontSize: number;
+  fontFamily?: string;
+  customCSS?: string;
+}
+export interface WidgetLayout {
+  width: number;
+  height: number;
+  position: "bottom-right" | "bottom-left" | "top-right" | "top-left" | "center" | "fullscreen";
+  responsive: boolean;
+  zIndex?: number;
+  margin?: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+}
+export interface WidgetBehavior {
+  autoOpen: boolean;
+  showWelcomeMessage: boolean;
+  enableTypingIndicator: boolean;
+  enableSoundNotifications: boolean;
+}
+export interface WidgetBranding {
+  showLogo: boolean;
+  showPoweredBy?: boolean;
+  logoUrl?: string;
+  companyName?: string;
+  poweredByText?: string;
+  customHeader?: string;
+  customFooter?: string;
+}
+export interface WidgetSecurity {
+  allowedDomains: string[];
+  requireAuth: boolean;
+  rateLimiting: {
+    enabled: boolean;
+    requestsPerMinute: number;
+    tokensPerMinute: number;
+  };
+}
+export interface WidgetConfiguration {
+  theme: WidgetTheme;
+  layout: WidgetLayout;
+  behavior: WidgetBehavior;
+  branding: WidgetBranding;
+  security?: WidgetSecurity;
+}
 export interface WidgetExecution {
   id: string;
   widgetId: string;
@@ -242,22 +289,7 @@ export class WidgetAPI {
     return apiClient.get(`/widgets/${id}/test-results/${testId}`);
   }
 
-  // Analytics Operations
-  async getWidgetAnalytics(id: string, params?: {
-    startDate?: string;
-    endDate?: string;
-    events?: string[];
-    granularity?: 'hour' | 'day' | 'week' | 'month';
-    groupBy?: string[];
-  }): Promise<ApiResponse<{
-    totalEvents: number;
-    uniqueUsers: number;
-    sessions: number;
-    events: WidgetAnalytics[];
-    metrics: Record<string, any>;
-  }>> {
-    return apiClient.get(`/widgets/${id}/analytics`, { params });
-  }
+ 
 
   async trackEvent(id: string, data: {
     event: string;

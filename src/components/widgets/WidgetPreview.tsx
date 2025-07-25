@@ -181,7 +181,10 @@ export function WidgetPreview({ widget, device }: WidgetPreviewProps) {
         </div>
         <div className="flex justify-center">
           <Button
-            onClick={() => setIsOpen(true)}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.stopPropagation();
+              setIsOpen(true);
+            }}
             className="rounded-full w-16 h-16 shadow-lg"
             style={primaryButtonStyles}
           >
@@ -232,7 +235,10 @@ export function WidgetPreview({ widget, device }: WidgetPreviewProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsMinimized(!isMinimized)}
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                e.stopPropagation();
+                setIsMinimized(!isMinimized);
+              }}
               className="text-white hover:bg-white/20 h-8 w-8 p-0"
             >
               {isMinimized ? (
@@ -244,7 +250,10 @@ export function WidgetPreview({ widget, device }: WidgetPreviewProps) {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsOpen(false)}
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                e.stopPropagation();
+                setIsOpen(false);
+              }}
               className="text-white hover:bg-white/20 h-8 w-8 p-0"
             >
               <X className="h-4 w-4" />
@@ -333,7 +342,10 @@ export function WidgetPreview({ widget, device }: WidgetPreviewProps) {
                   }}
                 />
                 <Button
-                  onClick={handleSendMessage}
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                    e.stopPropagation();
+                    handleSendMessage();
+                  }}
                   disabled={!inputValue.trim()}
                   size="sm"
                   style={primaryButtonStyles}

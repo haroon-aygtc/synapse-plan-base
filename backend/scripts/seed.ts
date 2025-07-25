@@ -8,7 +8,6 @@ import { Workflow } from '../libs/database/src/entities/workflow.entity';
 import { PromptTemplate } from '../libs/database/src/entities/prompt-template.entity';
 import { UserRole, SubscriptionPlan } from '../libs/shared/src/interfaces';
 import * as bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
 
 class DatabaseSeeder {
   private dataSource: DataSource;
@@ -24,7 +23,7 @@ class DatabaseSeeder {
         console.log('✅ Database connection established');
       }
     } catch (error) {
-      console.error('❌ Database connection failed:', error);
+      console.error('❌ Database connection failed:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -76,7 +75,7 @@ class DatabaseSeeder {
 
       console.log('🎉 Database seeding completed successfully!');
     } catch (error) {
-      console.error('❌ Database seeding failed:', error);
+      console.error('❌ Database seeding failed:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -106,7 +105,7 @@ class DatabaseSeeder {
           `TRUNCATE TABLE ${entity} RESTART IDENTITY CASCADE`,
         );
       } catch (error) {
-        console.warn(`⚠️ Could not truncate ${entity}:`, error.message);
+        console.warn(`⚠️ Could not truncate ${entity}:`, error instanceof Error ? error.message : String(error));
       }
     }
   }

@@ -41,8 +41,9 @@ import {
   Target,
   Award,
 } from "lucide-react";
-import { AgentAPI, type AgentExecutionResult, type AgentTestResult } from "@/lib/agent-api";
+import { agentAPI, type AgentExecution } from "@/lib/agent-api";
 import { useToast } from "@/components/ui/use-toast";
+import { type AgentExecutionResult, type AgentTestResult } from "@/hooks/useAgentBuilder";
 
 interface AgentTestingPanelProps {
   agentId?: string;
@@ -112,34 +113,38 @@ export default function AgentTestingPanel({
     setIsExecuting(true);
 
     try {
-      const result = await AgentAPI.executeAgent(agentId, {
-        input: currentInput,
+      const response = await agentAPI.executeAgent(agentId, {
+        input: { input: currentInput },
         sessionId,
-        includeToolCalls: true,
-        includeKnowledgeSearch: true,
+        metadata: {
+          includeToolCalls: true,
+          includeKnowledgeSearch: true,
+        },
       });
+      const result = response.data;
 
       const assistantMessage: ConversationMessage = {
         id: result.id,
         role: "assistant",
-        content: result.output,
+        content: result.output ? String(result.output) : "",
         timestamp: new Date(),
         metadata: {
           tokensUsed: result.tokensUsed,
           cost: result.cost,
-          executionTime: result.executionTimeMs,
-          toolCalls: result.toolCalls,
-          knowledgeSearches: result.knowledgeSearches,
+          executionTime: result.duration,
+          toolCalls: [],
+          knowledgeSearches: [],
         },
       };
 
       setMessages(prev => [...prev, assistantMessage]);
       
       // Update performance metrics
+      const executionTime = result.duration || 0;
       setPerformanceMetrics(prev => ({
-        averageResponseTime: (prev.averageResponseTime * prev.totalExecutions + result.executionTimeMs) / (prev.totalExecutions + 1),
+        averageResponseTime: (prev.averageResponseTime * prev.totalExecutions + executionTime) / (prev.totalExecutions + 1),
         totalExecutions: prev.totalExecutions + 1,
-        successRate: result.status === 'COMPLETED' ? 
+        successRate: result.status === 'COMPLETED' ?
           (prev.successRate * prev.totalExecutions + 1) / (prev.totalExecutions + 1) :
           (prev.successRate * prev.totalExecutions) / (prev.totalExecutions + 1),
         totalCost: prev.totalCost + (result.cost || 0),
@@ -147,14 +152,26 @@ export default function AgentTestingPanel({
       }));
 
       if (onExecutionResult) {
-        onExecutionResult(result);
+        // Convert AgentExecution to AgentExecutionResult
+        const executionResult: AgentExecutionResult = {
+          id: result.id,
+          output: result.output ? String(result.output) : "",
+          status: result.status,
+          tokensUsed: result.tokensUsed,
+          cost: result.cost,
+          executionTimeMs: result.duration || 0,
+          toolCalls: [],
+          knowledgeSearches: [],
+          metadata: result.metadata,
+        };
+        onExecutionResult(executionResult);
       }
 
       toast({
         title: "Message sent successfully",
-        description: `Response generated in ${result.executionTimeMs}ms`,
+        description: `Response generated in ${result.duration || 0}ms`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error executing agent:', error);
       toast({
         title: "Error",
@@ -173,26 +190,45 @@ export default function AgentTestingPanel({
     setIsRunningTest(true);
 
     try {
-      const result = await AgentAPI.testAgent(agentId, {
-        testName,
-        testType,
-        testInput: { input: testInput },
-        expectedOutput: expectedOutput ? { output: expectedOutput } : undefined,
+      const response = await agentAPI.testAgent(agentId, {
+        testCases: [{
+          name: testName,
+          input: { input: testInput },
+          expectedOutput: expectedOutput ? { output: expectedOutput } : undefined,
+        }],
       });
+      const result = response.data;
 
-      setTestResults(prev => [result, ...prev]);
-      
+      // Convert to AgentTestResult format
+      const testResult: AgentTestResult = {
+        testId: crypto.randomUUID(),
+        passed: result.passed || false,
+        score: result.score,
+        metrics: {
+          responseTime: result.metrics?.responseTime || 0,
+          tokenUsage: result.metrics?.tokenUsage || 0,
+          cost: result.metrics?.cost || 0,
+          accuracy: result.metrics?.accuracy,
+          relevance: result.metrics?.relevance,
+          coherence: result.metrics?.coherence,
+        },
+        actualOutput: result.actualOutput || {},
+        errorMessage: result.errorMessage,
+      };
+
+      setTestResults(prev => [testResult, ...prev]);
+
       toast({
-        title: result.passed ? "Test Passed" : "Test Failed",
-        description: `Test "${testName}" completed with ${result.passed ? 'success' : 'failure'}`,
-        variant: result.passed ? "default" : "destructive",
+        title: testResult.passed ? "Test Passed" : "Test Failed",
+        description: `Test "${testName}" completed with ${testResult.passed ? 'success' : 'failure'}`,
+        variant: testResult.passed ? "default" : "destructive",
       });
 
       // Clear form
       setTestName("");
       setTestInput("");
       setExpectedOutput("");
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error running test:', error);
       toast({
         title: "Error",

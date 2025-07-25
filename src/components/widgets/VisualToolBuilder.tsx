@@ -443,7 +443,7 @@ export function VisualToolBuilder({
               size="sm"
               variant="outline"
               className="h-6 px-2"
-              onClick={(e) => {
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                 e.stopPropagation();
                 handleComponentDuplicate(component.id);
               }}
@@ -454,7 +454,7 @@ export function VisualToolBuilder({
               size="sm"
               variant="outline"
               className="h-6 px-2"
-              onClick={(e) => {
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                 e.stopPropagation();
                 handleComponentUpdate(component.id, {
                   visible: !component.visible,
@@ -471,7 +471,7 @@ export function VisualToolBuilder({
               size="sm"
               variant="outline"
               className="h-6 px-2"
-              onClick={(e) => {
+              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                 e.stopPropagation();
                 handleComponentUpdate(component.id, {
                   locked: !component.locked,

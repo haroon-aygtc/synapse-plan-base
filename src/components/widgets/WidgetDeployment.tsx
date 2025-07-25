@@ -85,7 +85,7 @@ export function WidgetDeployment({
 
     try {
       return embedGenerator.generateEmbedCode(widget, embedOptions);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to generate embed code:", error);
       return `<!-- Error generating embed code: ${error.message} -->`;
     }
@@ -263,7 +263,7 @@ export function WidgetDeployment({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
+                  onClick={(e: React.MouseEvent<HTMLButtonElement>) =>
                     copyToClipboard(widget.deploymentInfo!.urls.standalone)
                   }
                 >
@@ -272,12 +272,10 @@ export function WidgetDeployment({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    window.open(
-                      widget.deploymentInfo!.urls.standalone,
-                      "_blank",
-                    )
-                  }
+                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                    e.stopPropagation();
+                    window.open(widget.deploymentInfo!.urls.standalone, "_blank") as Window | null;
+                  }}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
@@ -295,7 +293,7 @@ export function WidgetDeployment({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
+                  onClick={(e: React.MouseEvent<HTMLButtonElement>) =>
                     copyToClipboard(widget.deploymentInfo!.urls.embed)
                   }
                 >
@@ -315,7 +313,7 @@ export function WidgetDeployment({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() =>
+                  onClick={(e: React.MouseEvent<HTMLButtonElement>) =>
                     copyToClipboard(widget.deploymentInfo!.urls.api)
                   }
                 >
@@ -342,7 +340,7 @@ export function WidgetDeployment({
           <CardContent>
             <Tabs
               value={embedFormat}
-              onValueChange={(value: any) => setEmbedFormat(value)}
+              onValueChange={(value: string) => setEmbedFormat(value as "javascript" | "iframe" | "react" | "vue" | "angular")}
             >
               <TabsList className="grid grid-cols-5 mb-4">
                 <TabsTrigger value="javascript">JavaScript</TabsTrigger>

@@ -36,7 +36,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { api } from "@/lib/api";
+import {apiClient} from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useWebSocket } from "@/lib/websocket";
 import { useToast } from "@/components/ui/use-toast";
@@ -129,7 +129,7 @@ export default function WorkflowsPage() {
   const loadWorkflows = async () => {
     try {
       setLoading(true);
-      const response = await api.get("/workflows");
+      const response = await apiClient.get("/workflows");
       if (response.data.success) {
         setWorkflows(response.data.data.data || []);
 
@@ -137,7 +137,7 @@ export default function WorkflowsPage() {
         const executionPromises = response.data.data.data.map(
           async (workflow: Workflow) => {
             try {
-              const execResponse = await api.get(
+              const execResponse = await apiClient.get(
                 `/workflows/${workflow.id}/executions?limit=5`,
               );
               return {
@@ -268,7 +268,7 @@ export default function WorkflowsPage() {
         return;
       }
 
-      const response = await api.post(`/workflows/${workflow.id}/execute`, {
+      const response = await apiClient.post(`/workflows/${workflow.id}/execute`, {
         input,
         variables,
         notifyOnCompletion: true,
@@ -296,7 +296,7 @@ export default function WorkflowsPage() {
 
   const toggleWorkflowStatus = async (workflow: Workflow) => {
     try {
-      const response = await api.put(`/workflows/${workflow.id}`, {
+      const response = await apiClient.put(`/workflows/${workflow.id}`, {
         isActive: !workflow.isActive,
       });
 
@@ -641,9 +641,9 @@ export default function WorkflowsPage() {
                 Cancel
               </Button>
               <Button
-                onClick={() =>
-                  selectedWorkflow && executeWorkflow(selectedWorkflow)
-                }
+                onClick={() => {
+                  selectedWorkflow && executeWorkflow(selectedWorkflow);
+                }}
               >
                 <Play className="h-4 w-4 mr-2" />
                 Execute

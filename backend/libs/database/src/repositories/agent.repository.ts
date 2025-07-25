@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { Repository, DataSource, FindOptionsWhere } from 'typeorm';
 import { Agent } from '../entities/agent.entity';
 import { AgentExecution } from '../entities/agent-execution.entity';
-import { AgentTestResult } from '../entities/agent-test-result.entity';
 
 @Injectable()
 export class AgentRepository extends Repository<Agent> {

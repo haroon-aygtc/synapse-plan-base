@@ -48,7 +48,7 @@ export function initializeDatadog(configService: ConfigService) {
 
     console.log(`DataDog monitoring initialized for service: ${serviceName}`);
   } catch (error) {
-    console.error('Failed to initialize DataDog:', error.message);
+    console.error('Failed to initialize DataDog:', error instanceof Error ? error.message : String(error));
   }
 }
 

@@ -20,7 +20,7 @@ interface AuthenticatedRequest extends Request {
 
 @Injectable()
 export class RowLevelSecurityMiddleware implements NestMiddleware {
-  use(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  use(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
     if (req.user) {
       const { id: userId, organizationId, role } = req.user;
 

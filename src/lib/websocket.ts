@@ -1,8 +1,9 @@
-'use client';
+
 
 import { io, Socket } from 'socket.io-client';
 import { ActivityItem } from '@/types/dashboard';
 import { useState, useEffect, useCallback } from 'react';
+
 
 export interface ConnectionState {
   status: 'connecting' | 'connected' | 'disconnected' | 'error';

@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import * as entities from '../entities';
 import { InitialSchema1700000001 } from '../migrations/001-initial-schema';
 import { CreateRLSPolicies1700000002 } from '../migrations/002-create-rls-policies';
@@ -14,7 +15,7 @@ export const AppDataSource = new DataSource({
   username: configService.get('DATABASE_USERNAME', 'postgres'),
   password: configService.get('DATABASE_PASSWORD'),
   database: configService.get('DATABASE_NAME', 'synapseai'),
-  entities: Object.values(entities),
+  entities: [__dirname + '/../entities/*.entity{.ts,.js}'],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
   logging: configService.get('NODE_ENV') === 'development',
@@ -27,7 +28,7 @@ export const AppDataSource = new DataSource({
 export const databaseConfig = (): TypeOrmModuleOptions => ({
   type: 'postgres',
   host: process.env.DATABASE_HOST || 'localhost',
-  port: parseInt(process.env.DATABASE_PORT, 10) || 5432,
+  port: parseInt(process.env.DATABASE_PORT || '5432', 10),
   username: process.env.DATABASE_USERNAME || 'postgres',
   password: process.env.DATABASE_PASSWORD || 'password',
   database: process.env.DATABASE_NAME || 'tempo_ai_platform',
@@ -58,9 +59,9 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
     type: 'redis',
     options: {
       host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
       password: process.env.REDIS_PASSWORD || undefined,
-      db: parseInt(process.env.REDIS_CACHE_DB, 10) || 1,
+      db: parseInt(process.env.REDIS_CACHE_DB || '1', 10),
     },
   },
   // Row Level Security context

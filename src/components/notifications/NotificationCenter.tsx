@@ -95,7 +95,7 @@ export function NotificationCenter({ className = '' }: NotificationCenterProps) 
         return 'bg-red-500';
       case 'HIGH':
         return 'bg-orange-500';
-      case 'MEDIUM':
+      case 'MEDIUM': return "";
         return 'bg-blue-500';
       case 'LOW':
         return 'bg-green-500';

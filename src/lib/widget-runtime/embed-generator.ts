@@ -3,6 +3,7 @@
  * Generates production-ready embed code for different platforms
  */
 
+import { apiClient } from "@/lib/api";
 import { Widget, WidgetConfiguration } from "@/lib/sdk/types";
 
 export interface EmbedOptions {
@@ -22,7 +23,7 @@ export class WidgetEmbedGenerator {
   private baseURL: string;
   private apiKey: string;
   private cdnURL: string;
-
+  private apiClient: typeof apiClient;
   constructor(
     baseURL: string = process.env.NEXT_PUBLIC_WIDGET_URL ||
       "https://widgets.synapseai.com",
@@ -33,6 +34,7 @@ export class WidgetEmbedGenerator {
     this.baseURL = baseURL;
     this.apiKey = apiKey;
     this.cdnURL = cdnURL;
+    this.apiClient = apiClient;
   }
 
   /**
@@ -119,7 +121,7 @@ export class WidgetEmbedGenerator {
 
   // Security and validation
   function validateOrigin() {
-    const allowedDomains = ${JSON.stringify(config.security.allowedDomains)};
+    const allowedDomains = ${JSON.stringify(config.security?.allowedDomains || [])};
     if (allowedDomains.length === 0) return true;
     
     const currentDomain = window.location.hostname;
@@ -134,7 +136,7 @@ export class WidgetEmbedGenerator {
   // Rate limiting
   const rateLimiter = {
     requests: [],
-    limit: ${config.security.rateLimiting.requestsPerMinute},
+    limit: ${config.security?.rateLimiting?.requestsPerMinute || 0},
     window: 60000, // 1 minute
     
     canMakeRequest: function() {

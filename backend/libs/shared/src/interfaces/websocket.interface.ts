@@ -1,5 +1,5 @@
 import {
-  EventType,
+  AgentEventType,
   WebSocketEventType,
   EventTargetType,
   EventPriority,
@@ -50,7 +50,7 @@ export interface IEventTargeting {
 
 export interface IEventPublication {
   eventId: string;
-  eventType: EventType | WebSocketEventType | string;
+  eventType: AgentEventType | WebSocketEventType | string;
   sourceModule: string;
   targetModule?: string;
   payload: any;
@@ -108,7 +108,7 @@ export interface IEventReplay {
 export interface ICrossModuleEvent {
   sourceModule: string;
   targetModule: string;
-  eventType: EventType | WebSocketEventType;
+  eventType: AgentEventType | WebSocketEventType;
   payload: any;
   context: {
     userId: string;

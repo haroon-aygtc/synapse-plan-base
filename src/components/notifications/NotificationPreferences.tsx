@@ -135,7 +135,7 @@ export function NotificationPreferences({
       } else {
         setError(response.data.message || 'Failed to fetch preferences');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching notification preferences:', err);
       setError('Failed to fetch notification preferences');
     } finally {
@@ -185,7 +185,7 @@ export function NotificationPreferences({
       } else {
         setError(response.data.message || 'Failed to update preference');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating notification preference:', err);
       setError('Failed to update notification preference');
     } finally {
@@ -251,7 +251,7 @@ export function NotificationPreferences({
                             <Switch
                               id={`${event.id}-${notificationType.id}`}
                               checked={isPreferenceEnabled(event.id, notificationType.id)}
-                              onCheckedChange={(checked) =>
+                              onCheckedChange={(checked: boolean) =>
                                 handleTogglePreference(event.id, notificationType.id, checked)
                               }
                               disabled={saving}
