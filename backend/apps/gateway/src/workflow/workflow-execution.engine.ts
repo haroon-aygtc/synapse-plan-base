@@ -155,6 +155,15 @@ export class WorkflowExecutionEngine {
     private readonly hitlService: HITLService,
   ) {}
 
+  async execute(
+    workflowId: string,
+    executeDto: ExecuteWorkflowDto,
+    userId?: string,
+    organizationId?: string,
+  ): Promise<any> {
+    return this.executeWorkflow(workflowId, executeDto, userId, organizationId);
+  }
+
   async executeWorkflow(
     workflowId: string,
     executeDto: ExecuteWorkflowDto,
@@ -668,12 +677,13 @@ export class WorkflowExecutionEngine {
         }
 
         // Find next step
-        currentStepId = await this.findNextStep(
+        const nextStep = await this.findNextStep(
           currentNode,
           edges,
           context,
           decisionPoints,
         );
+        currentStepId = nextStep || '';
 
         // Send progress update
         const progress = (context.completedSteps.length / nodes.length) * 100;
@@ -693,6 +703,7 @@ export class WorkflowExecutionEngine {
 
         // Handle error based on step's error handling configuration
         const errorHandling = currentNode.data?.errorHandling || 'fail';
+        const maxRetries = currentNode.data?.maxRetries || 3;
         if (errorHandling === 'retry' && context.retryCount < maxRetries) {
           context.retryCount++;
           this.logger.warn(
@@ -704,12 +715,13 @@ export class WorkflowExecutionEngine {
             `Continuing after error in step ${currentStepId}: ${error.message || 'Unknown error'}`,
           );
           // Find next step and continue
-          const nextStepId = await this.findNextStep(
+          const nextStep = await this.findNextStep(
             currentNode,
             edges,
             context,
-            'error',
+            decisionPoints,
           );
+          const nextStepId = nextStep || '';
           
           if (nextStepId) {
             currentStepId = nextStepId;
@@ -1185,7 +1197,7 @@ export class WorkflowExecutionEngine {
       return {
         output: {
           hitlRequestId: hitlRequest.id,
-          status: 'failed',
+          status: ExecutionStatus.FAILED,
           requestType: hitlConfig.type,
           error: error.message || 'Unknown error',
         },
@@ -1261,6 +1273,7 @@ export class WorkflowExecutionEngine {
     hitlConfig: any,
   ): Promise<any> {
     try {
+      const startTime = Date.now();
       const hitlRequest = await this.hitlService.createRequest(
         {
           title: hitlConfig.title || `Workflow Step Approval Required`,
@@ -1370,7 +1383,7 @@ export class WorkflowExecutionEngine {
         return {
           output: {
             hitlRequestId: hitlRequest.id,
-            status: 'failed',
+            status: ExecutionStatus.FAILED,
             requestType: hitlConfig.type,
             error: error.message || 'Unknown error',
           },
@@ -1387,15 +1400,15 @@ export class WorkflowExecutionEngine {
       }
     } catch (error: any) {
       return {
-        status: 'failed',
+        status: ExecutionStatus.FAILED,
         requestId: null,
         requestData: {
-          status: 'failed',
+          status: ExecutionStatus.FAILED,
           requestType: hitlConfig.type,
           error: error.message || 'Unknown error',
         },
         cost: 0,
-        executionTime,
+        executionTime: 0,
         metadata: {
           stepId: step.id,
           approved: false,

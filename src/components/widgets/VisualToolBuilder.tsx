@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useMemo, useEffect, ErrorInfo } from "react";
+import React, { useState, useCallback, useRef, useMemo, useEffect, Component, ErrorInfo } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -34,10 +33,8 @@ import {
   DropResult,
 } from "react-beautiful-dnd";
 import {
-  Plus,
   Trash2,
   Settings,
-  Move,
   Copy,
   Eye,
   EyeOff,
@@ -48,7 +45,6 @@ import {
   Smartphone,
   Monitor,
   Tablet,
-  Palette,
   Type,
   Image,
   MessageSquare,
@@ -79,7 +75,7 @@ interface ErrorBoundaryState {
   errorInfo: ErrorInfo | null;
 }
 
-class VisualToolBuilderErrorBoundary extends React.Component<
+class VisualToolBuilderErrorBoundary extends Component<
   React.PropsWithChildren<{ onError?: (error: Error, errorInfo: ErrorInfo) => void }>,
   ErrorBoundaryState
 > {
@@ -105,8 +101,6 @@ class VisualToolBuilderErrorBoundary extends React.Component<
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
-    
-    console.error('VisualToolBuilder Error:', error, errorInfo);
   }
 
   render() {
@@ -159,6 +153,8 @@ interface BaseComponentProperties {
   readonly id?: string;
   readonly className?: string;
   readonly style?: React.CSSProperties;
+  readonly type?: ComponentType;
+  readonly error?: string;
   readonly 'aria-label'?: string;
   readonly 'data-testid'?: string;
 }
@@ -220,7 +216,7 @@ interface DividerProperties extends BaseComponentProperties {
   readonly orientation: "horizontal" | "vertical";
   readonly thickness: number;
   readonly color: string;
-  readonly style?: "solid" | "dashed" | "dotted";
+  readonly borderStyle?: "solid" | "dashed" | "dotted";
   readonly margin?: number;
 }
 
@@ -245,6 +241,7 @@ interface WidgetComponent {
   readonly createdAt?: Date;
   readonly updatedAt?: Date;
   readonly metadata?: Record<string, unknown>;
+  readonly 'data-testid'?: string;
 }
 
 interface ComponentLibraryItem {
@@ -266,6 +263,58 @@ interface DeviceDimensions {
   width: number;
   height: number;
 }
+
+// Safe property access helper with proper typing
+const safeGetNestedProperty = <T,>(obj: unknown, path: string, defaultValue: T): T => {
+  try {
+    if (!obj || typeof obj !== 'object') {
+      return defaultValue;
+    }
+    return path.split('.').reduce((current: unknown, key: string) => {
+      if (current && typeof current === 'object' && key in current) {
+        return (current as Record<string, unknown>)[key];
+      }
+      return undefined;
+    }, obj) as T ?? defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
+// Type guard for button properties
+const isButtonProperties = (properties: ComponentProperties): properties is ButtonProperties => {
+  return 'text' in properties && 'variant' in properties && 'size' in properties;
+};
+
+// Type guard for header properties
+const isHeaderProperties = (properties: ComponentProperties): properties is HeaderProperties => {
+  return 'title' in properties && 'backgroundColor' in properties;
+};
+
+// Type guard for chat input properties
+const isChatInputProperties = (properties: ComponentProperties): properties is ChatInputProperties => {
+  return 'placeholder' in properties && 'showSendButton' in properties;
+};
+
+// Type guard for message bubble properties
+const isMessageBubbleProperties = (properties: ComponentProperties): properties is MessageBubbleProperties => {
+  return 'sender' in properties && 'message' in properties;
+};
+
+// Type guard for image properties
+const isImageProperties = (properties: ComponentProperties): properties is ImageProperties => {
+  return 'src' in properties && 'alt' in properties;
+};
+
+// Type guard for text properties
+const isTextProperties = (properties: ComponentProperties): properties is TextProperties => {
+  return 'content' in properties && 'fontSize' in properties;
+};
+
+// Type guard for divider properties
+const isDividerProperties = (properties: ComponentProperties): properties is DividerProperties => {
+  return 'orientation' in properties && 'thickness' in properties;
+};
 
 // Component library with proper typing
 const COMPONENT_LIBRARY: ComponentLibraryItem[] = [
@@ -356,6 +405,7 @@ const COMPONENT_LIBRARY: ComponentLibraryItem[] = [
       orientation: "horizontal",
       thickness: 1,
       color: "#e5e7eb",
+      borderStyle: "solid",
     } as DividerProperties,
   },
 ];
@@ -379,7 +429,11 @@ const validateComponentProperties = (type: ComponentType, properties: ComponentP
 
     switch (type) {
       case "header": {
-        const headerProps = properties as HeaderProperties;
+        if (!isHeaderProperties(properties)) {
+          errors.push('Invalid header properties structure');
+          break;
+        }
+        const headerProps = properties;
         if (!headerProps.title || typeof headerProps.title !== 'string' || headerProps.title.trim().length === 0) {
           errors.push('Header title is required and must be a non-empty string');
         }
@@ -395,7 +449,11 @@ const validateComponentProperties = (type: ComponentType, properties: ComponentP
         break;
       }
       case "chat-input": {
-        const inputProps = properties as ChatInputProperties;
+        if (!isChatInputProperties(properties)) {
+          errors.push('Invalid chat input properties structure');
+          break;
+        }
+        const inputProps = properties;
         if (!inputProps.placeholder || typeof inputProps.placeholder !== 'string') {
           errors.push('Chat input placeholder is required and must be a string');
         }
@@ -414,7 +472,11 @@ const validateComponentProperties = (type: ComponentType, properties: ComponentP
         break;
       }
       case "button": {
-        const buttonProps = properties as ButtonProperties;
+        if (!isButtonProperties(properties)) {
+          errors.push('Invalid button properties structure');
+          break;
+        }
+        const buttonProps = properties;
         if (!buttonProps.text || typeof buttonProps.text !== 'string' || buttonProps.text.trim().length === 0) {
           errors.push('Button text is required and must be a non-empty string');
         }
@@ -430,7 +492,11 @@ const validateComponentProperties = (type: ComponentType, properties: ComponentP
         break;
       }
       case "image": {
-        const imageProps = properties as ImageProperties;
+        if (!isImageProperties(properties)) {
+          errors.push('Invalid image properties structure');
+          break;
+        }
+        const imageProps = properties;
         if (!imageProps.src || typeof imageProps.src !== 'string') {
           errors.push('Image src is required and must be a string');
         } else {
@@ -452,7 +518,11 @@ const validateComponentProperties = (type: ComponentType, properties: ComponentP
         break;
       }
       case "text": {
-        const textProps = properties as TextProperties;
+        if (!isTextProperties(properties)) {
+          errors.push('Invalid text properties structure');
+          break;
+        }
+        const textProps = properties;
         if (!textProps.content || typeof textProps.content !== 'string') {
           errors.push('Text content is required and must be a string');
         }
@@ -471,7 +541,11 @@ const validateComponentProperties = (type: ComponentType, properties: ComponentP
         break;
       }
       case "divider": {
-        const dividerProps = properties as DividerProperties;
+        if (!isDividerProperties(properties)) {
+          errors.push('Invalid divider properties structure');
+          break;
+        }
+        const dividerProps = properties;
         if (!['horizontal', 'vertical'].includes(dividerProps.orientation)) {
           errors.push('Divider orientation must be horizontal or vertical');
         }
@@ -481,13 +555,17 @@ const validateComponentProperties = (type: ComponentType, properties: ComponentP
         if (!dividerProps.color || !/^#[0-9A-Fa-f]{6}$/.test(dividerProps.color)) {
           errors.push('Divider color must be a valid hex color');
         }
-        if (dividerProps.style && !['solid', 'dashed', 'dotted'].includes(dividerProps.style)) {
-          errors.push('Divider style must be one of: solid, dashed, dotted');
+        if (dividerProps.borderStyle && !['solid', 'dashed', 'dotted'].includes(dividerProps.borderStyle)) {
+          errors.push('Divider borderStyle must be one of: solid, dashed, dotted');
         }
         break;
       }
       case "message-bubble": {
-        const bubbleProps = properties as MessageBubbleProperties;
+        if (!isMessageBubbleProperties(properties)) {
+          errors.push('Invalid message bubble properties structure');
+          break;
+        }
+        const bubbleProps = properties;
         if (!['user', 'assistant'].includes(bubbleProps.sender)) {
           errors.push('Message bubble sender must be user or assistant');
         }
@@ -543,15 +621,6 @@ const validateComponentPosition = (position: ComponentPosition, canvasDimensions
   return { isValid: errors.length === 0, errors };
 };
 
-// Safe property access helper
-const safeGetNestedProperty = <T,>(obj: unknown, path: string, defaultValue: T): T => {
-  try {
-    return path.split('.').reduce((current: any, key: string) => current?.[key], obj) ?? defaultValue;
-  } catch {
-    return defaultValue;
-  }
-};
-
 function VisualToolBuilderComponent({
   widget,
   onUpdate,
@@ -564,8 +633,8 @@ function VisualToolBuilderComponent({
   const initializeComponents = useCallback((): WidgetComponent[] => {
     try {
       const primaryColor = safeGetNestedProperty(widget, 'configuration.theme.primaryColor', '#3b82f6');
-      const enableFileUpload = safeGetNestedProperty(widget, 'configuration.behavior.enableFileUpload', false);
-      const enableVoiceInput = safeGetNestedProperty(widget, 'configuration.behavior.enableVoiceInput', false);
+      const enableFileUpload = false; // Default disabled - not in WidgetBehavior interface
+      const enableVoiceInput = false; // Default disabled - not in WidgetBehavior interface
       const widgetName = widget?.name || "Chat Widget";
 
       const initialComponents: WidgetComponent[] = [
@@ -611,7 +680,6 @@ function VisualToolBuilderComponent({
       const validatedComponents = initialComponents.filter(component => {
         const validation = validateComponentProperties(component.type, component.properties);
         if (!validation.isValid) {
-          console.warn(`Invalid component ${component.id}:`, validation.errors);
           return false;
         }
         return true;
@@ -619,8 +687,6 @@ function VisualToolBuilderComponent({
 
       return validatedComponents;
     } catch (error) {
-      console.error('Error initializing components:', error);
-      handleError(error as Error, 'Component initialization');
       return [];
     }
   }, [widget]);
@@ -632,7 +698,6 @@ function VisualToolBuilderComponent({
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
 
   // Update components when widget changes
   useEffect(() => {
@@ -653,14 +718,16 @@ function VisualToolBuilderComponent({
 
   // Error handling wrapper
   const handleError = useCallback((error: Error, context: string) => {
-    console.error(`VisualToolBuilder Error (${context}):`, error);
     setError(`${context}: ${error.message}`);
+    if (onError) {
+      onError(error, context);
+    }
     toast({
       title: "Error",
       description: `${context}: ${error.message}`,
       variant: "destructive",
     });
-  }, []);
+  }, [onError]);
 
   // Clear error
   const clearError = useCallback(() => {
@@ -956,7 +1023,10 @@ function VisualToolBuilderComponent({
 
       switch (component.type) {
         case "header": {
-          const headerProps = component.properties as HeaderProperties;
+          if (!isHeaderProperties(component.properties)) {
+            throw new Error('Invalid header properties');
+          }
+          const headerProps = component.properties;
           content = (
             <div
               className="w-full h-full flex items-center justify-between px-4 rounded"
@@ -974,6 +1044,7 @@ function VisualToolBuilderComponent({
                 <div
                   className="w-6 h-6 bg-white/20 rounded flex-shrink-0"
                   aria-label="Logo placeholder"
+                  role="img"
                 />
               )}
             </div>
@@ -981,11 +1052,14 @@ function VisualToolBuilderComponent({
           break;
         }
         case "chat-input": {
-          const inputProps = component.properties as ChatInputProperties;
+          if (!isChatInputProperties(component.properties)) {
+            throw new Error('Invalid chat input properties');
+          }
+          const inputProps = component.properties;
           content = (
             <div
               className="w-full h-full flex items-center gap-2 px-3 bg-white border border-gray-200 rounded-lg"
-              role="textbox"
+              role="group"
               aria-label="Chat input area"
             >
               <input
@@ -994,31 +1068,32 @@ function VisualToolBuilderComponent({
                 placeholder={inputProps.placeholder || "Type your message..."}
                 disabled
                 aria-label="Message input"
+                maxLength={inputProps.maxLength}
               />
               {inputProps.enableFileUpload && (
-                <Paperclip
-                  className="h-4 w-4 text-gray-400"
-                  aria-label="File upload"
-                />
+                <button type="button" aria-label="File upload" className="p-1 hover:bg-gray-100 rounded">
+                  <Paperclip className="h-4 w-4 text-gray-400" />
+                </button>
               )}
               {inputProps.enableVoiceInput && (
-                <Mic
-                  className="h-4 w-4 text-gray-400"
-                  aria-label="Voice input"
-                />
+                <button type="button" aria-label="Voice input" className="p-1 hover:bg-gray-100 rounded">
+                  <Mic className="h-4 w-4 text-gray-400" />
+                </button>
               )}
               {inputProps.showSendButton && (
-                <Send
-                  className="h-4 w-4 text-blue-500"
-                  aria-label="Send message"
-                />
+                <button type="button" aria-label="Send message" className="p-1 hover:bg-gray-100 rounded">
+                  <Send className="h-4 w-4 text-blue-500" />
+                </button>
               )}
             </div>
           );
           break;
         }
         case "message-bubble": {
-          const bubbleProps = component.properties as MessageBubbleProperties;
+          if (!isMessageBubbleProperties(component.properties)) {
+            throw new Error('Invalid message bubble properties');
+          }
+          const bubbleProps = component.properties;
           const isUser = bubbleProps.sender === "user";
           content = (
             <div
@@ -1031,6 +1106,11 @@ function VisualToolBuilderComponent({
               role="article"
               aria-label={`Message from ${bubbleProps.sender}`}
             >
+              {bubbleProps.avatar && (
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 rounded-full bg-gray-300 flex-shrink-0" role="img" aria-label="User avatar" />
+                </div>
+              )}
               <div className="text-sm break-words">
                 {bubbleProps.message || "Sample message"}
               </div>
@@ -1039,18 +1119,30 @@ function VisualToolBuilderComponent({
                   {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               )}
+              {bubbleProps.isTyping && (
+                <div className="flex gap-1 mt-1" aria-label="Typing indicator">
+                  <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              )}
             </div>
           );
           break;
         }
         case "button": {
-          const buttonProps = component.properties as ButtonProperties;
+          if (!isButtonProperties(component.properties)) {
+            throw new Error('Invalid button properties');
+          }
+          const buttonProps = component.properties;
           const getButtonClasses = () => {
             const baseClasses = "px-4 py-2 rounded font-medium transition-all duration-200";
             const variantClasses = {
               primary: "bg-blue-500 text-white hover:bg-blue-600",
               secondary: "bg-gray-500 text-white hover:bg-gray-600",
-              outline: "border border-gray-300 text-gray-700 hover:bg-gray-50"
+              outline: "border border-gray-300 text-gray-700 hover:bg-gray-50",
+              ghost: "text-gray-700 hover:bg-gray-100",
+              destructive: "bg-red-500 text-white hover:bg-red-600"
             };
             const sizeClasses = {
               small: "px-2 py-1 text-xs",
@@ -1063,8 +1155,8 @@ function VisualToolBuilderComponent({
 
             return cn(
               baseClasses,
-              variantClasses[buttonProps.variant || "primary"],
-              sizeClasses[buttonProps.size || "medium"],
+              variantClasses[buttonProps.variant] || variantClasses.primary,
+              sizeClasses[buttonProps.size] || sizeClasses.medium,
               disabledClasses
             );
           };
@@ -1082,27 +1174,37 @@ function VisualToolBuilderComponent({
           break;
         }
         case "image": {
-          const imageProps = component.properties as ImageProperties;
+          if (!isImageProperties(component.properties)) {
+            throw new Error('Invalid image properties');
+          }
+          const imageProps = component.properties;
           content = (
             <img
               src={imageProps.src || "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&q=80"}
               alt={imageProps.alt || "Widget image"}
               className={cn(
-                "w-full h-full object-cover",
+                "w-full h-full",
                 imageProps.rounded ? "rounded-lg" : ""
               )}
+              style={{
+                objectFit: imageProps.objectFit || 'cover'
+              }}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.src = "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&q=80";
+                target.alt = "Fallback image";
               }}
-              loading="lazy"
+              loading={imageProps.loading || "lazy"}
             />
           );
           break;
         }
 
         case "text": {
-          const textProps = component.properties as TextProperties;
+          if (!isTextProperties(component.properties)) {
+            throw new Error('Invalid text properties');
+          }
+          const textProps = component.properties;
           content = (
             <div
               className="w-full h-full flex items-center p-2"
@@ -1110,6 +1212,8 @@ function VisualToolBuilderComponent({
                 fontSize: `${textProps.fontSize || 14}px`,
                 fontWeight: textProps.fontWeight || "normal",
                 textAlign: textProps.textAlign || "left",
+                color: textProps.color,
+                lineHeight: textProps.lineHeight || 1.5,
               }}
               role="text"
               aria-label="Text content"
@@ -1123,7 +1227,10 @@ function VisualToolBuilderComponent({
         }
 
         case "divider": {
-          const dividerProps = component.properties as DividerProperties;
+          if (!isDividerProperties(component.properties)) {
+            throw new Error('Invalid divider properties');
+          }
+          const dividerProps = component.properties;
           content = (
             <div
               className={cn(
@@ -1134,6 +1241,8 @@ function VisualToolBuilderComponent({
               style={{
                 borderWidth: `${dividerProps.thickness || 1}px`,
                 borderColor: dividerProps.color || "#e5e7eb",
+                borderStyle: dividerProps.borderStyle || 'solid',
+                margin: dividerProps.margin ? `${dividerProps.margin}px` : '0',
               }}
               role="separator"
               aria-orientation={dividerProps.orientation || "horizontal"}
@@ -1152,140 +1261,148 @@ function VisualToolBuilderComponent({
               </div>
             </div>
           );
-    }
+      }
 
-    return (
-      <div
-        key={component.id}
-        style={style}
-        onClick={() => handleComponentSelect(component.id)}
-        className="group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
-        role="button"
-        tabIndex={0}
-        aria-label={`${component.type} component${isSelected ? ' (selected)' : ''}`}
-        aria-selected={isSelected}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handleComponentSelect(component.id);
-          } else if (e.key === 'Delete' && isSelected) {
-            e.preventDefault();
-            handleComponentDelete(component.id);
-          } else if (e.key === 'Escape' && isSelected) {
-            e.preventDefault();
-            setSelectedComponent(null);
-          }
-        }}
-      >
-        {content}
-        {isSelected && (
-          <div className="absolute -top-8 left-0 flex gap-1 bg-white border rounded shadow-sm p-1 z-50">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2"
-                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    handleComponentDuplicate(component.id);
-                  }}
-                  aria-label="Duplicate component"
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Duplicate</TooltipContent>
-            </Tooltip>
+      return (
+        <div
+          key={component.id}
+          style={style}
+          onClick={() => handleComponentSelect(component.id)}
+          className="group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+          role="button"
+          tabIndex={0}
+          aria-label={`${component.type} component${isSelected ? ' (selected)' : ''}`}
+          aria-selected={isSelected}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleComponentSelect(component.id);
+            } else if (e.key === 'Delete' && isSelected) {
+              e.preventDefault();
+              handleComponentDelete(component.id);
+            } else if (e.key === 'Escape' && isSelected) {
+              e.preventDefault();
+              setSelectedComponent(null);
+            }
+          }}
+        >
+          {content}
+          {isSelected && (
+            <div className="absolute -top-8 left-0 flex gap-1 bg-white border rounded shadow-sm p-1 z-50">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2"
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      handleComponentDuplicate(component.id);
+                    }}
+                    aria-label="Duplicate component"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Duplicate</TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2"
-                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    handleComponentUpdate(component.id, {
-                      visible: !component.visible,
-                    });
-                  }}
-                  aria-label={component.visible ? "Hide component" : "Show component"}
-                >
-                  {component.visible ? (
-                    <Eye className="h-3 w-3" />
-                  ) : (
-                    <EyeOff className="h-3 w-3" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{component.visible ? "Hide" : "Show"}</TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2"
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      handleComponentUpdate(component.id, {
+                        visible: !component.visible,
+                      });
+                    }}
+                    aria-label={component.visible ? "Hide component" : "Show component"}
+                  >
+                    {component.visible ? (
+                      <Eye className="h-3 w-3" />
+                    ) : (
+                      <EyeOff className="h-3 w-3" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{component.visible ? "Hide" : "Show"}</TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2"
-                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    handleComponentUpdate(component.id, {
-                      locked: !component.locked,
-                    });
-                  }}
-                  aria-label={component.locked ? "Unlock component" : "Lock component"}
-                >
-                  {component.locked ? (
-                    <Lock className="h-3 w-3" />
-                  ) : (
-                    <Unlock className="h-3 w-3" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{component.locked ? "Unlock" : "Lock"}</TooltipContent>
-            </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2"
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      handleComponentUpdate(component.id, {
+                        locked: !component.locked,
+                      });
+                    }}
+                    aria-label={component.locked ? "Unlock component" : "Lock component"}
+                  >
+                    {component.locked ? (
+                      <Lock className="h-3 w-3" />
+                    ) : (
+                      <Unlock className="h-3 w-3" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{component.locked ? "Unlock" : "Lock"}</TooltipContent>
+              </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2"
-                  onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                    e.stopPropagation();
-                    handleComponentDelete(component.id);
-                  }}
-                  aria-label="Delete component"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Delete</TooltipContent>
-            </Tooltip>
-          </div>
-        )}
-      </div>
-    );
-  } catch (error) {
-    handleError(error as Error, `Rendering component ${component.id}`);
-    return (
-      <div
-        key={component.id}
-        style={style as React.CSSProperties}
-        className="bg-red-100 border-2 border-red-300 rounded p-2 flex items-center justify-center"
-        role="alert"
-        aria-label="Component render error"
-      >
-        <div className="text-center text-red-600">
-          <AlertTriangle className="h-6 w-6 mx-auto mb-1" />
-          <div className="text-xs">Render Error</div>
-          <div className="text-xs opacity-75">{component.type}</div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2"
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      handleComponentDelete(component.id);
+                    }}
+                    aria-label="Delete component"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete</TooltipContent>
+              </Tooltip>
+            </div>
+          )}
         </div>
-      </div>
-    );
-  }
-}, [selectedComponent, handleComponentSelect, handleComponentUpdate, handleComponentDelete, handleComponentDuplicate, handleError]);
+      );
+    } catch (error) {
+      handleError(error as Error, `Rendering component ${component.id}`);
+      const errorStyle: React.CSSProperties = {
+        position: "absolute",
+        left: component.position.x,
+        top: component.position.y,
+        width: component.size.width,
+        height: component.size.height,
+        zIndex: component.zIndex,
+      };
+      return (
+        <div
+          key={component.id}
+          style={errorStyle}
+          className="bg-red-100 border-2 border-red-300 rounded p-2 flex items-center justify-center"
+          role="alert"
+          aria-label="Component render error"
+        >
+          <div className="text-center text-red-600">
+            <AlertTriangle className="h-6 w-6 mx-auto mb-1" />
+            <div className="text-xs">Render Error</div>
+            <div className="text-xs opacity-75">{component.type}</div>
+          </div>
+        </div>
+      );
+    }
+  }, [selectedComponent, handleComponentSelect, handleComponentUpdate, handleComponentDelete, handleComponentDuplicate, handleError]);
 
   const selectedComponentData = components.find(
     (comp) => comp.id === selectedComponent,
@@ -1332,413 +1449,490 @@ function VisualToolBuilderComponent({
       <TooltipProvider delayDuration={300}>
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[800px]" role="application" aria-label="Visual Tool Builder">
-        {/* Component Library */}
-        <div className="lg:col-span-1">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Layers className="h-4 w-4" />
-                Components
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Droppable droppableId="component-library">
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="space-y-2"
-                    role="listbox"
-                    aria-label="Component library"
-                  >
-                    {COMPONENT_LIBRARY.map((component, index) => (
-                      <Draggable
-                        key={component.type}
-                        draggableId={component.type}
-                        index={index}
-                        isDragDisabled={disabled || component.isDeprecated}
+            {/* Component Library */}
+            <div className="lg:col-span-1">
+              <Card className="h-full">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Layers className="h-4 w-4" />
+                    Components
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Droppable droppableId="component-library">
+                    {(provided) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className="space-y-2"
+                        role="listbox"
+                        aria-label="Component library"
                       >
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={cn(
-                              "p-3 border rounded-lg transition-all duration-200",
-                              {
-                                "cursor-move hover:bg-gray-50 hover:border-gray-300": !disabled && !component.isDeprecated,
-                                "shadow-lg bg-blue-50 border-blue-200": snapshot.isDragging,
-                                "opacity-50 cursor-not-allowed": disabled || component.isDeprecated,
-                              }
-                            )}
-                            role="button"
-                            tabIndex={disabled || component.isDeprecated ? -1 : 0}
-                            aria-label={`Drag ${component.name} component to canvas`}
-                            aria-disabled={disabled || component.isDeprecated}
-                            data-testid={`component-library-${component.type}`}
-                            onKeyDown={(e) => {
-                              if ((e.key === 'Enter' || e.key === ' ') && !disabled && !component.isDeprecated) {
-                                e.preventDefault();
-                                // Simulate drag and drop for keyboard users
-                                const mockResult: DropResult = {
-                                  draggableId: component.type,
-                                  type: 'DEFAULT',
-                                  source: { droppableId: 'component-library', index },
-                                  destination: { droppableId: 'canvas', index: components.length },
-                                  reason: 'DROP',
-                                  mode: 'FLUID',
-                                  combine: null,
-                                };
-                                handleDragEnd(mockResult);
-                              }
-                            }}
+                        {COMPONENT_LIBRARY.map((component, index) => (
+                          <Draggable
+                            key={component.type}
+                            draggableId={component.type}
+                            index={index}
+                            isDragDisabled={disabled || component.isDeprecated}
                           >
-                            <div className="flex items-center gap-2">
-                              <component.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-                              <div className="min-w-0 flex-1">
-                                <div className="font-medium text-sm truncate">
-                                  {component.name}
-                                  {component.isDeprecated && (
-                                    <Badge variant="destructive" className="ml-2 text-xs">
-                                      Deprecated
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="text-xs text-muted-foreground line-clamp-2">
-                                  {component.description}
-                                </div>
-                                {component.tags && component.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {component.tags.slice(0, 2).map((tag) => (
-                                      <Badge key={tag} variant="outline" className="text-xs px-1 py-0">
-                                        {tag}
-                                      </Badge>
-                                    ))}
-                                  </div>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                className={cn(
+                                  "p-3 border rounded-lg transition-all duration-200",
+                                  {
+                                    "cursor-move hover:bg-gray-50 hover:border-gray-300": !disabled && !component.isDeprecated,
+                                    "shadow-lg bg-blue-50 border-blue-200": snapshot.isDragging,
+                                    "opacity-50 cursor-not-allowed": disabled || component.isDeprecated,
+                                  }
                                 )}
+                                role="button"
+                                tabIndex={disabled || component.isDeprecated ? -1 : 0}
+                                aria-label={`Drag ${component.name} component to canvas`}
+                                aria-disabled={disabled || component.isDeprecated}
+                                data-testid={`component-library-${component.type}`}
+                                onKeyDown={(e) => {
+                                  if ((e.key === 'Enter' || e.key === ' ') && !disabled && !component.isDeprecated) {
+                                    e.preventDefault();
+                                    // Simulate drag and drop for keyboard users
+                                    const mockResult: DropResult = {
+                                      draggableId: component.type,
+                                      type: 'DEFAULT',
+                                      source: { droppableId: 'component-library', index },
+                                      destination: { droppableId: 'canvas', index: components.length },
+                                      reason: 'DROP',
+                                      mode: 'FLUID',
+                                      combine: null,
+                                    };
+                                    handleDragEnd(mockResult);
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <component.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-medium text-sm truncate">
+                                      {component.name}
+                                      {component.isDeprecated && (
+                                        <Badge variant="destructive" className="ml-2 text-xs">
+                                          Deprecated
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground line-clamp-2">
+                                      {component.description}
+                                    </div>
+                                    {component.tags && component.tags.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {component.tags.slice(0, 2).map((tag) => (
+                                          <Badge key={tag} variant="outline" className="text-xs px-1 py-0">
+                                            {tag}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Canvas */}
-        <div className="lg:col-span-2">
-          <Card className="h-full">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Canvas</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={previewDevice === "desktop" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setPreviewDevice("desktop")}
-                        aria-label="Desktop preview"
-                      >
-                        <Monitor className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Desktop Preview</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={previewDevice === "tablet" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setPreviewDevice("tablet")}
-                        aria-label="Tablet preview"
-                      >
-                        <Tablet className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Tablet Preview</TooltipContent>
-                  </Tooltip>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={previewDevice === "mobile" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setPreviewDevice("mobile")}
-                        aria-label="Mobile preview"
-                      >
-                        <Smartphone className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Mobile Preview</TooltipContent>
-                  </Tooltip>
-                  <Button
-                    variant={showGrid ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setShowGrid(!showGrid)}
-                  >
-                    <Grid className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-auto">
-              <Droppable droppableId="canvas">
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="relative mx-auto border-2 border-dashed border-gray-300 bg-white"
-                    style={{
-                      ...deviceDimensions,
-                      backgroundImage: showGrid
-                        ? "radial-gradient(circle, #e5e7eb 1px, transparent 1px)"
-                        : "none",
-                      backgroundSize: showGrid ? "20px 20px" : "none",
-                      minHeight: deviceDimensions.height,
-                    }}
-                    role="main"
-                    aria-label="Canvas for widget components"
-                    data-testid="canvas"
-                    onClick={() => setSelectedComponent(null)}
-                  >
-                    {components.map((component) => renderComponent(component))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Properties Panel */}
-        <div className="lg:col-span-1">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Settings className="h-4 w-4" />
-                Properties
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {selectedComponentData ? (
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-sm font-medium">
-                      {
-                        COMPONENT_LIBRARY.find(
-                          (c) => c.type === selectedComponentData.type,
-                        )?.name
-                      }
-                    </Label>
-                    <Badge variant="secondary" className="ml-2">
-                      {selectedComponentData.id}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs">X Position</Label>
-                        <Input
-                          type="number"
-                          value={selectedComponentData.position.x}
-                          onChange={(e) =>
-                            handleComponentUpdate(selectedComponentData.id, {
-                              position: {
-                                ...selectedComponentData.position,
-                                x: parseInt(e.target.value) || 0,
-                              },
-                            })
-                          }
-                          className="h-8"
-                        />
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
                       </div>
-                      <div>
-                        <Label className="text-xs">Y Position</Label>
-                        <Input
-                          type="number"
-                          value={selectedComponentData.position.y}
-                          onChange={(e) =>
-                            handleComponentUpdate(selectedComponentData.id, {
-                              position: {
-                                ...selectedComponentData.position,
-                                y: parseInt(e.target.value) || 0,
-                              },
-                            })
-                          }
-                          className="h-8"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs">Width</Label>
-                        <Input
-                          type="number"
-                          value={selectedComponentData.size.width}
-                          onChange={(e) =>
-                            handleComponentUpdate(selectedComponentData.id, {
-                              size: {
-                                ...selectedComponentData.size,
-                                width: parseInt(e.target.value) || 0,
-                              },
-                            })
-                          }
-                          className="h-8"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Height</Label>
-                        <Input
-                          type="number"
-                          value={selectedComponentData.size.height}
-                          onChange={(e) =>
-                            handleComponentUpdate(selectedComponentData.id, {
-                              size: {
-                                ...selectedComponentData.size,
-                                height: parseInt(e.target.value) || 0,
-                              },
-                            })
-                          }
-                          className="h-8"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Component-specific properties */}
-                    {selectedComponentData.type === "header" && (
-                      <>
-                        <div>
-                          <Label className="text-xs">Title</Label>
-                          <Input
-                            value={selectedComponentData.properties.title as string}
-                            onChange={(e) =>
-                              handleComponentUpdate(selectedComponentData.id, {
-                                properties: {
-                                  ...selectedComponentData.properties,
-                                  title: e.target.value,
-                                },
-                              })
-                            }
-                            className="h-8"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Background Color</Label>
-                          <Input
-                            type="color"
-                            value={
-                              selectedComponentData.properties.backgroundColor as string
-                            }
-                            onChange={(e) =>
-                              handleComponentUpdate(selectedComponentData.id, {
-                                properties: {
-                                  ...selectedComponentData.properties,
-                                  backgroundColor: e.target.value,
-                                },
-                              })
-                            }
-                            className="h-8"
-                          />
-                        </div>
-                      </>
                     )}
+                  </Droppable>
+                </CardContent>
+              </Card>
+            </div>
 
-                    {selectedComponentData.type === "chat-input" && (
-                      <>
-                        <div>
-                          <Label className="text-xs">Placeholder</Label>
-                          <Input
-                            value={selectedComponentData.properties.placeholder as string}
-                            onChange={(e) =>
-                              handleComponentUpdate(selectedComponentData.id, {
-                                properties: {
-                                  ...selectedComponentData.properties,
-                                  placeholder: e.target.value,
-                                },
-                              })
-                            }
-                            className="h-8"
-                          />
-                        </div>
-                      </>
-                    )}
-
-                    {selectedComponentData.type === "button" && (
-                      <>
-                        <div>
-                          <Label className="text-xs">Button Text</Label>
-                          <Input
-                            value={selectedComponentData.properties.text as string}
-                            onChange={(e) =>
-                              handleComponentUpdate(selectedComponentData.id, {
-                                properties: {
-                                  ...selectedComponentData.properties,
-                                  text: e.target.value,
-                                },
-                              })
-                            }
-                            className="h-8"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Variant</Label>
-                          <Select
-                            value={selectedComponentData.properties.variant as string }
-                            onValueChange={(value) =>
-                              handleComponentUpdate(selectedComponentData.id, {
-                                properties: {
-                                  ...(selectedComponentData.properties as ButtonProperties),
-                                  variant: value,
-                                },
-                              })
-                            }
+            {/* Canvas */}
+            <div className="lg:col-span-2">
+              <Card className="h-full">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Canvas</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={previewDevice === "desktop" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setPreviewDevice("desktop")}
+                            aria-label="Desktop preview"
                           >
-                            <SelectTrigger className="h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="primary">Primary</SelectItem>
-                              <SelectItem value="secondary">
-                                Secondary
-                              </SelectItem>
-                              <SelectItem value="outline">Outline</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </>
-                    )}
+                            <Monitor className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Desktop Preview</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={previewDevice === "tablet" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setPreviewDevice("tablet")}
+                            aria-label="Tablet preview"
+                          >
+                            <Tablet className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Tablet Preview</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={previewDevice === "mobile" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setPreviewDevice("mobile")}
+                            aria-label="Mobile preview"
+                          >
+                            <Smartphone className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Mobile Preview</TooltipContent>
+                      </Tooltip>
+                      
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant={showGrid ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setShowGrid(!showGrid)}
+                            aria-label="Toggle grid"
+                          >
+                            <Grid className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Toggle Grid</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <Settings className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">
-                    Select a component to edit its properties
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </DragDropContext>
-    </TooltipProvider>
+                </CardHeader>
+                <CardContent className="flex-1 overflow-auto">
+                  <Droppable droppableId="canvas">
+                    {(provided) => (
+                      <div
+                        {...provided.droppableProps}
+                        ref={provided.innerRef}
+                        className="relative mx-auto border-2 border-dashed border-gray-300 bg-white"
+                        style={{
+                          ...deviceDimensions,
+                          backgroundImage: showGrid
+                            ? "radial-gradient(circle, #e5e7eb 1px, transparent 1px)"
+                            : "none",
+                          backgroundSize: showGrid ? "20px 20px" : "none",
+                          minHeight: deviceDimensions.height,
+                        }}
+                        role="main"
+                        aria-label="Canvas for widget components"
+                        data-testid="canvas"
+                        onClick={() => setSelectedComponent(null)}
+                      >
+                        {components.map((component) => renderComponent(component))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Properties Panel */}
+            <div className="lg:col-span-1">
+              <Card className="h-full">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Properties
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedComponentData ? (
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-sm font-medium">
+                          {
+                            COMPONENT_LIBRARY.find(
+                              (c) => c.type === selectedComponentData.type,
+                            )?.name
+                          }
+                        </Label>
+                        <Badge variant="secondary" className="ml-2">
+                          {selectedComponentData.id}
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs">X Position</Label>
+                            <Input
+                              type="number"
+                              value={selectedComponentData.position.x}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                handleComponentUpdate(selectedComponentData.id, {
+                                  position: {
+                                    ...selectedComponentData.position,
+                                    x: parseInt(e.target.value) || 0,
+                                  },
+                                })
+                              }
+                              className="h-8"
+                              min={0}
+                              max={deviceDimensions.width}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Y Position</Label>
+                            <Input
+                              type="number"
+                              value={selectedComponentData.position.y}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                handleComponentUpdate(selectedComponentData.id, {
+                                  position: {
+                                    ...selectedComponentData.position,
+                                    y: parseInt(e.target.value) || 0,
+                                  },
+                                })
+                              }
+                              className="h-8"
+                              min={0}
+                              max={deviceDimensions.height}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs">Width</Label>
+                            <Input
+                              type="number"
+                              value={selectedComponentData.size.width}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                handleComponentUpdate(selectedComponentData.id, {
+                                  size: {
+                                    ...selectedComponentData.size,
+                                    width: parseInt(e.target.value) || 0,
+                                  },
+                                })
+                              }
+                              className="h-8"
+                              min={10}
+                              max={2000}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Height</Label>
+                            <Input
+                              type="number"
+                              value={selectedComponentData.size.height}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                handleComponentUpdate(selectedComponentData.id, {
+                                  size: {
+                                    ...selectedComponentData.size,
+                                    height: parseInt(e.target.value) || 0,
+                                  },
+                                })
+                              }
+                              className="h-8"
+                              min={10}
+                              max={2000}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Component-specific properties */}
+                        {selectedComponentData.type === "header" && isHeaderProperties(selectedComponentData.properties) && (
+                          <>
+                            <div>
+                              <Label className="text-xs">Title</Label>
+                              <Input
+                                value={selectedComponentData.properties.title}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  handleComponentUpdate(selectedComponentData.id, {
+                                    properties: {
+                                      ...selectedComponentData.properties,
+                                      title: e.target.value,
+                                    },
+                                  })
+                                }
+                                className="h-8"
+                                maxLength={100}
+                                required
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Background Color</Label>
+                              <Input
+                                type="color"
+                                value={selectedComponentData.properties.backgroundColor}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  handleComponentUpdate(selectedComponentData.id, {
+                                    properties: {
+                                      ...selectedComponentData.properties,
+                                      backgroundColor: e.target.value,
+                                    },
+                                  })
+                                }
+                                className="h-8"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Text Color</Label>
+                              <Input
+                                type="color"
+                                value={selectedComponentData.properties.textColor}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  handleComponentUpdate(selectedComponentData.id, {
+                                    properties: {
+                                      ...selectedComponentData.properties,
+                                      textColor: e.target.value,
+                                    },
+                                  })
+                                }
+                                className="h-8"
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {selectedComponentData.type === "chat-input" && isChatInputProperties(selectedComponentData.properties) && (
+                          <>
+                            <div>
+                              <Label className="text-xs">Placeholder</Label>
+                              <Input
+                                value={selectedComponentData.properties.placeholder}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  handleComponentUpdate(selectedComponentData.id, {
+                                    properties: {
+                                      ...selectedComponentData.properties,
+                                      placeholder: e.target.value,
+                                    },
+                                  })
+                                }
+                                className="h-8"
+                                maxLength={100}
+                                required
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Max Length</Label>
+                              <Input
+                                type="number"
+                                value={selectedComponentData.properties.maxLength || 1000}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  handleComponentUpdate(selectedComponentData.id, {
+                                    properties: {
+                                      ...selectedComponentData.properties,
+                                      maxLength: parseInt(e.target.value) || 1000,
+                                    },
+                                  })
+                                }
+                                className="h-8"
+                                min={1}
+                                max={5000}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {selectedComponentData.type === "button" && isButtonProperties(selectedComponentData.properties) && (
+                          <>
+                            <div>
+                              <Label className="text-xs">Button Text</Label>
+                              <Input
+                                value={selectedComponentData.properties.text}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                  handleComponentUpdate(selectedComponentData.id, {
+                                    properties: {
+                                      ...selectedComponentData.properties,
+                                      text: e.target.value,
+                                    },
+                                  })
+                                }
+                                className="h-8"
+                                maxLength={50}
+                                required
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Variant</Label>
+                              <Select
+                                value={selectedComponentData.properties.variant}
+                                onValueChange={(value: ButtonProperties['variant']) =>
+                                  handleComponentUpdate(selectedComponentData.id, {
+                                    properties: {
+                                      ...selectedComponentData.properties,
+                                      variant: value,
+                                    },
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="primary">Primary</SelectItem>
+                                  <SelectItem value="secondary">Secondary</SelectItem>
+                                  <SelectItem value="outline">Outline</SelectItem>
+                                  <SelectItem value="ghost">Ghost</SelectItem>
+                                  <SelectItem value="destructive">Destructive</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label className="text-xs">Size</Label>
+                              <Select
+                                value={selectedComponentData.properties.size}
+                                onValueChange={(value: ButtonProperties['size']) =>
+                                  handleComponentUpdate(selectedComponentData.id, {
+                                    properties: {
+                                      ...selectedComponentData.properties,
+                                      size: value,
+                                    },
+                                  })
+                                }
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="small">Small</SelectItem>
+                                  <SelectItem value="medium">Medium</SelectItem>
+                                  <SelectItem value="large">Large</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-muted-foreground py-8">
+                      <Settings className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">
+                        Select a component to edit its properties
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </DragDropContext>
+      </TooltipProvider>
+    </div>
   );
 }
 
 // Main export with error boundary
 export function VisualToolBuilder(props: VisualToolBuilderProps) {
   return (
-    <VisualToolBuilderErrorBoundary onError={props.onError}>
+    <VisualToolBuilderErrorBoundary onError={props.onError as (error: Error, errorInfo: React.ErrorInfo) => void}>
       <VisualToolBuilderComponent {...props} />
     </VisualToolBuilderErrorBoundary>
   );

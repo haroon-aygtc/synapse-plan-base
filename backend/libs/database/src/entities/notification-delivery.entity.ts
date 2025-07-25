@@ -140,7 +140,7 @@ export class NotificationDelivery extends BaseEntity {
   }
 
   markAsFailed(error: string, errorCode?: string, providerResponse?: any): void {
-    this.status = 'failed';
+    this.status = ExecutionStatus.FAILED;
     this.failedAt = new Date();
     this.errorMessage = error;
     this.errorCode = errorCode || 'DELIVERY_FAILED';

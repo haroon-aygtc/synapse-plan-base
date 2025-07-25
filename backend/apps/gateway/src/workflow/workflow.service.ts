@@ -2,8 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Workflow, WorkflowExecution } from '@database/entities';
-import { CreateWorkflowDto, UpdateWorkflowDto, TestWorkflowDto } from './dto';
+import { CreateWorkflowDto, UpdateWorkflowDto, TestWorkflowDto, ExecuteWorkflowDto } from './dto';
 import { ExecutionStatus } from '@shared/enums';
+import { WorkflowExecutionEngine } from './workflow-execution.engine';
 
 @Injectable()
 export class WorkflowService {
@@ -12,6 +13,7 @@ export class WorkflowService {
     private readonly workflowRepository: Repository<Workflow>,
     @InjectRepository(WorkflowExecution)
     private readonly workflowExecutionRepository: Repository<WorkflowExecution>,
+    private readonly workflowExecutionEngine: WorkflowExecutionEngine,
   ) {}
 
   async create(createWorkflowDto: CreateWorkflowDto): Promise<Workflow> {
@@ -91,9 +93,16 @@ export class WorkflowService {
     await this.workflowRepository.remove(workflow);
   }
 
+  async test(id: string, testWorkflowDto: TestWorkflowDto): Promise<any> {
+    const workflowDto = { ...testWorkflowDto, workflowId: id };
+    return this.testWorkflow(workflowDto);
+  }
+
   async testWorkflow(testWorkflowDto: TestWorkflowDto): Promise<any> {
     const workflow = await this.findOne(testWorkflowDto.workflowId);
     const startTime = Date.now();
+    let currentOutput: any = null;
+    const completedSteps: string[] = [];
 
     try {
       // Validate workflow definition
@@ -110,7 +119,7 @@ export class WorkflowService {
           ...workflow.definition.variables,
           ...testWorkflowDto.variables,
         },
-        stepResults: {},
+        stepResults: {} as Record<string, any>,
         mockResponses: testWorkflowDto.mockResponses || {},
       };
 
@@ -126,6 +135,7 @@ export class WorkflowService {
           testContext.stepResults[node.id as string] = mockResponse;
           currentOutput = mockResponse;
         }
+        completedSteps.push(node.id as string);
       }
 
       const executionTime = Date.now() - startTime;
@@ -471,15 +481,16 @@ export class WorkflowService {
     // This is a wrapper around the workflow execution engine
     return this.workflowExecutionEngine.executeWorkflow(
       params.workflowId,
-      params.input,
       {
-        sessionId: params.sessionId,
-        userId,
-        organizationId,
-        context: params.context || {},
-        metadata: params.metadata || {},
+        input: params.input,
+        variables: params.context || {},
+        timeout: params.timeout || 30000,
+        notifyOnCompletion: false,
+        retryAttempts: 3,
+        executionId: undefined,
       },
-      params.timeout || 30000
+      userId,
+      organizationId,
     );
   }
 }
