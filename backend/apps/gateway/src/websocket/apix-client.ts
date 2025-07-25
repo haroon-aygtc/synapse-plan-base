@@ -97,7 +97,7 @@ export class APXClient extends EventEmitter {
    */
   disconnect(): void {
     this.stopHeartbeat();
-    
+
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -110,7 +110,7 @@ export class APXClient extends EventEmitter {
 
     this.connectionState = 'disconnected';
     this.emit('disconnected');
-    
+
     if (this.debug) {
       console.log('APIX: Disconnected');
     }
@@ -133,14 +133,18 @@ export class APXClient extends EventEmitter {
   /**
    * Send a message to the server
    */
-  sendMessage(type: APXMessageType, payload: any, options?: {
-    correlationId?: string;
-    securityLevel?: APXSecurityLevel;
-    permissions?: APXPermissionLevel[];
-    metadata?: Record<string, any>;
-  }): string {
+  sendMessage(
+    type: APXMessageType,
+    payload: any,
+    options?: {
+      correlationId?: string;
+      securityLevel?: APXSecurityLevel;
+      permissions?: APXPermissionLevel[];
+      metadata?: Record<string, any>;
+    }
+  ): string {
     const requestId = uuidv4();
-    
+
     const message: IAPXMessage = {
       type,
       session_id: this.sessionId || 'pending',
@@ -155,18 +159,18 @@ export class APXClient extends EventEmitter {
 
     if (this.isConnected()) {
       this.socket!.emit('apx_message', message);
-      
+
       if (this.debug) {
         console.log('APIX: Sent message', type, requestId);
       }
     } else {
       // Queue message to be sent when connected
       this.messageQueue.push(message);
-      
+
       if (this.debug) {
         console.log('APIX: Queued message', type, requestId);
       }
-      
+
       // Try to connect if disconnected
       if (this.connectionState === 'disconnected') {
         this.connect();
@@ -181,7 +185,7 @@ export class APXClient extends EventEmitter {
    */
   subscribe(eventType: APXMessageType, options?: APXSubscriptionOptions): void {
     this.subscriptions.set(eventType, options || {});
-    
+
     if (this.isConnected()) {
       this.sendSubscription(eventType, options);
     }
@@ -192,7 +196,7 @@ export class APXClient extends EventEmitter {
    */
   unsubscribe(eventType: APXMessageType): void {
     this.subscriptions.delete(eventType);
-    
+
     if (this.isConnected()) {
       this.socket!.emit('unsubscribe_event', { eventType });
     }
@@ -201,16 +205,20 @@ export class APXClient extends EventEmitter {
   /**
    * Start an agent execution stream
    */
-  startAgentExecution(agentId: string, prompt: string, options?: {
-    model?: string;
-    parameters?: Record<string, any>;
-    toolsAvailable?: string[];
-    knowledgeSources?: string[];
-    executionContext?: Record<string, any>;
-  }): string {
+  startAgentExecution(
+    agentId: string,
+    prompt: string,
+    options?: {
+      model?: string;
+      parameters?: Record<string, any>;
+      toolsAvailable?: string[];
+      knowledgeSources?: string[];
+      executionContext?: Record<string, any>;
+    }
+  ): string {
     const executionId = uuidv4();
     this.activeStreams.add(executionId);
-    
+
     this.sendMessage(APXMessageType.AGENT_EXECUTION_STARTED, {
       agent_id: agentId,
       execution_id: executionId,
@@ -221,20 +229,25 @@ export class APXClient extends EventEmitter {
       knowledge_sources: options?.knowledgeSources,
       execution_context: options?.executionContext,
     });
-    
+
     return executionId;
   }
 
   /**
    * Start a tool call
    */
-  startToolCall(toolId: string, functionName: string, parameters: Record<string, any>, options?: {
-    timeoutMs?: number;
-    executionContext?: Record<string, any>;
-  }): string {
+  startToolCall(
+    toolId: string,
+    functionName: string,
+    parameters: Record<string, any>,
+    options?: {
+      timeoutMs?: number;
+      executionContext?: Record<string, any>;
+    }
+  ): string {
     const toolCallId = uuidv4();
     this.activeStreams.add(toolCallId);
-    
+
     this.sendMessage(APXMessageType.TOOL_CALL_START, {
       tool_call_id: toolCallId,
       tool_id: toolId,
@@ -243,7 +256,7 @@ export class APXClient extends EventEmitter {
       timeout_ms: options?.timeoutMs,
       execution_context: options?.executionContext,
     });
-    
+
     return toolCallId;
   }
 
@@ -257,9 +270,10 @@ export class APXClient extends EventEmitter {
       }
       return;
     }
-    
-    const messageType = action === 'pause' ? APXMessageType.STREAM_PAUSE : APXMessageType.STREAM_RESUME;
-    
+
+    const messageType =
+      action === 'pause' ? APXMessageType.STREAM_PAUSE : APXMessageType.STREAM_RESUME;
+
     this.sendMessage(messageType, {
       execution_id: executionId,
       action,
@@ -272,17 +286,21 @@ export class APXClient extends EventEmitter {
   /**
    * Create a HITL request
    */
-  createHITLRequest(requestType: string, title: string, options?: {
-    description?: string;
-    context?: Record<string, any>;
-    choices?: Array<{ id: string; label: string; value: any }>;
-    priority?: 'low' | 'medium' | 'high' | 'urgent';
-    expiration?: Date;
-    assigneeRoles?: string[];
-    assigneeUsers?: string[];
-  }): string {
+  createHITLRequest(
+    requestType: string,
+    title: string,
+    options?: {
+      description?: string;
+      context?: Record<string, any>;
+      choices?: Array<{ id: string; label: string; value: any }>;
+      priority?: 'low' | 'medium' | 'high' | 'urgent';
+      expiration?: Date;
+      assigneeRoles?: string[];
+      assigneeUsers?: string[];
+    }
+  ): string {
     const requestId = uuidv4();
-    
+
     this.sendMessage(APXMessageType.HITL_REQUEST_CREATED, {
       request_id: requestId,
       request_type: requestType,
@@ -295,7 +313,7 @@ export class APXClient extends EventEmitter {
       assignee_roles: options?.assigneeRoles,
       assignee_users: options?.assigneeUsers,
     });
-    
+
     return requestId;
   }
 
@@ -349,17 +367,17 @@ export class APXClient extends EventEmitter {
       this.connectionState = 'connected';
       this.reconnectAttempts = 0;
       this.emit('connected');
-      
+
       if (this.debug) {
         console.log('APIX: Connected');
       }
-      
+
       // Start heartbeat
       this.startHeartbeat();
-      
+
       // Send queued messages
       this.sendQueuedMessages();
-      
+
       // Resubscribe to events
       this.resubscribeToEvents();
     });
@@ -368,11 +386,11 @@ export class APXClient extends EventEmitter {
       this.connectionState = 'disconnected';
       this.stopHeartbeat();
       this.emit('disconnected', reason);
-      
+
       if (this.debug) {
         console.log('APIX: Disconnected -', reason);
       }
-      
+
       // Handle reconnection
       if (this.options.reconnection) {
         this.scheduleReconnect();
@@ -382,11 +400,11 @@ export class APXClient extends EventEmitter {
     this.socket.on('connect_error', (error: Error) => {
       this.connectionState = 'error';
       this.emit('error', error);
-      
+
       if (this.debug) {
         console.error('APIX: Connection error -', error.message);
       }
-      
+
       // Handle reconnection
       if (this.options.reconnection) {
         this.scheduleReconnect();
@@ -397,25 +415,27 @@ export class APXClient extends EventEmitter {
       if (this.debug) {
         console.log('APIX: Received message', message.type, message.request_id);
       }
-      
+
       // Handle connection acknowledgment
       if (message.type === APXMessageType.CONNECTION_ACK) {
         this.handleConnectionAck(message);
       }
-      
+
       // Handle stream completion
-      if (message.type === APXMessageType.AGENT_EXECUTION_COMPLETE || 
-          message.type === APXMessageType.TOOL_CALL_RESULT ||
-          message.type === APXMessageType.TOOL_CALL_ERROR) {
+      if (
+        message.type === APXMessageType.AGENT_EXECUTION_COMPLETE ||
+        message.type === APXMessageType.TOOL_CALL_RESULT ||
+        message.type === APXMessageType.TOOL_CALL_ERROR
+      ) {
         const executionId = message.payload.execution_id || message.payload.tool_call_id;
         if (executionId) {
           this.activeStreams.delete(executionId);
         }
       }
-      
+
       // Emit the message event
       this.emit('message', message);
-      
+
       // Emit specific event type
       this.emit(message.type, message.payload);
     });
@@ -425,14 +445,14 @@ export class APXClient extends EventEmitter {
       if (this.debug) {
         console.log('APIX: Received legacy message', message.event);
       }
-      
+
       this.emit('legacy_message', message);
       this.emit(`legacy_${message.event}`, message.payload);
     });
 
     this.socket.on('error', (error: Error) => {
       this.emit('error', error);
-      
+
       if (this.debug) {
         console.error('APIX: Socket error -', error.message);
       }
@@ -444,10 +464,10 @@ export class APXClient extends EventEmitter {
    */
   private handleConnectionAck(message: IAPXMessage): void {
     const payload = message.payload;
-    
+
     // Store session ID
     this.sessionId = payload.session_id;
-    
+
     // Store rate limits
     if (payload.rate_limits) {
       this.rateLimits = {
@@ -456,7 +476,7 @@ export class APXClient extends EventEmitter {
         concurrentStreams: payload.rate_limits.concurrent_streams,
       };
     }
-    
+
     if (this.debug) {
       console.log('APIX: Connection acknowledged - Session ID:', this.sessionId);
     }
@@ -467,17 +487,17 @@ export class APXClient extends EventEmitter {
    */
   private sendQueuedMessages(): void {
     if (this.messageQueue.length === 0) return;
-    
+
     if (this.debug) {
       console.log(`APIX: Sending ${this.messageQueue.length} queued messages`);
     }
-    
+
     // Update session ID in queued messages
-    this.messageQueue.forEach(message => {
+    this.messageQueue.forEach((message) => {
       message.session_id = this.sessionId || 'unknown';
       this.socket!.emit('apx_message', message);
     });
-    
+
     this.messageQueue = [];
   }
 
@@ -486,11 +506,11 @@ export class APXClient extends EventEmitter {
    */
   private resubscribeToEvents(): void {
     if (this.subscriptions.size === 0) return;
-    
+
     if (this.debug) {
       console.log(`APIX: Resubscribing to ${this.subscriptions.size} events`);
     }
-    
+
     for (const [eventType, options] of this.subscriptions.entries()) {
       this.sendSubscription(eventType, options);
     }
@@ -501,13 +521,13 @@ export class APXClient extends EventEmitter {
    */
   private sendSubscription(eventType: APXMessageType, options?: APXSubscriptionOptions): void {
     if (!this.socket?.connected) return;
-    
+
     this.socket.emit('subscribe_event', {
       eventType,
       filters: options?.filters,
       targetId: options?.targetId,
     });
-    
+
     if (this.debug) {
       console.log('APIX: Sent subscription request for', eventType);
     }
@@ -520,29 +540,31 @@ export class APXClient extends EventEmitter {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
     }
-    
+
     if (this.reconnectAttempts >= (this.options.reconnectionAttempts || 5)) {
       if (this.debug) {
         console.log('APIX: Max reconnection attempts reached');
       }
       return;
     }
-    
+
     this.reconnectAttempts++;
-    
+
     // Calculate delay with exponential backoff
     const delay = Math.min(
       this.options.reconnectionDelay! * Math.pow(1.5, this.reconnectAttempts - 1),
       this.options.reconnectionDelayMax!
     );
-    
+
     if (this.debug) {
       console.log(`APIX: Scheduling reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
     }
-    
+
     this.reconnectTimer = setTimeout(() => {
       if (this.debug) {
-        console.log(`APIX: Attempting to reconnect (${this.reconnectAttempts}/${this.options.reconnectionAttempts})`);
+        console.log(
+          `APIX: Attempting to reconnect (${this.reconnectAttempts}/${this.options.reconnectionAttempts})`
+        );
       }
       this.connect();
     }, delay);
@@ -553,7 +575,7 @@ export class APXClient extends EventEmitter {
    */
   private startHeartbeat(): void {
     this.stopHeartbeat();
-    
+
     this.heartbeatInterval = setInterval(() => {
       this.sendHeartbeat();
     }, 30000); // Send heartbeat every 30 seconds

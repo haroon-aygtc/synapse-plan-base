@@ -1,10 +1,4 @@
-import {
-  IsEnum,
-  IsNumber,
-  IsOptional,
-  Min,
-  Max,
-} from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -16,20 +10,20 @@ export enum TestType {
 }
 
 export class GenerateTestsDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Type of tests to generate',
     enum: TestType,
-    default: TestType.INTEGRATION
+    default: TestType.INTEGRATION,
   })
   @IsOptional()
   @IsEnum(TestType)
   testType?: TestType = TestType.INTEGRATION;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Number of test cases to generate',
     minimum: 1,
     maximum: 20,
-    default: 5
+    default: 5,
   })
   @IsOptional()
   @IsNumber()

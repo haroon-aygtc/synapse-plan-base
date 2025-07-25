@@ -14,12 +14,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '@libs/shared/src/guards/roles.guard';
 import { WidgetService } from './widget.service';
@@ -66,7 +61,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'WIDGET_CREATION_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -82,7 +77,7 @@ export class WidgetController {
     @Query('isActive') isActive?: boolean,
     @Query('sortBy') sortBy: string = 'createdAt',
     @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC',
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const result = await this.widgetService.findAll({
@@ -108,7 +103,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'WIDGETS_RETRIEVAL_FAILED',
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -119,10 +114,7 @@ export class WidgetController {
   @ApiResponse({ status: 404, description: 'Widget not found' })
   async findOne(@Param('id') id: string, @Request() req: any) {
     try {
-      const widget = await this.widgetService.findOne(
-        id,
-        req.user.organizationId,
-      );
+      const widget = await this.widgetService.findOne(id, req.user.organizationId);
       return {
         success: true,
         data: widget,
@@ -135,7 +127,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'WIDGET_NOT_FOUND',
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.NOT_FOUND
       );
     }
   }
@@ -147,14 +139,10 @@ export class WidgetController {
   async update(
     @Param('id') id: string,
     @Body() updateWidgetDto: UpdateWidgetDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
-      const widget = await this.widgetService.update(
-        id,
-        updateWidgetDto,
-        req.user.organizationId,
-      );
+      const widget = await this.widgetService.update(id, updateWidgetDto, req.user.organizationId);
       return {
         success: true,
         data: widget,
@@ -167,7 +155,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'WIDGET_UPDATE_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -190,7 +178,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'WIDGET_DELETION_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -202,14 +190,14 @@ export class WidgetController {
   async deploy(
     @Param('id') id: string,
     @Body() deployWidgetDto: DeployWidgetDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const deployment = await this.widgetService.deploy(
         id,
         deployWidgetDto,
         req.user.organizationId,
-        req.user.id,
+        req.user.id
       );
       return {
         success: true,
@@ -223,7 +211,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'WIDGET_DEPLOYMENT_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -233,10 +221,7 @@ export class WidgetController {
   @ApiResponse({ status: 200, description: 'Widget undeployed successfully' })
   async undeploy(@Param('id') id: string, @Request() req: any) {
     try {
-      const result = await this.widgetService.undeploy(
-        id,
-        req.user.organizationId,
-      );
+      const result = await this.widgetService.undeploy(id, req.user.organizationId);
       return {
         success: true,
         data: result,
@@ -249,7 +234,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'WIDGET_UNDEPLOYMENT_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -262,10 +247,7 @@ export class WidgetController {
   })
   async getDeployment(@Param('id') id: string, @Request() req: any) {
     try {
-      const deployment = await this.widgetService.getDeployment(
-        id,
-        req.user.organizationId,
-      );
+      const deployment = await this.widgetService.getDeployment(id, req.user.organizationId);
       return {
         success: true,
         data: deployment,
@@ -278,7 +260,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'DEPLOYMENT_INFO_RETRIEVAL_FAILED',
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.NOT_FOUND
       );
     }
   }
@@ -292,13 +274,13 @@ export class WidgetController {
   async generateEmbedCode(
     @Param('id') id: string,
     @Body() generateEmbedCodeDto: GenerateEmbedCodeDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const embedCode = await this.widgetService.generateEmbedCode(
         id,
         generateEmbedCodeDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -312,7 +294,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'EMBED_CODE_GENERATION_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -323,17 +305,9 @@ export class WidgetController {
     status: 200,
     description: 'Widget test completed successfully',
   })
-  async test(
-    @Param('id') id: string,
-    @Body() testWidgetDto: TestWidgetDto,
-    @Request() req: any,
-  ) {
+  async test(@Param('id') id: string, @Body() testWidgetDto: TestWidgetDto, @Request() req: any) {
     try {
-      const testResult = await this.widgetService.test(
-        id,
-        testWidgetDto,
-        req.user.organizationId,
-      );
+      const testResult = await this.widgetService.test(id, testWidgetDto, req.user.organizationId);
       return {
         success: true,
         data: testResult,
@@ -346,7 +320,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'WIDGET_TEST_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -357,13 +331,13 @@ export class WidgetController {
   async preview(
     @Param('id') id: string,
     @Body() previewWidgetDto: PreviewWidgetDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const preview = await this.widgetService.preview(
         id,
         previewWidgetDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -377,7 +351,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'PREVIEW_GENERATION_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -388,14 +362,14 @@ export class WidgetController {
   async clone(
     @Param('id') id: string,
     @Body() cloneWidgetDto: CloneWidgetDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const clonedWidget = await this.widgetService.clone(
         id,
         cloneWidgetDto,
         req.user.id,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -409,7 +383,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'WIDGET_CLONING_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -421,7 +395,7 @@ export class WidgetController {
     @Param('id') id: string,
     @Query('start') start: string,
     @Query('end') end: string,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const analytics = await this.widgetService.getAnalytics(
@@ -430,7 +404,7 @@ export class WidgetController {
           start: new Date(start),
           end: new Date(end),
         },
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -444,7 +418,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'ANALYTICS_RETRIEVAL_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -458,7 +432,7 @@ export class WidgetController {
     @Query('end') end: string,
     @Query('format') format: 'csv' | 'json' | 'xlsx' = 'csv',
     @Request() req: any,
-    @Res() res: Response,
+    @Res() res: Response
   ) {
     try {
       const exportData = await this.widgetService.exportAnalytics(
@@ -468,14 +442,11 @@ export class WidgetController {
           end: new Date(end),
         },
         format,
-        req.user.organizationId,
+        req.user.organizationId
       );
 
       res.setHeader('Content-Type', exportData.contentType);
-      res.setHeader(
-        'Content-Disposition',
-        `attachment; filename="${exportData.filename}"`,
-      );
+      res.setHeader('Content-Disposition', `attachment; filename="${exportData.filename}"`);
       res.send(exportData.data);
     } catch (error) {
       throw new HttpException(
@@ -484,7 +455,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'ANALYTICS_EXPORT_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -501,7 +472,7 @@ export class WidgetController {
     @Query('sortBy') sortBy: string = 'templateRating',
     @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC',
     @Query('featured') featured?: boolean,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       // Validate pagination parameters
@@ -536,7 +507,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'TEMPLATES_RETRIEVAL_FAILED',
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -563,8 +534,7 @@ export class WidgetController {
       ];
 
       // Get actual counts from database
-      const categoryCounts =
-        await this.widgetService.getTemplateCategoryCounts();
+      const categoryCounts = await this.widgetService.getTemplateCategoryCounts();
 
       categories.forEach((category) => {
         category.count = categoryCounts[category.value] || 0;
@@ -582,7 +552,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'CATEGORIES_RETRIEVAL_FAILED',
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -615,7 +585,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'FEATURED_TEMPLATES_RETRIEVAL_FAILED',
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -638,7 +608,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'TEMPLATE_NOT_FOUND',
         },
-        HttpStatus.NOT_FOUND,
+        HttpStatus.NOT_FOUND
       );
     }
   }
@@ -651,8 +621,9 @@ export class WidgetController {
   })
   async createFromTemplate(
     @Param('templateId') templateId: string,
-    @Body() widgetData: { name: string; sourceId: string; description?: string; configuration?: any },
-    @Request() req: any,
+    @Body()
+    widgetData: { name: string; sourceId: string; description?: string; configuration?: any },
+    @Request() req: any
   ) {
     try {
       const widget = await this.widgetService.createFromTemplate(templateId, {
@@ -672,7 +643,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'TEMPLATE_WIDGET_CREATION_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -686,13 +657,13 @@ export class WidgetController {
   async publishAsTemplate(
     @Param('id') id: string,
     @Body() publishTemplateDto: PublishTemplateDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const template = await this.widgetService.publishAsTemplate(
         id,
         publishTemplateDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -706,7 +677,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'TEMPLATE_PUBLISHING_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -717,14 +688,14 @@ export class WidgetController {
   async rateTemplate(
     @Param('templateId') templateId: string,
     @Body() ratingData: { rating: number; review?: string },
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const result = await this.widgetService.rateTemplate(
         templateId,
         ratingData.rating,
         req.user.id,
-        ratingData.review,
+        ratingData.review
       );
       return {
         success: true,
@@ -738,7 +709,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'TEMPLATE_RATING_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -750,7 +721,7 @@ export class WidgetController {
     @Param('templateId') templateId: string,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const result = await this.widgetService.getTemplateReviews(templateId, {
@@ -770,7 +741,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'REVIEWS_RETRIEVAL_FAILED',
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -786,14 +757,10 @@ export class WidgetController {
       sessionId: string;
       context?: any;
     },
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
-      const result = await this.widgetService.execute(
-        id,
-        executionData,
-        req.user?.id,
-      );
+      const result = await this.widgetService.execute(id, executionData, req.user?.id);
       return {
         success: true,
         data: result,
@@ -806,7 +773,7 @@ export class WidgetController {
           message: error instanceof Error ? error.message : String(error),
           error: 'WIDGET_EXECUTION_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }

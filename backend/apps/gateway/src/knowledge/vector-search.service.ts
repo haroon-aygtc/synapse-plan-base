@@ -53,7 +53,7 @@ export class VectorSearchService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {
     this.openai = new OpenAI({
       apiKey: this.configService.get<string>('OPENAI_API_KEY'),
@@ -63,29 +63,26 @@ export class VectorSearchService {
   async indexDocument(document: VectorDocument): Promise<void> {
     try {
       const chunkIds: string[] = [];
-      
+
       // Store each chunk with a unique ID
       for (const chunk of document.chunks) {
         const chunkId = uuidv4();
         chunkIds.push(chunkId);
-        
+
         this.vectorStore.set(chunkId, {
           ...document,
           chunks: [chunk], // Store individual chunk
         });
       }
-      
+
       // Map document to its chunks
       this.documentIndex.set(document.documentId, chunkIds);
-      
+
       this.logger.log(
-        `Indexed document: ${document.documentId} with ${document.chunks.length} chunks`,
+        `Indexed document: ${document.documentId} with ${document.chunks.length} chunks`
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to index document: ${document.documentId}`,
-        error,
-      );
+      this.logger.error(`Failed to index document: ${document.documentId}`, error);
       throw error;
     }
   }
@@ -98,7 +95,7 @@ export class VectorSearchService {
         this.vectorStore.delete(chunkId);
       }
       this.documentIndex.delete(documentId);
-      
+
       this.logger.log(`Removed document from index: ${documentId}`);
     }
   }
@@ -111,17 +108,17 @@ export class VectorSearchService {
   }> {
     const searchId = uuidv4();
     const startTime = Date.now();
-    
+
     try {
       let results: SearchResult[] = [];
-      
+
       if (options.type === 'semantic' || options.type === 'hybrid') {
         results = await this.semanticSearch(options);
       }
-      
+
       if (options.type === 'keyword' || options.type === 'hybrid') {
         const keywordResults = await this.keywordSearch(options);
-        
+
         if (options.type === 'hybrid') {
           // Merge and re-rank results
           results = this.mergeResults(results, keywordResults);
@@ -129,17 +126,15 @@ export class VectorSearchService {
           results = keywordResults;
         }
       }
-      
+
       // Apply filters
       results = this.applyFilters(results, options.filters);
-      
+
       // Sort by score and limit results
-      results = results
-        .sort((a, b) => b.score - a.score)
-        .slice(0, options.maxResults);
-      
-      const sources = [...new Set(results.map(r => r.source))];
-      
+      results = results.sort((a, b) => b.score - a.score).slice(0, options.maxResults);
+
+      const sources = [...new Set(results.map((r) => r.source))];
+
       // Emit search event
       this.eventEmitter.emit(EventType.KNOWLEDGE_SEARCH_PERFORMED, {
         searchId,
@@ -150,7 +145,7 @@ export class VectorSearchService {
         organizationId: options.filters?.organizationId,
         timestamp: new Date(),
       });
-      
+
       return {
         results,
         sources,
@@ -158,10 +153,7 @@ export class VectorSearchService {
         searchId,
       };
     } catch (error) {
-      this.logger.error(
-        `Search failed for query: "${options.query}"`,
-        error,
-      );
+      this.logger.error(`Search failed for query: "${options.query}"`, error);
       throw error;
     }
   }
@@ -169,14 +161,14 @@ export class VectorSearchService {
   private async semanticSearch(options: SearchOptions): Promise<SearchResult[]> {
     // Generate embedding for the query
     const queryEmbedding = await this.generateQueryEmbedding(options.query);
-    
+
     const results: SearchResult[] = [];
-    
+
     // Calculate similarity with all chunks
     for (const [chunkId, document] of this.vectorStore.entries()) {
       const chunk = document.chunks[0]; // Each entry has one chunk
       const similarity = this.cosineSimilarity(queryEmbedding, chunk.embedding);
-      
+
       if (similarity >= options.threshold) {
         results.push({
           documentId: document.documentId,
@@ -192,32 +184,32 @@ export class VectorSearchService {
         });
       }
     }
-    
+
     return results;
   }
 
   private async keywordSearch(options: SearchOptions): Promise<SearchResult[]> {
     const query = options.query.toLowerCase();
-    const keywords = query.split(/\s+/).filter(word => word.length > 2);
-    
+    const keywords = query.split(/\s+/).filter((word) => word.length > 2);
+
     const results: SearchResult[] = [];
-    
+
     for (const [chunkId, document] of this.vectorStore.entries()) {
       const chunk = document.chunks[0];
       const content = chunk.text.toLowerCase();
-      
+
       let score = 0;
       const highlights: string[] = [];
-      
+
       // Calculate keyword match score
       for (const keyword of keywords) {
         const matches = (content.match(new RegExp(keyword, 'g')) || []).length;
         if (matches > 0) {
-          score += matches / content.length * 1000; // Normalize by content length
+          score += (matches / content.length) * 1000; // Normalize by content length
           highlights.push(keyword);
         }
       }
-      
+
       if (score > 0) {
         results.push({
           documentId: document.documentId,
@@ -234,16 +226,16 @@ export class VectorSearchService {
         });
       }
     }
-    
+
     return results;
   }
 
   private mergeResults(
     semanticResults: SearchResult[],
-    keywordResults: SearchResult[],
+    keywordResults: SearchResult[]
   ): SearchResult[] {
     const merged = new Map<string, SearchResult>();
-    
+
     // Add semantic results with weight
     for (const result of semanticResults) {
       const key = `${result.documentId}:${result.content.substring(0, 50)}`;
@@ -252,19 +244,16 @@ export class VectorSearchService {
         score: result.score * 0.7, // Weight semantic results
       });
     }
-    
+
     // Add or merge keyword results
     for (const result of keywordResults) {
       const key = `${result.documentId}:${result.content.substring(0, 50)}`;
       const existing = merged.get(key);
-      
+
       if (existing) {
         // Combine scores
         existing.score += result.score * 0.3; // Weight keyword results
-        existing.highlights = [
-          ...(existing.highlights || []),
-          ...(result.highlights || []),
-        ];
+        existing.highlights = [...(existing.highlights || []), ...(result.highlights || [])];
       } else {
         merged.set(key, {
           ...result,
@@ -272,46 +261,46 @@ export class VectorSearchService {
         });
       }
     }
-    
+
     return Array.from(merged.values());
   }
 
   private applyFilters(
     results: SearchResult[],
-    filters?: SearchOptions['filters'],
+    filters?: SearchOptions['filters']
   ): SearchResult[] {
     if (!filters) return results;
-    
-    return results.filter(result => {
+
+    return results.filter((result) => {
       // Filter by document types
       if (filters.documentTypes && filters.documentTypes.length > 0) {
         if (!filters.documentTypes.includes(result.metadata.type)) {
           return false;
         }
       }
-      
+
       // Filter by tags
       if (filters.tags && filters.tags.length > 0) {
         const resultTags = result.metadata.tags || [];
-        if (!filters.tags.some(tag => resultTags.includes(tag))) {
+        if (!filters.tags.some((tag) => resultTags.includes(tag))) {
           return false;
         }
       }
-      
+
       // Filter by organization
       if (filters.organizationId) {
         if (result.metadata.organizationId !== filters.organizationId) {
           return false;
         }
       }
-      
+
       // Filter by user
       if (filters.userId) {
         if (result.metadata.userId !== filters.userId) {
           return false;
         }
       }
-      
+
       // Filter by date range
       if (filters.dateRange) {
         const createdAt = new Date(result.metadata.createdAt);
@@ -319,7 +308,7 @@ export class VectorSearchService {
           return false;
         }
       }
-      
+
       return true;
     });
   }
@@ -329,7 +318,7 @@ export class VectorSearchService {
       model: 'text-embedding-3-small',
       input: query,
     });
-    
+
     return response.data[0].embedding;
   }
 
@@ -337,47 +326,47 @@ export class VectorSearchService {
     if (a.length !== b.length) {
       throw new Error('Vectors must have the same length');
     }
-    
+
     let dotProduct = 0;
     let normA = 0;
     let normB = 0;
-    
+
     for (let i = 0; i < a.length; i++) {
       dotProduct += a[i] * b[i];
       normA += a[i] * a[i];
       normB += b[i] * b[i];
     }
-    
+
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   }
 
   async getSimilarDocuments(
     documentId: string,
-    options: { maxResults: number; threshold: number },
+    options: { maxResults: number; threshold: number }
   ): Promise<SearchResult[]> {
     const chunkIds = this.documentIndex.get(documentId);
     if (!chunkIds || chunkIds.length === 0) {
       return [];
     }
-    
+
     // Use the first chunk as reference
     const referenceDocument = this.vectorStore.get(chunkIds[0]);
     if (!referenceDocument) {
       return [];
     }
-    
+
     const referenceEmbedding = referenceDocument.chunks[0].embedding;
     const results: SearchResult[] = [];
-    
+
     for (const [chunkId, document] of this.vectorStore.entries()) {
       // Skip chunks from the same document
       if (document.documentId === documentId) {
         continue;
       }
-      
+
       const chunk = document.chunks[0];
       const similarity = this.cosineSimilarity(referenceEmbedding, chunk.embedding);
-      
+
       if (similarity >= options.threshold) {
         results.push({
           documentId: document.documentId,
@@ -392,10 +381,8 @@ export class VectorSearchService {
         });
       }
     }
-    
-    return results
-      .sort((a, b) => b.score - a.score)
-      .slice(0, options.maxResults);
+
+    return results.sort((a, b) => b.score - a.score).slice(0, options.maxResults);
   }
 
   getIndexStats(): {
@@ -406,7 +393,7 @@ export class VectorSearchService {
     const totalDocuments = this.documentIndex.size;
     const totalChunks = this.vectorStore.size;
     const averageChunksPerDocument = totalDocuments > 0 ? totalChunks / totalDocuments : 0;
-    
+
     return {
       totalDocuments,
       totalChunks,

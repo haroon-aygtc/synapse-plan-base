@@ -91,10 +91,12 @@ export class WebhookDeliveryProvider {
         responseData: this.sanitizeResponseData(response.data),
       };
     } catch (error) {
-      const responseTime = error.response ? Date.now() - (error.config?.metadata?.startTime || Date.now()) : 0;
-      
+      const responseTime = error.response
+        ? Date.now() - (error.config?.metadata?.startTime || Date.now())
+        : 0;
+
       this.logger.error(`Failed to send webhook: ${error.message}`, error.stack);
-      
+
       // Extract useful error information
       const errorInfo = {
         success: false,
@@ -151,28 +153,25 @@ export class WebhookDeliveryProvider {
   private generateSignature(payload: any, url: string): string {
     const secret = this.configService.get<string>('WEBHOOK_SECRET', 'default-webhook-secret');
     const payloadString = JSON.stringify(payload);
-    
-    return crypto
-      .createHmac('sha256', secret)
-      .update(payloadString)
-      .digest('hex');
+
+    return crypto.createHmac('sha256', secret).update(payloadString).digest('hex');
   }
 
   private sanitizeResponseData(data: any): any {
     if (!data) return null;
-    
+
     // Limit response data size to prevent memory issues
     const maxSize = 10000; // 10KB
     const dataString = JSON.stringify(data);
-    
+
     if (dataString.length > maxSize) {
       return {
         truncated: true,
         size: dataString.length,
-        preview: dataString.substring(0, maxSize) + '...',
+        preview: `${dataString.substring(0, maxSize)}...`,
       };
     }
-    
+
     return data;
   }
 
@@ -188,7 +187,7 @@ export class WebhookDeliveryProvider {
         },
       };
 
-      const signature = secret 
+      const signature = secret
         ? crypto.createHmac('sha256', secret).update(JSON.stringify(testPayload)).digest('hex')
         : this.generateSignature(testPayload, url);
 
@@ -211,27 +210,27 @@ export class WebhookDeliveryProvider {
   async sendBatchWebhook(deliveries: NotificationDelivery[]): Promise<any[]> {
     const results = [];
     const concurrencyLimit = this.configService.get<number>('WEBHOOK_CONCURRENCY_LIMIT', 5);
-    
+
     // Process webhooks in batches to avoid overwhelming the target servers
     for (let i = 0; i < deliveries.length; i += concurrencyLimit) {
       const batch = deliveries.slice(i, i + concurrencyLimit);
-      
+
       const batchPromises = batch.map(async (delivery) => {
         try {
           const result = await this.sendWebhook(delivery);
           return { deliveryId: delivery.id, success: true, result };
         } catch (error) {
-          return { 
-            deliveryId: delivery.id, 
-            success: false, 
+          return {
+            deliveryId: delivery.id,
+            success: false,
             error: error.message,
             statusCode: error.statusCode,
           };
         }
       });
-      
+
       const batchResults = await Promise.allSettled(batchPromises);
-      
+
       batchResults.forEach((result) => {
         if (result.status === 'fulfilled') {
           results.push(result.value);
@@ -242,24 +241,25 @@ export class WebhookDeliveryProvider {
           });
         }
       });
-      
+
       // Add delay between batches to be respectful to target servers
       if (i + concurrencyLimit < deliveries.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
-    
+
     return results;
   }
 
   verifyWebhookSignature(payload: string, signature: string, secret?: string): boolean {
     try {
-      const webhookSecret = secret || this.configService.get<string>('WEBHOOK_SECRET', 'default-webhook-secret');
+      const webhookSecret =
+        secret || this.configService.get<string>('WEBHOOK_SECRET', 'default-webhook-secret');
       const expectedSignature = crypto
         .createHmac('sha256', webhookSecret)
         .update(payload)
         .digest('hex');
-      
+
       return crypto.timingSafeEqual(
         Buffer.from(signature, 'hex'),
         Buffer.from(expectedSignature, 'hex')

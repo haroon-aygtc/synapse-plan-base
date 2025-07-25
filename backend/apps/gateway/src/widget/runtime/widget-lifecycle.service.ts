@@ -12,7 +12,15 @@ import { WidgetErrorHandlerService } from './widget-error-handler.service';
 export interface WidgetLifecycleState {
   widgetId: string;
   sessionId: string;
-  phase: 'initializing' | 'loading' | 'ready' | 'executing' | 'paused' | 'error' | 'cleanup' | 'terminated';
+  phase:
+    | 'initializing'
+    | 'loading'
+    | 'ready'
+    | 'executing'
+    | 'paused'
+    | 'error'
+    | 'cleanup'
+    | 'terminated';
   startTime: Date;
   lastTransition: Date;
   metadata: Record<string, any>;
@@ -61,7 +69,7 @@ export class WidgetLifecycleService {
     private lifecycleQueue: Queue,
     private websocketService: WebSocketService,
     private sessionService: WidgetSessionService,
-    private errorHandler: WidgetErrorHandlerService,
+    private errorHandler: WidgetErrorHandlerService
   ) {
     this.initializeLifecycleManager();
   }
@@ -85,7 +93,7 @@ export class WidgetLifecycleService {
   async initializeWidget(
     widgetId: string,
     sessionId: string,
-    metadata: Record<string, any> = {},
+    metadata: Record<string, any> = {}
   ): Promise<WidgetLifecycleState> {
     this.logger.debug(`Initializing widget lifecycle: ${widgetId} in session ${sessionId}`);
 
@@ -139,7 +147,7 @@ export class WidgetLifecycleService {
   async transitionPhase(
     stateKey: string,
     newPhase: WidgetLifecycleState['phase'],
-    metadata?: Record<string, any>,
+    metadata?: Record<string, any>
   ): Promise<void> {
     const state = this.lifecycleStates.get(stateKey);
     if (!state) {
@@ -194,11 +202,7 @@ export class WidgetLifecycleService {
   /**
    * Start widget execution
    */
-  async startExecution(
-    widgetId: string,
-    sessionId: string,
-    executionId: string,
-  ): Promise<void> {
+  async startExecution(widgetId: string, sessionId: string, executionId: string): Promise<void> {
     const stateKey = `${widgetId}_${sessionId}`;
     await this.transitionPhase(stateKey, 'executing', { executionId });
   }
@@ -230,7 +234,7 @@ export class WidgetLifecycleService {
     widgetId: string,
     sessionId: string,
     error: Error,
-    context: Record<string, any> = {},
+    context: Record<string, any> = {}
   ): Promise<void> {
     const stateKey = `${widgetId}_${sessionId}`;
     const state = this.lifecycleStates.get(stateKey);
@@ -259,7 +263,7 @@ export class WidgetLifecycleService {
           widgetId,
           sessionId,
           error,
-          context,
+          context
         );
 
         if (recoveryResult.success) {
@@ -338,8 +342,9 @@ export class WidgetLifecycleService {
    * Get all active widget states
    */
   getActiveStates(): WidgetLifecycleState[] {
-    return Array.from(this.lifecycleStates.values())
-      .filter(state => state.phase !== 'terminated');
+    return Array.from(this.lifecycleStates.values()).filter(
+      (state) => state.phase !== 'terminated'
+    );
   }
 
   /**
@@ -348,7 +353,7 @@ export class WidgetLifecycleService {
   updateResourceUsage(
     widgetId: string,
     sessionId: string,
-    resources: Partial<WidgetResourceUsage>,
+    resources: Partial<WidgetResourceUsage>
   ): void {
     const stateKey = `${widgetId}_${sessionId}`;
     const state = this.lifecycleStates.get(stateKey);
@@ -381,7 +386,7 @@ export class WidgetLifecycleService {
    */
   async getLifecycleStatistics(widgetId?: string): Promise<any> {
     const states = widgetId
-      ? Array.from(this.lifecycleStates.values()).filter(s => s.widgetId === widgetId)
+      ? Array.from(this.lifecycleStates.values()).filter((s) => s.widgetId === widgetId)
       : Array.from(this.lifecycleStates.values());
 
     const phaseDistribution = new Map<string, number>();
@@ -391,7 +396,10 @@ export class WidgetLifecycleService {
 
     for (const state of states) {
       phaseDistribution.set(state.phase, (phaseDistribution.get(state.phase) || 0) + 1);
-      healthDistribution.set(state.healthStatus, (healthDistribution.get(state.healthStatus) || 0) + 1);
+      healthDistribution.set(
+        state.healthStatus,
+        (healthDistribution.get(state.healthStatus) || 0) + 1
+      );
       totalExecutionTime += state.resources.executionTime;
       totalMemoryUsage += state.resources.memoryUsage;
     }
@@ -402,7 +410,7 @@ export class WidgetLifecycleService {
       healthDistribution: Object.fromEntries(healthDistribution),
       averageExecutionTime: states.length > 0 ? totalExecutionTime / states.length : 0,
       averageMemoryUsage: states.length > 0 ? totalMemoryUsage / states.length : 0,
-      activeStates: states.filter(s => s.phase !== 'terminated').length,
+      activeStates: states.filter((s) => s.phase !== 'terminated').length,
     };
   }
 
@@ -411,7 +419,7 @@ export class WidgetLifecycleService {
   private async executeHooks(
     phase: WidgetLifecycleState['phase'],
     action: 'before' | 'after',
-    state: WidgetLifecycleState,
+    state: WidgetLifecycleState
   ): Promise<void> {
     const key = `${phase}_${action}`;
     const hooks = this.lifecycleHooks.get(key) || [];
@@ -428,7 +436,7 @@ export class WidgetLifecycleService {
   private async handlePhaseTransition(
     state: WidgetLifecycleState,
     oldPhase: WidgetLifecycleState['phase'],
-    newPhase: WidgetLifecycleState['phase'],
+    newPhase: WidgetLifecycleState['phase']
   ): Promise<void> {
     switch (newPhase) {
       case 'loading':
@@ -566,7 +574,7 @@ export class WidgetLifecycleService {
       this.websocketService.broadcastToOrganization(
         widget.organizationId,
         'widget:lifecycle',
-        event,
+        event
       );
     }
 

@@ -13,7 +13,7 @@ export class WorkflowService {
     private readonly workflowRepository: Repository<Workflow>,
     @InjectRepository(WorkflowExecution)
     private readonly workflowExecutionRepository: Repository<WorkflowExecution>,
-    private readonly workflowExecutionEngine: WorkflowExecutionEngine,
+    private readonly workflowExecutionEngine: WorkflowExecutionEngine
   ) {}
 
   async create(createWorkflowDto: CreateWorkflowDto): Promise<Workflow> {
@@ -28,20 +28,14 @@ export class WorkflowService {
     return this.workflowRepository.save(workflow);
   }
 
-  async findAll(options: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    isActive?: boolean;
-  }) {
+  async findAll(options: { page?: number; limit?: number; search?: string; isActive?: boolean }) {
     const { page = 1, limit = 20, search, isActive } = options;
     const queryBuilder = this.workflowRepository.createQueryBuilder('workflow');
 
     if (search) {
-      queryBuilder.andWhere(
-        '(workflow.name ILIKE :search OR workflow.description ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      queryBuilder.andWhere('(workflow.name ILIKE :search OR workflow.description ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     if (isActive !== undefined) {
@@ -74,10 +68,7 @@ export class WorkflowService {
     return workflow;
   }
 
-  async update(
-    id: string,
-    updateWorkflowDto: UpdateWorkflowDto,
-  ): Promise<Workflow> {
+  async update(id: string, updateWorkflowDto: UpdateWorkflowDto): Promise<Workflow> {
     const workflow = await this.findOne(id);
 
     Object.assign(workflow, {
@@ -108,9 +99,7 @@ export class WorkflowService {
       // Validate workflow definition
       const validation = await this.validateDefinition(workflow.definition);
       if (!validation.isValid) {
-        throw new Error(
-          `Workflow validation failed: ${validation.errors.join(', ')}`,
-        );
+        throw new Error(`Workflow validation failed: ${validation.errors.join(', ')}`);
       }
 
       // Create test execution context
@@ -181,7 +170,7 @@ export class WorkflowService {
       page?: number;
       limit?: number;
       status?: string;
-    },
+    }
   ) {
     const { page = 1, limit = 20, status } = options;
     const queryBuilder = this.workflowExecutionRepository
@@ -215,7 +204,7 @@ export class WorkflowService {
     options: {
       startDate?: Date;
       endDate?: Date;
-    },
+    }
   ) {
     const workflow = await this.findOne(id);
     const { startDate, endDate } = options;
@@ -235,33 +224,24 @@ export class WorkflowService {
     const executions = await queryBuilder.getMany();
     const totalExecutions = executions.length;
     const successfulExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.COMPLETED,
+      (e) => e.status === ExecutionStatus.COMPLETED
     ).length;
-    const failedExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.FAILED,
-    ).length;
+    const failedExecutions = executions.filter((e) => e.status === ExecutionStatus.FAILED).length;
 
-    const completedExecutions = executions.filter(
-      (e) => e.completedAt && e.createdAt,
-    );
+    const completedExecutions = executions.filter((e) => e.completedAt && e.createdAt);
     const averageExecutionTime =
       completedExecutions.length > 0
         ? completedExecutions.reduce(
-            (sum, e) =>
-              sum + (e.completedAt!.getTime() - e.createdAt.getTime()),
-            0,
+            (sum, e) => sum + (e.completedAt!.getTime() - e.createdAt.getTime()),
+            0
           ) / completedExecutions.length
         : 0;
 
     return {
       totalExecutions,
-      successRate:
-        totalExecutions > 0
-          ? (successfulExecutions / totalExecutions) * 100
-          : 0,
+      successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0,
       averageExecutionTime,
-      errorRate:
-        totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0,
+      errorRate: totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0,
       mostCommonErrors: [],
       executionTrends: [],
     };
@@ -286,9 +266,7 @@ export class WorkflowService {
 
     // Check for start and end nodes
     if (definition.nodes) {
-      const hasStart = definition.nodes.some(
-        (node: any) => node.type === 'start',
-      );
+      const hasStart = definition.nodes.some((node: any) => node.type === 'start');
       const hasEnd = definition.nodes.some((node: any) => node.type === 'end');
 
       if (!hasStart) {
@@ -340,18 +318,11 @@ export class WorkflowService {
     };
   }
 
-  async import(importData: {
-    name: string;
-    description: string;
-    definition: any;
-    metadata?: any;
-  }) {
+  async import(importData: { name: string; description: string; definition: any; metadata?: any }) {
     // Validate imported definition
     const validation = await this.validateDefinition(importData.definition);
     if (!validation.isValid) {
-      throw new Error(
-        `Invalid workflow definition: ${validation.errors.join(', ')}`,
-      );
+      throw new Error(`Invalid workflow definition: ${validation.errors.join(', ')}`);
     }
 
     const workflow = this.workflowRepository.create({
@@ -421,11 +392,7 @@ export class WorkflowService {
     }
   }
 
-  private async executeAgentStep(
-    agentId: string,
-    input: any,
-    testData: any,
-  ): Promise<any> {
+  private async executeAgentStep(agentId: string, input: any, testData: any): Promise<any> {
     // This would execute a real agent in production
     // For now, return enhanced mock response
     return {
@@ -444,11 +411,7 @@ export class WorkflowService {
     };
   }
 
-  private async executeToolStep(
-    toolId: string,
-    input: any,
-    testData: any,
-  ): Promise<any> {
+  private async executeToolStep(toolId: string, input: any, testData: any): Promise<any> {
     // This would execute a real tool in production
     // For now, return enhanced mock response
     return {
@@ -476,7 +439,7 @@ export class WorkflowService {
       timeout?: number;
     },
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<any> {
     // This is a wrapper around the workflow execution engine
     return this.workflowExecutionEngine.executeWorkflow(
@@ -490,7 +453,7 @@ export class WorkflowService {
         executionId: undefined,
       },
       userId,
-      organizationId,
+      organizationId
     );
   }
 }

@@ -97,12 +97,12 @@ export class AnalyticsService {
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
     @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    private readonly userRepository: Repository<User>
   ) {}
 
   async getDashboardStats(
     organizationId: string,
-    period: string = 'today',
+    period: string = 'today'
   ): Promise<DashboardStats> {
     const { startDate, endDate } = this.getPeriodDates(period);
     const previousPeriod = this.getPreviousPeriodDates(period);
@@ -154,10 +154,7 @@ export class AnalyticsService {
     const workflowExecutions = await this.workflowExecutionRepository
       .createQueryBuilder('execution')
       .select('COUNT(*)', 'total')
-      .addSelect(
-        'COUNT(CASE WHEN execution.status = :completedStatus THEN 1 END)',
-        'completed',
-      )
+      .addSelect('COUNT(CASE WHEN execution.status = :completedStatus THEN 1 END)', 'completed')
       .where('execution.organizationId = :organizationId', { organizationId })
       .andWhere('execution.createdAt BETWEEN :startDate AND :endDate', {
         startDate,
@@ -200,22 +197,22 @@ export class AnalyticsService {
     // Calculate trends
     const activeAgentsTrend = this.calculateTrend(
       parseInt(activeAgentsCount.count) || 0,
-      parseInt(previousActiveAgentsCount.count) || 0,
+      parseInt(previousActiveAgentsCount.count) || 0
     );
 
     const toolExecutionsTrend = this.calculateTrend(
       parseInt(toolExecutions.count) || 0,
-      parseInt(previousToolExecutions.count) || 0,
+      parseInt(previousToolExecutions.count) || 0
     );
 
     const workflowTrend = this.calculateTrend(
       parseInt(workflowExecutions.total) || 0,
-      parseInt(previousWorkflowExecutions.total) || 0,
+      parseInt(previousWorkflowExecutions.total) || 0
     );
 
     const knowledgeTrend = this.calculateTrend(
       parseInt(knowledgeStats.searchCount) || 0,
-      parseInt(previousKnowledgeStats.searchCount) || 0,
+      parseInt(previousKnowledgeStats.searchCount) || 0
     );
 
     return {
@@ -232,9 +229,7 @@ export class AnalyticsService {
         count: parseInt(workflowExecutions.completed) || 0,
         successRate:
           parseInt(workflowExecutions.total) > 0
-            ? (parseInt(workflowExecutions.completed) /
-                parseInt(workflowExecutions.total)) *
-              100
+            ? (parseInt(workflowExecutions.completed) / parseInt(workflowExecutions.total)) * 100
             : 0,
         trend: workflowTrend,
       },
@@ -249,7 +244,7 @@ export class AnalyticsService {
   async getActivities(
     organizationId: string,
     period: string = 'today',
-    limit: number = 10,
+    limit: number = 10
   ): Promise<ActivityItem[]> {
     const { startDate, endDate } = this.getPeriodDates(period);
 
@@ -280,35 +275,19 @@ export class AnalyticsService {
   async getAnalytics(
     organizationId: string,
     startDate: Date,
-    endDate: Date,
+    endDate: Date
   ): Promise<AnalyticsData> {
     // Get execution trends
-    const executionTrends = await this.getExecutionTrends(
-      organizationId,
-      startDate,
-      endDate,
-    );
+    const executionTrends = await this.getExecutionTrends(organizationId, startDate, endDate);
 
     // Get performance metrics
-    const performanceMetrics = await this.getPerformanceMetrics(
-      organizationId,
-      startDate,
-      endDate,
-    );
+    const performanceMetrics = await this.getPerformanceMetrics(organizationId, startDate, endDate);
 
     // Get cost analysis
-    const costAnalysis = await this.getCostAnalysis(
-      organizationId,
-      startDate,
-      endDate,
-    );
+    const costAnalysis = await this.getCostAnalysis(organizationId, startDate, endDate);
 
     // Get user engagement
-    const userEngagement = await this.getUserEngagement(
-      organizationId,
-      startDate,
-      endDate,
-    );
+    const userEngagement = await this.getUserEngagement(organizationId, startDate, endDate);
 
     return {
       executionTrends,
@@ -318,11 +297,7 @@ export class AnalyticsService {
     };
   }
 
-  private async getExecutionTrends(
-    organizationId: string,
-    startDate: Date,
-    endDate: Date,
-  ) {
+  private async getExecutionTrends(organizationId: string, startDate: Date, endDate: Date) {
     // This would typically involve more complex queries to get daily/hourly trends
     // For now, returning sample data structure
     return [
@@ -335,18 +310,11 @@ export class AnalyticsService {
     ];
   }
 
-  private async getPerformanceMetrics(
-    organizationId: string,
-    startDate: Date,
-    endDate: Date,
-  ) {
+  private async getPerformanceMetrics(organizationId: string, startDate: Date, endDate: Date) {
     const agentMetrics = await this.agentExecutionRepository
       .createQueryBuilder('execution')
       .select('AVG(execution.executionTimeMs)', 'avgTime')
-      .addSelect(
-        'COUNT(CASE WHEN execution.status = :completed THEN 1 END)',
-        'successful',
-      )
+      .addSelect('COUNT(CASE WHEN execution.status = :completed THEN 1 END)', 'successful')
       .addSelect('COUNT(*)', 'total')
       .where('execution.organizationId = :organizationId', { organizationId })
       .andWhere('execution.createdAt BETWEEN :startDate AND :endDate', {
@@ -367,11 +335,7 @@ export class AnalyticsService {
     };
   }
 
-  private async getCostAnalysis(
-    organizationId: string,
-    startDate: Date,
-    endDate: Date,
-  ) {
+  private async getCostAnalysis(organizationId: string, startDate: Date, endDate: Date) {
     const agentCosts = await this.agentExecutionRepository
       .createQueryBuilder('execution')
       .select('SUM(execution.cost)', 'total')
@@ -414,11 +378,7 @@ export class AnalyticsService {
     };
   }
 
-  private async getUserEngagement(
-    organizationId: string,
-    startDate: Date,
-    endDate: Date,
-  ) {
+  private async getUserEngagement(organizationId: string, startDate: Date, endDate: Date) {
     const activeUsers = await this.eventLogRepository
       .createQueryBuilder('event')
       .select('COUNT(DISTINCT event.userId)', 'count')
@@ -452,11 +412,7 @@ export class AnalyticsService {
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         break;
       case 'yesterday':
-        startDate = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate() - 1,
-        );
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
         endDate.setDate(endDate.getDate() - 1);
         break;
       case 'week':
@@ -487,7 +443,7 @@ export class AnalyticsService {
 
   private calculateTrend(
     current: number,
-    previous: number,
+    previous: number
   ): { value: number; isPositive: boolean } | undefined {
     if (previous === 0) return undefined;
 
@@ -498,9 +454,7 @@ export class AnalyticsService {
     };
   }
 
-  private mapEventTypeToActivityType(
-    eventType: string,
-  ): 'agent' | 'workflow' | 'tool' | 'system' {
+  private mapEventTypeToActivityType(eventType: string): 'agent' | 'workflow' | 'tool' | 'system' {
     if (eventType.includes('agent')) return 'agent';
     if (eventType.includes('workflow')) return 'workflow';
     if (eventType.includes('tool')) return 'tool';
@@ -515,9 +469,7 @@ export class AnalyticsService {
     return eventType.replace('_', ' ');
   }
 
-  private mapEventStatusToActivityStatus(
-    status: string,
-  ): 'completed' | 'in_progress' | 'failed' {
+  private mapEventStatusToActivityStatus(status: string): 'completed' | 'in_progress' | 'failed' {
     switch (status) {
       case ExecutionStatus.COMPLETED:
         return 'completed';

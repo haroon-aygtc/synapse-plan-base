@@ -123,7 +123,7 @@ Please provide a helpful response.',
       ON CONFLICT DO NOTHING;
     `);
 
-                await queryRunner.query(`
+    await queryRunner.query(`
                   INSERT INTO "prompt_templates" (
                     "id", "organizationId", "userId", "name", "description",
                     "template", "variables", "category", "isActive", "isPublic",
@@ -462,13 +462,25 @@ Present your findings in a clear, structured format with actionable insights.',
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Clean up seed data
-    await queryRunner.query(`DELETE FROM "notifications" WHERE "title" = 'Welcome to the Platform'`);
-    await queryRunner.query(`DELETE FROM "testing_sandboxes" WHERE "name" = 'Default Testing Environment'`);
+    await queryRunner.query(
+      `DELETE FROM "notifications" WHERE "title" = 'Welcome to the Platform'`
+    );
+    await queryRunner.query(
+      `DELETE FROM "testing_sandboxes" WHERE "name" = 'Default Testing Environment'`
+    );
     await queryRunner.query(`DELETE FROM "workflows" WHERE "name" = 'Customer Inquiry Processing'`);
-    await queryRunner.query(`DELETE FROM "agents" WHERE "name" IN ('Research Assistant', 'Math Tutor')`);
-    await queryRunner.query(`DELETE FROM "tools" WHERE "name" IN ('Web Search', 'Calculator', 'Email Sender')`);
-    await queryRunner.query(`DELETE FROM "prompt_templates" WHERE "name" IN ('Customer Support Assistant', 'Code Review Assistant', 'Data Analysis Assistant')`);
-    await queryRunner.query(`DELETE FROM "ai_providers" WHERE "name" IN ('OpenAI GPT-4', 'Anthropic Claude')`);
+    await queryRunner.query(
+      `DELETE FROM "agents" WHERE "name" IN ('Research Assistant', 'Math Tutor')`
+    );
+    await queryRunner.query(
+      `DELETE FROM "tools" WHERE "name" IN ('Web Search', 'Calculator', 'Email Sender')`
+    );
+    await queryRunner.query(
+      `DELETE FROM "prompt_templates" WHERE "name" IN ('Customer Support Assistant', 'Code Review Assistant', 'Data Analysis Assistant')`
+    );
+    await queryRunner.query(
+      `DELETE FROM "ai_providers" WHERE "name" IN ('OpenAI GPT-4', 'Anthropic Claude')`
+    );
     await queryRunner.query(`DELETE FROM "users" WHERE "email" = 'admin@system.local'`);
     await queryRunner.query(`DELETE FROM "organizations" WHERE "slug" = 'default-org'`);
   }

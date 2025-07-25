@@ -1,16 +1,6 @@
-import {
-  IsOptional,
-  IsDateString,
-  IsString,
-  IsEnum,
-  IsUUID,
-} from 'class-validator';
+import { IsOptional, IsDateString, IsString, IsEnum, IsUUID } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  HITLRequestType,
-  HITLRequestStatus,
-  HITLRequestPriority,
-} from '@shared/enums';
+import { HITLRequestType, HITLRequestStatus, HITLRequestPriority } from '@shared/enums';
 
 export class HITLAnalyticsQueryDto {
   @ApiPropertyOptional()

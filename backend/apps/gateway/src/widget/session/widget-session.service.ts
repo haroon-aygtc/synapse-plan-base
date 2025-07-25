@@ -81,18 +81,18 @@ export class WidgetSessionService {
     @InjectQueue('widget-session')
     private sessionQueue: Queue,
     private websocketService: WebSocketService,
-    private sessionService: SessionService,
+    private sessionService: SessionService
   ) {
     this.initializeSessionManager();
   }
 
   private initializeSessionManager(): void {
     this.logger.log('Initializing Widget Session Manager...');
-    
+
     // Set up cleanup intervals
     setInterval(() => this.cleanupExpiredSessions(), 60000); // Every minute
     setInterval(() => this.persistActiveSessions(), 300000); // Every 5 minutes
-    
+
     this.logger.log('Widget Session Manager initialized successfully');
   }
 
@@ -102,7 +102,7 @@ export class WidgetSessionService {
   async createSession(
     widgetId: string,
     context: WidgetSessionContext,
-    userId?: string,
+    userId?: string
   ): Promise<WidgetSessionState> {
     this.logger.debug(`Creating session for widget ${widgetId}`);
 
@@ -118,8 +118,8 @@ export class WidgetSessionService {
     const baseSession = await this.sessionService.createSession({
       userId: userId || '',
       organizationId: widget.organizationId,
-      metadata: { 
-        widgetId, 
+      metadata: {
+        widgetId,
         origin: context.origin,
         deviceType: context.deviceType,
       },
@@ -152,15 +152,11 @@ export class WidgetSessionService {
     this.setupSessionTimeout(baseSession.id);
 
     // Emit session created event
-    this.websocketService.broadcastToOrganization(
-      widget.organizationId,
-      'widget:session:created',
-      {
-        sessionId: baseSession.id,
-        widgetId,
-        context,
-      },
-    );
+    this.websocketService.broadcastToOrganization(widget.organizationId, 'widget:session:created', {
+      sessionId: baseSession.id,
+      widgetId,
+      context,
+    });
 
     this.logger.debug(`Session created: ${baseSession.id}`);
     return sessionState;
@@ -202,7 +198,7 @@ export class WidgetSessionService {
     }
 
     session.lastActivity = new Date();
-    
+
     if (metadata) {
       session.metadata = { ...session.metadata, ...metadata };
     }
@@ -211,14 +207,10 @@ export class WidgetSessionService {
     this.setupSessionTimeout(sessionId);
 
     // Emit activity update
-    this.websocketService.broadcastToUser(
-      session.userId || '',
-      'widget:session:activity',
-      {
-        sessionId,
-        lastActivity: session.lastActivity,
-      }
-    );
+    this.websocketService.broadcastToUser(session.userId || '', 'widget:session:activity', {
+      sessionId,
+      lastActivity: session.lastActivity,
+    });
   }
 
   /**
@@ -226,7 +218,7 @@ export class WidgetSessionService {
    */
   async addMessage(
     sessionId: string,
-    message: Omit<WidgetSessionMessage, 'id' | 'timestamp'>,
+    message: Omit<WidgetSessionMessage, 'id' | 'timestamp'>
   ): Promise<WidgetSessionMessage> {
     const session = this.activeSessions.get(sessionId);
     if (!session) {
@@ -260,10 +252,7 @@ export class WidgetSessionService {
   /**
    * Update session variables
    */
-  async updateVariables(
-    sessionId: string,
-    variables: Record<string, any>,
-  ): Promise<void> {
+  async updateVariables(sessionId: string, variables: Record<string, any>): Promise<void> {
     const session = this.activeSessions.get(sessionId);
     if (!session) {
       throw new Error('Session not found');
@@ -273,14 +262,10 @@ export class WidgetSessionService {
     session.lastActivity = new Date();
 
     // Emit variables updated event
-    this.websocketService.broadcastToUser(
-      session.userId || '',
-      'widget:session:variables',
-      {
-        sessionId,
-        variables: session.variables,
-      }
-    );
+    this.websocketService.broadcastToUser(session.userId || '', 'widget:session:variables', {
+      sessionId,
+      variables: session.variables,
+    });
   }
 
   /**
@@ -316,12 +301,14 @@ export class WidgetSessionService {
     });
 
     const totalExecutions = executions.length;
-    const errorCount = executions.filter(e => e.status === 'failed').length;
-    const completedExecutions = executions.filter(e => e.status === 'completed');
-    
-    const averageResponseTime = completedExecutions.length > 0
-      ? completedExecutions.reduce((sum, e) => sum + e.executionTimeMs, 0) / completedExecutions.length
-      : 0;
+    const errorCount = executions.filter((e) => e.status === 'failed').length;
+    const completedExecutions = executions.filter((e) => e.status === 'completed');
+
+    const averageResponseTime =
+      completedExecutions.length > 0
+        ? completedExecutions.reduce((sum, e) => sum + e.executionTimeMs, 0) /
+          completedExecutions.length
+        : 0;
 
     const sessionDuration = Date.now() - session.createdAt.getTime();
 
@@ -363,15 +350,11 @@ export class WidgetSessionService {
     this.activeSessions.delete(sessionId);
 
     // Emit session ended event
-    this.websocketService.broadcastToUser(
-      session.userId || '',
-      'widget:session:ended',
-      {
-        sessionId,
-        reason,
-        endedAt: new Date(),
-      }
-    );
+    this.websocketService.broadcastToUser(session.userId || '', 'widget:session:ended', {
+      sessionId,
+      reason,
+      endedAt: new Date(),
+    });
 
     this.logger.debug(`Session ended: ${sessionId}`);
   }
@@ -380,8 +363,9 @@ export class WidgetSessionService {
    * Get all active sessions for a widget
    */
   getActiveSessionsForWidget(widgetId: string): WidgetSessionState[] {
-    return Array.from(this.activeSessions.values())
-      .filter(session => session.widgetId === widgetId && session.status === 'active');
+    return Array.from(this.activeSessions.values()).filter(
+      (session) => session.widgetId === widgetId && session.status === 'active'
+    );
   }
 
   /**
@@ -389,13 +373,13 @@ export class WidgetSessionService {
    */
   getSessionCountByWidget(): Map<string, number> {
     const counts = new Map<string, number>();
-    
+
     for (const session of this.activeSessions.values()) {
       if (session.status === 'active') {
         counts.set(session.widgetId, (counts.get(session.widgetId) || 0) + 1);
       }
     }
-    
+
     return counts;
   }
 
@@ -414,7 +398,7 @@ export class WidgetSessionService {
     }
 
     const timeoutMs = session.expiresAt.getTime() - Date.now();
-    
+
     if (timeoutMs > 0) {
       const timeout = setTimeout(() => {
         this.handleSessionTimeout(sessionId);

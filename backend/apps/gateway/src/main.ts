@@ -9,15 +9,8 @@ import * as cookieParser from 'cookie-parser';
 import * as csurf from 'csurf';
 import { GatewayModule } from './gateway.module';
 import { AllExceptionsFilter } from '@shared/filters';
-import {
-  ResponseInterceptor,
-  MonitoringInterceptor,
-} from '@shared/interceptors';
-import {
-  CustomLoggerService,
-  initializeDatadog,
-  datadogMiddleware,
-} from '@shared/index';
+import { ResponseInterceptor, MonitoringInterceptor } from '@shared/interceptors';
+import { CustomLoggerService, initializeDatadog, datadogMiddleware } from '@shared/index';
 
 async function bootstrap() {
   // Initialize DataDog before creating the app
@@ -47,7 +40,7 @@ async function bootstrap() {
         },
       },
       crossOriginEmbedderPolicy: false,
-    }),
+    })
   );
   app.use(compression());
   app.use(cookieParser());
@@ -76,7 +69,7 @@ async function bootstrap() {
             customLogger.log(message.trim(), 'HTTP');
           },
         },
-      }),
+      })
     );
   }
 
@@ -98,17 +91,14 @@ async function bootstrap() {
       transformOptions: {
         enableImplicitConversion: true,
       },
-    }),
+    })
   );
 
   // Global filters
   app.useGlobalFilters(new AllExceptionsFilter());
 
   // Global interceptors
-  app.useGlobalInterceptors(
-    new ResponseInterceptor(),
-    app.get(MonitoringInterceptor),
-  );
+  app.useGlobalInterceptors(new ResponseInterceptor(), app.get(MonitoringInterceptor));
 
   // Swagger documentation
   if (configService.get('NODE_ENV') !== 'production') {
@@ -128,21 +118,14 @@ async function bootstrap() {
   // Log startup information
   const serviceName = configService.get('SERVICE_NAME', 'synapseai-gateway');
   const environment = configService.get('NODE_ENV', 'development');
-  const datadogEnabled =
-    configService.get('DATADOG_ENABLED', 'false') === 'true';
+  const datadogEnabled = configService.get('DATADOG_ENABLED', 'false') === 'true';
 
-  customLogger.log(
-    `🚀 ${serviceName} is running on: http://localhost:${port}`,
-    'Bootstrap',
-  );
-  customLogger.log(
-    `📚 Swagger docs available at: http://localhost:${port}/api/docs`,
-    'Bootstrap',
-  );
+  customLogger.log(`🚀 ${serviceName} is running on: http://localhost:${port}`, 'Bootstrap');
+  customLogger.log(`📚 Swagger docs available at: http://localhost:${port}/api/docs`, 'Bootstrap');
   customLogger.log(`🌍 Environment: ${environment}`, 'Bootstrap');
   customLogger.log(
     `📊 DataDog monitoring: ${datadogEnabled ? 'enabled' : 'disabled'}`,
-    'Bootstrap',
+    'Bootstrap'
   );
 
   // Log system information

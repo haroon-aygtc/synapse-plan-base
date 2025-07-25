@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '@shared/interfaces';
 
@@ -223,10 +218,10 @@ export class PermissionsGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
-      'permissions',
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredPermissions = this.reflector.getAllAndOverride<string[]>('permissions', [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (!requiredPermissions) {
       return true;
@@ -239,27 +234,21 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    const userPermissions = this.getUserPermissions(
-      user.role,
-      user.permissions,
-    );
+    const userPermissions = this.getUserPermissions(user.role, user.permissions);
     const hasPermission = requiredPermissions.every((permission) =>
-      userPermissions.includes(permission),
+      userPermissions.includes(permission)
     );
 
     if (!hasPermission) {
       throw new ForbiddenException(
-        `Access denied. Required permissions: ${requiredPermissions.join(', ')}`,
+        `Access denied. Required permissions: ${requiredPermissions.join(', ')}`
       );
     }
 
     return true;
   }
 
-  private getUserPermissions(
-    role: UserRole,
-    customPermissions?: string[],
-  ): string[] {
+  private getUserPermissions(role: UserRole, customPermissions?: string[]): string[] {
     const rolePermissions = {
       [UserRole.VIEWER]: [
         // Agent permissions

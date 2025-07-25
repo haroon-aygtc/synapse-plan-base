@@ -5,7 +5,7 @@ import { WebSocketService } from './websocket.service';
 WebSocketService.prototype.emitToOrganization = function (
   organizationId: string,
   event: string,
-  payload: any,
+  payload: any
 ): void {
   this.broadcastToOrganization(organizationId, event, payload);
 };

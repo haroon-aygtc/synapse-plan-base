@@ -1,11 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  OneToMany,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Organization } from './organization.entity';
@@ -134,10 +127,7 @@ export class NotificationTemplate extends BaseEntity {
     return this.interpolateTemplate(this.htmlBody, variables);
   }
 
-  private interpolateTemplate(
-    template: string,
-    variables: Record<string, any>,
-  ): string {
+  private interpolateTemplate(template: string, variables: Record<string, any>): string {
     return template.replace(/\{\{\s*([^}]+)\s*\}\}/g, (match, key) => {
       const value = this.getNestedValue(variables, key.trim());
       return value !== undefined ? String(value) : match;

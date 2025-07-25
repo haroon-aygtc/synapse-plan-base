@@ -3,11 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, In } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import {
-  Notification,
-  NotificationDelivery,
-  NotificationPreference,
-} from '@database/entities';
+import { Notification, NotificationDelivery, NotificationPreference } from '@database/entities';
 import {
   NotificationType,
   ExecutionStatus,
@@ -35,7 +31,7 @@ export class NotificationSchedulerService implements OnModuleInit {
     private readonly preferenceRepository: Repository<NotificationPreference>,
     private readonly deliveryService: NotificationDeliveryService,
     private readonly webSocketService: WebSocketService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   onModuleInit() {
@@ -61,18 +57,13 @@ export class NotificationSchedulerService implements OnModuleInit {
         return;
       }
 
-      this.logger.debug(
-        `Processing ${scheduledNotifications.length} scheduled notifications`,
-      );
+      this.logger.debug(`Processing ${scheduledNotifications.length} scheduled notifications`);
 
       for (const notification of scheduledNotifications) {
         await this.processNotification(notification);
       }
     } catch (error) {
-      this.logger.error(
-        `Error processing scheduled notifications: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error processing scheduled notifications: ${error.message}`, error.stack);
     }
   }
 
@@ -93,25 +84,20 @@ export class NotificationSchedulerService implements OnModuleInit {
         return;
       }
 
-      this.logger.debug(
-        `Retrying ${failedDeliveries.length} failed deliveries`,
-      );
+      this.logger.debug(`Retrying ${failedDeliveries.length} failed deliveries`);
 
       for (const delivery of failedDeliveries) {
         if (delivery.canRetry()) {
           await this.retryDelivery(delivery);
         } else {
           this.logger.warn(
-            `Delivery ${delivery.id} exceeded max retries, marking as permanently failed`,
+            `Delivery ${delivery.id} exceeded max retries, marking as permanently failed`
           );
           await this.markDeliveryAsPermanentlyFailed(delivery);
         }
       }
     } catch (error) {
-      this.logger.error(
-        `Error retrying failed deliveries: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error retrying failed deliveries: ${error.message}`, error.stack);
     }
   }
 
@@ -127,26 +113,18 @@ export class NotificationSchedulerService implements OnModuleInit {
         status: In([ExecutionStatus.COMPLETED, ExecutionStatus.FAILED]),
       });
 
-      this.logger.log(
-        `Cleaned up ${result.affected} old notifications older than 30 days`,
-      );
+      this.logger.log(`Cleaned up ${result.affected} old notifications older than 30 days`);
     } catch (error) {
-      this.logger.error(
-        `Error cleaning up old notifications: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error cleaning up old notifications: ${error.message}`, error.stack);
     }
   }
 
-  async scheduleNotification(
-    notification: Notification,
-    scheduledFor?: Date,
-  ): Promise<void> {
+  async scheduleNotification(notification: Notification, scheduledFor?: Date): Promise<void> {
     if (scheduledFor) {
       notification.scheduledFor = scheduledFor;
       await this.notificationRepository.save(notification);
       this.logger.debug(
-        `Notification ${notification.id} scheduled for ${scheduledFor.toISOString()}`,
+        `Notification ${notification.id} scheduled for ${scheduledFor.toISOString()}`
       );
     } else {
       await this.processNotification(notification);
@@ -166,9 +144,7 @@ export class NotificationSchedulerService implements OnModuleInit {
       });
 
       if (preferences.length === 0) {
-        this.logger.debug(
-          `No enabled preferences found for notification ${notification.id}`,
-        );
+        this.logger.debug(`No enabled preferences found for notification ${notification.id}`);
         notification.status = ExecutionStatus.COMPLETED;
         await this.notificationRepository.save(notification);
         return;
@@ -181,13 +157,11 @@ export class NotificationSchedulerService implements OnModuleInit {
           sourceModule: notification.sourceModule,
           title: notification.title,
           message: notification.message,
-        }),
+        })
       );
 
       if (validPreferences.length === 0) {
-        this.logger.debug(
-          `Notification ${notification.id} filtered out by user preferences`,
-        );
+        this.logger.debug(`Notification ${notification.id} filtered out by user preferences`);
         notification.status = ExecutionStatus.COMPLETED;
         await this.notificationRepository.save(notification);
         return;
@@ -208,7 +182,7 @@ export class NotificationSchedulerService implements OnModuleInit {
     } catch (error) {
       this.logger.error(
         `Error processing notification ${notification.id}: ${error.message}`,
-        error.stack,
+        error.stack
       );
       notification.status = ExecutionStatus.FAILED;
       notification.errorMessage = error.message;
@@ -218,13 +192,11 @@ export class NotificationSchedulerService implements OnModuleInit {
 
   private async processNotificationForPreference(
     notification: Notification,
-    preference: NotificationPreference,
+    preference: NotificationPreference
   ): Promise<void> {
     // Check quiet hours
     if (preference.isInQuietHours()) {
-      this.logger.debug(
-        `Notification ${notification.id} delayed due to quiet hours`,
-      );
+      this.logger.debug(`Notification ${notification.id} delayed due to quiet hours`);
       await this.scheduleAfterQuietHours(notification, preference);
       return;
     }
@@ -241,10 +213,10 @@ export class NotificationSchedulerService implements OnModuleInit {
 
   private async addToBatch(
     notification: Notification,
-    preference: NotificationPreference,
+    preference: NotificationPreference
   ): Promise<void> {
     const batchKey = `${preference.userId}-${preference.type}-${preference.organizationId}`;
-    
+
     if (!this.batchingQueues.has(batchKey)) {
       this.batchingQueues.set(batchKey, []);
     }
@@ -263,16 +235,13 @@ export class NotificationSchedulerService implements OnModuleInit {
     } else {
       const timer = setTimeout(
         () => this.sendBatch(batchKey, preference),
-        preference.getBatchWindow() * 60 * 1000, // Convert minutes to milliseconds
+        preference.getBatchWindow() * 60 * 1000 // Convert minutes to milliseconds
       );
       this.batchingTimers.set(batchKey, timer);
     }
   }
 
-  private async sendBatch(
-    batchKey: string,
-    preference: NotificationPreference,
-  ): Promise<void> {
+  private async sendBatch(batchKey: string, preference: NotificationPreference): Promise<void> {
     const queue = this.batchingQueues.get(batchKey);
     if (!queue || queue.length === 0) {
       return;
@@ -292,14 +261,9 @@ export class NotificationSchedulerService implements OnModuleInit {
         await this.notificationRepository.save(notification);
       }
 
-      this.logger.debug(
-        `Sent batch of ${queue.length} notifications for ${batchKey}`,
-      );
+      this.logger.debug(`Sent batch of ${queue.length} notifications for ${batchKey}`);
     } catch (error) {
-      this.logger.error(
-        `Error sending batch for ${batchKey}: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error sending batch for ${batchKey}: ${error.message}`, error.stack);
 
       // Mark notifications as failed
       for (const notification of queue) {
@@ -318,19 +282,17 @@ export class NotificationSchedulerService implements OnModuleInit {
 
   private async sendNotification(
     notification: Notification,
-    preference: NotificationPreference,
+    preference: NotificationPreference
   ): Promise<void> {
     try {
       // Process the notification
       await this.deliveryService.processNotification(notification);
 
-      this.logger.debug(
-        `Sent notification ${notification.id} via ${preference.type}`,
-      );
+      this.logger.debug(`Sent notification ${notification.id} via ${preference.type}`);
     } catch (error) {
       this.logger.error(
         `Error sending notification ${notification.id}: ${error.message}`,
-        error.stack,
+        error.stack
       );
       throw error;
     }
@@ -340,9 +302,9 @@ export class NotificationSchedulerService implements OnModuleInit {
     try {
       // Fetch the parent notification to process it
       const notification = await this.notificationRepository.findOne({
-        where: { id: delivery.notificationId }
+        where: { id: delivery.notificationId },
       });
-      
+
       if (notification) {
         await this.deliveryService.processNotification(notification);
         this.logger.debug(`Retried delivery ${delivery.id}`);
@@ -350,20 +312,12 @@ export class NotificationSchedulerService implements OnModuleInit {
         this.logger.error(`Could not find notification for delivery ${delivery.id}`);
       }
     } catch (error) {
-      this.logger.error(
-        `Error retrying delivery ${delivery.id}: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error retrying delivery ${delivery.id}: ${error.message}`, error.stack);
     }
   }
 
-  private async markDeliveryAsPermanentlyFailed(
-    delivery: NotificationDelivery,
-  ): Promise<void> {
-    delivery.markAsFailed(
-      'Maximum retry attempts exceeded',
-      'MAX_RETRIES_EXCEEDED',
-    );
+  private async markDeliveryAsPermanentlyFailed(delivery: NotificationDelivery): Promise<void> {
+    delivery.markAsFailed('Maximum retry attempts exceeded', 'MAX_RETRIES_EXCEEDED');
     delivery.nextRetryAt = null;
     await this.deliveryRepository.save(delivery);
 
@@ -378,15 +332,13 @@ export class NotificationSchedulerService implements OnModuleInit {
 
   private async scheduleAfterQuietHours(
     notification: Notification,
-    preference: NotificationPreference,
+    preference: NotificationPreference
   ): Promise<void> {
     const quietHours = preference.settings?.quietHours;
     if (!quietHours) return;
 
     const now = new Date();
-    const userDate = new Date(
-      now.toLocaleString('en-US', { timeZone: quietHours.timezone }),
-    );
+    const userDate = new Date(now.toLocaleString('en-US', { timeZone: quietHours.timezone }));
 
     const [endHour, endMin] = quietHours.endTime.split(':').map(Number);
     const endTime = new Date(userDate);
@@ -401,13 +353,11 @@ export class NotificationSchedulerService implements OnModuleInit {
     await this.notificationRepository.save(notification);
 
     this.logger.debug(
-      `Notification ${notification.id} rescheduled after quiet hours to ${endTime.toISOString()}`,
+      `Notification ${notification.id} rescheduled after quiet hours to ${endTime.toISOString()}`
     );
   }
 
-  private async sendRealTimeNotification(
-    notification: Notification,
-  ): Promise<void> {
+  private async sendRealTimeNotification(notification: Notification): Promise<void> {
     try {
       await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
         targetType: EventTargetType.TENANT,
@@ -435,15 +385,12 @@ export class NotificationSchedulerService implements OnModuleInit {
         },
       });
     } catch (error) {
-      this.logger.error(
-        `Error sending real-time notification: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Error sending real-time notification: ${error.message}`, error.stack);
     }
   }
 
   private mapPriorityToNotificationType(
-    priority: NotificationPriority,
+    priority: NotificationPriority
   ): 'info' | 'warning' | 'error' | 'success' {
     switch (priority) {
       case NotificationPriority.CRITICAL:
@@ -493,7 +440,7 @@ export class NotificationSchedulerService implements OnModuleInit {
 
   async flushAllBatches(): Promise<void> {
     const promises = [];
-    
+
     for (const [batchKey] of this.batchingQueues.entries()) {
       // We need the preference to send the batch, so we'll get it from the first notification
       const queue = this.batchingQueues.get(batchKey);
@@ -505,7 +452,7 @@ export class NotificationSchedulerService implements OnModuleInit {
             organizationId: firstNotification.organizationId,
           },
         });
-        
+
         if (preference) {
           promises.push(this.sendBatch(batchKey, preference));
         }

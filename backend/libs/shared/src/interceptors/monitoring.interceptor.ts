@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NestInterceptor,
-  ExecutionContext,
-  CallHandler,
-} from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { MonitoringService } from '../monitoring/monitoring.service';
@@ -13,7 +8,7 @@ import { CustomLoggerService } from '../logger/logger.service';
 export class MonitoringInterceptor implements NestInterceptor {
   constructor(
     private monitoringService: MonitoringService,
-    private logger: CustomLoggerService,
+    private logger: CustomLoggerService
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
@@ -45,12 +40,7 @@ export class MonitoringInterceptor implements NestInterceptor {
         const statusCode = response.statusCode;
 
         // Record API metrics
-        this.monitoringService.recordApiRequest(
-          method,
-          url,
-          statusCode,
-          duration,
-        );
+        this.monitoringService.recordApiRequest(method, url, statusCode, duration);
 
         // Log successful request
         this.logger.log(`${method} ${url} completed successfully`, 'HTTP', {
@@ -68,12 +58,7 @@ export class MonitoringInterceptor implements NestInterceptor {
         const statusCode = response.statusCode || 500;
 
         // Record API metrics for errors
-        this.monitoringService.recordApiRequest(
-          method,
-          url,
-          statusCode,
-          duration,
-        );
+        this.monitoringService.recordApiRequest(method, url, statusCode, duration);
 
         // Record error
         this.monitoringService.recordError(error, 'HTTP_REQUEST', {
@@ -100,11 +85,11 @@ export class MonitoringInterceptor implements NestInterceptor {
             userId,
             organizationId,
             errorType: error.constructor.name,
-          },
+          }
         );
 
         throw error;
-      }),
+      })
     );
   }
 }

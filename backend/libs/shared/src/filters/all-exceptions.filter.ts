@@ -24,12 +24,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const errorResponse = exception.getResponse();
-      
+
       if (typeof errorResponse === 'object' && errorResponse !== null) {
         message = (errorResponse as any).message || exception.message;
         error = (errorResponse as any).error || 'Http Exception';
       } else {
-        message = errorResponse as string;
+        message = errorResponse;
         error = 'Http Exception';
       }
     } else if (exception instanceof Error) {
@@ -45,7 +45,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // Log the error
     this.logger.error(
       `${request.method} ${request.url} - ${status} - ${message}`,
-      exception instanceof Error ? exception.stack : undefined,
+      exception instanceof Error ? exception.stack : undefined
     );
 
     // Send error response

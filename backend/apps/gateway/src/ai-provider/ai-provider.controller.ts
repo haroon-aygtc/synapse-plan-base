@@ -11,12 +11,7 @@ import {
   Request,
   ValidationPipe,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
@@ -40,7 +35,7 @@ export class AIProviderController {
   constructor(
     private readonly aiProviderService: AIProviderService,
     private readonly providerHealthService: ProviderHealthService,
-    private readonly providerCostService: ProviderCostService,
+    private readonly providerCostService: ProviderCostService
   ) {}
 
   @Post()
@@ -49,28 +44,20 @@ export class AIProviderController {
   @ApiResponse({ status: 201, description: 'Provider created successfully' })
   async createProvider(
     @Body(ValidationPipe) createProviderDto: CreateProviderDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.aiProviderService.createProvider(
       createProviderDto,
       req.user.organizationId,
-      req.user.sub,
+      req.user.sub
     );
   }
 
   @Get()
-  @Roles(
-    UserRole.VIEWER,
-    UserRole.DEVELOPER,
-    UserRole.ORG_ADMIN,
-    UserRole.SUPER_ADMIN,
-  )
+  @Roles(UserRole.VIEWER, UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get all AI providers' })
   @ApiResponse({ status: 200, description: 'Providers retrieved successfully' })
-  async getProviders(
-    @Request() req: any,
-    @Query('includeInactive') includeInactive?: boolean,
-  ) {
+  async getProviders(@Request() req: any, @Query('includeInactive') includeInactive?: boolean) {
     return this.aiProviderService.getProviders(req.user.organizationId, {
       includeInactive,
     });
@@ -87,9 +74,7 @@ export class AIProviderController {
   @ApiOperation({ summary: 'Get provider health status' })
   @ApiResponse({ status: 200, description: 'Health status retrieved' })
   async getProviderHealth(@Request() req: any) {
-    return this.providerHealthService.getOrganizationHealth(
-      req.user.organizationId,
-    );
+    return this.providerHealthService.getOrganizationHealth(req.user.organizationId);
   }
 
   @Get('costs')
@@ -98,7 +83,7 @@ export class AIProviderController {
   async getProviderCosts(
     @Request() req: any,
     @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query('endDate') endDate?: string
   ) {
     return this.providerCostService.getCostAnalytics(req.user.organizationId, {
       startDate: startDate ? new Date(startDate) : undefined,
@@ -119,12 +104,9 @@ export class AIProviderController {
   @ApiResponse({ status: 201, description: 'Routing rule created' })
   async createRoutingRule(
     @Body(ValidationPipe) routingRuleDto: ProviderRoutingRuleDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
-    return this.aiProviderService.createRoutingRule(
-      routingRuleDto,
-      req.user.organizationId,
-    );
+    return this.aiProviderService.createRoutingRule(routingRuleDto, req.user.organizationId);
   }
 
   @Get('usage-stats')
@@ -132,21 +114,16 @@ export class AIProviderController {
   @ApiResponse({ status: 200, description: 'Usage stats retrieved' })
   async getUsageStats(
     @Request() req: any,
-    @Query('period') period: 'day' | 'week' | 'month' = 'week',
+    @Query('period') period: 'day' | 'week' | 'month' = 'week'
   ) {
-    return this.aiProviderService.getUsageStats(
-      req.user.organizationId,
-      period,
-    );
+    return this.aiProviderService.getUsageStats(req.user.organizationId, period);
   }
 
   @Get('optimization-suggestions')
   @ApiOperation({ summary: 'Get provider optimization suggestions' })
   @ApiResponse({ status: 200, description: 'Suggestions retrieved' })
   async getOptimizationSuggestions(@Request() req: any) {
-    return this.aiProviderService.getOptimizationSuggestions(
-      req.user.organizationId,
-    );
+    return this.aiProviderService.getOptimizationSuggestions(req.user.organizationId);
   }
 
   @Get(':id')
@@ -163,13 +140,9 @@ export class AIProviderController {
   async updateProvider(
     @Param('id') id: string,
     @Body(ValidationPipe) updateProviderDto: UpdateProviderDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
-    return this.aiProviderService.updateProvider(
-      id,
-      updateProviderDto,
-      req.user.organizationId,
-    );
+    return this.aiProviderService.updateProvider(id, updateProviderDto, req.user.organizationId);
   }
 
   @Delete(':id')
@@ -195,13 +168,9 @@ export class AIProviderController {
   async rotateApiKey(
     @Param('id') id: string,
     @Body() body: { newApiKey: string },
-    @Request() req: any,
+    @Request() req: any
   ) {
-    return this.aiProviderService.rotateApiKey(
-      id,
-      body.newApiKey,
-      req.user.organizationId,
-    );
+    return this.aiProviderService.rotateApiKey(id, body.newApiKey, req.user.organizationId);
   }
 
   @Get(':id/metrics')
@@ -210,13 +179,9 @@ export class AIProviderController {
   async getProviderMetrics(
     @Param('id') id: string,
     @Request() req: any,
-    @Query('period') period: 'hour' | 'day' | 'week' | 'month' = 'day',
+    @Query('period') period: 'hour' | 'day' | 'week' | 'month' = 'day'
   ) {
-    return this.aiProviderService.getProviderMetrics(
-      id,
-      req.user.organizationId,
-      period,
-    );
+    return this.aiProviderService.getProviderMetrics(id, req.user.organizationId, period);
   }
 
   @Post('bulk-configure')
@@ -225,12 +190,12 @@ export class AIProviderController {
   @ApiResponse({ status: 200, description: 'Bulk configuration completed' })
   async bulkConfigureProviders(
     @Body() body: { providers: ProviderConfigDto[] },
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.aiProviderService.bulkConfigureProviders(
       body.providers,
       req.user.organizationId,
-      req.user.sub,
+      req.user.sub
     );
   }
 
@@ -254,13 +219,9 @@ export class AIProviderController {
       sessionId?: string;
       streamResponse?: boolean;
     },
-    @Request() req: any,
+    @Request() req: any
   ) {
-    return this.aiProviderService.executeCompletion(
-      body,
-      req.user.organizationId,
-      req.user.sub,
-    );
+    return this.aiProviderService.executeCompletion(body, req.user.organizationId, req.user.sub);
   }
 
   @Get('models')
@@ -277,7 +238,7 @@ export class AIProviderController {
     @Request() req: any,
     @Query('dailyLimit') dailyLimit?: number,
     @Query('weeklyLimit') weeklyLimit?: number,
-    @Query('monthlyLimit') monthlyLimit?: number,
+    @Query('monthlyLimit') monthlyLimit?: number
   ) {
     return this.providerCostService.getCostAlerts(req.user.organizationId, {
       dailyLimit,
@@ -294,13 +255,13 @@ export class AIProviderController {
     @Query('model') model: string,
     @Query('executionType')
     executionType: 'agent' | 'tool' | 'workflow' | 'knowledge',
-    @Query('period') period: 'day' | 'week' | 'month' = 'week',
+    @Query('period') period: 'day' | 'week' | 'month' = 'week'
   ) {
     return this.providerCostService.getProviderCostComparison(
       req.user.organizationId,
       model,
       executionType as any,
-      period,
+      period
     );
   }
 }

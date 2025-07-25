@@ -1,9 +1,4 @@
-import {
-  AgentEventType,
-  WebSocketEventType,
-  EventTargetType,
-  EventPriority,
-} from '../enums';
+import { AgentEventType, WebSocketEventType, EventTargetType, EventPriority } from '../enums';
 
 export interface IWebSocketMessage {
   event: string;

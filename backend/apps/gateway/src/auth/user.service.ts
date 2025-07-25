@@ -50,7 +50,7 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   async create(userData: CreateUserData): Promise<IUser> {
@@ -66,8 +66,7 @@ export class UserService {
       isActive: userData.isActive !== undefined ? userData.isActive : true,
       emailVerified: false,
       permissions:
-        userData.permissions ||
-        this.getDefaultPermissions(userData.role || UserRole.DEVELOPER),
+        userData.permissions || this.getDefaultPermissions(userData.role || UserRole.DEVELOPER),
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -112,7 +111,7 @@ export class UserService {
 
   async findByOrganization(
     organizationId: string,
-    options?: FindUsersOptions,
+    options?: FindUsersOptions
   ): Promise<{ users: IUser[]; total: number }> {
     const {
       page = 1,
@@ -180,7 +179,7 @@ export class UserService {
     id: string,
     updateData: UpdateUserData,
     requestingUserId?: string,
-    requestingUserRole?: UserRole,
+    requestingUserRole?: UserRole
   ): Promise<IUser> {
     const user = await this.findById(id);
     if (!user) {
@@ -204,11 +203,7 @@ export class UserService {
 
     // Validate permission changes
     if (updateData.permissions) {
-      await this.validatePermissionChange(
-        user,
-        updateData.permissions,
-        requestingUserRole,
-      );
+      await this.validatePermissionChange(user, updateData.permissions, requestingUserRole);
     }
 
     await this.userRepository.update(id, updateData);
@@ -279,7 +274,7 @@ export class UserService {
       {
         passwordResetToken: token,
         passwordResetExpiresAt: expiresAt,
-      },
+      }
     );
   }
 
@@ -308,7 +303,7 @@ export class UserService {
   private async validateRoleChange(
     user: IUser,
     newRole: UserRole,
-    requestingUserRole?: UserRole,
+    requestingUserRole?: UserRole
   ): Promise<void> {
     // Prevent role escalation beyond organization admin for non-super-admins
     const roleHierarchy = {
@@ -319,12 +314,9 @@ export class UserService {
     };
 
     // Only super admins can assign super admin role
-    if (
-      newRole === UserRole.SUPER_ADMIN &&
-      requestingUserRole !== UserRole.SUPER_ADMIN
-    ) {
+    if (newRole === UserRole.SUPER_ADMIN && requestingUserRole !== UserRole.SUPER_ADMIN) {
       throw new BadRequestException(
-        'Super admin role can only be assigned by system administrators',
+        'Super admin role can only be assigned by system administrators'
       );
     }
 
@@ -337,13 +329,8 @@ export class UserService {
     }
 
     // Developers and viewers cannot change roles
-    if (
-      requestingUserRole &&
-      [UserRole.DEVELOPER, UserRole.VIEWER].includes(requestingUserRole)
-    ) {
-      throw new BadRequestException(
-        'Insufficient permissions to change user roles',
-      );
+    if (requestingUserRole && [UserRole.DEVELOPER, UserRole.VIEWER].includes(requestingUserRole)) {
+      throw new BadRequestException('Insufficient permissions to change user roles');
     }
 
     // Validate role hierarchy
@@ -355,16 +342,14 @@ export class UserService {
   private async validatePermissionChange(
     user: IUser,
     newPermissions: string[],
-    requestingUserRole?: UserRole,
+    requestingUserRole?: UserRole
   ): Promise<void> {
     // Only org admins and super admins can modify permissions
     if (
       requestingUserRole &&
       ![UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN].includes(requestingUserRole)
     ) {
-      throw new BadRequestException(
-        'Insufficient permissions to modify user permissions',
-      );
+      throw new BadRequestException('Insufficient permissions to modify user permissions');
     }
 
     // Validate that permissions are valid
@@ -407,12 +392,10 @@ export class UserService {
     });
 
     const invalidPermissions = newPermissions.filter(
-      (permission) => !validPermissions.includes(permission),
+      (permission) => !validPermissions.includes(permission)
     );
     if (invalidPermissions.length > 0) {
-      throw new BadRequestException(
-        `Invalid permissions: ${invalidPermissions.join(', ')}`,
-      );
+      throw new BadRequestException(`Invalid permissions: ${invalidPermissions.join(', ')}`);
     }
   }
 
@@ -420,7 +403,7 @@ export class UserService {
     userIds: string[],
     action: 'activate' | 'deactivate' | 'delete',
     organizationId: string,
-    reason?: string,
+    reason?: string
   ): Promise<{ success: number; failed: number; errors: string[] }> {
     const results = {
       success: 0,
@@ -481,7 +464,7 @@ export class UserService {
       role?: UserRole;
       isActive?: boolean;
       limit?: number;
-    },
+    }
   ): Promise<IUser[]> {
     const { role, isActive, limit = 50 } = filters || {};
 

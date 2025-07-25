@@ -38,13 +38,13 @@ export class DocumentParsingService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly httpService: HttpService,
+    private readonly httpService: HttpService
   ) {}
 
   async parseDocument(
     file: Express.Multer.File | Buffer,
     type: DocumentType,
-    filename?: string,
+    filename?: string
   ): Promise<ParsedDocument> {
     const buffer = Buffer.isBuffer(file) ? file : file.buffer;
     const originalName = filename || (file as Express.Multer.File).originalname;
@@ -66,28 +66,16 @@ export class DocumentParsingService {
           ({ content, metadata } = await this.parseDocument(buffer, metadata));
           break;
         case DocumentType.HTML:
-          ({ content, metadata } = await this.parseHTML(
-            buffer.toString('utf-8'),
-            metadata,
-          ));
+          ({ content, metadata } = await this.parseHTML(buffer.toString('utf-8'), metadata));
           break;
         case DocumentType.MARKDOWN:
-          ({ content, metadata } = await this.parseMarkdown(
-            buffer.toString('utf-8'),
-            metadata,
-          ));
+          ({ content, metadata } = await this.parseMarkdown(buffer.toString('utf-8'), metadata));
           break;
         case DocumentType.CSV:
-          ({ content, metadata } = await this.parseCSV(
-            buffer.toString('utf-8'),
-            metadata,
-          ));
+          ({ content, metadata } = await this.parseCSV(buffer.toString('utf-8'), metadata));
           break;
         case DocumentType.JSON:
-          ({ content, metadata } = await this.parseJSON(
-            buffer.toString('utf-8'),
-            metadata,
-          ));
+          ({ content, metadata } = await this.parseJSON(buffer.toString('utf-8'), metadata));
           break;
         case DocumentType.TEXT:
         default:
@@ -110,7 +98,7 @@ export class DocumentParsingService {
       };
 
       this.logger.log(
-        `Document parsed successfully: ${wordCount} words, ${characterCount} characters`,
+        `Document parsed successfully: ${wordCount} words, ${characterCount} characters`
       );
 
       return {
@@ -133,7 +121,7 @@ export class DocumentParsingService {
           headers: {
             'User-Agent': 'SynapseAI Knowledge Scraper 1.0',
           },
-        }),
+        })
       );
 
       const contentType = response.headers['content-type'] || '';
@@ -170,15 +158,14 @@ export class DocumentParsingService {
 
   private async parsePDF(
     buffer: Buffer,
-    metadata: any,
+    metadata: any
   ): Promise<{ content: string; metadata: any }> {
     // In production, use a proper PDF parsing library like pdf-parse or pdf2pic
     // For now, return placeholder implementation
     this.logger.warn('PDF parsing not fully implemented - using placeholder');
 
     return {
-      content:
-        'PDF content extraction not implemented. Please use a proper PDF parsing library.',
+      content: 'PDF content extraction not implemented. Please use a proper PDF parsing library.',
       metadata: {
         ...metadata,
         pageCount: 1,
@@ -189,12 +176,10 @@ export class DocumentParsingService {
 
   private async parseDocument(
     buffer: Buffer,
-    metadata: any,
+    metadata: any
   ): Promise<{ content: string; metadata: any }> {
     // In production, use a proper document parsing library like mammoth for DOCX
-    this.logger.warn(
-      'Document parsing not fully implemented - using placeholder',
-    );
+    this.logger.warn('Document parsing not fully implemented - using placeholder');
 
     return {
       content:
@@ -208,7 +193,7 @@ export class DocumentParsingService {
 
   private async parseHTML(
     html: string,
-    metadata: any,
+    metadata: any
   ): Promise<{ content: string; metadata: any }> {
     const $ = cheerio.load(html);
 
@@ -254,7 +239,7 @@ export class DocumentParsingService {
 
   private async parseMarkdown(
     markdown: string,
-    metadata: any,
+    metadata: any
   ): Promise<{ content: string; metadata: any }> {
     // Extract title from first heading
     const titleMatch = markdown.match(/^#\s+(.+)$/m);
@@ -265,7 +250,7 @@ export class DocumentParsingService {
     const headings = headingMatches.map((h) => h.replace(/^#+\s+/, ''));
 
     // Remove markdown syntax for plain text content
-    let content = markdown
+    const content = markdown
       .replace(/^#{1,6}\s+/gm, '') // Remove heading markers
       .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
       .replace(/\*(.*?)\*/g, '$1') // Remove italic
@@ -287,14 +272,9 @@ export class DocumentParsingService {
     };
   }
 
-  private async parseCSV(
-    csv: string,
-    metadata: any,
-  ): Promise<{ content: string; metadata: any }> {
+  private async parseCSV(csv: string, metadata: any): Promise<{ content: string; metadata: any }> {
     const lines = csv.split('\n').filter((line) => line.trim());
-    const headers = lines[0]
-      ? lines[0].split(',').map((h) => h.trim().replace(/"/g, ''))
-      : [];
+    const headers = lines[0] ? lines[0].split(',').map((h) => h.trim().replace(/"/g, '')) : [];
     const rowCount = lines.length - 1;
 
     // Convert CSV to readable text format
@@ -329,7 +309,7 @@ export class DocumentParsingService {
 
   private async parseJSON(
     json: string,
-    metadata: any,
+    metadata: any
   ): Promise<{ content: string; metadata: any }> {
     try {
       const data = JSON.parse(json);
@@ -435,9 +415,7 @@ export class DocumentParsingService {
       'by',
     ];
     const englishCount = englishWords.reduce((count, word) => {
-      return (
-        count + (sample.match(new RegExp(`\\b${word}\\b`, 'g')) || []).length
-      );
+      return count + (sample.match(new RegExp(`\\b${word}\\b`, 'g')) || []).length;
     }, 0);
 
     // Simple heuristic - if we find many English words, assume English
@@ -457,7 +435,7 @@ export class DocumentParsingService {
 
   async validateDocument(
     buffer: Buffer,
-    filename: string,
+    filename: string
   ): Promise<{
     isValid: boolean;
     issues: string[];
@@ -489,9 +467,7 @@ export class DocumentParsingService {
 
     // Recommendations
     if (buffer.length > 10 * 1024 * 1024) {
-      recommendations.push(
-        'Consider splitting large documents into smaller chunks',
-      );
+      recommendations.push('Consider splitting large documents into smaller chunks');
     }
 
     return {

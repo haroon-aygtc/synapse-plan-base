@@ -199,7 +199,7 @@ export class WidgetAnalytics extends BaseEntity {
     pageUrl: string,
     userAgent: string,
     ipAddress: string,
-    additionalData?: Partial<WidgetAnalytics>,
+    additionalData?: Partial<WidgetAnalytics>
   ): Partial<WidgetAnalytics> {
     return {
       widgetId,
@@ -221,7 +221,7 @@ export class WidgetAnalytics extends BaseEntity {
     interactionData: WidgetInteractionData,
     userAgent: string,
     ipAddress: string,
-    additionalData?: Partial<WidgetAnalytics>,
+    additionalData?: Partial<WidgetAnalytics>
   ): Partial<WidgetAnalytics> {
     return {
       widgetId,
@@ -245,7 +245,7 @@ export class WidgetAnalytics extends BaseEntity {
     conversionValue: number,
     userAgent: string,
     ipAddress: string,
-    additionalData?: Partial<WidgetAnalytics>,
+    additionalData?: Partial<WidgetAnalytics>
   ): Partial<WidgetAnalytics> {
     return {
       widgetId,
@@ -268,7 +268,7 @@ export class WidgetAnalytics extends BaseEntity {
     errorMessage: string,
     userAgent: string,
     ipAddress: string,
-    additionalData?: Partial<WidgetAnalytics>,
+    additionalData?: Partial<WidgetAnalytics>
   ): Partial<WidgetAnalytics> {
     return {
       widgetId,
@@ -290,7 +290,7 @@ export class WidgetAnalytics extends BaseEntity {
     performanceData: WidgetPerformanceData,
     userAgent: string,
     ipAddress: string,
-    additionalData?: Partial<WidgetAnalytics>,
+    additionalData?: Partial<WidgetAnalytics>
   ): Partial<WidgetAnalytics> {
     return {
       widgetId,

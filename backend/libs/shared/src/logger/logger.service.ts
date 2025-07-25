@@ -10,7 +10,7 @@ export class CustomLoggerService implements LoggerService {
 
   constructor(
     private configService: ConfigService,
-    context?: string,
+    context?: string
   ) {
     this.context = context || 'Application';
     this.logger = winston.createLogger(); // Initialize with a default logger
@@ -32,16 +32,12 @@ export class CustomLoggerService implements LoggerService {
           format: winston.format.combine(
             winston.format.timestamp(),
             winston.format.colorize(),
-            winston.format.printf(
-              ({ timestamp, level, message, context, trace, ...meta }) => {
-                const metaStr = Object.keys(meta).length
-                  ? JSON.stringify(meta, null, 2)
-                  : '';
-                return `${timestamp} [${context || this.context}] ${level}: ${message}${trace ? `\n${trace}` : ''}${metaStr ? `\n${metaStr}` : ''}`;
-              },
-            ),
+            winston.format.printf(({ timestamp, level, message, context, trace, ...meta }) => {
+              const metaStr = Object.keys(meta).length ? JSON.stringify(meta, null, 2) : '';
+              return `${timestamp} [${context || this.context}] ${level}: ${message}${trace ? `\n${trace}` : ''}${metaStr ? `\n${metaStr}` : ''}`;
+            })
           ),
-        }),
+        })
       );
     }
 
@@ -57,7 +53,7 @@ export class CustomLoggerService implements LoggerService {
           format: winston.format.combine(
             winston.format.timestamp(),
             winston.format.errors({ stack: true }),
-            winston.format.json(),
+            winston.format.json()
           ),
         }),
         new DailyRotateFile({
@@ -70,9 +66,9 @@ export class CustomLoggerService implements LoggerService {
           format: winston.format.combine(
             winston.format.timestamp(),
             winston.format.errors({ stack: true }),
-            winston.format.json(),
+            winston.format.json()
           ),
-        }),
+        })
       );
     }
 
@@ -91,9 +87,9 @@ export class CustomLoggerService implements LoggerService {
               environment: nodeEnv,
               context: info.context || this.context,
             });
-          }),
+          })
         ),
-      }),
+      })
     );
 
     this.logger = winston.createLogger({
@@ -151,11 +147,7 @@ export class CustomLoggerService implements LoggerService {
     });
   }
 
-  logSecurity(
-    event: string,
-    severity: 'low' | 'medium' | 'high' | 'critical',
-    meta?: any,
-  ) {
+  logSecurity(event: string, severity: 'low' | 'medium' | 'high' | 'critical', meta?: any) {
     this.logger.warn('Security event', {
       context: 'Security',
       event,

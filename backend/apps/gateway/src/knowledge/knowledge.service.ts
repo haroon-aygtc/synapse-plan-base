@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, forwardRef, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
@@ -13,23 +9,17 @@ import {
   KnowledgeDocumentChunk,
   KnowledgeDocumentVersion,
   KnowledgeSearch,
+  Organization,
   DocumentType,
   DocumentVisibility,
 } from '@database/entities';
-import {
-  CreateDocumentDto,
-  UpdateDocumentDto,
-  SearchDocumentsDto,
-} from './dto';
+import { DocumentStatus, AgentEventType as EventType } from '@shared/enums';
+import { CreateDocumentDto, UpdateDocumentDto, SearchDocumentsDto } from './dto';
 import { DocumentProcessingService } from './document-processing.service';
 import { VectorSearchService } from './vector-search.service';
 import { KnowledgeAnalyticsService } from './knowledge-analytics.service';
 import { DocumentParsingService } from './document-parsing.service';
-import {
-  KnowledgeSecurityService,
-  SecurityContext,
-} from './knowledge-security.service';
-import { DocumentStatus, AgentEventType as EventType } from '@shared/enums';
+import { KnowledgeSecurityService, SecurityContext } from './knowledge-security.service';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 
@@ -44,20 +34,20 @@ export class KnowledgeService {
     private readonly versionRepository: Repository<KnowledgeDocumentVersion>,
     @InjectRepository(KnowledgeSearch)
     private readonly searchRepository: Repository<KnowledgeSearch>,
+    @InjectRepository(Organization)
+    private readonly organizationRepository: Repository<Organization>,
     @InjectQueue('document-processing')
     private readonly processingQueue: Queue,
     private readonly documentProcessingService: DocumentProcessingService,
     private readonly vectorSearchService: VectorSearchService,
+    @Inject(forwardRef(() => KnowledgeAnalyticsService))
     private readonly analyticsService: KnowledgeAnalyticsService,
     private readonly parsingService: DocumentParsingService,
     private readonly securityService: KnowledgeSecurityService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
-  async createDocument(
-    createDocumentDto: CreateDocumentDto,
-    context: SecurityContext,
-  ) {
+  async createDocument(createDocumentDto: CreateDocumentDto, context: SecurityContext) {
     // Check organization quota with real database validation
     const organization = await this.organizationRepository.findOne({
       where: { id: context.organizationId },
@@ -75,15 +65,12 @@ export class KnowledgeService {
     const maxDocuments = organization.settings?.maxDocuments || 10000;
     if (currentDocumentCount >= maxDocuments) {
       throw new ForbiddenException(
-        `Organization has reached maximum limit of ${maxDocuments} documents`,
+        `Organization has reached maximum limit of ${maxDocuments} documents`
       );
     }
 
     // Generate content hash for deduplication
-    const contentHash = crypto
-      .createHash('sha256')
-      .update(createDocumentDto.content)
-      .digest('hex');
+    const contentHash = crypto.createHash('sha256').update(createDocumentDto.content).digest('hex');
 
     // Check for duplicate content
     const existingDocument = await this.documentRepository.findOne({
@@ -138,19 +125,17 @@ export class KnowledgeService {
       metadata?: Record<string, any>;
       visibility?: DocumentVisibility;
     },
-    context: SecurityContext,
+    context: SecurityContext
   ) {
     // Validate upload
     const validation = await this.securityService.validateDocumentUpload(
       file.buffer,
       file.originalname,
-      context,
+      context
     );
 
     if (!validation.isValid) {
-      throw new Error(
-        `Upload validation failed: ${validation.issues.join(', ')}`,
-      );
+      throw new Error(`Upload validation failed: ${validation.issues.join(', ')}`);
     }
 
     // Parse document content
@@ -158,7 +143,7 @@ export class KnowledgeService {
     const parsedDocument = await this.parsingService.parseDocument(
       validation.sanitizedContent || file.buffer,
       documentType,
-      file.originalname,
+      file.originalname
     );
 
     // Check for duplicate content
@@ -221,7 +206,7 @@ export class KnowledgeService {
       metadata?: Record<string, any>;
       visibility?: DocumentVisibility;
     }>,
-    context: SecurityContext,
+    context: SecurityContext
   ) {
     const successful: any[] = [];
     const failed: Array<{ title: string; error: string }> = [];
@@ -253,7 +238,7 @@ export class KnowledgeService {
       status?: string;
       tags?: string[];
     },
-    context: SecurityContext,
+    context: SecurityContext
   ) {
     const { page = 1, limit = 20, search, type, status, tags } = options;
     const queryBuilder = this.documentRepository.createQueryBuilder('document');
@@ -264,10 +249,9 @@ export class KnowledgeService {
     });
 
     if (search) {
-      queryBuilder.andWhere(
-        '(document.title ILIKE :search OR document.content ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      queryBuilder.andWhere('(document.title ILIKE :search OR document.content ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     if (type) {
@@ -290,8 +274,10 @@ export class KnowledgeService {
     const [documents, total] = await queryBuilder.getManyAndCount();
 
     // Filter documents based on access permissions
-    const accessibleDocuments =
-      await this.securityService.filterDocumentsByAccess(documents, context);
+    const accessibleDocuments = await this.securityService.filterDocumentsByAccess(
+      documents,
+      context
+    );
 
     return {
       data: accessibleDocuments,
@@ -317,11 +303,7 @@ export class KnowledgeService {
     }
 
     // Check access permissions
-    const hasAccess = await this.securityService.checkDocumentAccess(
-      id,
-      context,
-      'read',
-    );
+    const hasAccess = await this.securityService.checkDocumentAccess(id, context, 'read');
 
     if (!hasAccess) {
       throw new ForbiddenException('Access denied to this document');
@@ -333,29 +315,18 @@ export class KnowledgeService {
     return document;
   }
 
-  async updateDocument(
-    id: string,
-    updateDocumentDto: UpdateDocumentDto,
-    context: SecurityContext,
-  ) {
+  async updateDocument(id: string, updateDocumentDto: UpdateDocumentDto, context: SecurityContext) {
     const document = await this.getDocument(id, context);
 
     // Check write permissions
-    const hasWriteAccess = await this.securityService.checkDocumentAccess(
-      id,
-      context,
-      'write',
-    );
+    const hasWriteAccess = await this.securityService.checkDocumentAccess(id, context, 'write');
 
     if (!hasWriteAccess) {
       throw new ForbiddenException('Write access denied to this document');
     }
 
     // Create new version if content changed
-    if (
-      updateDocumentDto.content &&
-      updateDocumentDto.content !== document.content
-    ) {
+    if (updateDocumentDto.content && updateDocumentDto.content !== document.content) {
       await this.createDocumentVersion(document, context.userId);
       document.version += 1;
     }
@@ -368,10 +339,7 @@ export class KnowledgeService {
     const updatedDocument = await this.documentRepository.save(document);
 
     // If content changed, reprocess the document
-    if (
-      updateDocumentDto.content &&
-      updateDocumentDto.content !== document.content
-    ) {
+    if (updateDocumentDto.content && updateDocumentDto.content !== document.content) {
       await this.processingQueue.add('process-document', {
         documentId: document.id,
         priority: 'normal',
@@ -385,11 +353,7 @@ export class KnowledgeService {
     const document = await this.getDocument(id, context);
 
     // Check delete permissions
-    const hasDeleteAccess = await this.securityService.checkDocumentAccess(
-      id,
-      context,
-      'delete',
-    );
+    const hasDeleteAccess = await this.securityService.checkDocumentAccess(id, context, 'delete');
 
     if (!hasDeleteAccess) {
       throw new ForbiddenException('Delete access denied to this document');
@@ -411,23 +375,18 @@ export class KnowledgeService {
     });
   }
 
-  async searchDocuments(
-    searchDto: SearchDocumentsDto,
-    context: SecurityContext,
-  ) {
+  async searchDocuments(searchDto: SearchDocumentsDto, context: SecurityContext) {
     const searchId = uuidv4();
     const startTime = Date.now();
 
     // Validate search query
     const queryValidation = await this.securityService.validateSearchQuery(
       searchDto.query,
-      context,
+      context
     );
 
     if (!queryValidation.isValid) {
-      throw new Error(
-        `Invalid search query: ${queryValidation.issues.join(', ')}`,
-      );
+      throw new Error(`Invalid search query: ${queryValidation.issues.join(', ')}`);
     }
 
     try {
@@ -444,8 +403,7 @@ export class KnowledgeService {
       };
 
       // Perform vector search
-      const searchResults =
-        await this.vectorSearchService.search(searchOptions);
+      const searchResults = await this.vectorSearchService.search(searchOptions);
 
       // Filter results based on document access permissions
       const accessibleResults = [];
@@ -453,23 +411,19 @@ export class KnowledgeService {
         const hasAccess = await this.securityService.checkDocumentAccess(
           result.documentId,
           context,
-          'read',
+          'read'
         );
         if (hasAccess) {
           accessibleResults.push(result);
           // Track document access
-          await this.analyticsService.trackDocumentAccess(
-            result.documentId,
-            context.userId,
-          );
+          await this.analyticsService.trackDocumentAccess(result.documentId, context.userId);
         }
       }
 
       const executionTime = Date.now() - startTime;
       const averageScore =
         accessibleResults.length > 0
-          ? accessibleResults.reduce((sum, r) => sum + r.score, 0) /
-            accessibleResults.length
+          ? accessibleResults.reduce((sum, r) => sum + r.score, 0) / accessibleResults.length
           : 0;
 
       // Save search record
@@ -484,13 +438,9 @@ export class KnowledgeService {
         executionTimeMs: executionTime,
         averageScore,
         maxScore:
-          accessibleResults.length > 0
-            ? Math.max(...accessibleResults.map((r) => r.score))
-            : 0,
+          accessibleResults.length > 0 ? Math.max(...accessibleResults.map((r) => r.score)) : 0,
         minScore:
-          accessibleResults.length > 0
-            ? Math.min(...accessibleResults.map((r) => r.score))
-            : 0,
+          accessibleResults.length > 0 ? Math.min(...accessibleResults.map((r) => r.score)) : 0,
         userId: context.userId,
         organizationId: context.organizationId,
         performanceMetrics: {
@@ -544,7 +494,7 @@ export class KnowledgeService {
       limit?: number;
       userId?: string;
     },
-    context: SecurityContext,
+    context: SecurityContext
   ) {
     const { page = 1, limit = 20, userId } = options;
     const queryBuilder = this.searchRepository.createQueryBuilder('search');
@@ -595,11 +545,7 @@ export class KnowledgeService {
     const document = await this.getDocument(id, context);
 
     // Check write permissions
-    const hasWriteAccess = await this.securityService.checkDocumentAccess(
-      id,
-      context,
-      'write',
-    );
+    const hasWriteAccess = await this.securityService.checkDocumentAccess(id, context, 'write');
 
     if (!hasWriteAccess) {
       throw new ForbiddenException('Write access denied to this document');
@@ -665,7 +611,7 @@ export class KnowledgeService {
       maxResults?: number;
       threshold?: number;
     },
-    context: SecurityContext,
+    context: SecurityContext
   ) {
     const document = await this.getDocument(id, context);
 
@@ -681,7 +627,7 @@ export class KnowledgeService {
       const hasAccess = await this.securityService.checkDocumentAccess(
         result.documentId,
         context,
-        'read',
+        'read'
       );
       if (hasAccess) {
         accessibleResults.push(result);
@@ -691,15 +637,8 @@ export class KnowledgeService {
     return accessibleResults;
   }
 
-  async getAnalytics(
-    options: { start: Date; end: Date },
-    context: SecurityContext,
-  ) {
-    return this.analyticsService.generateReport(
-      context.organizationId,
-      options.start,
-      options.end,
-    );
+  async getAnalytics(options: { start: Date; end: Date }, context: SecurityContext) {
+    return this.analyticsService.generateReport(context.organizationId, options.start, options.end);
   }
 
   private getProcessingProgress(status: DocumentStatus) {
@@ -713,14 +652,8 @@ export class KnowledgeService {
     }
   }
 
-  private async createDocumentVersion(
-    document: KnowledgeDocument,
-    userId: string,
-  ): Promise<void> {
-    const contentHash = crypto
-      .createHash('sha256')
-      .update(document.content)
-      .digest('hex');
+  private async createDocumentVersion(document: KnowledgeDocument, userId: string): Promise<void> {
+    const contentHash = crypto.createHash('sha256').update(document.content).digest('hex');
 
     const version = this.versionRepository.create({
       documentId: document.id,
@@ -769,7 +702,7 @@ export class KnowledgeService {
       tags?: string[];
       metadata?: Record<string, any>;
     },
-    context: SecurityContext,
+    context: SecurityContext
   ) {
     // Verify all documents exist and user has access
     const documents = await this.documentRepository.find({
@@ -785,11 +718,7 @@ export class KnowledgeService {
 
     // Check access to all documents
     for (const doc of documents) {
-      const hasAccess = await this.securityService.checkDocumentAccess(
-        doc.id,
-        context,
-        'read',
-      );
+      const hasAccess = await this.securityService.checkDocumentAccess(doc.id, context, 'read');
       if (!hasAccess) {
         throw new ForbiddenException(`Access denied to document: ${doc.title}`);
       }
@@ -826,7 +755,7 @@ export class KnowledgeService {
   async searchCollection(
     collectionId: string,
     searchDto: SearchDocumentsDto,
-    context: SecurityContext,
+    context: SecurityContext
   ) {
     const collection = await this.getDocument(collectionId, context);
 

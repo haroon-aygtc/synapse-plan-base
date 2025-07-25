@@ -14,19 +14,19 @@ export class FunnelStep {
 }
 
 export class GetConversionFunnelDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Start date for funnel analysis',
     required: false,
-    example: '2024-01-01T00:00:00Z'
+    example: '2024-01-01T00:00:00Z',
   })
   @IsOptional()
   @IsDateString()
   startDate?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'End date for funnel analysis',
     required: false,
-    example: '2024-01-31T23:59:59Z'
+    example: '2024-01-31T23:59:59Z',
   })
   @IsOptional()
   @IsDateString()
@@ -41,42 +41,42 @@ export class GetConversionFunnelDto {
   @IsArray()
   steps?: FunnelStep[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Time window for funnel completion (in minutes)',
     required: false,
-    default: 1440
+    default: 1440,
   })
   @IsOptional()
   @IsNumber()
   @Transform(({ value }) => parseInt(value))
   timeWindow?: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filter by device types',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   deviceTypes?: string[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filter by countries',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   countries?: string[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Include breakdown by segments',
     required: false,
-    default: false
+    default: false,
   })
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)

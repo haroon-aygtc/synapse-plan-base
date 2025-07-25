@@ -33,25 +33,18 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    private readonly sessionService: SessionService,
+    private readonly sessionService: SessionService
   ) {
     this.refreshTokenTTL = this.parseTimeToSeconds(
-      this.configService.get('JWT_REFRESH_EXPIRES_IN', '7d'),
+      this.configService.get('JWT_REFRESH_EXPIRES_IN', '7d')
     );
-    this.accessTokenTTL = this.parseTimeToSeconds(
-      this.configService.get('JWT_EXPIRES_IN', '15m'),
-    );
-    this.maxFailedAttempts = this.configService.get(
-      'MAX_FAILED_LOGIN_ATTEMPTS',
-      5,
-    );
-    this.lockoutDuration =
-      this.configService.get('LOCKOUT_DURATION_MINUTES', 15) * 60;
+    this.accessTokenTTL = this.parseTimeToSeconds(this.configService.get('JWT_EXPIRES_IN', '15m'));
+    this.maxFailedAttempts = this.configService.get('MAX_FAILED_LOGIN_ATTEMPTS', 5);
+    this.lockoutDuration = this.configService.get('LOCKOUT_DURATION_MINUTES', 15) * 60;
   }
 
   async register(registerDto: RegisterDto) {
-    const { email, password, firstName, lastName, organizationName } =
-      registerDto;
+    const { email, password, firstName, lastName, organizationName } = registerDto;
 
     // Check if user already exists
     const existingUser = await this.userService.findByEmail(email);
@@ -211,10 +204,7 @@ export class AuthService {
     try {
       // Verify refresh token
       const payload = this.jwtService.verify(refreshToken, {
-        secret: this.configService.get(
-          'JWT_REFRESH_SECRET',
-          this.configService.get('JWT_SECRET'),
-        ),
+        secret: this.configService.get('JWT_REFRESH_SECRET', this.configService.get('JWT_SECRET')),
       });
 
       // Check if refresh token is blacklisted
@@ -225,13 +215,13 @@ export class AuthService {
 
       // Get user
       const user = await this.userService.findById(payload.sub);
-      if (!user || !user.isActive) {
+      if (!user?.isActive) {
         throw new UnauthorizedException('User not found or inactive');
       }
 
       // Check if refresh token exists in cache
       const storedToken = await this.cacheManager.get(
-        `refresh_token:${user.id}:${this.getTokenHash(refreshToken)}`,
+        `refresh_token:${user.id}:${this.getTokenHash(refreshToken)}`
       );
       if (!storedToken) {
         throw new UnauthorizedException('Refresh token not found');
@@ -263,10 +253,7 @@ export class AuthService {
     });
 
     const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get(
-        'JWT_REFRESH_SECRET',
-        this.configService.get('JWT_SECRET'),
-      ),
+      secret: this.configService.get('JWT_REFRESH_SECRET', this.configService.get('JWT_SECRET')),
       expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN', '7d'),
       issuer: this.configService.get('JWT_ISSUER', 'synapseai'),
       audience: this.configService.get('JWT_AUDIENCE', 'synapseai-users'),
@@ -280,7 +267,7 @@ export class AuthService {
         userId: user.id,
         createdAt: new Date(),
       },
-      this.refreshTokenTTL * 1000, // Convert to milliseconds
+      this.refreshTokenTTL * 1000 // Convert to milliseconds
     );
 
     return {
@@ -310,15 +297,13 @@ export class AuthService {
     await this.cacheManager.set(
       `blacklisted_token:${tokenHash}`,
       true,
-      this.accessTokenTTL * 1000, // TTL in milliseconds
+      this.accessTokenTTL * 1000 // TTL in milliseconds
     );
   }
 
   async isTokenBlacklisted(token: string): Promise<boolean> {
     const tokenHash = this.getTokenHash(token);
-    const blacklisted = await this.cacheManager.get(
-      `blacklisted_token:${tokenHash}`,
-    );
+    const blacklisted = await this.cacheManager.get(`blacklisted_token:${tokenHash}`);
     return !!blacklisted;
   }
 
@@ -328,7 +313,7 @@ export class AuthService {
     await this.cacheManager.set(
       `user_token_version:${userId}`,
       Date.now(),
-      this.refreshTokenTTL * 1000,
+      this.refreshTokenTTL * 1000
     );
   }
 
@@ -343,33 +328,24 @@ export class AuthService {
 
     if (lockoutData) {
       throw new UnauthorizedException(
-        `Account is locked due to too many failed login attempts. Try again later.`,
+        `Account is locked due to too many failed login attempts. Try again later.`
       );
     }
   }
 
   private async recordFailedAttempt(email: string): Promise<void> {
     const attemptsKey = `failed_attempts:${email}`;
-    const attempts =
-      ((await this.cacheManager.get(attemptsKey)) as number) || 0;
+    const attempts = ((await this.cacheManager.get(attemptsKey)) as number) || 0;
     const newAttempts = attempts + 1;
 
     if (newAttempts >= this.maxFailedAttempts) {
       // Lock the account
       const lockoutKey = `lockout:${email}`;
-      await this.cacheManager.set(
-        lockoutKey,
-        true,
-        this.lockoutDuration * 1000,
-      );
+      await this.cacheManager.set(lockoutKey, true, this.lockoutDuration * 1000);
       await this.cacheManager.del(attemptsKey);
     } else {
       // Increment failed attempts
-      await this.cacheManager.set(
-        attemptsKey,
-        newAttempts,
-        this.lockoutDuration * 1000,
-      );
+      await this.cacheManager.set(attemptsKey, newAttempts, this.lockoutDuration * 1000);
     }
   }
 
@@ -403,13 +379,8 @@ export class AuthService {
     }
   }
 
-  async inviteUser(
-    inviteUserDto: InviteUserDto,
-    organizationId: string,
-    invitedBy: string,
-  ) {
-    const { email, firstName, lastName, role, permissions, message } =
-      inviteUserDto;
+  async inviteUser(inviteUserDto: InviteUserDto, organizationId: string, invitedBy: string) {
+    const { email, firstName, lastName, role, permissions, message } = inviteUserDto;
 
     // Check if user already exists
     const existingUser = await this.userService.findByEmail(email);

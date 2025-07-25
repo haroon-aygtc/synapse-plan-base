@@ -12,14 +12,10 @@ import { APIPatternDetectionService } from './services/api-pattern-detection.ser
 import { AIProviderModule } from '../ai-provider/ai-provider.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Agent, PromptTemplate]),
-    HttpModule,
-    AIProviderModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Agent, PromptTemplate]), HttpModule, AIProviderModule],
   controllers: [AIAssistantController],
   providers: [
-    AIAssistantService, 
+    AIAssistantService,
     NaturalLanguageProcessorService,
     MultiLanguageSupportService,
     LearningSystemService,
@@ -27,7 +23,7 @@ import { AIProviderModule } from '../ai-provider/ai-provider.module';
     APIPatternDetectionService,
   ],
   exports: [
-    AIAssistantService, 
+    AIAssistantService,
     NaturalLanguageProcessorService,
     MultiLanguageSupportService,
     LearningSystemService,

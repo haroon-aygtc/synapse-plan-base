@@ -1,11 +1,4 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  OneToMany,
-  JoinColumn,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { AgentExecution } from './agent-execution.entity';
@@ -270,7 +263,7 @@ export class HITLRequest extends BaseEntity {
     userId: string,
     details: Record<string, any>,
     ipAddress?: string,
-    userAgent?: string,
+    userAgent?: string
   ): void {
     if (!this.auditTrail) {
       this.auditTrail = [];
@@ -286,9 +279,7 @@ export class HITLRequest extends BaseEntity {
     });
   }
 
-  updatePerformanceMetrics(
-    metrics: Partial<HITLRequest['performanceMetrics']>,
-  ): void {
+  updatePerformanceMetrics(metrics: Partial<HITLRequest['performanceMetrics']>): void {
     const defaultMetrics = {
       responseTimeMs: 0,
       decisionTimeMs: 0,
@@ -296,7 +287,7 @@ export class HITLRequest extends BaseEntity {
       discussionMessages: 0,
       expertsConsulted: 0,
     };
-    
+
     this.performanceMetrics = {
       ...defaultMetrics,
       ...this.performanceMetrics,
@@ -326,7 +317,7 @@ export class HITLRequest extends BaseEntity {
     }
 
     return this.escalationRules.escalationChain.find(
-      (level) => level.level === this.escalationLevel + 1,
+      (level) => level.level === this.escalationLevel + 1
     );
   }
 }

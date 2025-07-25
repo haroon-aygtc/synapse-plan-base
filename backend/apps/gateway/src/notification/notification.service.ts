@@ -18,12 +18,7 @@ import {
   NotificationPreference,
   NotificationDelivery,
 } from '@database/entities';
-import {
-  NotificationType,
-  NotificationPriority,
-  ExecutionStatus,
-  EventType,
-} from '@shared/enums';
+import { NotificationType, NotificationPriority, ExecutionStatus, EventType } from '@shared/enums';
 import {
   CreateNotificationDto,
   CreateBulkNotificationDto,
@@ -56,13 +51,13 @@ export class NotificationService {
     private readonly configService: ConfigService,
     private readonly webSocketService: WebSocketService,
     private readonly deliveryService: NotificationDeliveryService,
-    private readonly schedulerService: NotificationSchedulerService,
+    private readonly schedulerService: NotificationSchedulerService
   ) {}
 
   // Notification CRUD Operations
   async createNotification(
     createNotificationDto: CreateNotificationDto,
-    organizationId: string,
+    organizationId: string
   ): Promise<Notification> {
     const notification = this.notificationRepository.create({
       ...createNotificationDto,
@@ -71,8 +66,7 @@ export class NotificationService {
       status: ExecutionStatus.PENDING,
     });
 
-    const savedNotification =
-      await this.notificationRepository.save(notification);
+    const savedNotification = await this.notificationRepository.save(notification);
 
     // Check user preferences and schedule delivery
     await this.processNotificationForDelivery(savedNotification);
@@ -91,7 +85,7 @@ export class NotificationService {
 
   async createBulkNotifications(
     createBulkDto: CreateBulkNotificationDto,
-    organizationId: string,
+    organizationId: string
   ): Promise<Notification[]> {
     const notifications = createBulkDto.notifications.map((dto) =>
       this.notificationRepository.create({
@@ -99,11 +93,10 @@ export class NotificationService {
         organizationId,
         priority: dto.priority || NotificationPriority.MEDIUM,
         status: ExecutionStatus.PENDING,
-      }),
+      })
     );
 
-    const savedNotifications =
-      await this.notificationRepository.save(notifications);
+    const savedNotifications = await this.notificationRepository.save(notifications);
 
     // Process each notification for delivery
     for (const notification of savedNotifications) {
@@ -115,7 +108,7 @@ export class NotificationService {
 
   async createNotificationFromTemplate(
     createFromTemplateDto: CreateNotificationFromTemplateDto,
-    organizationId: string,
+    organizationId: string
   ): Promise<Notification> {
     const template = await this.templateRepository.findOne({
       where: {
@@ -130,12 +123,10 @@ export class NotificationService {
     }
 
     // Validate template variables
-    const validation = template.validateVariables(
-      createFromTemplateDto.variables,
-    );
+    const validation = template.validateVariables(createFromTemplateDto.variables);
     if (!validation.isValid) {
       throw new BadRequestException(
-        `Template validation failed: Missing required variables: ${validation.missingRequired.join(', ')}, Invalid types: ${validation.invalidTypes.join(', ')}`,
+        `Template validation failed: Missing required variables: ${validation.missingRequired.join(', ')}, Invalid types: ${validation.invalidTypes.join(', ')}`
       );
     }
 
@@ -160,8 +151,7 @@ export class NotificationService {
       status: ExecutionStatus.PENDING,
     });
 
-    const savedNotification =
-      await this.notificationRepository.save(notification);
+    const savedNotification = await this.notificationRepository.save(notification);
 
     await this.processNotificationForDelivery(savedNotification);
 
@@ -180,7 +170,7 @@ export class NotificationService {
       unreadOnly?: boolean;
       startDate?: Date;
       endDate?: Date;
-    } = {},
+    } = {}
   ): Promise<{
     notifications: Notification[];
     total: number;
@@ -210,14 +200,13 @@ export class NotificationService {
       where.createdAt = Between(startDate, endDate) as any;
     }
 
-    const [notifications, total] =
-      await this.notificationRepository.findAndCount({
-        where,
-        order: { createdAt: 'DESC' },
-        skip: (page - 1) * limit,
-        take: limit,
-        relations: ['template', 'deliveries'],
-      });
+    const [notifications, total] = await this.notificationRepository.findAndCount({
+      where,
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+      relations: ['template', 'deliveries'],
+    });
 
     const unreadCount = await this.notificationRepository.count({
       where: {
@@ -233,7 +222,7 @@ export class NotificationService {
   async getNotificationById(
     id: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<Notification> {
     const notification = await this.notificationRepository.findOne({
       where: { id, userId, organizationId },
@@ -251,13 +240,9 @@ export class NotificationService {
     id: string,
     updateDto: UpdateNotificationDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<Notification> {
-    const notification = await this.getNotificationById(
-      id,
-      userId,
-      organizationId,
-    );
+    const notification = await this.getNotificationById(id, userId, organizationId);
 
     Object.assign(notification, updateDto);
 
@@ -268,20 +253,11 @@ export class NotificationService {
     return this.notificationRepository.save(notification);
   }
 
-  async markAsRead(
-    id: string,
-    userId: string,
-    organizationId: string,
-  ): Promise<Notification> {
-    const notification = await this.getNotificationById(
-      id,
-      userId,
-      organizationId,
-    );
+  async markAsRead(id: string, userId: string, organizationId: string): Promise<Notification> {
+    const notification = await this.getNotificationById(id, userId, organizationId);
 
     notification.markAsRead();
-    const updatedNotification =
-      await this.notificationRepository.save(notification);
+    const updatedNotification = await this.notificationRepository.save(notification);
 
     // Send real-time update
     await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
@@ -293,10 +269,7 @@ export class NotificationService {
     return updatedNotification;
   }
 
-  async markAllAsRead(
-    userId: string,
-    organizationId: string,
-  ): Promise<{ updated: number }> {
+  async markAllAsRead(userId: string, organizationId: string): Promise<{ updated: number }> {
     const result = await this.notificationRepository.update(
       {
         userId,
@@ -305,7 +278,7 @@ export class NotificationService {
       },
       {
         readAt: new Date(),
-      },
+      }
     );
 
     // Send real-time update
@@ -317,16 +290,8 @@ export class NotificationService {
     return { updated: result.affected || 0 };
   }
 
-  async deleteNotification(
-    id: string,
-    userId: string,
-    organizationId: string,
-  ): Promise<void> {
-    const notification = await this.getNotificationById(
-      id,
-      userId,
-      organizationId,
-    );
+  async deleteNotification(id: string, userId: string, organizationId: string): Promise<void> {
+    const notification = await this.getNotificationById(id, userId, organizationId);
 
     await this.notificationRepository.remove(notification);
   }
@@ -335,7 +300,7 @@ export class NotificationService {
   async createTemplate(
     createTemplateDto: CreateNotificationTemplateDto,
     organizationId: string,
-    createdBy: string,
+    createdBy: string
   ): Promise<NotificationTemplate> {
     // Check for duplicate template name
     const existingTemplate = await this.templateRepository.findOne({
@@ -368,7 +333,7 @@ export class NotificationService {
       category?: string;
       type?: NotificationType;
       isActive?: boolean;
-    } = {},
+    } = {}
   ): Promise<{ templates: NotificationTemplate[]; total: number }> {
     const { page = 1, limit = 50, category, type, isActive } = options;
 
@@ -391,10 +356,7 @@ export class NotificationService {
     return { templates, total };
   }
 
-  async getTemplateById(
-    id: string,
-    organizationId: string,
-  ): Promise<NotificationTemplate> {
+  async getTemplateById(id: string, organizationId: string): Promise<NotificationTemplate> {
     const template = await this.templateRepository.findOne({
       where: { id, organizationId },
       relations: ['creator', 'updater'],
@@ -411,7 +373,7 @@ export class NotificationService {
     id: string,
     updateDto: UpdateNotificationTemplateDto,
     organizationId: string,
-    updatedBy: string,
+    updatedBy: string
   ): Promise<NotificationTemplate> {
     const template = await this.getTemplateById(id, organizationId);
 
@@ -429,7 +391,7 @@ export class NotificationService {
   async createOrUpdatePreference(
     createPreferenceDto: CreateNotificationPreferenceDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<NotificationPreference> {
     const existingPreference = await this.preferenceRepository.findOne({
       where: {
@@ -459,7 +421,7 @@ export class NotificationService {
     userId: string,
     organizationId: string,
     eventType?: string,
-    type?: NotificationType,
+    type?: NotificationType
   ): Promise<NotificationPreference[]> {
     const where: FindOptionsWhere<NotificationPreference> = {
       userId,
@@ -479,7 +441,7 @@ export class NotificationService {
     id: string,
     updateDto: UpdateNotificationPreferenceDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<NotificationPreference> {
     const preference = await this.preferenceRepository.findOne({
       where: { id, userId, organizationId },
@@ -497,13 +459,9 @@ export class NotificationService {
   async getDeliveryHistory(
     notificationId: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<NotificationDelivery[]> {
-    const notification = await this.getNotificationById(
-      notificationId,
-      userId,
-      organizationId,
-    );
+    const notification = await this.getNotificationById(notificationId, userId, organizationId);
 
     return this.deliveryRepository.find({
       where: { notificationId: notification.id },
@@ -514,13 +472,9 @@ export class NotificationService {
   async retryFailedDeliveries(
     notificationId: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<{ retriedCount: number }> {
-    const notification = await this.getNotificationById(
-      notificationId,
-      userId,
-      organizationId,
-    );
+    const notification = await this.getNotificationById(notificationId, userId, organizationId);
 
     const failedDeliveries = await this.deliveryRepository.find({
       where: {
@@ -529,9 +483,7 @@ export class NotificationService {
       },
     });
 
-    const retriableDeliveries = failedDeliveries.filter((delivery) =>
-      delivery.canRetry(),
-    );
+    const retriableDeliveries = failedDeliveries.filter((delivery) => delivery.canRetry());
 
     for (const delivery of retriableDeliveries) {
       delivery.status = ExecutionStatus.PENDING;
@@ -550,7 +502,7 @@ export class NotificationService {
     organizationId: string,
     userId?: string,
     startDate?: Date,
-    endDate?: Date,
+    endDate?: Date
   ): Promise<{
     totalSent: number;
     totalDelivered: number;
@@ -566,11 +518,10 @@ export class NotificationService {
       where.createdAt = Between(startDate, endDate) as any;
     }
 
-    const [notifications, totalSent] =
-      await this.notificationRepository.findAndCount({
-        where,
-        relations: ['deliveries'],
-      });
+    const [notifications, totalSent] = await this.notificationRepository.findAndCount({
+      where,
+      relations: ['deliveries'],
+    });
 
     let totalDelivered = 0;
     let totalFailed = 0;
@@ -582,15 +533,14 @@ export class NotificationService {
       byType[notification.type] = (byType[notification.type] || 0) + 1;
 
       // Count by priority
-      byPriority[notification.priority] =
-        (byPriority[notification.priority] || 0) + 1;
+      byPriority[notification.priority] = (byPriority[notification.priority] || 0) + 1;
 
       // Count delivery status
       const hasSuccessfulDelivery = notification.deliveries.some(
-        (d) => d.status === ExecutionStatus.COMPLETED,
+        (d) => d.status === ExecutionStatus.COMPLETED
       );
       const hasFailedDelivery = notification.deliveries.some(
-        (d) => d.status === ExecutionStatus.FAILED,
+        (d) => d.status === ExecutionStatus.FAILED
       );
 
       if (hasSuccessfulDelivery) totalDelivered++;
@@ -619,22 +569,18 @@ export class NotificationService {
   }
 
   // Private helper methods
-  private async processNotificationForDelivery(
-    notification: Notification,
-  ): Promise<void> {
+  private async processNotificationForDelivery(notification: Notification): Promise<void> {
     try {
       // Get user preferences
       const preferences = await this.getPreferences(
         notification.userId,
         notification.organizationId,
         notification.eventType,
-        notification.type,
+        notification.type
       );
 
       const preference = preferences.find(
-        (p) =>
-          p.eventType === notification.eventType &&
-          p.type === notification.type,
+        (p) => p.eventType === notification.eventType && p.type === notification.type
       );
 
       // Check if notifications are enabled for this event type
@@ -645,7 +591,7 @@ export class NotificationService {
       }
 
       // Check quiet hours
-      if (preference && preference.isInQuietHours()) {
+      if (preference?.isInQuietHours()) {
         // Schedule for after quiet hours
         const quietHours = preference.settings?.quietHours;
         if (quietHours) {
@@ -666,7 +612,7 @@ export class NotificationService {
     } catch (error) {
       this.logger.error(
         `Failed to process notification ${notification.id}: ${error.message}`,
-        error.stack,
+        error.stack
       );
 
       notification.status = ExecutionStatus.FAILED;
@@ -754,12 +700,12 @@ export class NotificationService {
           userId: data.userId,
           data: data.data,
         },
-        data.organizationId,
+        data.organizationId
       );
     } catch (error) {
       this.logger.error(
         `Failed to create cross-module notification: ${error.message}`,
-        error.stack,
+        error.stack
       );
     }
   }

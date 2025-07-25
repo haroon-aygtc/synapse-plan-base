@@ -6,10 +6,7 @@ import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
 
 @Module({
-  imports: [
-    ConfigModule,
-    TypeOrmModule.forFeature([Subscription, Organization, User]),
-  ],
+  imports: [ConfigModule, TypeOrmModule.forFeature([Subscription, Organization, User])],
   controllers: [BillingController],
   providers: [BillingService],
   exports: [BillingService],

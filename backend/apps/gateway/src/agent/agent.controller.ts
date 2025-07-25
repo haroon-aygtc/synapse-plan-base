@@ -58,12 +58,12 @@ export class AgentController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async create(
     @Body() createAgentDto: CreateAgentDto,
-    @Request() req: any,
+    @Request() req: any
   ): Promise<AgentResponseDto> {
     const agent = await this.agentService.create(
       createAgentDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
     return plainToClass(AgentResponseDto, agent, {
       excludeExtraneousValues: true,
@@ -71,12 +71,7 @@ export class AgentController {
   }
 
   @Get()
-  @Roles(
-    UserRole.VIEWER,
-    UserRole.DEVELOPER,
-    UserRole.ORG_ADMIN,
-    UserRole.SUPER_ADMIN,
-  )
+  @Roles(UserRole.VIEWER, UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get all agents' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -125,7 +120,7 @@ export class AgentController {
     @Query('offset') offset?: number,
     @Query('search') search?: string,
     @Query('category') category?: string,
-    @Query('model') model?: string,
+    @Query('model') model?: string
   ): Promise<AgentResponseDto[]> {
     const agents = await this.agentService.findAll(req.user.organizationId, {
       userId,
@@ -139,7 +134,7 @@ export class AgentController {
     return agents.map((agent) =>
       plainToClass(AgentResponseDto, agent, {
         excludeExtraneousValues: true,
-      }),
+      })
     );
   }
 
@@ -160,11 +155,7 @@ export class AgentController {
     required: false,
     description: 'End date for statistics',
   })
-  async getStatistics(
-    @Request() req: any,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-  ) {
+  async getStatistics(@Request() req: any, @Query('from') from?: string, @Query('to') to?: string) {
     const timeRange =
       from && to
         ? {
@@ -177,12 +168,7 @@ export class AgentController {
   }
 
   @Get(':id')
-  @Roles(
-    UserRole.VIEWER,
-    UserRole.DEVELOPER,
-    UserRole.ORG_ADMIN,
-    UserRole.SUPER_ADMIN,
-  )
+  @Roles(UserRole.VIEWER, UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get agent by ID' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -206,7 +192,7 @@ export class AgentController {
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: any,
     @Query('includeExecutions') includeExecutions?: boolean,
-    @Query('includeTestResults') includeTestResults?: boolean,
+    @Query('includeTestResults') includeTestResults?: boolean
   ): Promise<AgentResponseDto> {
     const agent = await this.agentService.findOne(id, req.user.organizationId, {
       includeExecutions,
@@ -230,13 +216,13 @@ export class AgentController {
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateAgentDto: UpdateAgentDto,
-    @Request() req: any,
+    @Request() req: any
   ): Promise<AgentResponseDto> {
     const agent = await this.agentService.update(
       id,
       updateAgentDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
     return plainToClass(AgentResponseDto, agent, {
       excludeExtraneousValues: true,
@@ -251,20 +237,12 @@ export class AgentController {
     description: 'Agent deleted successfully',
   })
   @ApiParam({ name: 'id', description: 'Agent ID' })
-  async remove(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
-  ): Promise<void> {
+  async remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any): Promise<void> {
     await this.agentService.remove(id, req.user.sub, req.user.organizationId);
   }
 
   @Post(':id/execute')
-  @Roles(
-    UserRole.VIEWER,
-    UserRole.DEVELOPER,
-    UserRole.ORG_ADMIN,
-    UserRole.SUPER_ADMIN,
-  )
+  @Roles(UserRole.VIEWER, UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Execute agent' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -275,30 +253,20 @@ export class AgentController {
   async execute(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() executeDto: ExecuteAgentDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
-    return this.agentService.execute(
-      id,
-      executeDto,
-      req.user.sub,
-      req.user.organizationId,
-    );
+    return this.agentService.execute(id, executeDto, req.user.sub, req.user.organizationId);
   }
 
   @Sse(':id/execute/stream')
-  @Roles(
-    UserRole.VIEWER,
-    UserRole.DEVELOPER,
-    UserRole.ORG_ADMIN,
-    UserRole.SUPER_ADMIN,
-  )
+  @Roles(UserRole.VIEWER, UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Execute agent with streaming response' })
   @ApiParam({ name: 'id', description: 'Agent ID' })
   executeStream(
     @Param('id', ParseUUIDPipe) id: string,
     @Query('input') input: string,
     @Query('sessionId') sessionId?: string,
-    @Request() req?: any,
+    @Request() req?: any
   ): Observable<MessageEvent> {
     // This is a simplified streaming implementation
     // In a real implementation, you'd integrate with the actual execution stream
@@ -309,7 +277,7 @@ export class AgentController {
           message: `Processing step ${index + 1}...`,
           timestamp: new Date().toISOString(),
         },
-      })),
+      }))
     );
   }
 
@@ -325,14 +293,9 @@ export class AgentController {
   async test(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() testDto: TestAgentDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
-    return this.agentService.test(
-      id,
-      testDto,
-      req.user.sub,
-      req.user.organizationId,
-    );
+    return this.agentService.test(id, testDto, req.user.sub, req.user.organizationId);
   }
 
   @Post(':id/test/batch')
@@ -347,14 +310,9 @@ export class AgentController {
   async batchTest(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() batchTestDto: BatchTestAgentDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
-    return this.agentService.batchTest(
-      id,
-      batchTestDto,
-      req.user.sub,
-      req.user.organizationId,
-    );
+    return this.agentService.batchTest(id, batchTestDto, req.user.sub, req.user.organizationId);
   }
 
   @Post(':id/versions')
@@ -369,14 +327,14 @@ export class AgentController {
   async createVersion(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { version: string; changes: Record<string, any> },
-    @Request() req: any,
+    @Request() req: any
   ): Promise<AgentResponseDto> {
     const agent = await this.agentService.createVersion(
       id,
       body.version,
       body.changes,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
     return plainToClass(AgentResponseDto, agent, {
       excludeExtraneousValues: true,
@@ -384,12 +342,7 @@ export class AgentController {
   }
 
   @Get(':id/versions')
-  @Roles(
-    UserRole.VIEWER,
-    UserRole.DEVELOPER,
-    UserRole.ORG_ADMIN,
-    UserRole.SUPER_ADMIN,
-  )
+  @Roles(UserRole.VIEWER, UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get version history of agent' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -399,16 +352,13 @@ export class AgentController {
   @ApiParam({ name: 'id', description: 'Agent ID' })
   async getVersionHistory(
     @Param('id', ParseUUIDPipe) id: string,
-    @Request() req: any,
+    @Request() req: any
   ): Promise<AgentResponseDto[]> {
-    const agents = await this.agentService.getVersionHistory(
-      id,
-      req.user.organizationId,
-    );
+    const agents = await this.agentService.getVersionHistory(id, req.user.organizationId);
     return agents.map((agent) =>
       plainToClass(AgentResponseDto, agent, {
         excludeExtraneousValues: true,
-      }),
+      })
     );
   }
 }

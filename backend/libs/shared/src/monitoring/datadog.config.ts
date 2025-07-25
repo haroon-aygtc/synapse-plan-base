@@ -1,8 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 
 export function initializeDatadog(configService: ConfigService) {
-  const datadogEnabled =
-    configService.get('DATADOG_ENABLED', 'false') === 'true';
+  const datadogEnabled = configService.get('DATADOG_ENABLED', 'false') === 'true';
   const datadogApiKey = configService.get('DATADOG_API_KEY');
   const serviceName = configService.get('SERVICE_NAME', 'synapseai');
   const environment = configService.get('NODE_ENV', 'development');
@@ -48,7 +47,10 @@ export function initializeDatadog(configService: ConfigService) {
 
     console.log(`DataDog monitoring initialized for service: ${serviceName}`);
   } catch (error) {
-    console.error('Failed to initialize DataDog:', error instanceof Error ? error.message : String(error));
+    console.error(
+      'Failed to initialize DataDog:',
+      error instanceof Error ? error.message : String(error)
+    );
   }
 }
 
@@ -67,7 +69,7 @@ export function datadogMiddleware() {
     const startTime = Date.now();
 
     // Add custom tags to the current span
-    if (global.ddTrace && global.ddTrace.tracer.scope().active()) {
+    if (global.ddTrace?.tracer.scope().active()) {
       const span = global.ddTrace.tracer.scope().active();
       span.setTag('http.user_agent', req.get('User-Agent') || 'unknown');
       span.setTag('http.remote_addr', req.ip || req.connection.remoteAddress);
@@ -84,7 +86,7 @@ export function datadogMiddleware() {
     res.on('finish', () => {
       const duration = Date.now() - startTime;
 
-      if (global.ddTrace && global.ddTrace.dogstatsd) {
+      if (global.ddTrace?.dogstatsd) {
         global.ddTrace.dogstatsd.histogram('http.request.duration', duration, {
           method: req.method,
           status_code: res.statusCode.toString(),

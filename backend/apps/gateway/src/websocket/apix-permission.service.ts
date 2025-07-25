@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  APXPermissionLevel,
-  APXSecurityLevel,
-  APXMessageType,
-} from '@shared/enums';
+import { APXPermissionLevel, APXSecurityLevel, APXMessageType } from '@shared/enums';
 
 @Injectable()
 export class APXPermissionService {
@@ -27,11 +23,7 @@ export class APXPermissionService {
       APXPermissionLevel.ADMIN,
       APXPermissionLevel.EXECUTE,
     ],
-    DEVELOPER: [
-      APXPermissionLevel.READ,
-      APXPermissionLevel.WRITE,
-      APXPermissionLevel.EXECUTE,
-    ],
+    DEVELOPER: [APXPermissionLevel.READ, APXPermissionLevel.WRITE, APXPermissionLevel.EXECUTE],
     VIEWER: [APXPermissionLevel.READ],
   };
 
@@ -86,13 +78,8 @@ export class APXPermissionService {
     [APXMessageType.RATE_LIMIT_EXCEEDED]: APXPermissionLevel.READ,
   };
 
-  getRateLimit(
-    role: string,
-    limitType: 'messages' | 'executions' | 'streams',
-  ): number {
-    return (
-      this.rateLimits[role]?.[limitType] || this.rateLimits.VIEWER[limitType]
-    );
+  getRateLimit(role: string, limitType: 'messages' | 'executions' | 'streams'): number {
+    return this.rateLimits[role]?.[limitType] || this.rateLimits.VIEWER[limitType];
   }
 
   getSecurityLevel(role: string): APXSecurityLevel {
@@ -118,10 +105,7 @@ export class APXPermissionService {
     return this.messagePermissions[messageType] || APXPermissionLevel.READ;
   }
 
-  hasPermission(
-    userRole: string,
-    requiredPermission: APXPermissionLevel,
-  ): boolean {
+  hasPermission(userRole: string, requiredPermission: APXPermissionLevel): boolean {
     const userPermissions = this.getPermissions(userRole);
     return userPermissions.includes(requiredPermission);
   }
@@ -131,11 +115,7 @@ export class APXPermissionService {
     return this.hasPermission(userRole, requiredPermission);
   }
 
-  validateTenantAccess(
-    userOrgId: string,
-    targetOrgId: string,
-    userRole: string,
-  ): boolean {
+  validateTenantAccess(userOrgId: string, targetOrgId: string, userRole: string): boolean {
     // Super admins can access any tenant
     if (userRole === 'SUPER_ADMIN') {
       return true;
@@ -148,7 +128,7 @@ export class APXPermissionService {
   validateSessionOwnership(
     sessionUserId: string,
     requestUserId: string,
-    userRole: string,
+    userRole: string
   ): boolean {
     // Admins can access any session in their organization
     if (['SUPER_ADMIN', 'ORG_ADMIN'].includes(userRole)) {

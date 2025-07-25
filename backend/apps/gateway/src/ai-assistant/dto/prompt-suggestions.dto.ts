@@ -1,8 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsEnum,
-} from 'class-validator';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 enum ComplexityLevel {
@@ -26,10 +22,10 @@ export class PromptSuggestionsDto {
   @IsString()
   tone?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Complexity level',
     enum: ComplexityLevel,
-    default: ComplexityLevel.INTERMEDIATE
+    default: ComplexityLevel.INTERMEDIATE,
   })
   @IsOptional()
   @IsEnum(ComplexityLevel)

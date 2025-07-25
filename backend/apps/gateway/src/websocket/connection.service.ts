@@ -27,12 +27,7 @@ import {
   ICrossModuleEvent,
   ISessionContext,
 } from '@shared/interfaces';
-import {
-  EventType,
-  WebSocketEventType,
-  EventTargetType,
-  EventPriority,
-} from '@shared/enums';
+import { EventType, WebSocketEventType, EventTargetType, EventPriority } from '@shared/enums';
 
 export interface ConnectionInfo extends IConnectionInfo {}
 export interface MessageProtocol extends IWebSocketMessage {}
@@ -66,7 +61,7 @@ export class ConnectionService implements OnModuleDestroy {
     private readonly eventLogRepository: Repository<EventLog>,
     @InjectRepository(Subscription)
     private readonly subscriptionRepository: Repository<Subscription>,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {
     this.startHeartbeatMonitor();
     this.startStatsCollection();
@@ -77,17 +72,14 @@ export class ConnectionService implements OnModuleDestroy {
     socket: Socket,
     userId: string,
     organizationId: string,
-    role?: string,
+    role?: string
   ): Promise<string> {
     // Validate connection limits per organization
-    const orgConnections =
-      await this.getConnectionsByOrganizationId(organizationId);
+    const orgConnections = await this.getConnectionsByOrganizationId(organizationId);
     const maxConnections = this.getMaxConnectionsForOrg(organizationId);
 
     if (orgConnections.length >= maxConnections) {
-      throw new Error(
-        `Organization connection limit exceeded: ${maxConnections}`,
-      );
+      throw new Error(`Organization connection limit exceeded: ${maxConnections}`);
     }
     const connectionId = uuidv4();
     const connectionInfo: ConnectionInfo = {
@@ -121,14 +113,11 @@ export class ConnectionService implements OnModuleDestroy {
     await this.redis.hset(
       `${this.REDIS_CONNECTION_PREFIX}${connectionId}`,
       'data',
-      JSON.stringify(connectionInfo),
+      JSON.stringify(connectionInfo)
     );
     await this.redis.sadd(`ws:user:${userId}`, connectionId);
     await this.redis.sadd(`ws:org:${organizationId}`, connectionId);
-    await this.redis.expire(
-      `${this.REDIS_CONNECTION_PREFIX}${connectionId}`,
-      86400,
-    ); // 24 hours
+    await this.redis.expire(`${this.REDIS_CONNECTION_PREFIX}${connectionId}`, 86400); // 24 hours
 
     // Initialize session context for cross-module communication
     const sessionContext: ISessionContext = {
@@ -153,7 +142,7 @@ export class ConnectionService implements OnModuleDestroy {
     });
 
     this.logger.log(
-      `Connection established: ${connectionId} for user ${userId} in org ${organizationId}`,
+      `Connection established: ${connectionId} for user ${userId} in org ${organizationId}`
     );
 
     return connectionId;
@@ -169,7 +158,7 @@ export class ConnectionService implements OnModuleDestroy {
     message: any,
     userId: string,
     organizationId: string,
-    role: string,
+    role: string
   ): Promise<{ valid: boolean; reason?: string }> {
     try {
       // Validate message structure
@@ -181,10 +170,7 @@ export class ConnectionService implements OnModuleDestroy {
       }
 
       // Validate tenant isolation
-      if (
-        message.organization_id &&
-        message.organization_id !== organizationId
-      ) {
+      if (message.organization_id && message.organization_id !== organizationId) {
         return {
           valid: false,
           reason: 'Cross-tenant access denied',
@@ -230,7 +216,7 @@ export class ConnectionService implements OnModuleDestroy {
       return { valid: true };
     } catch (error) {
       this.logger.error(
-        `Message security validation failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Message security validation failed: ${error instanceof Error ? error.message : String(error)}`
       );
       return {
         valid: false,
@@ -242,7 +228,7 @@ export class ConnectionService implements OnModuleDestroy {
   async enforceRateLimit(
     userId: string,
     organizationId: string,
-    messageType: string,
+    messageType: string
   ): Promise<{ allowed: boolean; resetTime?: number }> {
     const key = `rate_limit:${organizationId}:${userId}:${messageType}`;
     const now = Date.now();
@@ -270,7 +256,7 @@ export class ConnectionService implements OnModuleDestroy {
       return { allowed: true };
     } catch (error) {
       this.logger.error(
-        `Rate limit check failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Rate limit check failed: ${error instanceof Error ? error.message : String(error)}`
       );
       // Fail open for availability
       return { allowed: true };
@@ -306,16 +292,13 @@ export class ConnectionService implements OnModuleDestroy {
       // Remove from Redis
       await this.redis.del(`${this.REDIS_CONNECTION_PREFIX}${connectionId}`);
       await this.redis.srem(`ws:user:${connectionInfo.userId}`, connectionId);
-      await this.redis.srem(
-        `ws:org:${connectionInfo.organizationId}`,
-        connectionId,
-      );
+      await this.redis.srem(`ws:org:${connectionInfo.organizationId}`, connectionId);
 
       // Track disconnection stats
       await this.updateConnectionStats(
         'disconnect',
         connectionInfo.organizationId,
-        connectionInfo.role,
+        connectionInfo.role
       );
 
       // Emit disconnection event
@@ -328,9 +311,7 @@ export class ConnectionService implements OnModuleDestroy {
         duration: new Date().getTime() - connectionInfo.connectedAt.getTime(),
       });
 
-      this.logger.log(
-        `Connection removed: ${connectionId} for user ${connectionInfo.userId}`,
-      );
+      this.logger.log(`Connection removed: ${connectionId} for user ${connectionInfo.userId}`);
     }
   }
 
@@ -344,11 +325,7 @@ export class ConnectionService implements OnModuleDestroy {
       this.connections.set(connectionId, connectionInfo);
 
       // Update in Redis
-      await this.redis.hset(
-        'ws:connections',
-        connectionId,
-        JSON.stringify(connectionInfo),
-      );
+      await this.redis.hset('ws:connections', connectionId, JSON.stringify(connectionInfo));
     }
   }
 
@@ -365,9 +342,7 @@ export class ConnectionService implements OnModuleDestroy {
     return await this.redis.smembers(`ws:user:${userId}`);
   }
 
-  async getConnectionsByOrganizationId(
-    organizationId: string,
-  ): Promise<string[]> {
+  async getConnectionsByOrganizationId(organizationId: string): Promise<string[]> {
     return await this.redis.smembers(`ws:org:${organizationId}`);
   }
 
@@ -379,7 +354,7 @@ export class ConnectionService implements OnModuleDestroy {
     targetType?: EventTargetType,
     targetId?: string,
     priority: EventPriority = EventPriority.NORMAL,
-    correlationId?: string,
+    correlationId?: string
   ): MessageProtocol {
     const message: MessageProtocol = {
       event,
@@ -422,8 +397,7 @@ export class ConnectionService implements OnModuleDestroy {
     const staleConnections: string[] = [];
 
     for (const [connectionId, connectionInfo] of this.connections) {
-      const timeSinceHeartbeat =
-        now.getTime() - connectionInfo.lastHeartbeat.getTime();
+      const timeSinceHeartbeat = now.getTime() - connectionInfo.lastHeartbeat.getTime();
       if (timeSinceHeartbeat > this.connectionTimeout) {
         staleConnections.push(connectionId);
       }
@@ -433,7 +407,7 @@ export class ConnectionService implements OnModuleDestroy {
       const connectionInfo = this.connections.get(connectionId);
       if (connectionInfo) {
         this.logger.warn(
-          `Removing stale connection: ${connectionId} for user ${connectionInfo.userId}`,
+          `Removing stale connection: ${connectionId} for user ${connectionInfo.userId}`
         );
 
         // Find socket ID for this connection
@@ -451,9 +425,7 @@ export class ConnectionService implements OnModuleDestroy {
           // Direct cleanup if socket ID not found
           this.connections.delete(connectionId);
           this.subscriptions.delete(connectionId);
-          await this.redis.del(
-            `${this.REDIS_CONNECTION_PREFIX}${connectionId}`,
-          );
+          await this.redis.del(`${this.REDIS_CONNECTION_PREFIX}${connectionId}`);
         }
       }
     }
@@ -467,8 +439,7 @@ export class ConnectionService implements OnModuleDestroy {
     let totalConnectionTime = 0;
 
     connections.forEach((conn) => {
-      connectionsByOrg[conn.organizationId] =
-        (connectionsByOrg[conn.organizationId] || 0) + 1;
+      connectionsByOrg[conn.organizationId] = (connectionsByOrg[conn.organizationId] || 0) + 1;
 
       if (conn.role) {
         connectionsByRole[conn.role] = (connectionsByRole[conn.role] || 0) + 1;
@@ -483,8 +454,7 @@ export class ConnectionService implements OnModuleDestroy {
       totalConnections: connections.length,
       connectionsByOrg,
       connectionsByRole,
-      averageConnectionTime:
-        connections.length > 0 ? totalConnectionTime / connections.length : 0,
+      averageConnectionTime: connections.length > 0 ? totalConnectionTime / connections.length : 0,
       peakConnections: this.getPeakConnections(),
       messagesPerMinute: this.getMessagesPerMinute(),
       subscriptionStats,
@@ -503,19 +473,13 @@ export class ConnectionService implements OnModuleDestroy {
     return 0;
   }
 
-  async validateUserInOrganization(
-    userId: string,
-    organizationId: string,
-  ): Promise<boolean> {
+  async validateUserInOrganization(userId: string, organizationId: string): Promise<boolean> {
     try {
       // Check if user has any active connections in the specified organization
       const userConnections = await this.redis.smembers(`ws:user:${userId}`);
 
       for (const connectionId of userConnections) {
-        const connectionData = await this.redis.hget(
-          'ws:connections',
-          connectionId,
-        );
+        const connectionData = await this.redis.hget('ws:connections', connectionId);
         if (connectionData) {
           const connection: ConnectionInfo = JSON.parse(connectionData);
           if (connection.organizationId === organizationId) {
@@ -527,7 +491,7 @@ export class ConnectionService implements OnModuleDestroy {
       return false;
     } catch (error) {
       this.logger.error(
-        `Error validating user in organization: ${error instanceof Error ? error.message : String(error)}`,
+        `Error validating user in organization: ${error instanceof Error ? error.message : String(error)}`
       );
       return false;
     }
@@ -546,7 +510,7 @@ export class ConnectionService implements OnModuleDestroy {
       await this.redis.expire(detailKey, 86400); // Keep for 24 hours
     } catch (error) {
       this.logger.error(
-        `Error tracking message: ${error instanceof Error ? error.message : String(error)}`,
+        `Error tracking message: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -554,7 +518,7 @@ export class ConnectionService implements OnModuleDestroy {
   private async updateConnectionStats(
     action: 'connect' | 'disconnect',
     organizationId: string,
-    role?: string,
+    role?: string
   ): Promise<void> {
     try {
       const timestamp = new Date().toISOString().slice(0, 16); // Per minute
@@ -575,7 +539,7 @@ export class ConnectionService implements OnModuleDestroy {
       await this.redis.expire(key, 86400); // Keep for 24 hours
     } catch (error) {
       this.logger.error(
-        `Error updating connection stats: ${error instanceof Error ? error.message : String(error)}`,
+        `Error updating connection stats: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -586,15 +550,13 @@ export class ConnectionService implements OnModuleDestroy {
     eventType: string,
     targetType: EventTargetType = EventTargetType.TENANT,
     targetId?: string,
-    filters?: Record<string, any>,
+    filters?: Record<string, any>
   ): Promise<boolean> {
     const connection = this.connections.get(connectionId);
     const subscription = this.subscriptions.get(connectionId);
 
     if (!connection || !subscription) {
-      this.logger.warn(
-        `Cannot subscribe: Connection ${connectionId} not found`,
-      );
+      this.logger.warn(`Cannot subscribe: Connection ${connectionId} not found`);
       return false;
     }
 
@@ -605,12 +567,12 @@ export class ConnectionService implements OnModuleDestroy {
       connection.organizationId,
       connection.role || 'VIEWER',
       targetType,
-      targetId,
+      targetId
     );
 
     if (!isAllowed) {
       this.logger.warn(
-        `Subscription denied: ${connection.userId} cannot subscribe to ${eventType}`,
+        `Subscription denied: ${connection.userId} cannot subscribe to ${eventType}`
       );
       return false;
     }
@@ -644,14 +606,14 @@ export class ConnectionService implements OnModuleDestroy {
       await this.subscriptionRepository.save(subscriptionEntity);
     } catch (error) {
       this.logger.error(
-        `Failed to persist subscription: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to persist subscription: ${error instanceof Error ? error.message : String(error)}`
       );
     }
 
     // Store in Redis for multi-instance support
     await this.redis.sadd(
       `${this.REDIS_SUBSCRIPTION_PREFIX}${eventType}:${connection.organizationId}`,
-      connectionId,
+      connectionId
     );
     await this.redis.hset(
       `${this.REDIS_SUBSCRIPTION_PREFIX}${connectionId}`,
@@ -661,23 +623,17 @@ export class ConnectionService implements OnModuleDestroy {
         targetId,
         filters,
         subscribedAt: new Date(),
-      }),
+      })
     );
-    await this.redis.expire(
-      `${this.REDIS_SUBSCRIPTION_PREFIX}${connectionId}`,
-      86400,
-    );
+    await this.redis.expire(`${this.REDIS_SUBSCRIPTION_PREFIX}${connectionId}`, 86400);
 
     this.logger.debug(
-      `Connection ${connectionId} subscribed to event: ${eventType} (${targetType}${targetId ? ':' + targetId : ''})`,
+      `Connection ${connectionId} subscribed to event: ${eventType} (${targetType}${targetId ? `:${targetId}` : ''})`
     );
     return true;
   }
 
-  async unsubscribeFromEvent(
-    connectionId: string,
-    eventType: string,
-  ): Promise<boolean> {
+  async unsubscribeFromEvent(connectionId: string, eventType: string): Promise<boolean> {
     const connection = this.connections.get(connectionId);
     const subscription = this.subscriptions.get(connectionId);
 
@@ -707,27 +663,22 @@ export class ConnectionService implements OnModuleDestroy {
         {
           isActive: false,
           lastActivity: new Date(),
-        },
+        }
       );
     } catch (error) {
       this.logger.error(
-        `Failed to update subscription in database: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to update subscription in database: ${error instanceof Error ? error.message : String(error)}`
       );
     }
 
     // Remove from Redis
     await this.redis.srem(
       `${this.REDIS_SUBSCRIPTION_PREFIX}${eventType}:${connection.organizationId}`,
-      connectionId,
+      connectionId
     );
-    await this.redis.hdel(
-      `${this.REDIS_SUBSCRIPTION_PREFIX}${connectionId}`,
-      eventType,
-    );
+    await this.redis.hdel(`${this.REDIS_SUBSCRIPTION_PREFIX}${connectionId}`, eventType);
 
-    this.logger.debug(
-      `Connection ${connectionId} unsubscribed from event: ${eventType}`,
-    );
+    this.logger.debug(`Connection ${connectionId} unsubscribed from event: ${eventType}`);
     return true;
   }
 
@@ -750,11 +701,11 @@ export class ConnectionService implements OnModuleDestroy {
         {
           isActive: false,
           lastActivity: new Date(),
-        },
+        }
       );
     } catch (error) {
       this.logger.error(
-        `Failed to bulk unsubscribe in database: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to bulk unsubscribe in database: ${error instanceof Error ? error.message : String(error)}`
       );
     }
 
@@ -778,15 +729,15 @@ export class ConnectionService implements OnModuleDestroy {
 
   async getSubscribersForEventFromRedis(
     eventType: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<string[]> {
     try {
       return await this.redis.smembers(
-        `${this.REDIS_SUBSCRIPTION_PREFIX}${eventType}:${organizationId}`,
+        `${this.REDIS_SUBSCRIPTION_PREFIX}${eventType}:${organizationId}`
       );
     } catch (error) {
       this.logger.error(
-        `Error getting Redis subscribers: ${error instanceof Error ? error.message : String(error)}`,
+        `Error getting Redis subscribers: ${error instanceof Error ? error.message : String(error)}`
       );
       return [];
     }
@@ -808,7 +759,7 @@ export class ConnectionService implements OnModuleDestroy {
       parentEventId?: string;
       sourceModule?: string;
       targetModule?: string;
-    },
+    }
   ): Promise<void>;
   async publishEvent(eventPublication: IEventPublication): Promise<void>;
   async publishEvent(
@@ -821,7 +772,7 @@ export class ConnectionService implements OnModuleDestroy {
       parentEventId?: string;
       sourceModule?: string;
       targetModule?: string;
-    },
+    }
   ): Promise<void> {
     let eventPublication: IEventPublication;
 
@@ -851,7 +802,7 @@ export class ConnectionService implements OnModuleDestroy {
       eventPublication.targeting.type,
       eventPublication.targeting.targetId,
       eventPublication.priority,
-      eventPublication.correlationId,
+      eventPublication.correlationId
     );
 
     // Log event for persistence and replay
@@ -881,14 +832,14 @@ export class ConnectionService implements OnModuleDestroy {
       await this.eventLogRepository.save(eventLog);
     } catch (error) {
       this.logger.error(
-        `Failed to log event: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to log event: ${error instanceof Error ? error.message : String(error)}`
       );
     }
 
     // Publish to Redis for multi-instance broadcasting
     await this.redis.publish(
       `${this.REDIS_EVENT_PREFIX}${eventPublication.eventType}`,
-      JSON.stringify({ eventPublication, message }),
+      JSON.stringify({ eventPublication, message })
     );
 
     // Also handle locally for current instance
@@ -897,7 +848,7 @@ export class ConnectionService implements OnModuleDestroy {
 
   private async handleEventPublication(
     eventPublication: IEventPublication,
-    message: MessageProtocol,
+    message: MessageProtocol
   ): Promise<void> {
     const { eventType, targeting } = eventPublication;
     let targetConnections: string[] = [];
@@ -907,16 +858,11 @@ export class ConnectionService implements OnModuleDestroy {
         targetConnections = this.getSubscribersForEvent(eventType);
         break;
       case EventTargetType.TENANT:
-        targetConnections = this.getSubscribersForEvent(
-          eventType,
-          targeting.organizationId,
-        );
+        targetConnections = this.getSubscribersForEvent(eventType, targeting.organizationId);
         break;
       case EventTargetType.USER:
         if (targeting.targetId) {
-          const userConnections = await this.getConnectionsByUserId(
-            targeting.targetId,
-          );
+          const userConnections = await this.getConnectionsByUserId(targeting.targetId);
           targetConnections = userConnections.filter((connId) => {
             const connection = this.connections.get(connId);
             return (
@@ -929,13 +875,13 @@ export class ConnectionService implements OnModuleDestroy {
       case EventTargetType.FLOW:
         targetConnections = this.getSubscribersForEvent(
           `flow:${targeting.targetId}`,
-          targeting.organizationId,
+          targeting.organizationId
         );
         break;
       case EventTargetType.ROOM:
         targetConnections = this.getSubscribersForEvent(
           `room:${targeting.targetId}`,
-          targeting.organizationId,
+          targeting.organizationId
         );
         break;
     }
@@ -947,10 +893,7 @@ export class ConnectionService implements OnModuleDestroy {
         if (!connection) return false;
 
         // Apply role filter
-        if (
-          targeting.filters?.role &&
-          connection.role !== targeting.filters.role
-        ) {
+        if (targeting.filters?.role && connection.role !== targeting.filters.role) {
           return false;
         }
 
@@ -972,16 +915,16 @@ export class ConnectionService implements OnModuleDestroy {
             retryPolicy: eventPublication.retryPolicy,
             targetConnectionCount: targetConnections.length,
           },
-        },
+        }
       );
     } catch (error) {
       this.logger.warn(
-        `Failed to update event log: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to update event log: ${error instanceof Error ? error.message : String(error)}`
       );
     }
 
     this.logger.debug(
-      `Publishing event ${eventType} to ${targetConnections.length} connections (${targeting.type}${targeting.targetId ? ':' + targeting.targetId : ''})`,
+      `Publishing event ${eventType} to ${targetConnections.length} connections (${targeting.type}${targeting.targetId ? `:${targeting.targetId}` : ''})`
     );
 
     // Emit internal event for WebSocketService to handle actual message delivery
@@ -1000,20 +943,16 @@ export class ConnectionService implements OnModuleDestroy {
 
       this.redisSubscriber.on('pmessage', async (pattern, channel, message) => {
         try {
-          const { eventPublication, message: eventMessage } =
-            JSON.parse(message);
+          const { eventPublication, message: eventMessage } = JSON.parse(message);
           const eventType = channel.replace(this.REDIS_EVENT_PREFIX, '');
 
           // Only handle if this is not the originating instance
-          if (
-            eventPublication.sourceModule !==
-            this.configService.get('SERVICE_NAME', 'gateway')
-          ) {
+          if (eventPublication.sourceModule !== this.configService.get('SERVICE_NAME', 'gateway')) {
             await this.handleEventPublication(eventPublication, eventMessage);
           }
         } catch (error) {
           this.logger.error(
-            `Error handling Redis event: ${error instanceof Error ? error.message : String(error)}`,
+            `Error handling Redis event: ${error instanceof Error ? error.message : String(error)}`
           );
         }
       });
@@ -1021,7 +960,7 @@ export class ConnectionService implements OnModuleDestroy {
       this.logger.log('Redis event subscriptions established');
     } catch (error) {
       this.logger.error(
-        `Error setting up Redis subscriptions: ${error instanceof Error ? error.message : String(error)}`,
+        `Error setting up Redis subscriptions: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -1044,8 +983,7 @@ export class ConnectionService implements OnModuleDestroy {
 
     for (const subscription of this.subscriptions.values()) {
       subscriptionsByOrg[subscription.organizationId] =
-        (subscriptionsByOrg[subscription.organizationId] || 0) +
-        subscription.eventTypes.size;
+        (subscriptionsByOrg[subscription.organizationId] || 0) + subscription.eventTypes.size;
     }
 
     return {
@@ -1100,7 +1038,7 @@ export class ConnectionService implements OnModuleDestroy {
       const events = await queryBuilder.getMany();
 
       this.logger.log(
-        `Replaying ${events.length} events for organization ${replayRequest.organizationId}`,
+        `Replaying ${events.length} events for organization ${replayRequest.organizationId}`
       );
 
       // Replay events in order
@@ -1128,22 +1066,18 @@ export class ConnectionService implements OnModuleDestroy {
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
 
-      this.logger.log(
-        `Event replay completed for organization ${replayRequest.organizationId}`,
-      );
+      this.logger.log(`Event replay completed for organization ${replayRequest.organizationId}`);
     } catch (error) {
       this.logger.error(
         `Event replay failed: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
       throw error;
     }
   }
 
   // Cross-Module Event Routing with Session Context
-  async routeCrossModuleEvent(
-    crossModuleEvent: ICrossModuleEvent,
-  ): Promise<void> {
+  async routeCrossModuleEvent(crossModuleEvent: ICrossModuleEvent): Promise<void> {
     // Enrich event with session context if available
     const sessionContext = crossModuleEvent.context.sessionId
       ? this.sessionContexts.get(crossModuleEvent.context.sessionId)
@@ -1177,21 +1111,17 @@ export class ConnectionService implements OnModuleDestroy {
     if (sessionContext) {
       sessionContext.crossModuleData = {
         ...sessionContext.crossModuleData,
-        [`${crossModuleEvent.sourceModule}_to_${crossModuleEvent.targetModule}`]:
-          {
-            eventType: crossModuleEvent.eventType,
-            timestamp: new Date(),
-            payload: crossModuleEvent.payload,
-          },
+        [`${crossModuleEvent.sourceModule}_to_${crossModuleEvent.targetModule}`]: {
+          eventType: crossModuleEvent.eventType,
+          timestamp: new Date(),
+          payload: crossModuleEvent.payload,
+        },
       };
-      this.sessionContexts.set(
-        crossModuleEvent.context.sessionId!,
-        sessionContext,
-      );
+      this.sessionContexts.set(crossModuleEvent.context.sessionId!, sessionContext);
     }
 
     this.logger.debug(
-      `Cross-module event routed: ${crossModuleEvent.sourceModule} -> ${crossModuleEvent.targetModule} (${crossModuleEvent.eventType})`,
+      `Cross-module event routed: ${crossModuleEvent.sourceModule} -> ${crossModuleEvent.targetModule} (${crossModuleEvent.eventType})`
     );
   }
 
@@ -1200,10 +1130,7 @@ export class ConnectionService implements OnModuleDestroy {
     return this.sessionContexts.get(connectionId) || null;
   }
 
-  updateSessionContext(
-    connectionId: string,
-    updates: Partial<ISessionContext>,
-  ): void {
+  updateSessionContext(connectionId: string, updates: Partial<ISessionContext>): void {
     const existing = this.sessionContexts.get(connectionId);
     if (existing) {
       const updated = { ...existing, ...updates };
@@ -1221,7 +1148,7 @@ export class ConnectionService implements OnModuleDestroy {
   propagateSessionUpdate(
     sessionId: string,
     moduleType: 'agent' | 'tool' | 'workflow' | 'knowledge' | 'hitl',
-    contextUpdate: Record<string, any>,
+    contextUpdate: Record<string, any>
   ): void {
     const sessionContext = this.sessionContexts.get(sessionId);
     if (sessionContext) {
@@ -1253,21 +1180,15 @@ export class ConnectionService implements OnModuleDestroy {
     organizationId: string,
     role: string,
     targetType: EventTargetType,
-    targetId?: string,
+    targetId?: string
   ): Promise<boolean> {
     // System events require admin permissions
-    if (
-      eventType.startsWith('system.') &&
-      !['ORG_ADMIN', 'SUPER_ADMIN'].includes(role)
-    ) {
+    if (eventType.startsWith('system.') && !['ORG_ADMIN', 'SUPER_ADMIN'].includes(role)) {
       return false;
     }
 
     // Billing events require admin permissions
-    if (
-      eventType.startsWith('billing.') &&
-      !['ORG_ADMIN', 'SUPER_ADMIN'].includes(role)
-    ) {
+    if (eventType.startsWith('billing.') && !['ORG_ADMIN', 'SUPER_ADMIN'].includes(role)) {
       return false;
     }
 
@@ -1279,11 +1200,7 @@ export class ConnectionService implements OnModuleDestroy {
     }
 
     // Cross-tenant subscriptions not allowed
-    if (
-      targetType === EventTargetType.TENANT &&
-      targetId &&
-      targetId !== organizationId
-    ) {
+    if (targetType === EventTargetType.TENANT && targetId && targetId !== organizationId) {
       return false;
     }
 
@@ -1315,7 +1232,7 @@ export class ConnectionService implements OnModuleDestroy {
       await this.connectionStatsRepository.save(statsEntity);
     } catch (error) {
       this.logger.error(
-        `Failed to collect stats: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to collect stats: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }

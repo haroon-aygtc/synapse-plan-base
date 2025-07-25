@@ -1,21 +1,10 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  OneToMany,
-  Index,
-} from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Organization } from './organization.entity';
 import { NotificationDelivery } from './notification-delivery.entity';
 import { NotificationTemplate } from './notification-template.entity';
-import {
-  NotificationType,
-  NotificationPriority,
-  ExecutionStatus,
-} from '@shared/enums';
+import { NotificationType, NotificationPriority, ExecutionStatus } from '@shared/enums';
 
 @Entity('notifications')
 @Index(['organizationId', 'status'])

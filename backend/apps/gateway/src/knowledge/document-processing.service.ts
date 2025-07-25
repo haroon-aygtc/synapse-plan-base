@@ -18,7 +18,7 @@ export class DocumentProcessingService {
     private readonly documentRepository: Repository<KnowledgeDocument>,
     private readonly vectorSearchService: VectorSearchService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {
     this.openai = new OpenAI({
       apiKey: this.configService.get<string>('OPENAI_API_KEY'),
@@ -90,26 +90,21 @@ export class DocumentProcessingService {
         timestamp: new Date(),
       });
 
-      this.logger.log(
-        `Document processed successfully: ${documentId} (${chunks.length} chunks)`,
-      );
+      this.logger.log(`Document processed successfully: ${documentId} (${chunks.length} chunks)`);
     } catch (error) {
       // Update status to failed
       document.status = DocumentStatus.FAILED;
       document.error = error.message;
       await this.documentRepository.save(document);
 
-      this.logger.error(
-        `Document processing failed: ${documentId}`,
-        error.stack,
-      );
+      this.logger.error(`Document processing failed: ${documentId}`, error.stack);
       throw error;
     }
   }
 
   private async chunkDocument(
     content: string,
-    type: string,
+    type: string
   ): Promise<Array<{ text: string; metadata: any }>> {
     const chunks: Array<{ text: string; metadata: any }> = [];
     const maxChunkSize = 1000; // characters
@@ -117,18 +112,13 @@ export class DocumentProcessingService {
 
     // Simple text chunking - in production, use more sophisticated methods
     if (type === 'text' || type === 'markdown') {
-      const paragraphs = content
-        .split('\n\n')
-        .filter((p) => p.trim().length > 0);
+      const paragraphs = content.split('\n\n').filter((p) => p.trim().length > 0);
 
       let currentChunk = '';
       let chunkIndex = 0;
 
       for (const paragraph of paragraphs) {
-        if (
-          currentChunk.length + paragraph.length > maxChunkSize &&
-          currentChunk.length > 0
-        ) {
+        if (currentChunk.length + paragraph.length > maxChunkSize && currentChunk.length > 0) {
           chunks.push({
             text: currentChunk.trim(),
             metadata: {
@@ -141,7 +131,7 @@ export class DocumentProcessingService {
           // Add overlap
           const words = currentChunk.split(' ');
           const overlapWords = words.slice(-Math.floor(overlapSize / 5));
-          currentChunk = overlapWords.join(' ') + ' ' + paragraph;
+          currentChunk = `${overlapWords.join(' ')} ${paragraph}`;
           chunkIndex++;
         } else {
           currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
@@ -178,7 +168,7 @@ export class DocumentProcessingService {
   }
 
   private async generateEmbeddings(
-    chunks: Array<{ text: string; metadata: any }>,
+    chunks: Array<{ text: string; metadata: any }>
   ): Promise<Array<{ text: string; embedding: number[]; metadata: any }>> {
     const embeddedChunks = [];
     const batchSize = 100; // Process in batches to avoid rate limits
@@ -206,10 +196,7 @@ export class DocumentProcessingService {
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
       } catch (error) {
-        this.logger.error(
-          `Failed to generate embeddings for batch ${i}-${i + batchSize}`,
-          error,
-        );
+        this.logger.error(`Failed to generate embeddings for batch ${i}-${i + batchSize}`, error);
         throw error;
       }
     }
@@ -249,10 +236,7 @@ export class DocumentProcessingService {
       .createQueryBuilder('doc')
       .select('doc.status', 'status')
       .addSelect('COUNT(*)', 'count')
-      .addSelect(
-        'AVG(EXTRACT(EPOCH FROM (doc.processedAt - doc.createdAt)))',
-        'avgTime',
-      )
+      .addSelect('AVG(EXTRACT(EPOCH FROM (doc.processedAt - doc.createdAt)))', 'avgTime')
       .where('doc.organizationId = :organizationId', { organizationId })
       .groupBy('doc.status')
       .getRawMany();

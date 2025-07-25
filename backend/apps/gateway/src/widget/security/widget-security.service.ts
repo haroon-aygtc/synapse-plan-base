@@ -52,21 +52,21 @@ export class WidgetSecurityService {
     @InjectRepository(Widget)
     private widgetRepository: Repository<Widget>,
     @InjectRepository(WidgetExecution)
-    private widgetExecutionRepository: Repository<WidgetExecution>,
+    private widgetExecutionRepository: Repository<WidgetExecution>
   ) {
     this.initializeSecurity();
   }
 
   private initializeSecurity(): void {
     this.logger.log('Initializing Widget Security Service...');
-    
+
     // Set up cleanup intervals
     setInterval(() => this.cleanupRateLimitStore(), 60000); // Every minute
     setInterval(() => this.analyzeSecurityPatterns(), 300000); // Every 5 minutes
-    
+
     // Load trusted origins from configuration
     this.loadTrustedOrigins();
-    
+
     this.logger.log('Widget Security Service initialized successfully');
   }
 
@@ -75,7 +75,7 @@ export class WidgetSecurityService {
    */
   async validateAccess(
     widgetId: string,
-    context: WidgetSecurityContext,
+    context: WidgetSecurityContext
   ): Promise<SecurityValidationResult> {
     this.logger.debug(`Validating access for widget ${widgetId} from ${context.origin}`);
 
@@ -100,18 +100,18 @@ export class WidgetSecurityService {
       await this.validateRequestSignature(widget, context),
     ];
 
-    const failedValidations = validations.filter(v => !v.isValid);
-    
+    const failedValidations = validations.filter((v) => !v.isValid);
+
     if (failedValidations.length > 0) {
       const result: SecurityValidationResult = {
         isValid: false,
-        reason: failedValidations.map(v => v.reason).join('; '),
+        reason: failedValidations.map((v) => v.reason).join('; '),
         riskLevel: this.calculateRiskLevel(failedValidations),
-        recommendations: failedValidations.flatMap(v => v.recommendations),
+        recommendations: failedValidations.flatMap((v) => v.recommendations),
       };
 
       await this.logSecurityEvent(widgetId, 'access_denied', context, {
-        failedValidations: failedValidations.map(v => v.reason),
+        failedValidations: failedValidations.map((v) => v.reason),
         riskLevel: result.riskLevel,
       });
 
@@ -141,10 +141,10 @@ export class WidgetSecurityService {
    */
   private async validateOriginInternal(
     widget: Widget,
-    context: WidgetSecurityContext,
+    context: WidgetSecurityContext
   ): Promise<SecurityValidationResult> {
     const allowedDomains = widget.configuration.security.allowedDomains;
-    
+
     // If no restrictions, allow all origins
     if (!allowedDomains || allowedDomains.length === 0) {
       return {
@@ -156,16 +156,13 @@ export class WidgetSecurityService {
 
     // Check if origin is in allowed list
     const isAllowed = this.isOriginAllowed(context.origin, allowedDomains);
-    
+
     if (!isAllowed) {
       return {
         isValid: false,
         reason: `Origin ${context.origin} not in allowed domains`,
         riskLevel: 'high',
-        recommendations: [
-          'Add the origin to allowed domains',
-          'Verify the request is legitimate',
-        ],
+        recommendations: ['Add the origin to allowed domains', 'Verify the request is legitimate'],
       };
     }
 
@@ -181,10 +178,10 @@ export class WidgetSecurityService {
    */
   private async validateRateLimit(
     widget: Widget,
-    context: WidgetSecurityContext,
+    context: WidgetSecurityContext
   ): Promise<SecurityValidationResult> {
     const rateLimitConfig = widget.configuration.security.rateLimiting;
-    
+
     if (!rateLimitConfig.enabled) {
       return {
         isValid: true,
@@ -196,9 +193,9 @@ export class WidgetSecurityService {
     const key = `${widget.id}:${context.ipAddress}`;
     const now = new Date();
     const windowMs = 60 * 1000; // 1 minute window
-    
+
     let rateLimitInfo = this.rateLimitStore.get(key);
-    
+
     if (!rateLimitInfo || now.getTime() > rateLimitInfo.windowEnd.getTime()) {
       // Create new rate limit window
       rateLimitInfo = {
@@ -247,7 +244,7 @@ export class WidgetSecurityService {
    * Validate IP address
    */
   private async validateIPAddress(
-    context: WidgetSecurityContext,
+    context: WidgetSecurityContext
   ): Promise<SecurityValidationResult> {
     // Check if IP is in suspicious list
     if (this.suspiciousIPs.has(context.ipAddress)) {
@@ -268,10 +265,7 @@ export class WidgetSecurityService {
         isValid: false,
         reason: 'Private IP addresses not allowed in production',
         riskLevel: 'medium',
-        recommendations: [
-          'Use public IP address',
-          'Configure proper network setup',
-        ],
+        recommendations: ['Use public IP address', 'Configure proper network setup'],
       };
     }
 
@@ -286,29 +280,19 @@ export class WidgetSecurityService {
    * Validate user agent
    */
   private async validateUserAgent(
-    context: WidgetSecurityContext,
+    context: WidgetSecurityContext
   ): Promise<SecurityValidationResult> {
     if (!context.userAgent || context.userAgent.trim() === '') {
       return {
         isValid: false,
         reason: 'Missing or empty user agent',
         riskLevel: 'medium',
-        recommendations: [
-          'Ensure user agent is properly set',
-          'Check browser configuration',
-        ],
+        recommendations: ['Ensure user agent is properly set', 'Check browser configuration'],
       };
     }
 
     // Check for suspicious user agent patterns
-    const suspiciousPatterns = [
-      /bot/i,
-      /crawler/i,
-      /spider/i,
-      /scraper/i,
-      /curl/i,
-      /wget/i,
-    ];
+    const suspiciousPatterns = [/bot/i, /crawler/i, /spider/i, /scraper/i, /curl/i, /wget/i];
 
     for (const pattern of suspiciousPatterns) {
       if (pattern.test(context.userAgent)) {
@@ -336,7 +320,7 @@ export class WidgetSecurityService {
    */
   private async validateRequestSignature(
     widget: Widget,
-    context: WidgetSecurityContext,
+    context: WidgetSecurityContext
   ): Promise<SecurityValidationResult> {
     if (!widget.configuration.security.encryptData) {
       return {
@@ -351,25 +335,19 @@ export class WidgetSecurityService {
         isValid: false,
         reason: 'Missing request signature',
         riskLevel: 'high',
-        recommendations: [
-          'Include request signature',
-          'Verify signing implementation',
-        ],
+        recommendations: ['Include request signature', 'Verify signing implementation'],
       };
     }
 
     try {
       const isValid = this.verifyRequestSignature(widget, context);
-      
+
       if (!isValid) {
         return {
           isValid: false,
           reason: 'Invalid request signature',
           riskLevel: 'high',
-          recommendations: [
-            'Verify signing key and algorithm',
-            'Check request payload integrity',
-          ],
+          recommendations: ['Verify signing key and algorithm', 'Check request payload integrity'],
         };
       }
 
@@ -383,10 +361,7 @@ export class WidgetSecurityService {
         isValid: false,
         reason: `Signature verification failed: ${error.message}`,
         riskLevel: 'high',
-        recommendations: [
-          'Check signature format',
-          'Verify signing implementation',
-        ],
+        recommendations: ['Check signature format', 'Verify signing implementation'],
       };
     }
   }
@@ -398,7 +373,7 @@ export class WidgetSecurityService {
     widgetId: string,
     sessionId: string,
     userId?: string,
-    expiresIn: string = '1h',
+    expiresIn: string = '1h'
   ): string {
     const payload = {
       widgetId,
@@ -475,10 +450,7 @@ export class WidgetSecurityService {
   async signMessage(message: any): Promise<string> {
     const secret = process.env.WIDGET_SIGNING_SECRET || 'default-secret';
     const payload = JSON.stringify(message);
-    return crypto
-      .createHmac('sha256', secret)
-      .update(payload)
-      .digest('hex');
+    return crypto.createHmac('sha256', secret).update(payload).digest('hex');
   }
 
   /**
@@ -514,9 +486,9 @@ export class WidgetSecurityService {
     const now = new Date();
     const windowMs = 60 * 1000; // 1 minute window
     const maxRequests = 60; // 60 requests per minute per action
-    
+
     let rateLimitInfo = this.rateLimitStore.get(key);
-    
+
     if (!rateLimitInfo || now.getTime() > rateLimitInfo.windowEnd.getTime()) {
       // Create new rate limit window
       rateLimitInfo = {
@@ -531,7 +503,7 @@ export class WidgetSecurityService {
     }
 
     rateLimitInfo.requestCount++;
-    
+
     if (rateLimitInfo.requestCount > maxRequests) {
       rateLimitInfo.isLimited = true;
       this.rateLimitStore.set(key, rateLimitInfo);
@@ -548,11 +520,11 @@ export class WidgetSecurityService {
   async authenticateWidget(
     token: string,
     widgetId: string,
-    sessionId: string,
+    sessionId: string
   ): Promise<{ success: boolean; userId?: string; organizationId?: string; error?: string }> {
     try {
       const decoded = this.verifyWidgetToken(token);
-      
+
       if (decoded.widgetId !== widgetId) {
         return {
           success: false,
@@ -580,29 +552,25 @@ export class WidgetSecurityService {
     }
   }
 
-
-
   /**
    * Get security audit logs
    */
   getSecurityAuditLogs(
     widgetId?: string,
     eventType?: string,
-    limit: number = 100,
+    limit: number = 100
   ): SecurityAuditLog[] {
     let logs = this.securityAuditLogs;
 
     if (widgetId) {
-      logs = logs.filter(log => log.widgetId === widgetId);
+      logs = logs.filter((log) => log.widgetId === widgetId);
     }
 
     if (eventType) {
-      logs = logs.filter(log => log.eventType === eventType);
+      logs = logs.filter((log) => log.eventType === eventType);
     }
 
-    return logs
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, limit);
+    return logs.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, limit);
   }
 
   // Private helper methods
@@ -636,29 +604,23 @@ export class WidgetSecurityService {
       /^fc00:/,
     ];
 
-    return privateRanges.some(range => range.test(ip));
+    return privateRanges.some((range) => range.test(ip));
   }
 
-  private verifyRequestSignature(
-    widget: Widget,
-    context: WidgetSecurityContext,
-  ): boolean {
+  private verifyRequestSignature(widget: Widget, context: WidgetSecurityContext): boolean {
     // Implementation would verify HMAC signature
     const secret = process.env.WIDGET_SIGNING_SECRET || 'default-secret';
     const payload = `${context.origin}:${context.sessionId}:${context.timestamp.getTime()}`;
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(payload)
-      .digest('hex');
+    const expectedSignature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
     return context.requestSignature === expectedSignature;
   }
 
   private calculateRiskLevel(
-    failedValidations: SecurityValidationResult[],
+    failedValidations: SecurityValidationResult[]
   ): 'low' | 'medium' | 'high' {
-    const highRiskCount = failedValidations.filter(v => v.riskLevel === 'high').length;
-    const mediumRiskCount = failedValidations.filter(v => v.riskLevel === 'medium').length;
+    const highRiskCount = failedValidations.filter((v) => v.riskLevel === 'high').length;
+    const mediumRiskCount = failedValidations.filter((v) => v.riskLevel === 'medium').length;
 
     if (highRiskCount > 0) {
       return 'high';
@@ -675,7 +637,7 @@ export class WidgetSecurityService {
     widgetId: string,
     eventType: SecurityAuditLog['eventType'],
     context: WidgetSecurityContext,
-    details: Record<string, any>,
+    details: Record<string, any>
   ): Promise<void> {
     const auditLog: SecurityAuditLog = {
       id: crypto.randomUUID(),
@@ -704,7 +666,7 @@ export class WidgetSecurityService {
 
   private cleanupRateLimitStore(): void {
     const now = new Date();
-    
+
     for (const [key, rateLimitInfo] of this.rateLimitStore.entries()) {
       if (now.getTime() > rateLimitInfo.windowEnd.getTime()) {
         this.rateLimitStore.delete(key);
@@ -715,12 +677,12 @@ export class WidgetSecurityService {
   private analyzeSecurityPatterns(): void {
     // Analyze recent security events for patterns
     const recentLogs = this.securityAuditLogs.filter(
-      log => Date.now() - log.timestamp.getTime() < 300000, // Last 5 minutes
+      (log) => Date.now() - log.timestamp.getTime() < 300000 // Last 5 minutes
     );
 
     // Check for repeated access denials from same IP
     const ipDenials = new Map<string, number>();
-    
+
     for (const log of recentLogs) {
       if (log.eventType === 'access_denied') {
         const ip = log.context.ipAddress;
@@ -739,7 +701,7 @@ export class WidgetSecurityService {
   private loadTrustedOrigins(): void {
     // Load trusted origins from environment or configuration
     const trustedOrigins = process.env.TRUSTED_ORIGINS?.split(',') || [];
-    
+
     for (const origin of trustedOrigins) {
       this.trustedOrigins.add(origin.trim());
     }

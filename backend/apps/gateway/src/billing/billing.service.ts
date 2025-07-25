@@ -37,14 +37,11 @@ export class BillingService {
     private readonly organizationRepository: Repository<Organization>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {
-    this.stripe = new Stripe(
-      this.configService.get<string>('STRIPE_SECRET_KEY') || '',
-      {
-        apiVersion: '2024-06-20',
-      },
-    );
+    this.stripe = new Stripe(this.configService.get<string>('STRIPE_SECRET_KEY') || '', {
+      apiVersion: '2024-06-20',
+    });
   }
 
   async getUsageMetrics(organizationId: string): Promise<UsageMetrics> {
@@ -59,21 +56,15 @@ export class BillingService {
 
     const subscription = organization.subscription;
     const currentDate = new Date();
-    const startOfMonth = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      1,
-    );
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 
     // Get real-time usage from database aggregations
-    const [agentUsage, toolUsage, knowledgeUsage, apiUsage] = await Promise.all(
-      [
-        this.getAgentExecutionUsage(organizationId, startOfMonth),
-        this.getToolExecutionUsage(organizationId, startOfMonth),
-        this.getKnowledgeStorageUsage(organizationId),
-        this.getApiCallUsage(organizationId, startOfMonth),
-      ],
-    );
+    const [agentUsage, toolUsage, knowledgeUsage, apiUsage] = await Promise.all([
+      this.getAgentExecutionUsage(organizationId, startOfMonth),
+      this.getToolExecutionUsage(organizationId, startOfMonth),
+      this.getKnowledgeStorageUsage(organizationId),
+      this.getApiCallUsage(organizationId, startOfMonth),
+    ]);
 
     const quotas = this.getQuotasForPlan(subscription?.planType || 'free');
 
@@ -125,18 +116,14 @@ export class BillingService {
     }
 
     const subscriptions = await queryBuilder.getMany();
-    const activeSubscriptions = subscriptions.filter(
-      (s) => s.status === 'active',
-    );
+    const activeSubscriptions = subscriptions.filter((s) => s.status === 'active');
 
     const totalRevenue = activeSubscriptions.reduce((sum, sub) => {
       return sum + (sub.amount || 0);
     }, 0);
 
     const averageRevenuePerUser =
-      activeSubscriptions.length > 0
-        ? totalRevenue / activeSubscriptions.length
-        : 0;
+      activeSubscriptions.length > 0 ? totalRevenue / activeSubscriptions.length : 0;
 
     return {
       totalRevenue,
@@ -147,11 +134,7 @@ export class BillingService {
     };
   }
 
-  async createSubscription(
-    organizationId: string,
-    planType: string,
-    paymentMethodId: string,
-  ) {
+  async createSubscription(organizationId: string, planType: string, paymentMethodId: string) {
     const organization = await this.organizationRepository.findOne({
       where: { id: organizationId },
     });
@@ -200,9 +183,7 @@ export class BillingService {
       status: stripeSubscription.status,
       amount: stripeSubscription.items.data[0]?.price.unit_amount || 0,
       currency: stripeSubscription.items.data[0]?.price.currency || 'usd',
-      currentPeriodStart: new Date(
-        stripeSubscription.current_period_start * 1000,
-      ),
+      currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
       currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
     });
 
@@ -220,7 +201,7 @@ export class BillingService {
 
     // Update Stripe subscription
     const stripeSubscription = await this.stripe.subscriptions.retrieve(
-      subscription.stripeSubscriptionId,
+      subscription.stripeSubscriptionId
     );
 
     await this.stripe.subscriptions.update(subscription.stripeSubscriptionId, {
@@ -306,7 +287,7 @@ export class BillingService {
     const totalDaysInMonth = new Date(
       new Date().getFullYear(),
       new Date().getMonth() + 1,
-      0,
+      0
     ).getDate();
 
     return (currentUsage / daysInMonth) * totalDaysInMonth;
@@ -314,72 +295,53 @@ export class BillingService {
 
   private calculateChurnRate(subscriptions: any[]): number {
     const canceledThisMonth = subscriptions.filter(
-      (s) =>
-        s.status === 'canceled' &&
-        new Date(s.updatedAt).getMonth() === new Date().getMonth(),
+      (s) => s.status === 'canceled' && new Date(s.updatedAt).getMonth() === new Date().getMonth()
     ).length;
 
     const totalSubscriptions = subscriptions.length;
-    return totalSubscriptions > 0
-      ? (canceledThisMonth / totalSubscriptions) * 100
-      : 0;
+    return totalSubscriptions > 0 ? (canceledThisMonth / totalSubscriptions) * 100 : 0;
   }
 
   private getPriceIdForPlan(planType: string): string {
     const priceIds = {
-      starter:
-        this.configService.get<string>('STRIPE_STARTER_PRICE_ID') ||
-        'price_starter',
+      starter: this.configService.get<string>('STRIPE_STARTER_PRICE_ID') || 'price_starter',
       professional:
-        this.configService.get<string>('STRIPE_PROFESSIONAL_PRICE_ID') ||
-        'price_professional',
+        this.configService.get<string>('STRIPE_PROFESSIONAL_PRICE_ID') || 'price_professional',
       enterprise:
-        this.configService.get<string>('STRIPE_ENTERPRISE_PRICE_ID') ||
-        'price_enterprise',
+        this.configService.get<string>('STRIPE_ENTERPRISE_PRICE_ID') || 'price_enterprise',
     };
 
     return priceIds[planType] || priceIds.starter;
   }
 
-  private async getAgentExecutionUsage(
-    organizationId: string,
-    startDate: Date,
-  ): Promise<number> {
+  private async getAgentExecutionUsage(organizationId: string, startDate: Date): Promise<number> {
     const result = await this.organizationRepository.query(
       `SELECT COUNT(*) as count FROM agent_executions 
        WHERE "organizationId" = $1 AND "createdAt" >= $2`,
-      [organizationId, startDate],
+      [organizationId, startDate]
     );
     return parseInt(result[0]?.count || '0');
   }
 
-  private async getToolExecutionUsage(
-    organizationId: string,
-    startDate: Date,
-  ): Promise<number> {
+  private async getToolExecutionUsage(organizationId: string, startDate: Date): Promise<number> {
     const result = await this.organizationRepository.query(
       `SELECT COUNT(*) as count FROM tool_executions 
        WHERE "organizationId" = $1 AND "createdAt" >= $2`,
-      [organizationId, startDate],
+      [organizationId, startDate]
     );
     return parseInt(result[0]?.count || '0');
   }
 
-  private async getKnowledgeStorageUsage(
-    organizationId: string,
-  ): Promise<number> {
+  private async getKnowledgeStorageUsage(organizationId: string): Promise<number> {
     const result = await this.organizationRepository.query(
       `SELECT COALESCE(SUM("fileSize"), 0) as total FROM knowledge_documents 
        WHERE "organizationId" = $1 AND "status" = 'PROCESSED'`,
-      [organizationId],
+      [organizationId]
     );
     return Math.ceil(parseInt(result[0]?.total || '0') / (1024 * 1024 * 1024)); // Convert to GB
   }
 
-  private async getApiCallUsage(
-    organizationId: string,
-    startDate: Date,
-  ): Promise<number> {
+  private async getApiCallUsage(organizationId: string, startDate: Date): Promise<number> {
     const result = await this.organizationRepository.query(
       `SELECT COUNT(*) as count FROM (
          SELECT id FROM agent_executions WHERE "organizationId" = $1 AND "createdAt" >= $2
@@ -388,7 +350,7 @@ export class BillingService {
          UNION ALL
          SELECT id FROM workflow_executions WHERE "organizationId" = $1 AND "createdAt" >= $2
        ) as combined`,
-      [organizationId, startDate],
+      [organizationId, startDate]
     );
     return parseInt(result[0]?.count || '0');
   }
@@ -426,7 +388,7 @@ export class BillingService {
   private async checkQuotaViolations(
     organizationId: string,
     usage: any,
-    quotas: any,
+    quotas: any
   ): Promise<void> {
     const violations = [];
 
@@ -453,30 +415,21 @@ export class BillingService {
     }
   }
 
-  private async sendQuotaWarningAlert(
-    organizationId: string,
-    violation: any,
-  ): Promise<void> {
+  private async sendQuotaWarningAlert(organizationId: string, violation: any): Promise<void> {
     // Implementation would send notification via notification service
     console.log(
-      `Quota warning for ${organizationId}: ${violation.type} at ${violation.percentage}%`,
+      `Quota warning for ${organizationId}: ${violation.type} at ${violation.percentage}%`
     );
   }
 
-  private async sendQuotaExceededAlert(
-    organizationId: string,
-    violation: any,
-  ): Promise<void> {
+  private async sendQuotaExceededAlert(organizationId: string, violation: any): Promise<void> {
     // Implementation would send critical notification and potentially block further usage
     console.log(
-      `Quota exceeded for ${organizationId}: ${violation.type} at ${violation.percentage}%`,
+      `Quota exceeded for ${organizationId}: ${violation.type} at ${violation.percentage}%`
     );
   }
 
-  async enforceQuota(
-    organizationId: string,
-    resourceType: string,
-  ): Promise<boolean> {
+  async enforceQuota(organizationId: string, resourceType: string): Promise<boolean> {
     const metrics = await this.getUsageMetrics(organizationId);
     const resource = metrics[resourceType];
 

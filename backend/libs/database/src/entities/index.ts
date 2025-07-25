@@ -9,14 +9,8 @@ export { ToolExecution } from './tool-execution.entity';
 export { Workflow } from './workflow.entity';
 export { WorkflowExecution } from './workflow-execution.entity';
 export { Session } from './session.entity';
-export {
-  ConnectionStats,
-  ConnectionStatsEntity,
-} from './connection-stats.entity';
-export {
-  MessageTrackingInfo,
-  MessageTrackingEntity,
-} from './message-tracking-info.entity';
+export { ConnectionStats, ConnectionStatsEntity } from './connection-stats.entity';
+export { MessageTrackingInfo, MessageTrackingEntity } from './message-tracking-info.entity';
 export { EventLog } from './event-log.entity';
 export { Subscription } from './subscription.entity';
 export { Notification } from './notification.entity';
@@ -28,10 +22,7 @@ export {
   ProviderConfig,
   RoutingRule,
 } from './ai-provider.entity';
-export {
-  AIProviderExecution,
-  ExecutionType,
-} from './ai-provider-execution.entity';
+export { AIProviderExecution, ExecutionType } from './ai-provider-execution.entity';
 export { AIProviderMetrics } from './ai-provider-metrics.entity';
 export { PromptTemplate } from './prompt-template.entity';
 export { TestingSandbox } from './testing-sandbox.entity';
@@ -44,13 +35,30 @@ export { SandboxEvent, SandboxEventType } from './sandbox-event.entity';
 export { HITLRequest, HITLComment, HITLVote } from './hitl-request.entity';
 
 // Widget entities
-export { Widget, WidgetConfiguration, WidgetDeploymentInfo, WidgetAnalyticsData } from './widget.entity';
+export {
+  Widget,
+  WidgetConfiguration,
+  WidgetDeploymentInfo,
+  WidgetAnalyticsData,
+} from './widget.entity';
 export { WidgetExecution } from './widget-execution.entity';
 export { WidgetAnalytics } from './widget-analytics.entity';
 
 // Knowledge entities
-export { KnowledgeDocument } from './knowledge-document.entity';
-export { KnowledgeSearch } from './knowledge-search.entity';
+export {
+  KnowledgeDocument,
+  KnowledgeDocumentChunk,
+  KnowledgeDocumentVersion,
+  DocumentType,
+  DocumentVisibility
+} from './knowledge-document.entity';
+export {
+  KnowledgeSearch,
+  KnowledgeSearchFeedback,
+  KnowledgeAnalytics,
+  SearchType,
+  SearchStatus
+} from './knowledge-search.entity';
 
 // APIX entities
 export { APXSession } from './apix-session.entity';

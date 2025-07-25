@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '@shared/interfaces';
 
@@ -12,10 +7,10 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
-      'roles',
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>('roles', [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (!requiredRoles) {
       return true;
@@ -41,9 +36,7 @@ export class RolesGuard implements CanActivate {
     const hasRole = requiredRoles.some((role) => user.role === role);
 
     if (!hasRole) {
-      throw new ForbiddenException(
-        `Access denied. Required roles: ${requiredRoles.join(', ')}`,
-      );
+      throw new ForbiddenException(`Access denied. Required roles: ${requiredRoles.join(', ')}`);
     }
 
     // Additional permission checks based on role hierarchy
@@ -61,10 +54,7 @@ export class RolesGuard implements CanActivate {
     return true;
   }
 
-  private checkRoleHierarchy(
-    userRole: UserRole,
-    requiredRoles: UserRole[],
-  ): boolean {
+  private checkRoleHierarchy(userRole: UserRole, requiredRoles: UserRole[]): boolean {
     const roleHierarchy = {
       [UserRole.SUPER_ADMIN]: 4,
       [UserRole.ORG_ADMIN]: 3,
@@ -73,9 +63,7 @@ export class RolesGuard implements CanActivate {
     };
 
     const userRoleLevel = roleHierarchy[userRole];
-    const minRequiredLevel = Math.min(
-      ...requiredRoles.map((role) => roleHierarchy[role]),
-    );
+    const minRequiredLevel = Math.min(...requiredRoles.map((role) => roleHierarchy[role]));
 
     return userRoleLevel >= minRequiredLevel;
   }

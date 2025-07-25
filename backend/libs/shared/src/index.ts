@@ -5,7 +5,18 @@ export * from './interfaces';
 export * from './enums';
 
 // Decorators
-export { Roles, Permissions, Public, RequireOrgAdmin, RequireSuperAdmin, RequireDeveloper, RequireViewer, RequireTenantContext, RequireResourceOwnership, AllowCrossOrganization } from './decorators/roles.decorator';
+export {
+  Roles,
+  Permissions,
+  Public,
+  RequireOrgAdmin,
+  RequireSuperAdmin,
+  RequireDeveloper,
+  RequireViewer,
+  RequireTenantContext,
+  RequireResourceOwnership,
+  AllowCrossOrganization,
+} from './decorators/roles.decorator';
 
 // Filters
 export * from './filters';

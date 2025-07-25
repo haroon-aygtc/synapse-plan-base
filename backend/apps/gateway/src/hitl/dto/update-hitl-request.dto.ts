@@ -7,5 +7,5 @@ export class UpdateHITLRequestDto extends PartialType(
     'sourceId',
     'executionId',
     'executionContext',
-  ] as const),
+  ] as const)
 ) {}

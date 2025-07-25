@@ -161,10 +161,7 @@ export class WidgetExecution extends BaseEntity {
     }
   }
 
-  markAsCompleted(
-    output: WidgetExecutionOutput,
-    metrics?: Partial<WidgetExecutionMetrics>,
-  ): void {
+  markAsCompleted(output: WidgetExecutionOutput, metrics?: Partial<WidgetExecutionMetrics>): void {
     this.status = 'completed';
     this.output = output;
 

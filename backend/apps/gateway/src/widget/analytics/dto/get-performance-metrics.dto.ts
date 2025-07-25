@@ -25,19 +25,19 @@ export enum PerformanceAggregation {
 }
 
 export class GetPerformanceMetricsDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Start date for performance metrics',
     required: false,
-    example: '2024-01-01T00:00:00Z'
+    example: '2024-01-01T00:00:00Z',
   })
   @IsOptional()
   @IsDateString()
   startDate?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'End date for performance metrics',
     required: false,
-    example: '2024-01-31T23:59:59Z'
+    example: '2024-01-31T23:59:59Z',
   })
   @IsOptional()
   @IsDateString()
@@ -52,7 +52,7 @@ export class GetPerformanceMetricsDto {
   @IsOptional()
   @IsArray()
   @IsEnum(PerformanceMetricType, { each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   metricTypes?: PerformanceMetricType[];
 
   @ApiProperty({
@@ -65,52 +65,52 @@ export class GetPerformanceMetricsDto {
   @IsEnum(PerformanceAggregation)
   aggregation?: PerformanceAggregation;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filter by device types',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   deviceTypes?: string[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filter by countries',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   countries?: string[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filter by browser types',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   browserTypes?: string[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Include historical trends',
     required: false,
-    default: false
+    default: false,
   })
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   includeTrends?: boolean;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Include performance alerts',
     required: false,
-    default: false
+    default: false,
   })
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)

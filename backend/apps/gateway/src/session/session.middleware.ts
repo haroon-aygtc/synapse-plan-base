@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NestMiddleware,
-  UnauthorizedException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NestMiddleware, UnauthorizedException, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { SessionService } from './session.service';
 import { ISessionContext } from '@shared/interfaces';
@@ -31,8 +26,7 @@ export class SessionMiddleware implements NestMiddleware {
 
       if (sessionToken) {
         // Get session context
-        const sessionContext =
-          await this.sessionService.getSessionContext(sessionToken);
+        const sessionContext = await this.sessionService.getSessionContext(sessionToken);
 
         if (sessionContext) {
           // Attach session context to request
@@ -49,7 +43,7 @@ export class SessionMiddleware implements NestMiddleware {
           });
 
           this.logger.debug(
-            `Session context attached: ${sessionContext.sessionId} for user ${sessionContext.userId}`,
+            `Session context attached: ${sessionContext.sessionId} for user ${sessionContext.userId}`
           );
         } else {
           this.logger.warn(`Invalid session token: ${sessionToken}`);
@@ -58,10 +52,7 @@ export class SessionMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
-      this.logger.error(
-        `Session middleware error: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Session middleware error: ${error.message}`, error.stack);
       next(); // Continue without session context
     }
   }
@@ -71,7 +62,7 @@ export class SessionMiddleware implements NestMiddleware {
 
     // 1. Authorization header (Bearer token)
     const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    if (authHeader?.startsWith('Bearer ')) {
       return authHeader.substring(7);
     }
 

@@ -6,6 +6,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
+import { ExecutionStatus } from '@libs/shared/enums';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In, Between } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
@@ -87,32 +88,23 @@ export class WidgetService {
     private toolService: ToolService,
     private workflowService: WorkflowService,
     private sessionService: SessionService,
-    private websocketService: WebSocketService,
+    private websocketService: WebSocketService
   ) {
-    this.baseURL = this.configService.get(
-      'WIDGET_BASE_URL',
-      'https://widgets.synapseai.com',
-    );
-    this.cdnURL = this.configService.get(
-      'CDN_BASE_URL',
-      'https://cdn.synapseai.com',
-    );
+    this.baseURL = this.configService.get('WIDGET_BASE_URL', 'https://widgets.synapseai.com');
+    this.cdnURL = this.configService.get('CDN_BASE_URL', 'https://cdn.synapseai.com');
     this.jwtSecret = this.configService.get('JWT_SECRET', 'default-secret-key');
     this.maxWidgetsPerOrg = this.configService.get('MAX_WIDGETS_PER_ORG', 100);
-    this.maxExecutionsPerMinute = this.configService.get(
-      'MAX_EXECUTIONS_PER_MINUTE',
-      1000,
-    );
+    this.maxExecutionsPerMinute = this.configService.get('MAX_EXECUTIONS_PER_MINUTE', 1000);
   }
 
   async create(
     createWidgetData: CreateWidgetDto & {
       userId: string;
       organizationId: string;
-    },
+    }
   ): Promise<Widget> {
     this.logger.log(
-      `Creating widget: ${createWidgetData.name} for user ${createWidgetData.userId}`,
+      `Creating widget: ${createWidgetData.name} for user ${createWidgetData.userId}`
     );
 
     // Check organization widget limits
@@ -123,7 +115,7 @@ export class WidgetService {
       createWidgetData.sourceId,
       createWidgetData.type,
       createWidgetData.userId,
-      createWidgetData.organizationId,
+      createWidgetData.organizationId
     );
 
     // Check for duplicate names within organization
@@ -136,16 +128,13 @@ export class WidgetService {
 
     if (existingWidget) {
       throw new ConflictException(
-        `Widget with name '${createWidgetData.name}' already exists in this organization`,
+        `Widget with name '${createWidgetData.name}' already exists in this organization`
       );
     }
 
     // Create configuration with security defaults
     const configuration = createWidgetData.configuration
-      ? this.mergeWithDefaults(
-          createWidgetData.configuration,
-          createWidgetData.type,
-        )
+      ? this.mergeWithDefaults(createWidgetData.configuration, createWidgetData.type)
       : this.createDefaultConfiguration(createWidgetData.type);
 
     // Validate configuration
@@ -188,7 +177,7 @@ export class WidgetService {
     await this.cacheManager.set(
       `widget:${savedWidget.id}`,
       savedWidget,
-      300000, // 5 minutes
+      300000 // 5 minutes
     );
 
     // Emit widget created event
@@ -199,7 +188,7 @@ export class WidgetService {
         widget: savedWidget,
         createdBy: createWidgetData.userId,
         timestamp: new Date(),
-      },
+      }
     );
 
     // Track analytics event
@@ -225,16 +214,7 @@ export class WidgetService {
     sortBy: string;
     sortOrder: 'ASC' | 'DESC';
   }) {
-    const {
-      organizationId,
-      page,
-      limit,
-      search,
-      type,
-      isActive,
-      sortBy,
-      sortOrder,
-    } = options;
+    const { organizationId, page, limit, search, type, isActive, sortBy, sortOrder } = options;
 
     const queryBuilder = this.widgetRepository
       .createQueryBuilder('widget')
@@ -242,10 +222,9 @@ export class WidgetService {
       .where('widget.organizationId = :organizationId', { organizationId });
 
     if (search) {
-      queryBuilder.andWhere(
-        '(widget.name ILIKE :search OR widget.description ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      queryBuilder.andWhere('(widget.name ILIKE :search OR widget.description ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     if (type) {
@@ -257,13 +236,7 @@ export class WidgetService {
     }
 
     // Add sorting
-    const validSortFields = [
-      'name',
-      'createdAt',
-      'updatedAt',
-      'usageCount',
-      'templateRating',
-    ];
+    const validSortFields = ['name', 'createdAt', 'updatedAt', 'usageCount', 'templateRating'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
     queryBuilder.orderBy(`widget.${sortField}`, sortOrder);
 
@@ -300,7 +273,7 @@ export class WidgetService {
   async update(
     id: string,
     updateWidgetDto: UpdateWidgetDto,
-    organizationId: string,
+    organizationId: string
   ): Promise<Widget> {
     const widget = await this.findOne(id, organizationId);
 
@@ -320,11 +293,7 @@ export class WidgetService {
     const updatedWidget = await this.widgetRepository.save(widget);
 
     // Emit widget updated event
-    this.websocketService.emitToOrganization(
-      organizationId,
-      'widget:updated',
-      updatedWidget,
-    );
+    this.websocketService.emitToOrganization(organizationId, 'widget:updated', updatedWidget);
 
     return updatedWidget;
   }
@@ -345,15 +314,8 @@ export class WidgetService {
     });
   }
 
-  async deploy(
-    id: string,
-    deployOptions: DeployWidgetDto,
-    organizationId: string,
-    userId: string,
-  ) {
-    this.logger.log(
-      `Deploying widget: ${id} to ${deployOptions.environment || 'production'}`,
-    );
+  async deploy(id: string, deployOptions: DeployWidgetDto, organizationId: string, userId: string) {
+    this.logger.log(`Deploying widget: ${id} to ${deployOptions.environment || 'production'}`);
 
     const widget = await this.findOne(id, organizationId);
 
@@ -362,9 +324,7 @@ export class WidgetService {
     }
 
     if (widget.isDeployed) {
-      throw new ConflictException(
-        'Widget is already deployed. Undeploy first to redeploy.',
-      );
+      throw new ConflictException('Widget is already deployed. Undeploy first to redeploy.');
     }
 
     // Validate deployment permissions
@@ -372,10 +332,7 @@ export class WidgetService {
 
     // Validate custom domain if provided
     if (deployOptions.customDomain) {
-      await this.validateCustomDomain(
-        deployOptions.customDomain,
-        organizationId,
-      );
+      await this.validateCustomDomain(deployOptions.customDomain, organizationId);
     }
 
     const environment = deployOptions.environment || 'production';
@@ -383,10 +340,7 @@ export class WidgetService {
     const enableCaching = deployOptions.enableCaching ?? true;
 
     // Generate secure deployment tokens
-    const deploymentToken = this.generateDeploymentToken(
-      widget.id,
-      organizationId,
-    );
+    const deploymentToken = this.generateDeploymentToken(widget.id, organizationId);
     const apiKey = this.generateAPIKey(widget.id);
 
     // Create deployment URLs
@@ -403,19 +357,11 @@ export class WidgetService {
       lastUpdated: new Date(),
       status: 'active',
       embedCode: {
-        javascript: this.generateSecureEmbedCode(
-          widget,
-          'javascript',
-          deploymentToken,
-        ),
+        javascript: this.generateSecureEmbedCode(widget, 'javascript', deploymentToken),
         iframe: this.generateSecureEmbedCode(widget, 'iframe', deploymentToken),
         react: this.generateSecureEmbedCode(widget, 'react', deploymentToken),
         vue: this.generateSecureEmbedCode(widget, 'vue', deploymentToken),
-        angular: this.generateSecureEmbedCode(
-          widget,
-          'angular',
-          deploymentToken,
-        ),
+        angular: this.generateSecureEmbedCode(widget, 'angular', deploymentToken),
       },
       urls: {
         standalone: `${baseUrl}/widget/${widget.id}?token=${deploymentToken}`,
@@ -442,7 +388,7 @@ export class WidgetService {
     await this.cacheManager.set(
       `widget:deployment:${widget.id}`,
       deploymentInfo,
-      3600000, // 1 hour
+      3600000 // 1 hour
     );
 
     // Queue deployment tasks
@@ -462,23 +408,19 @@ export class WidgetService {
           type: 'exponential',
           delay: 2000,
         },
-      },
+      }
     );
 
     // Set up monitoring and health checks
     await this.setupWidgetMonitoring(widget.id, deploymentInfo);
 
     // Emit deployment event
-    await this.websocketService.broadcastToOrganization(
-      organizationId,
-      'widget:deployed',
-      {
-        widget: deployedWidget,
-        deploymentInfo,
-        deployedBy: userId,
-        timestamp: new Date(),
-      },
-    );
+    await this.websocketService.broadcastToOrganization(organizationId, 'widget:deployed', {
+      widget: deployedWidget,
+      deploymentInfo,
+      deployedBy: userId,
+      timestamp: new Date(),
+    });
 
     // Track deployment analytics
     this.eventEmitter.emit('widget.deployed', {
@@ -490,9 +432,7 @@ export class WidgetService {
       timestamp: new Date(),
     });
 
-    this.logger.log(
-      `Widget deployed successfully: ${widget.id} to ${environment}`,
-    );
+    this.logger.log(`Widget deployed successfully: ${widget.id} to ${environment}`);
     return deploymentInfo;
   }
 
@@ -515,11 +455,10 @@ export class WidgetService {
     });
 
     // Emit undeployment event
-    this.websocketService.emitToOrganization(
-      organizationId,
-      'widget:undeployed',
-      { id, undeployedAt: new Date() },
-    );
+    this.websocketService.emitToOrganization(organizationId, 'widget:undeployed', {
+      id,
+      undeployedAt: new Date(),
+    });
 
     return {
       success: true,
@@ -537,17 +476,11 @@ export class WidgetService {
     return widget.deploymentInfo;
   }
 
-  async generateEmbedCode(
-    id: string,
-    options: GenerateEmbedCodeDto,
-    organizationId: string,
-  ) {
+  async generateEmbedCode(id: string, options: GenerateEmbedCodeDto, organizationId: string) {
     const widget = await this.findOne(id, organizationId);
 
     if (!widget.isDeployed) {
-      throw new BadRequestException(
-        'Widget must be deployed to generate embed code',
-      );
+      throw new BadRequestException('Widget must be deployed to generate embed code');
     }
 
     const format = options.format || 'javascript';
@@ -571,12 +504,7 @@ export class WidgetService {
     const testJob = await this.widgetQueue.add('test-widget', {
       widgetId: widget.id,
       testOptions: {
-        browsers: testOptions.browsers || [
-          'chrome',
-          'firefox',
-          'safari',
-          'edge',
-        ],
+        browsers: testOptions.browsers || ['chrome', 'firefox', 'safari', 'edge'],
         devices: testOptions.devices || ['desktop', 'mobile', 'tablet'],
         checkAccessibility: testOptions.checkAccessibility ?? true,
         checkPerformance: testOptions.checkPerformance ?? true,
@@ -593,16 +521,11 @@ export class WidgetService {
     };
   }
 
-  async preview(
-    id: string,
-    previewOptions: PreviewWidgetDto,
-    organizationId: string,
-  ) {
+  async preview(id: string, previewOptions: PreviewWidgetDto, organizationId: string) {
     const widget = await this.findOne(id, organizationId);
 
     const previewId = `preview_${widget.id}_${Date.now()}`;
-    const baseUrl =
-      process.env.WIDGET_BASE_URL || 'https://widgets.synapseai.com';
+    const baseUrl = process.env.WIDGET_BASE_URL || 'https://widgets.synapseai.com';
     const previewUrl = `${baseUrl}/preview/${previewId}`;
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -631,7 +554,7 @@ export class WidgetService {
     id: string,
     cloneData: CloneWidgetDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<Widget> {
     const originalWidget = await this.findOne(id, organizationId);
 
@@ -679,11 +602,7 @@ export class WidgetService {
     return savedWidget;
   }
 
-  async getAnalytics(
-    id: string,
-    period: { start: Date; end: Date },
-    organizationId: string,
-  ) {
+  async getAnalytics(id: string, period: { start: Date; end: Date }, organizationId: string) {
     const widget = await this.findOne(id, organizationId);
 
     const analytics = await this.widgetAnalyticsRepository
@@ -718,7 +637,7 @@ export class WidgetService {
     id: string,
     period: { start: Date; end: Date },
     format: 'csv' | 'json' | 'xlsx',
-    organizationId: string,
+    organizationId: string
   ) {
     const analytics = await this.getAnalytics(id, period, organizationId);
 
@@ -739,8 +658,7 @@ export class WidgetService {
         break;
       case 'xlsx':
         data = await this.convertToXLSX(analytics);
-        contentType =
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         filename = `widget-analytics-${id}-${Date.now()}.xlsx`;
         break;
       default:
@@ -764,34 +682,23 @@ export class WidgetService {
     sortOrder: 'ASC' | 'DESC';
     organizationId: string;
   }) {
-    const {
-      page,
-      limit,
-      category,
-      type,
-      search,
-      sortBy,
-      sortOrder,
-      organizationId,
-    } = options;
+    const { page, limit, category, type, search, sortBy, sortOrder, organizationId } = options;
 
-    this.logger.log(
-      `Fetching widget templates with options: ${JSON.stringify(options)}`,
-    );
+    this.logger.log(`Fetching widget templates with options: ${JSON.stringify(options)}`);
 
     const queryBuilder = this.widgetRepository
       .createQueryBuilder('widget')
       .leftJoinAndSelect('widget.user', 'user')
       .leftJoinAndSelect('widget.organization', 'organization')
       .where(
-        '(widget.isTemplate = true AND widget.isActive = true AND (widget.isPublicTemplate = true OR widget.organizationId = :organizationId)',
-        { organizationId },
+        'widget.isTemplate = true AND widget.isActive = true AND (widget.isPublicTemplate = true OR widget.organizationId = :organizationId)',
+        { organizationId }
       );
 
     if (search) {
       queryBuilder.andWhere(
         "(widget.name ILIKE :search OR widget.description ILIKE :search OR array_to_string(widget.templateTags, ',') ILIKE :search)",
-        { search: `%${search}%` },
+        { search: `%${search}%` }
       );
     }
 
@@ -818,9 +725,7 @@ export class WidgetService {
     const sortField = validSortFields[sortBy] || validSortFields.templateRating;
 
     // Featured templates first, then by selected sort
-    queryBuilder
-      .addOrderBy('widget.templateFeatured', 'DESC')
-      .addOrderBy(sortField, sortOrder);
+    queryBuilder.addOrderBy('widget.templateFeatured', 'DESC').addOrderBy(sortField, sortOrder);
 
     // Add pagination
     const offset = (page - 1) * limit;
@@ -837,9 +742,7 @@ export class WidgetService {
       type: widget.type,
       configuration: widget.configuration,
       preview: {
-        image:
-          widget.templatePreviewImage ||
-          this.generateDefaultPreviewImage(widget.type),
+        image: widget.templatePreviewImage || this.generateDefaultPreviewImage(widget.type),
         demoUrl: widget.templateDemoUrl,
       },
       tags: widget.templateTags || [],
@@ -861,9 +764,7 @@ export class WidgetService {
       isPublic: widget.isPublicTemplate,
     }));
 
-    this.logger.log(
-      `Found ${total} widget templates, returning ${data.length} for page ${page}`,
-    );
+    this.logger.log(`Found ${total} widget templates, returning ${data.length} for page ${page}`);
 
     return {
       data,
@@ -889,9 +790,7 @@ export class WidgetService {
     });
 
     if (!template) {
-      throw new NotFoundException(
-        `Widget template with ID ${templateId} not found`,
-      );
+      throw new NotFoundException(`Widget template with ID ${templateId} not found`);
     }
 
     // Get template statistics
@@ -906,9 +805,7 @@ export class WidgetService {
       type: template.type,
       configuration: template.configuration,
       preview: {
-        image:
-          template.templatePreviewImage ||
-          this.generateDefaultPreviewImage(template.type),
+        image: template.templatePreviewImage || this.generateDefaultPreviewImage(template.type),
         demoUrl: template.templateDemoUrl,
       },
       tags: template.templateTags || [],
@@ -952,11 +849,9 @@ export class WidgetService {
       configuration?: any;
       userId: string;
       organizationId: string;
-    },
+    }
   ): Promise<Widget> {
-    this.logger.log(
-      `Creating widget from template: ${templateId} for user ${widgetData.userId}`,
-    );
+    this.logger.log(`Creating widget from template: ${templateId} for user ${widgetData.userId}`);
 
     const template = await this.widgetRepository.findOne({
       where: {
@@ -968,9 +863,7 @@ export class WidgetService {
     });
 
     if (!template) {
-      throw new NotFoundException(
-        `Widget template with ID ${templateId} not found`,
-      );
+      throw new NotFoundException(`Widget template with ID ${templateId} not found`);
     }
 
     // Check organization widget limits
@@ -981,7 +874,7 @@ export class WidgetService {
       widgetData.sourceId,
       template.type,
       widgetData.userId,
-      widgetData.organizationId,
+      widgetData.organizationId
     );
 
     // Check for duplicate names within organization
@@ -994,7 +887,7 @@ export class WidgetService {
 
     if (existingWidget) {
       throw new ConflictException(
-        `Widget with name '${widgetData.name}' already exists in this organization`,
+        `Widget with name '${widgetData.name}' already exists in this organization`
       );
     }
 
@@ -1009,8 +902,7 @@ export class WidgetService {
 
     const widget = this.widgetRepository.create({
       name: widgetData.name,
-      description:
-        widgetData.description || `Created from template: ${template.name}`,
+      description: widgetData.description || `Created from template: ${template.name}`,
       type: template.type,
       sourceId: widgetData.sourceId,
       sourceType: template.type,
@@ -1046,31 +938,20 @@ export class WidgetService {
     const savedWidget = await this.widgetRepository.save(widget);
 
     // Increment template downloads atomically
-    await this.widgetRepository.increment(
-      { id: templateId },
-      'templateDownloads',
-      1,
-    );
+    await this.widgetRepository.increment({ id: templateId }, 'templateDownloads', 1);
 
     // Update template last used timestamp
-    await this.widgetRepository.update(
-      { id: templateId },
-      { lastUsedAt: new Date() },
-    );
+    await this.widgetRepository.update({ id: templateId }, { lastUsedAt: new Date() });
 
     // Cache the new widget
     await this.cacheManager.set(
       `widget:${savedWidget.id}`,
       savedWidget,
-      300000, // 5 minutes
+      300000 // 5 minutes
     );
 
     // Track template usage analytics
-    await this.trackTemplateUsage(
-      templateId,
-      widgetData.userId,
-      widgetData.organizationId,
-    );
+    await this.trackTemplateUsage(templateId, widgetData.userId, widgetData.organizationId);
 
     // Emit widget created from template event
     await this.websocketService.broadcastToOrganization(
@@ -1085,7 +966,7 @@ export class WidgetService {
         widget: savedWidget,
         createdBy: widgetData.userId,
         timestamp: new Date(),
-      },
+      }
     );
 
     // Track analytics event
@@ -1098,7 +979,7 @@ export class WidgetService {
     });
 
     this.logger.log(
-      `Widget created from template successfully: ${savedWidget.id} from template ${templateId}`,
+      `Widget created from template successfully: ${savedWidget.id} from template ${templateId}`
     );
 
     return savedWidget;
@@ -1107,25 +988,19 @@ export class WidgetService {
   async publishAsTemplate(
     id: string,
     templateData: PublishTemplateDto,
-    organizationId: string,
+    organizationId: string
   ): Promise<Widget> {
-    this.logger.log(
-      `Publishing widget as template: ${id} by organization ${organizationId}`,
-    );
+    this.logger.log(`Publishing widget as template: ${id} by organization ${organizationId}`);
 
     const widget = await this.findOne(id, organizationId);
 
     // Validate widget is suitable for template publishing
     if (!widget.isActive) {
-      throw new BadRequestException(
-        'Cannot publish inactive widget as template',
-      );
+      throw new BadRequestException('Cannot publish inactive widget as template');
     }
 
     if (!widget.isDeployed) {
-      throw new BadRequestException(
-        'Widget must be deployed before publishing as template',
-      );
+      throw new BadRequestException('Widget must be deployed before publishing as template');
     }
 
     // Check if template name already exists
@@ -1138,14 +1013,11 @@ export class WidgetService {
     });
 
     if (existingTemplate && existingTemplate.id !== id) {
-      throw new ConflictException(
-        `Template with name '${templateData.name}' already exists`,
-      );
+      throw new ConflictException(`Template with name '${templateData.name}' already exists`);
     }
 
     // Generate preview image if not provided
-    const previewImage =
-      templateData.previewImage || (await this.generateTemplatePreview(widget));
+    const previewImage = templateData.previewImage || (await this.generateTemplatePreview(widget));
 
     // Update widget to template
     widget.isTemplate = true;
@@ -1180,7 +1052,7 @@ export class WidgetService {
     await this.cacheManager.set(
       `template:${publishedTemplate.id}`,
       publishedTemplate,
-      3600000, // 1 hour
+      3600000 // 1 hour
     );
 
     // If public template, add to featured templates cache
@@ -1197,7 +1069,7 @@ export class WidgetService {
         publishedBy: widget.userId,
         isPublic: templateData.isPublic,
         timestamp: new Date(),
-      },
+      }
     );
 
     // Track analytics event
@@ -1211,9 +1083,7 @@ export class WidgetService {
       timestamp: new Date(),
     });
 
-    this.logger.log(
-      `Widget published as template successfully: ${publishedTemplate.id}`,
-    );
+    this.logger.log(`Widget published as template successfully: ${publishedTemplate.id}`);
 
     return publishedTemplate;
   }
@@ -1227,12 +1097,10 @@ export class WidgetService {
       token?: string;
     },
     userId?: string,
-    organizationId?: string,
+    organizationId?: string
   ) {
     const startTime = Date.now();
-    this.logger.log(
-      `Executing widget: ${id} for session ${executionData.sessionId}`,
-    );
+    this.logger.log(`Executing widget: ${id} for session ${executionData.sessionId}`);
 
     // Get widget with caching
     let widget = await this.cacheManager.get<Widget>(`widget:${id}`);
@@ -1261,21 +1129,12 @@ export class WidgetService {
     }
 
     // Check rate limiting
-    await this.checkRateLimit(
-      widget.id,
-      executionData.sessionId,
-      organizationId,
-    );
+    await this.checkRateLimit(widget.id, executionData.sessionId, organizationId);
 
     // Validate origin if security settings exist
     if (widget.configuration.security.allowedDomains.length > 0) {
       const origin = executionData.context?.origin;
-      if (
-        !this.validateOrigin(
-          origin,
-          widget.configuration.security.allowedDomains,
-        )
-      ) {
+      if (!this.validateOrigin(origin, widget.configuration.security.allowedDomains)) {
         throw new ForbiddenException('Origin not allowed for this widget');
       }
     }
@@ -1285,7 +1144,7 @@ export class WidgetService {
       widgetId: id,
       sessionId: executionData.sessionId,
       userId,
-      status: ExecutionStatus.PENDING,
+      status: 'pending' as const,
       input: {
         type: this.detectInputType(executionData.input),
         content: executionData.input,
@@ -1319,7 +1178,7 @@ export class WidgetService {
       voiceInput: null,
     });
 
-    const savedExecution = await this.widgetExecutionRepository.save(execution) as WidgetExecution;
+    const savedExecution = await this.widgetExecutionRepository.save(execution);
 
     // Mark execution as running
     savedExecution.markAsRunning();
@@ -1333,30 +1192,22 @@ export class WidgetService {
         widgetId: widget.id,
         sessionId: executionData.sessionId,
         userId,
-        organizationId: organizationId,
+        organizationId,
         context: executionData.context,
       };
 
       switch (widget.type) {
         case 'agent':
-          result = await this.executeAgent(
-            widget.sourceId,
-            executionData.input,
-            executionContext,
-          );
+          result = await this.executeAgent(widget.sourceId, executionData.input, executionContext);
           break;
         case 'tool':
-          result = await this.executeTool(
-            widget.sourceId,
-            executionData.input,
-            executionContext,
-          );
+          result = await this.executeTool(widget.sourceId, executionData.input, executionContext);
           break;
         case 'workflow':
           result = await this.executeWorkflow(
             widget.sourceId,
             executionData.input,
-            executionContext,
+            executionContext
           );
           break;
         default:
@@ -1382,7 +1233,7 @@ export class WidgetService {
           tokensUsed: result.tokensUsed || 0,
           apiCalls: result.apiCalls || 1,
           duration: executionTime,
-        },
+        }
       );
 
       // Calculate cost
@@ -1420,17 +1271,15 @@ export class WidgetService {
             cost: savedExecution.costUsd,
           },
           timestamp: new Date(),
-        },
+        }
       );
 
-      this.logger.log(
-        `Widget execution completed: ${savedExecution.id} in ${executionTime}ms`,
-      );
+      this.logger.log(`Widget execution completed: ${savedExecution.id} in ${executionTime}ms`);
 
       return {
         executionId: savedExecution.id,
         result: result.content || result,
-        status: ExecutionStatus.COMPLETED,
+        status: 'completed' as const,
         tokensUsed: result.tokensUsed || 0,
         executionTime,
         cost: savedExecution.costUsd,
@@ -1470,11 +1319,11 @@ export class WidgetService {
           executionId: savedExecution.id,
           error: error.message || 'Unknown error',
           timestamp: new Date(),
-        },
+        }
       );
 
       this.logger.error(
-        `Widget execution failed: ${savedExecution.id} - ${error.message || 'Unknown error'}`,
+        `Widget execution failed: ${savedExecution.id} - ${error.message || 'Unknown error'}`
       );
       throw error;
     }
@@ -1489,7 +1338,7 @@ export class WidgetService {
 
     if (widgetCount >= this.maxWidgetsPerOrg) {
       throw new BadRequestException(
-        `Organization has reached the maximum limit of ${this.maxWidgetsPerOrg} widgets`,
+        `Organization has reached the maximum limit of ${this.maxWidgetsPerOrg} widgets`
       );
     }
   }
@@ -1498,7 +1347,7 @@ export class WidgetService {
     sourceId: string,
     type: 'agent' | 'tool' | 'workflow',
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<void> {
     let source;
     switch (type) {
@@ -1520,9 +1369,7 @@ export class WidgetService {
     }
 
     if (!source) {
-      throw new NotFoundException(
-        `${type} with ID ${sourceId} not found or not accessible`,
-      );
+      throw new NotFoundException(`${type} with ID ${sourceId} not found or not accessible`);
     }
 
     // Check if user has access to the source
@@ -1543,25 +1390,16 @@ export class WidgetService {
 
     // Validate rate limiting
     if (configuration.security.rateLimiting.requestsPerMinute > 10000) {
-      throw new BadRequestException(
-        'Rate limit cannot exceed 10,000 requests per minute',
-      );
+      throw new BadRequestException('Rate limit cannot exceed 10,000 requests per minute');
     }
 
     // Validate layout dimensions
     if (configuration.layout.width < 200 || configuration.layout.width > 2000) {
-      throw new BadRequestException(
-        'Widget width must be between 200 and 2000 pixels',
-      );
+      throw new BadRequestException('Widget width must be between 200 and 2000 pixels');
     }
 
-    if (
-      configuration.layout.height < 300 ||
-      configuration.layout.height > 2000
-    ) {
-      throw new BadRequestException(
-        'Widget height must be between 300 and 2000 pixels',
-      );
+    if (configuration.layout.height < 300 || configuration.layout.height > 2000) {
+      throw new BadRequestException('Widget height must be between 300 and 2000 pixels');
     }
   }
 
@@ -1573,7 +1411,7 @@ export class WidgetService {
 
   private mergeWithDefaults(
     configuration: Partial<WidgetConfiguration>,
-    type: 'agent' | 'tool' | 'workflow',
+    type: 'agent' | 'tool' | 'workflow'
   ): WidgetConfiguration {
     const defaults = this.createDefaultConfiguration(type);
     return {
@@ -1592,10 +1430,7 @@ export class WidgetService {
     };
   }
 
-  private async validateDeploymentPermissions(
-    widget: Widget,
-    userId: string,
-  ): Promise<void> {
+  private async validateDeploymentPermissions(widget: Widget, userId: string): Promise<void> {
     // Check if user is owner or has deployment permissions
     if (widget.userId !== userId) {
       const user = await this.userRepository.findOne({
@@ -1603,17 +1438,12 @@ export class WidgetService {
       });
 
       if (!user || (user.role !== 'ORG_ADMIN' && user.role !== 'SUPER_ADMIN')) {
-        throw new ForbiddenException(
-          'Insufficient permissions to deploy widget',
-        );
+        throw new ForbiddenException('Insufficient permissions to deploy widget');
       }
     }
   }
 
-  private async validateCustomDomain(
-    domain: string,
-    organizationId: string,
-  ): Promise<void> {
+  private async validateCustomDomain(domain: string, organizationId: string): Promise<void> {
     if (!this.isValidDomain(domain)) {
       throw new BadRequestException('Invalid custom domain format');
     }
@@ -1631,10 +1461,7 @@ export class WidgetService {
     }
   }
 
-  private generateDeploymentToken(
-    widgetId: string,
-    organizationId: string,
-  ): string {
+  private generateDeploymentToken(widgetId: string, organizationId: string): string {
     const payload = {
       widgetId,
       organizationId,
@@ -1655,7 +1482,7 @@ export class WidgetService {
   private generateSecureEmbedCode(
     widget: Widget,
     format: 'javascript' | 'iframe' | 'react' | 'vue' | 'angular',
-    token: string,
+    token: string
   ): string {
     const baseUrl = widget.deploymentInfo?.customDomain
       ? `https://${widget.deploymentInfo.customDomain}`
@@ -1775,7 +1602,7 @@ export class WidgetComponent {
 
   private async setupWidgetMonitoring(
     widgetId: string,
-    deploymentInfo: WidgetDeploymentInfo,
+    deploymentInfo: WidgetDeploymentInfo
   ): Promise<void> {
     // Set up health check monitoring
     await this.widgetQueue.add(
@@ -1787,14 +1614,14 @@ export class WidgetComponent {
       },
       {
         repeat: { cron: '*/5 * * * *' }, // Every 5 minutes
-      },
+      }
     );
   }
 
   private async checkRateLimit(
     widgetId: string,
     sessionId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<void> {
     const key = `rate_limit:${widgetId}:${sessionId}`;
     const orgKey = `rate_limit:org:${organizationId}`;
@@ -1840,10 +1667,7 @@ export class WidgetComponent {
     }
   }
 
-  private async validateExecutionToken(
-    token: string,
-    widgetId: string,
-  ): Promise<void> {
+  private async validateExecutionToken(token: string, widgetId: string): Promise<void> {
     try {
       const decoded = jwt.verify(token, this.jwtSecret) as any;
       if (decoded.widgetId !== widgetId || decoded.type !== 'deployment') {
@@ -1869,9 +1693,7 @@ export class WidgetComponent {
     return 'unknown';
   }
 
-  private detectDeviceType(
-    userAgent?: string,
-  ): 'desktop' | 'mobile' | 'tablet' {
+  private detectDeviceType(userAgent?: string): 'desktop' | 'mobile' | 'tablet' {
     if (!userAgent) return 'desktop';
 
     if (/Mobile|Android|iPhone/.test(userAgent)) {
@@ -1906,9 +1728,7 @@ export class WidgetComponent {
     return { name, version };
   }
 
-  private createDefaultConfiguration(
-    type: 'agent' | 'tool' | 'workflow',
-  ): WidgetConfiguration {
+  private createDefaultConfiguration(type: 'agent' | 'tool' | 'workflow'): WidgetConfiguration {
     return {
       theme: {
         primaryColor: '#3b82f6',
@@ -1945,10 +1765,7 @@ export class WidgetComponent {
     };
   }
 
-  private getEmbedInstructions(
-    format: string,
-    options: GenerateEmbedCodeDto,
-  ): string {
+  private getEmbedInstructions(format: string, options: GenerateEmbedCodeDto): string {
     switch (format) {
       case 'javascript':
         return 'Copy and paste this code into your HTML page before the closing </body> tag.';
@@ -1989,7 +1806,7 @@ export class WidgetComponent {
         includeKnowledgeSearch: true,
       },
       context.userId,
-      context.organizationId,
+      context.organizationId
     );
   }
 
@@ -2007,7 +1824,7 @@ export class WidgetComponent {
       },
       context.userId,
       context.organizationId,
-      context.sessionId,
+      context.sessionId
     );
   }
 
@@ -2034,7 +1851,7 @@ export class WidgetComponent {
         timeout: 30000,
       },
       context.userId,
-      context.organizationId,
+      context.organizationId
     );
   }
 
@@ -2042,13 +1859,12 @@ export class WidgetComponent {
     widgetId: string,
     eventType: 'view' | 'interaction' | 'conversion' | 'error',
     context?: any,
-    errorMessage?: string,
+    errorMessage?: string
   ) {
     try {
       // Determine visitor status
       const sessionKey = `visitor:${widgetId}:${context?.sessionId}`;
-      const isReturningVisitor =
-        (await this.cacheManager.get(sessionKey)) !== null;
+      const isReturningVisitor = (await this.cacheManager.get(sessionKey)) !== null;
       const isUniqueVisitor = !isReturningVisitor;
 
       // Cache visitor for 24 hours
@@ -2068,14 +1884,10 @@ export class WidgetComponent {
         referrerUrl: context?.referrer,
         userAgent: context?.userAgent || 'unknown',
         ipAddress: this.anonymizeIP(context?.ipAddress || '0.0.0.0'),
-        deviceType:
-          context?.deviceType || this.detectDeviceType(context?.userAgent),
-        browserName:
-          context?.browserInfo?.name ||
-          this.parseBrowserInfo(context?.userAgent).name,
+        deviceType: context?.deviceType || this.detectDeviceType(context?.userAgent),
+        browserName: context?.browserInfo?.name || this.parseBrowserInfo(context?.userAgent).name,
         browserVersion:
-          context?.browserInfo?.version ||
-          this.parseBrowserInfo(context?.userAgent).version,
+          context?.browserInfo?.version || this.parseBrowserInfo(context?.userAgent).version,
         operatingSystem: this.detectOS(context?.userAgent),
         screenResolution: context?.screenResolution,
         country: context?.geolocation?.country,
@@ -2088,10 +1900,8 @@ export class WidgetComponent {
         isBounce,
         pageDepth: context?.pageDepth || 1,
         durationMs: context?.executionTime,
-        conversionValue:
-          eventType === 'conversion' ? context?.conversionValue : null,
-        conversionType:
-          eventType === 'conversion' ? context?.conversionType : null,
+        conversionValue: eventType === 'conversion' ? context?.conversionValue : null,
+        conversionType: eventType === 'conversion' ? context?.conversionType : null,
         metadata: {
           executionId: context?.executionId,
           tokensUsed: context?.tokensUsed,
@@ -2115,12 +1925,12 @@ export class WidgetComponent {
         {
           priority: 10,
           delay: 1000, // 1 second delay for batching
-        },
+        }
       );
     } catch (error: any) {
       this.logger.error(
         `Failed to track analytics: ${error.message || 'Unknown error'}`,
-        error.stack || '',
+        error.stack || ''
       );
       // Don't throw error to avoid breaking widget execution
     }
@@ -2150,23 +1960,16 @@ export class WidgetComponent {
   private aggregateAnalytics(analytics: WidgetAnalytics[]) {
     const totalViews = analytics.filter((a) => a.eventType === 'view').length;
     const uniqueVisitors = new Set(analytics.map((a) => a.sessionId)).size;
-    const interactions = analytics.filter(
-      (a) => a.eventType === 'interaction',
-    ).length;
-    const conversions = analytics.filter(
-      (a) => a.eventType === 'conversion',
-    ).length;
+    const interactions = analytics.filter((a) => a.eventType === 'interaction').length;
+    const conversions = analytics.filter((a) => a.eventType === 'conversion').length;
 
     const totalDuration = analytics.reduce((sum, a) => {
       return sum + (a.durationMs || 0);
     }, 0);
 
-    const averageSessionDuration =
-      uniqueVisitors > 0 ? totalDuration / uniqueVisitors : 0;
+    const averageSessionDuration = uniqueVisitors > 0 ? totalDuration / uniqueVisitors : 0;
     const bounceRate =
-      uniqueVisitors > 0
-        ? (analytics.filter((a) => a.isBounce).length / uniqueVisitors) * 100
-        : 0;
+      uniqueVisitors > 0 ? (analytics.filter((a) => a.isBounce).length / uniqueVisitors) * 100 : 0;
 
     return {
       totalViews,
@@ -2233,7 +2036,7 @@ export class WidgetComponent {
     analytics.forEach((event) => {
       const deviceType = event.deviceType || 'desktop';
       if (deviceType in deviceData) {
-        deviceData[deviceType as keyof typeof deviceData]++;
+        deviceData[deviceType]++;
       }
     });
 
@@ -2270,13 +2073,7 @@ export class WidgetComponent {
   }
 
   private convertToCSV(analytics: any): string {
-    const headers = [
-      'Date',
-      'Views',
-      'Interactions',
-      'Conversions',
-      'Unique Visitors',
-    ];
+    const headers = ['Date', 'Views', 'Interactions', 'Conversions', 'Unique Visitors'];
     const rows = analytics.trends.map((trend: any) => [
       trend.date,
       trend.views,
@@ -2297,9 +2094,7 @@ export class WidgetComponent {
 
   // Template-specific helper methods
 
-  private generateDefaultPreviewImage(
-    type: 'agent' | 'tool' | 'workflow',
-  ): string {
+  private generateDefaultPreviewImage(type: 'agent' | 'tool' | 'workflow'): string {
     const baseUrl = this.cdnURL;
     const imageMap = {
       agent: `${baseUrl}/templates/previews/agent-default.png`,
@@ -2322,14 +2117,14 @@ export class WidgetComponent {
         {
           priority: 5,
           attempts: 3,
-        },
+        }
       );
 
       // For now, return default preview
       return this.generateDefaultPreviewImage(widget.type);
     } catch (error: any) {
       this.logger.error(
-        `Failed to generate template preview for widget ${widget.id}: ${error.message || 'Unknown error'}`,
+        `Failed to generate template preview for widget ${widget.id}: ${error.message || 'Unknown error'}`
       );
       return this.generateDefaultPreviewImage(widget.type);
     }
@@ -2368,7 +2163,7 @@ export class WidgetComponent {
       };
     } catch (error: any) {
       this.logger.error(
-        `Failed to get template statistics for ${templateId}: ${error.message || 'Unknown error'}`,
+        `Failed to get template statistics for ${templateId}: ${error.message || 'Unknown error'}`
       );
       return {
         uniqueUsers: 0,
@@ -2383,7 +2178,7 @@ export class WidgetComponent {
   private async trackTemplateUsage(
     templateId: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<void> {
     try {
       // Track template usage in analytics
@@ -2413,7 +2208,7 @@ export class WidgetComponent {
       await this.widgetAnalyticsRepository.save(analytics);
     } catch (error: any) {
       this.logger.error(
-        `Failed to track template usage for ${templateId}: ${error.message || 'Unknown error'}`,
+        `Failed to track template usage for ${templateId}: ${error.message || 'Unknown error'}`
       );
       // Don't throw error to avoid breaking widget creation
     }
@@ -2439,18 +2234,18 @@ export class WidgetComponent {
       await this.cacheManager.set(
         'featured_templates',
         featuredTemplates,
-        3600000, // 1 hour
+        3600000 // 1 hour
       );
     } catch (error: any) {
       this.logger.error(
-        `Failed to update featured templates cache: ${error.message || 'Unknown error'}`,
+        `Failed to update featured templates cache: ${error.message || 'Unknown error'}`
       );
     }
   }
 
   private async validateSource(
     sourceId: string,
-    type: 'agent' | 'tool' | 'workflow',
+    type: 'agent' | 'tool' | 'workflow'
   ): Promise<void> {
     let source;
     switch (type) {
@@ -2472,9 +2267,7 @@ export class WidgetComponent {
     }
 
     if (!source) {
-      throw new NotFoundException(
-        `${type} with ID ${sourceId} not found or not active`,
-      );
+      throw new NotFoundException(`${type} with ID ${sourceId} not found or not active`);
     }
   }
 
@@ -2500,7 +2293,7 @@ export class WidgetComponent {
       return counts;
     } catch (error: any) {
       this.logger.error(
-        `Failed to get template category counts: ${error.message || 'Unknown error'}`,
+        `Failed to get template category counts: ${error.message || 'Unknown error'}`
       );
       return {};
     }
@@ -2510,11 +2303,9 @@ export class WidgetComponent {
     templateId: string,
     rating: number,
     userId: string,
-    review?: string,
+    review?: string
   ): Promise<any> {
-    this.logger.log(
-      `Rating template ${templateId} with ${rating} stars by user ${userId}`,
-    );
+    this.logger.log(`Rating template ${templateId} with ${rating} stars by user ${userId}`);
 
     // Validate rating
     if (rating < 1 || rating > 5) {
@@ -2544,7 +2335,7 @@ export class WidgetComponent {
         templateRating: newRating,
         templateRatingCount: newCount,
         updatedAt: new Date(),
-      },
+      }
     );
 
     // Track rating analytics
@@ -2563,7 +2354,7 @@ export class WidgetComponent {
     });
 
     this.logger.log(
-      `Template ${templateId} rated successfully. New rating: ${newRating.toFixed(2)}`,
+      `Template ${templateId} rated successfully. New rating: ${newRating.toFixed(2)}`
     );
 
     return {
@@ -2577,20 +2368,37 @@ export class WidgetComponent {
 
   async getTemplateReviews(
     templateId: string,
-    options: { page: number; limit: number },
+    options: { page: number; limit: number }
   ): Promise<any> {
-
     const reviews = await this.widgetRepository.find({
       where: { id: templateId, isTemplate: true, isActive: true },
       order: { createdAt: 'DESC' },
       skip: (options.page - 1) * options.limit,
       take: options.limit,
-      relations: ['user', 'organization', 'template', 'template.user', 'template.organization', 'template.templateReviews', 'template.templateReviews.user', 'template.templateReviews.organization'],
+      relations: [
+        'user',
+        'organization',
+        'template',
+        'template.user',
+        'template.organization',
+        'template.templateReviews',
+        'template.templateReviews.user',
+        'template.templateReviews.organization',
+      ],
     });
 
     const totalReviews = await this.widgetRepository.count({
       where: { id: templateId, isTemplate: true, isActive: true },
-      relations: ['user', 'organization', 'template', 'template.user', 'template.organization', 'template.templateReviews', 'template.templateReviews.user', 'template.templateReviews.organization'],  
+      relations: [
+        'user',
+        'organization',
+        'template',
+        'template.user',
+        'template.organization',
+        'template.templateReviews',
+        'template.templateReviews.user',
+        'template.templateReviews.organization',
+      ],
     });
 
     return {

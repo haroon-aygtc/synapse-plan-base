@@ -7,10 +7,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { v4 as uuidv4 } from 'uuid';
-import {
-  User,
-  Organization,
-} from '@database/entities';
+import { User, Organization } from '@database/entities';
 import {
   APXMessageType,
   APXStreamState,
@@ -52,7 +49,9 @@ export interface APXExecutionOptions {
 @Injectable()
 export class APXService implements OnModuleInit {
   private readonly logger = new Logger(APXService.name);
-  private readonly defaultSessionTTL = this.parseTimeToSeconds(this.configService.get('SESSION_TTL', '24h'));
+  private readonly defaultSessionTTL = this.parseTimeToSeconds(
+    this.configService.get('SESSION_TTL', '24h')
+  );
   private readonly redisPrefix = 'apix:';
   private activeExecutions = new Map<string, APXExecution>();
   private streamingSessions = new Map<string, IAPXStreamingSession>();
@@ -72,7 +71,7 @@ export class APXService implements OnModuleInit {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly eventEmitter: EventEmitter2,
     private readonly sessionService: SessionService,
-    private readonly websocketService: WebSocketService,
+    private readonly websocketService: WebSocketService
   ) {}
 
   private parseTimeToSeconds(time: string): number {
@@ -96,7 +95,7 @@ export class APXService implements OnModuleInit {
       relations: ['organization'],
     });
 
-    if (!user || !user.organization?.isActive) {
+    if (!user?.organization?.isActive) {
       throw new Error('Invalid user or organization');
     }
 
@@ -147,7 +146,12 @@ export class APXService implements OnModuleInit {
   private getDefaultPermissions(role: UserRole): APXPermissionLevel[] {
     switch (role) {
       case UserRole.SUPER_ADMIN:
-        return [APXPermissionLevel.ADMIN, APXPermissionLevel.READ, APXPermissionLevel.WRITE, APXPermissionLevel.EXECUTE];
+        return [
+          APXPermissionLevel.ADMIN,
+          APXPermissionLevel.READ,
+          APXPermissionLevel.WRITE,
+          APXPermissionLevel.EXECUTE,
+        ];
       case UserRole.ORG_ADMIN:
         return [APXPermissionLevel.ADMIN, APXPermissionLevel.READ, APXPermissionLevel.WRITE];
       case UserRole.DEVELOPER:
@@ -160,37 +164,45 @@ export class APXService implements OnModuleInit {
   }
 
   private async storeSessionInRedis(session: APXSession): Promise<void> {
-    await this.cacheManager.set(`apix:session:${session.id}`, session, session.expiresAt.getTime() - Date.now());
+    await this.cacheManager.set(
+      `apix:session:${session.id}`,
+      session,
+      session.expiresAt.getTime() - Date.now()
+    );
   }
 
-  private async initializeSessionAnalytics(sessionId: string, userId: string, organizationId: string): Promise<void> {
-    
-        const session = await this.apixSessionRepository.findOne({
-           where: { id: sessionId },
-           relations: ['user', 'organization'],
-        });
-        
-        if (!session) {
-            throw new Error('Session not found');
-        }
-        
-        const analytics = this.apixAnalyticsRepository.create({
-            sessionId,
-            userId,
-            organizationId,
-            timestamp: new Date(),
-        });
-        
-        await this.apixAnalyticsRepository.save(analytics);
+  private async initializeSessionAnalytics(
+    sessionId: string,
+    userId: string,
+    organizationId: string
+  ): Promise<void> {
+    const session = await this.apixSessionRepository.findOne({
+      where: { id: sessionId },
+      relations: ['user', 'organization'],
+    });
+
+    if (!session) {
+      throw new Error('Session not found');
     }
 
+    const analytics = this.apixAnalyticsRepository.create({
+      sessionId,
+      userId,
+      organizationId,
+      timestamp: new Date(),
+    });
 
+    await this.apixAnalyticsRepository.save(analytics);
+  }
 
   private async startCleanupTasks(): Promise<void> {
-    setInterval(async () => {
-      await this.cleanupExpiredSessions();
-      await this.cleanupInactiveSessions();
-    }, 1000 * 60 * 60 * 24); // 24 hours
+    setInterval(
+      async () => {
+        await this.cleanupExpiredSessions();
+        await this.cleanupInactiveSessions();
+      },
+      1000 * 60 * 60 * 24
+    ); // 24 hours
   }
 
   private async cleanupExpiredSessions(): Promise<void> {

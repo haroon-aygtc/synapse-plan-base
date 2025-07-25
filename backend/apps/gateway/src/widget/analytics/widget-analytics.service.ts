@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In, MoreThan, LessThan } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
@@ -32,14 +28,10 @@ export class WidgetAnalyticsService {
     private widgetExecutionRepository: Repository<WidgetExecution>,
     @InjectQueue('analytics-processing')
     private analyticsQueue: Queue,
-    private privacyService: PrivacyService,
+    private privacyService: PrivacyService
   ) {}
 
-  async trackEvent(
-    widgetId: string,
-    trackEventDto: TrackEventDto,
-    organizationId: string,
-  ) {
+  async trackEvent(widgetId: string, trackEventDto: TrackEventDto, organizationId: string) {
     // Verify widget exists and belongs to organization
     const widget = await this.widgetRepository.findOne({
       where: { id: widgetId, organizationId },
@@ -78,7 +70,7 @@ export class WidgetAnalyticsService {
     const privacyCompliantData = await this.privacyService.processDataWithPrivacyCompliance(
       rawAnalyticsData,
       organizationId,
-      trackEventDto.properties?.userConsent,
+      trackEventDto.properties?.userConsent
     );
 
     // Create analytics record
@@ -102,11 +94,7 @@ export class WidgetAnalyticsService {
     };
   }
 
-  async getOverview(
-    widgetId: string,
-    getAnalyticsDto: GetAnalyticsDto,
-    organizationId: string,
-  ) {
+  async getOverview(widgetId: string, getAnalyticsDto: GetAnalyticsDto, organizationId: string) {
     // Verify widget exists
     const widget = await this.widgetRepository.findOne({
       where: { id: widgetId, organizationId },
@@ -117,7 +105,7 @@ export class WidgetAnalyticsService {
     }
 
     const { startDate, endDate } = this.getDateRange(getAnalyticsDto);
-    
+
     // Build query conditions
     const whereConditions: any = {
       widgetId,
@@ -193,7 +181,7 @@ export class WidgetAnalyticsService {
     const activeSessions = await this.getActiveSessions(widgetId);
 
     // Calculate real-time metrics
-    const currentVisitors = new Set(realtimeAnalytics.map(a => a.sessionId)).size;
+    const currentVisitors = new Set(realtimeAnalytics.map((a) => a.sessionId)).size;
     const eventsPerMinute = this.calculateEventsPerMinute(realtimeAnalytics);
     const topCountries = this.getTopCountries(realtimeAnalytics, 5);
     const topPages = this.getTopPages(realtimeAnalytics, 5);
@@ -213,7 +201,7 @@ export class WidgetAnalyticsService {
   async getConversionFunnel(
     widgetId: string,
     getConversionFunnelDto: GetConversionFunnelDto,
-    organizationId: string,
+    organizationId: string
   ) {
     // Verify widget exists
     const widget = await this.widgetRepository.findOne({
@@ -241,7 +229,7 @@ export class WidgetAnalyticsService {
       startDate,
       endDate,
       timeWindow,
-      getConversionFunnelDto,
+      getConversionFunnelDto
     );
 
     return {
@@ -259,7 +247,7 @@ export class WidgetAnalyticsService {
   async getUserJourney(
     widgetId: string,
     getUserJourneyDto: GetUserJourneyDto,
-    organizationId: string,
+    organizationId: string
   ) {
     // Verify widget exists
     const widget = await this.widgetRepository.findOne({
@@ -279,20 +267,20 @@ export class WidgetAnalyticsService {
       .andWhere('analytics.date BETWEEN :startDate AND :endDate', { startDate, endDate });
 
     if (getUserJourneyDto.sessionId) {
-      queryBuilder.andWhere('analytics.sessionId = :sessionId', { 
-        sessionId: getUserJourneyDto.sessionId 
+      queryBuilder.andWhere('analytics.sessionId = :sessionId', {
+        sessionId: getUserJourneyDto.sessionId,
       });
     }
 
     if (getUserJourneyDto.deviceTypes?.length) {
-      queryBuilder.andWhere('analytics.deviceType IN (:...deviceTypes)', { 
-        deviceTypes: getUserJourneyDto.deviceTypes 
+      queryBuilder.andWhere('analytics.deviceType IN (:...deviceTypes)', {
+        deviceTypes: getUserJourneyDto.deviceTypes,
       });
     }
 
     if (getUserJourneyDto.countries?.length) {
-      queryBuilder.andWhere('analytics.country IN (:...countries)', { 
-        countries: getUserJourneyDto.countries 
+      queryBuilder.andWhere('analytics.country IN (:...countries)', {
+        countries: getUserJourneyDto.countries,
       });
     }
 
@@ -313,7 +301,7 @@ export class WidgetAnalyticsService {
       analytics,
       getUserJourneyDto.minSessionDuration,
       getUserJourneyDto.maxSessionDuration,
-      getUserJourneyDto.includeConversions,
+      getUserJourneyDto.includeConversions
     );
 
     return {
@@ -322,14 +310,15 @@ export class WidgetAnalyticsService {
       journeys,
       totalJourneys: journeys.length,
       averageJourneyLength: journeys.reduce((sum, j) => sum + j.steps.length, 0) / journeys.length,
-      averageSessionDuration: journeys.reduce((sum, j) => sum + j.totalDuration, 0) / journeys.length,
+      averageSessionDuration:
+        journeys.reduce((sum, j) => sum + j.totalDuration, 0) / journeys.length,
     };
   }
 
   async getPerformanceMetrics(
     widgetId: string,
     getPerformanceMetricsDto: GetPerformanceMetricsDto,
-    organizationId: string,
+    organizationId: string
   ) {
     // Verify widget exists
     const widget = await this.widgetRepository.findOne({
@@ -355,11 +344,11 @@ export class WidgetAnalyticsService {
     const metrics = this.calculatePerformanceMetrics(
       executions,
       getPerformanceMetricsDto.metricTypes,
-      getPerformanceMetricsDto.aggregation,
+      getPerformanceMetricsDto.aggregation
     );
 
     // Get trends if requested
-    const trends = getPerformanceMetricsDto.includeTrends 
+    const trends = getPerformanceMetricsDto.includeTrends
       ? this.calculatePerformanceTrends(executions)
       : undefined;
 
@@ -381,7 +370,7 @@ export class WidgetAnalyticsService {
   async getCrossDomainAnalytics(
     widgetId: string,
     getAnalyticsDto: GetAnalyticsDto,
-    organizationId: string,
+    organizationId: string
   ) {
     // Verify widget exists
     const widget = await this.widgetRepository.findOne({
@@ -422,11 +411,7 @@ export class WidgetAnalyticsService {
     };
   }
 
-  async getHeatmapData(
-    widgetId: string,
-    getAnalyticsDto: GetAnalyticsDto,
-    organizationId: string,
-  ) {
+  async getHeatmapData(widgetId: string, getAnalyticsDto: GetAnalyticsDto, organizationId: string) {
     // Verify widget exists
     const widget = await this.widgetRepository.findOne({
       where: { id: widgetId, organizationId },
@@ -463,7 +448,7 @@ export class WidgetAnalyticsService {
   async getRetentionAnalysis(
     widgetId: string,
     getAnalyticsDto: GetAnalyticsDto,
-    organizationId: string,
+    organizationId: string
   ) {
     // Verify widget exists
     const widget = await this.widgetRepository.findOne({
@@ -546,7 +531,7 @@ export class WidgetAnalyticsService {
 
     // Update analytics summary based on event type
     const updates: any = {};
-    
+
     switch (eventType) {
       case 'view':
         updates.views = (widget.analyticsData?.views || 0) + 1;
@@ -571,11 +556,11 @@ export class WidgetAnalyticsService {
 
   private calculateOverviewMetrics(analytics: WidgetAnalytics[]) {
     const totalEvents = analytics.length;
-    const uniqueVisitors = new Set(analytics.map(a => a.sessionId)).size;
-    const views = analytics.filter(a => a.eventType === 'view').length;
-    const interactions = analytics.filter(a => a.eventType === 'interaction').length;
-    const conversions = analytics.filter(a => a.eventType === 'conversion').length;
-    const errors = analytics.filter(a => a.eventType === 'error').length;
+    const uniqueVisitors = new Set(analytics.map((a) => a.sessionId)).size;
+    const views = analytics.filter((a) => a.eventType === 'view').length;
+    const interactions = analytics.filter((a) => a.eventType === 'interaction').length;
+    const conversions = analytics.filter((a) => a.eventType === 'conversion').length;
+    const errors = analytics.filter((a) => a.eventType === 'error').length;
 
     const conversionRate = views > 0 ? (conversions / views) * 100 : 0;
     const errorRate = totalEvents > 0 ? (errors / totalEvents) * 100 : 0;
@@ -597,11 +582,11 @@ export class WidgetAnalyticsService {
   private calculateTrends(analytics: WidgetAnalytics[], groupBy?: AnalyticsGroupBy) {
     // Group analytics by time period
     const groupedData = new Map();
-    
-    analytics.forEach(event => {
+
+    analytics.forEach((event) => {
       let key: string;
       const date = new Date(event.date);
-      
+
       switch (groupBy) {
         case AnalyticsGroupBy.HOUR:
           key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}-${date.getHours()}`;
@@ -617,11 +602,11 @@ export class WidgetAnalyticsService {
         default: // DAY
           key = date.toISOString().split('T')[0];
       }
-      
+
       if (!groupedData.has(key)) {
         groupedData.set(key, { views: 0, interactions: 0, conversions: 0, errors: 0 });
       }
-      
+
       const data = groupedData.get(key);
       data[event.eventType] = (data[event.eventType] || 0) + 1;
     });
@@ -634,13 +619,13 @@ export class WidgetAnalyticsService {
 
   private getTopPages(analytics: WidgetAnalytics[], limit = 10) {
     const pageStats = new Map();
-    
-    analytics.forEach(event => {
+
+    analytics.forEach((event) => {
       const page = event.pageUrl || 'unknown';
       if (!pageStats.has(page)) {
         pageStats.set(page, { views: 0, interactions: 0, conversions: 0 });
       }
-      
+
       const stats = pageStats.get(page);
       if (event.eventType === 'view') stats.views++;
       if (event.eventType === 'interaction') stats.interactions++;
@@ -655,8 +640,8 @@ export class WidgetAnalyticsService {
 
   private getDeviceBreakdown(analytics: WidgetAnalytics[]) {
     const deviceStats = new Map();
-    
-    analytics.forEach(event => {
+
+    analytics.forEach((event) => {
       const device = event.deviceType || 'unknown';
       deviceStats.set(device, (deviceStats.get(device) || 0) + 1);
     });
@@ -666,8 +651,8 @@ export class WidgetAnalyticsService {
 
   private getBrowserBreakdown(analytics: WidgetAnalytics[]) {
     const browserStats = new Map();
-    
-    analytics.forEach(event => {
+
+    analytics.forEach((event) => {
       const browser = event.browserName || 'unknown';
       browserStats.set(browser, (browserStats.get(browser) || 0) + 1);
     });
@@ -677,8 +662,8 @@ export class WidgetAnalyticsService {
 
   private getGeographicData(analytics: WidgetAnalytics[]) {
     const geoStats = new Map();
-    
-    analytics.forEach(event => {
+
+    analytics.forEach((event) => {
       if (event.country) {
         const key = `${event.country}-${event.region || 'unknown'}`;
         if (!geoStats.has(key)) {
@@ -689,14 +674,14 @@ export class WidgetAnalyticsService {
             cities: new Set(),
           });
         }
-        
+
         const stats = geoStats.get(key);
         stats.count++;
         if (event.city) stats.cities.add(event.city);
       }
     });
 
-    return Array.from(geoStats.values()).map(stats => ({
+    return Array.from(geoStats.values()).map((stats) => ({
       ...stats,
       cities: Array.from(stats.cities),
     }));
@@ -704,8 +689,8 @@ export class WidgetAnalyticsService {
 
   private getTopCountries(analytics: WidgetAnalytics[], limit = 5) {
     const countryStats = new Map();
-    
-    analytics.forEach(event => {
+
+    analytics.forEach((event) => {
       if (event.country) {
         countryStats.set(event.country, (countryStats.get(event.country) || 0) + 1);
       }
@@ -720,17 +705,15 @@ export class WidgetAnalyticsService {
   private calculateEventsPerMinute(analytics: WidgetAnalytics[]) {
     const now = new Date();
     const minuteAgo = new Date(now.getTime() - 60 * 1000);
-    
-    const recentEvents = analytics.filter(event => 
-      new Date(event.date) >= minuteAgo
-    );
+
+    const recentEvents = analytics.filter((event) => new Date(event.date) >= minuteAgo);
 
     return recentEvents.length;
   }
 
   private async getActiveSessions(widgetId: string) {
     const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-    
+
     const activeSessions = await this.widgetAnalyticsRepository
       .createQueryBuilder('analytics')
       .select('DISTINCT analytics.sessionId')
@@ -747,7 +730,7 @@ export class WidgetAnalyticsService {
     startDate: Date,
     endDate: Date,
     timeWindow: number,
-    filters: any,
+    filters: any
   ) {
     // Implementation for funnel calculation
     // This is a simplified version - real implementation would be more complex
@@ -764,14 +747,14 @@ export class WidgetAnalyticsService {
         },
       });
 
-      const stepUsers = new Set(stepAnalytics.map(a => a.sessionId));
-      
+      const stepUsers = new Set(stepAnalytics.map((a) => a.sessionId));
+
       if (i === 0) {
         previousStepUsers = stepUsers;
       } else {
         // Filter users who completed previous step
         const qualifiedUsers = new Set(
-          [...stepUsers].filter(user => previousStepUsers.has(user))
+          [...stepUsers].filter((user) => previousStepUsers.has(user))
         );
         previousStepUsers = qualifiedUsers;
       }
@@ -799,13 +782,13 @@ export class WidgetAnalyticsService {
 
   private calculateDropoffPoints(stepResults: any[]) {
     const dropoffs = [];
-    
+
     for (let i = 1; i < stepResults.length; i++) {
       const current = stepResults[i];
       const previous = stepResults[i - 1];
-      const dropoffRate = previous.users > 0 ? 
-        ((previous.users - current.users) / previous.users) * 100 : 0;
-      
+      const dropoffRate =
+        previous.users > 0 ? ((previous.users - current.users) / previous.users) * 100 : 0;
+
       dropoffs.push({
         fromStep: previous.name,
         toStep: current.name,
@@ -821,12 +804,12 @@ export class WidgetAnalyticsService {
     analytics: WidgetAnalytics[],
     minDuration?: number,
     maxDuration?: number,
-    includeConversions?: boolean,
+    includeConversions?: boolean
   ) {
     const sessionMap = new Map();
-    
+
     // Group events by session
-    analytics.forEach(event => {
+    analytics.forEach((event) => {
       if (!sessionMap.has(event.sessionId)) {
         sessionMap.set(event.sessionId, []);
       }
@@ -834,27 +817,27 @@ export class WidgetAnalyticsService {
     });
 
     const journeys = [];
-    
+
     sessionMap.forEach((events, sessionId) => {
       events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      
+
       const firstEvent = events[0];
       const lastEvent = events[events.length - 1];
       const duration = new Date(lastEvent.date).getTime() - new Date(firstEvent.date).getTime();
-      
+
       // Apply duration filters
       if (minDuration && duration < minDuration * 1000) return;
       if (maxDuration && duration > maxDuration * 1000) return;
 
-      const steps = events.map(event => ({
+      const steps = events.map((event) => ({
         eventType: event.eventType,
         timestamp: event.date,
         pageUrl: event.pageUrl,
         properties: event.properties,
       }));
 
-      const conversions = events.filter(e => e.eventType === 'conversion');
-      
+      const conversions = events.filter((e) => e.eventType === 'conversion');
+
       journeys.push({
         sessionId,
         steps,
@@ -867,34 +850,37 @@ export class WidgetAnalyticsService {
     return journeys;
   }
 
-  private calculatePerformanceMetrics(executions: any[], metricTypes?: string[], aggregation?: string) {
+  private calculatePerformanceMetrics(
+    executions: any[],
+    metricTypes?: string[],
+    aggregation?: string
+  ) {
     if (!executions.length) return {};
 
     const metrics: any = {};
 
     // Calculate load time metrics
-    const loadTimes = executions
-      .filter(e => e.metrics?.duration)
-      .map(e => e.metrics.duration);
+    const loadTimes = executions.filter((e) => e.metrics?.duration).map((e) => e.metrics.duration);
 
     if (loadTimes.length > 0) {
       metrics.loadTime = this.aggregateValues(loadTimes, aggregation);
     }
 
     // Calculate error rate
-    const errorCount = executions.filter(e => e.status === 'failed').length;
+    const errorCount = executions.filter((e) => e.status === 'failed').length;
     metrics.errorRate = executions.length > 0 ? (errorCount / executions.length) * 100 : 0;
 
     // Calculate throughput (executions per hour)
-    const timeSpan = executions.length > 1 ? 
-      (new Date(executions[executions.length - 1].createdAt).getTime() - 
-       new Date(executions[0].createdAt).getTime()) / (1000 * 60 * 60) : 1;
+    const timeSpan =
+      executions.length > 1
+        ? (new Date(executions[executions.length - 1].createdAt).getTime() -
+            new Date(executions[0].createdAt).getTime()) /
+          (1000 * 60 * 60)
+        : 1;
     metrics.throughput = executions.length / timeSpan;
 
     // Calculate API calls
-    const apiCalls = executions
-      .filter(e => e.metrics?.apiCalls)
-      .map(e => e.metrics.apiCalls);
+    const apiCalls = executions.filter((e) => e.metrics?.apiCalls).map((e) => e.metrics.apiCalls);
 
     if (apiCalls.length > 0) {
       metrics.apiCalls = this.aggregateValues(apiCalls, aggregation);
@@ -910,8 +896,7 @@ export class WidgetAnalyticsService {
       case 'median':
         const sorted = [...values].sort((a, b) => a - b);
         const mid = Math.floor(sorted.length / 2);
-        return sorted.length % 2 === 0 ? 
-          (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+        return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
       case 'p95':
         const sorted95 = [...values].sort((a, b) => a - b);
         const index95 = Math.floor(sorted95.length * 0.95);
@@ -936,13 +921,13 @@ export class WidgetAnalyticsService {
   private calculatePerformanceTrends(executions: any[]) {
     // Group executions by hour and calculate trends
     const hourlyData = new Map();
-    
-    executions.forEach(execution => {
+
+    executions.forEach((execution) => {
       const hour = new Date(execution.createdAt).toISOString().slice(0, 13);
       if (!hourlyData.has(hour)) {
         hourlyData.set(hour, { executions: [], errors: 0 });
       }
-      
+
       const data = hourlyData.get(hour);
       data.executions.push(execution);
       if (execution.status === 'failed') data.errors++;
@@ -952,9 +937,10 @@ export class WidgetAnalyticsService {
       hour,
       executionCount: data.executions.length,
       errorRate: (data.errors / data.executions.length) * 100,
-      averageLoadTime: data.executions
-        .filter(e => e.metrics?.duration)
-        .reduce((sum, e) => sum + e.metrics.duration, 0) / data.executions.length,
+      averageLoadTime:
+        data.executions
+          .filter((e) => e.metrics?.duration)
+          .reduce((sum, e) => sum + e.metrics.duration, 0) / data.executions.length,
     }));
   }
 
@@ -988,12 +974,12 @@ export class WidgetAnalyticsService {
 
   private processCrossDomainData(analytics: any[]) {
     const domainMap = new Map();
-    
-    analytics.forEach(row => {
+
+    analytics.forEach((row) => {
       try {
         const url = new URL(row.pageUrl);
         const domain = url.hostname;
-        
+
         if (!domainMap.has(domain)) {
           domainMap.set(domain, {
             domain,
@@ -1003,7 +989,7 @@ export class WidgetAnalyticsService {
             countries: new Set(),
           });
         }
-        
+
         const data = domainMap.get(domain);
         data.eventCount += parseInt(row.eventCount);
         data.uniqueVisitors += parseInt(row.uniqueVisitors);
@@ -1014,15 +1000,13 @@ export class WidgetAnalyticsService {
       }
     });
 
-    const domains = Array.from(domainMap.values()).map(data => ({
+    const domains = Array.from(domainMap.values()).map((data) => ({
       ...data,
       devices: Array.from(data.devices),
       countries: Array.from(data.countries),
     }));
 
-    const topPerformingDomains = domains
-      .sort((a, b) => b.eventCount - a.eventCount)
-      .slice(0, 10);
+    const topPerformingDomains = domains.sort((a, b) => b.eventCount - a.eventCount).slice(0, 10);
 
     return {
       domains,
@@ -1034,12 +1018,12 @@ export class WidgetAnalyticsService {
 
   private generateCrossDomainInsights(domains: any[]) {
     const insights = [];
-    
+
     if (domains.length > 1) {
       const totalEvents = domains.reduce((sum, d) => sum + d.eventCount, 0);
       const topDomain = domains.sort((a, b) => b.eventCount - a.eventCount)[0];
       const topDomainPercentage = (topDomain.eventCount / totalEvents) * 100;
-      
+
       insights.push({
         type: 'top_domain',
         message: `${topDomain.domain} accounts for ${topDomainPercentage.toFixed(1)}% of all events`,
@@ -1053,13 +1037,15 @@ export class WidgetAnalyticsService {
   private processHeatmapData(interactions: WidgetAnalytics[]) {
     const points: any[] = [];
     const densityMap = new Map<string, number>();
-    
-    interactions.forEach(interaction => {
+
+    interactions.forEach((interaction) => {
       // Extract coordinates from properties if available
-      const x = interaction.properties?.x !== undefined ? interaction.properties.x : Math.random() * 100;
-      const y = interaction.properties?.y !== undefined ? interaction.properties.y : Math.random() * 100;
-      const key = `${Math.floor(x/10)}-${Math.floor(y/10)}`;
-      
+      const x =
+        interaction.properties?.x !== undefined ? interaction.properties.x : Math.random() * 100;
+      const y =
+        interaction.properties?.y !== undefined ? interaction.properties.y : Math.random() * 100;
+      const key = `${Math.floor(x / 10)}-${Math.floor(y / 10)}`;
+
       points.push({ x, y, intensity: 1 });
       densityMap.set(key, (densityMap.get(key) || 0) + 1);
     });
@@ -1084,43 +1070,46 @@ export class WidgetAnalyticsService {
   private calculateRetentionMetrics(sessions: any[]) {
     // Group sessions by first visit date
     const cohorts = new Map();
-    
-    sessions.forEach(session => {
+
+    sessions.forEach((session) => {
       const firstVisit = new Date(session.firstVisit);
       const cohortKey = firstVisit.toISOString().split('T')[0];
-      
+
       if (!cohorts.has(cohortKey)) {
         cohorts.set(cohortKey, []);
       }
-      
+
       cohorts.get(cohortKey).push(session);
     });
 
     // Calculate retention rates for each cohort
     const retentionRates = [];
     const cohortData = [];
-    
+
     cohorts.forEach((cohortSessions, cohortDate) => {
       const totalUsers = cohortSessions.length;
-      const returningUsers = cohortSessions.filter(s => 
-        new Date(s.lastVisit).getTime() > new Date(s.firstVisit).getTime() + 24 * 60 * 60 * 1000
+      const returningUsers = cohortSessions.filter(
+        (s) =>
+          new Date(s.lastVisit).getTime() > new Date(s.firstVisit).getTime() + 24 * 60 * 60 * 1000
       ).length;
-      
+
       const retentionRate = totalUsers > 0 ? (returningUsers / totalUsers) * 100 : 0;
-      
+
       cohortData.push({
         cohortDate,
         totalUsers,
         returningUsers,
         retentionRate,
       });
-      
+
       retentionRates.push(retentionRate);
     });
 
-    const averageRetention = retentionRates.length > 0 ? 
-      retentionRates.reduce((sum, rate) => sum + rate, 0) / retentionRates.length : 0;
-    
+    const averageRetention =
+      retentionRates.length > 0
+        ? retentionRates.reduce((sum, rate) => sum + rate, 0) / retentionRates.length
+        : 0;
+
     const churnRate = 100 - averageRetention;
 
     return {

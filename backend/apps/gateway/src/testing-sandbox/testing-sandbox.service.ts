@@ -138,7 +138,7 @@ export class TestingSandboxService {
     private readonly websocketService: WebSocketService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {
     this.docker = new Docker();
   }
@@ -147,7 +147,7 @@ export class TestingSandboxService {
   async createSandbox(
     createSandboxDto: CreateSandboxDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<TestingSandbox> {
     const sandbox = this.sandboxRepository.create({
       ...createSandboxDto,
@@ -175,17 +175,13 @@ export class TestingSandboxService {
     });
 
     // Send real-time update
-    await this.websocketService.broadcastToOrganization(
-      organizationId,
-      'sandbox_created',
-      {
-        sandbox: savedSandbox,
-        userId,
-      },
-    );
+    await this.websocketService.broadcastToOrganization(organizationId, 'sandbox_created', {
+      sandbox: savedSandbox,
+      userId,
+    });
 
     this.logger.log(
-      `Sandbox created: ${savedSandbox.id} by user ${userId} in org ${organizationId}`,
+      `Sandbox created: ${savedSandbox.id} by user ${userId} in org ${organizationId}`
     );
 
     return savedSandbox;
@@ -197,7 +193,7 @@ export class TestingSandboxService {
       userId?: string;
       type?: string;
       status?: string;
-    },
+    }
   ): Promise<TestingSandbox[]> {
     const queryBuilder = this.sandboxRepository
       .createQueryBuilder('sandbox')
@@ -226,10 +222,7 @@ export class TestingSandboxService {
     return queryBuilder.getMany();
   }
 
-  async findOneSandbox(
-    id: string,
-    organizationId: string,
-  ): Promise<TestingSandbox> {
+  async findOneSandbox(id: string, organizationId: string): Promise<TestingSandbox> {
     // Try cache first
     const cacheKey = `${this.cachePrefix}${id}`;
     let sandbox = await this.cacheManager.get<TestingSandbox | null>(cacheKey);
@@ -237,13 +230,7 @@ export class TestingSandboxService {
     if (!sandbox) {
       sandbox = await this.sandboxRepository.findOne({
         where: { id, organizationId },
-        relations: [
-          'testScenarios',
-          'testExecutions',
-          'mockData',
-          'debugSessions',
-          'sandboxRuns',
-        ],
+        relations: ['testScenarios', 'testExecutions', 'mockData', 'debugSessions', 'sandboxRuns'],
       });
 
       if (!sandbox) {
@@ -260,7 +247,7 @@ export class TestingSandboxService {
     id: string,
     updateSandboxDto: UpdateSandboxDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<TestingSandbox> {
     const sandbox = await this.findOneSandbox(id, organizationId);
 
@@ -291,11 +278,7 @@ export class TestingSandboxService {
     return updatedSandbox;
   }
 
-  async removeSandbox(
-    id: string,
-    userId: string,
-    organizationId: string,
-  ): Promise<void> {
+  async removeSandbox(id: string, userId: string, organizationId: string): Promise<void> {
     const sandbox = await this.findOneSandbox(id, organizationId);
 
     // Check ownership or admin permissions
@@ -330,7 +313,7 @@ export class TestingSandboxService {
     sandboxId: string,
     executeTestDto: ExecuteTestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<TestExecutionResult> {
     const sandbox = await this.findOneSandbox(sandboxId, organizationId);
 
@@ -373,28 +356,19 @@ export class TestingSandboxService {
     this.eventStreams.set(runId, eventStream);
 
     // Emit run started event
-    await this.emitSandboxEvent(
+    await this.emitSandboxEvent(runId, organizationId, SandboxEventType.RUN_STARTED, {
       runId,
-      organizationId,
-      SandboxEventType.RUN_STARTED,
-      {
-        runId,
-        testType: executeTestDto.testType,
-        testName: executeTestDto.testName,
-      },
-    );
+      testType: executeTestDto.testType,
+      testName: executeTestDto.testName,
+    });
 
     try {
       let result: any;
       let sessionState: Record<string, any> = {};
-      let providerMetrics: Record<string, any> = {};
+      const providerMetrics: Record<string, any> = {};
 
       // Create isolated session for sandbox execution
-      const sessionToken = await this.createSandboxSession(
-        userId,
-        organizationId,
-        runId,
-      );
+      const sessionToken = await this.createSandboxSession(userId, organizationId, runId);
 
       // Execute test based on type with real production logic
       switch (executeTestDto.testType) {
@@ -405,7 +379,7 @@ export class TestingSandboxService {
             runId,
             sessionToken,
             userId,
-            organizationId,
+            organizationId
           );
           break;
         case 'tool':
@@ -415,7 +389,7 @@ export class TestingSandboxService {
             runId,
             sessionToken,
             userId,
-            organizationId,
+            organizationId
           );
           break;
         case 'workflow':
@@ -425,7 +399,7 @@ export class TestingSandboxService {
             runId,
             sessionToken,
             userId,
-            organizationId,
+            organizationId
           );
           break;
         case 'integration':
@@ -435,13 +409,11 @@ export class TestingSandboxService {
             runId,
             sessionToken,
             userId,
-            organizationId,
+            organizationId
           );
           break;
         default:
-          throw new BadRequestException(
-            `Unsupported test type: ${executeTestDto.testType}`,
-          );
+          throw new BadRequestException(`Unsupported test type: ${executeTestDto.testType}`);
       }
 
       const executionTime = Date.now() - startTime;
@@ -472,16 +444,11 @@ export class TestingSandboxService {
       await this.sandboxRunRepository.save(sandboxRun);
 
       // Emit completion event
-      await this.emitSandboxEvent(
+      await this.emitSandboxEvent(runId, organizationId, SandboxEventType.RUN_COMPLETED, {
         runId,
-        organizationId,
-        SandboxEventType.RUN_COMPLETED,
-        {
-          runId,
-          result: result.output,
-          metrics: sandboxRun.metrics,
-        },
-      );
+        result: result.output,
+        metrics: sandboxRun.metrics,
+      });
 
       const executionResult: TestExecutionResult = {
         id: runId,
@@ -506,8 +473,7 @@ export class TestingSandboxService {
 
       // Update sandbox run record with error
       sandboxRun.status = ExecutionStatus.FAILED;
-      sandboxRun.error =
-        error instanceof Error ? error.message : 'Unknown error';
+      sandboxRun.error = error instanceof Error ? error.message : 'Unknown error';
       sandboxRun.metrics = {
         executionTime,
         memoryUsage: 0,
@@ -521,15 +487,10 @@ export class TestingSandboxService {
       await this.sandboxRunRepository.save(sandboxRun);
 
       // Emit error event
-      await this.emitSandboxEvent(
+      await this.emitSandboxEvent(runId, organizationId, SandboxEventType.RUN_FAILED, {
         runId,
-        organizationId,
-        SandboxEventType.RUN_FAILED,
-        {
-          runId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        },
-      );
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
 
       // Cleanup
       this.eventStreams.delete(runId);
@@ -544,7 +505,7 @@ export class TestingSandboxService {
     sandboxId: string,
     testId: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Observable<MessageEvent> {
     const eventStream = this.eventStreams.get(testId);
     if (eventStream) {
@@ -562,7 +523,7 @@ export class TestingSandboxService {
           message: `Executing test step ${index + 1}...`,
           timestamp: new Date().toISOString(),
         },
-      })),
+      }))
     );
   }
 
@@ -573,7 +534,7 @@ export class TestingSandboxService {
     runId: string,
     sessionToken: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<any> {
     const agentId = executeTestDto.testData.agentId;
     const input = executeTestDto.testData.input;
@@ -583,16 +544,11 @@ export class TestingSandboxService {
     }
 
     // Emit agent execution start event
-    await this.emitSandboxEvent(
-      runId,
-      organizationId,
-      SandboxEventType.AGENT_EXECUTION,
-      {
-        agentId,
-        input,
-        phase: 'started',
-      },
-    );
+    await this.emitSandboxEvent(runId, organizationId, SandboxEventType.AGENT_EXECUTION, {
+      agentId,
+      input,
+      phase: 'started',
+    });
 
     try {
       // Execute agent using real agent service with production logic
@@ -618,20 +574,15 @@ export class TestingSandboxService {
           timeout: executeTestDto.timeout || 30000,
         },
         userId,
-        organizationId,
+        organizationId
       );
 
       // Emit completion event
-      await this.emitSandboxEvent(
-        runId,
-        organizationId,
-        SandboxEventType.AGENT_EXECUTION,
-        {
-          agentId,
-          result,
-          phase: 'completed',
-        },
-      );
+      await this.emitSandboxEvent(runId, organizationId, SandboxEventType.AGENT_EXECUTION, {
+        agentId,
+        result,
+        phase: 'completed',
+      });
 
       return {
         output: result.output,
@@ -655,16 +606,11 @@ export class TestingSandboxService {
         ],
       };
     } catch (error) {
-      await this.emitSandboxEvent(
-        runId,
-        organizationId,
-        SandboxEventType.ERROR_OCCURRED,
-        {
-          agentId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          phase: 'failed',
-        },
-      );
+      await this.emitSandboxEvent(runId, organizationId, SandboxEventType.ERROR_OCCURRED, {
+        agentId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        phase: 'failed',
+      });
       throw error;
     }
   }
@@ -676,7 +622,7 @@ export class TestingSandboxService {
     runId: string,
     sessionToken: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<any> {
     const toolId = executeTestDto.testData.toolId;
     const parameters = executeTestDto.testData.parameters;
@@ -686,16 +632,11 @@ export class TestingSandboxService {
     }
 
     // Emit tool execution start event
-    await this.emitSandboxEvent(
-      runId,
-      organizationId,
-      SandboxEventType.TOOL_EXECUTION,
-      {
-        toolId,
-        parameters,
-        phase: 'started',
-      },
-    );
+    await this.emitSandboxEvent(runId, organizationId, SandboxEventType.TOOL_EXECUTION, {
+      toolId,
+      parameters,
+      phase: 'started',
+    });
 
     try {
       // Execute tool using real tool service with production logic
@@ -711,20 +652,15 @@ export class TestingSandboxService {
         },
         userId,
         organizationId,
-        sessionToken,
+        sessionToken
       );
 
       // Emit completion event
-      await this.emitSandboxEvent(
-        runId,
-        organizationId,
-        SandboxEventType.TOOL_EXECUTION,
-        {
-          toolId,
-          result,
-          phase: 'completed',
-        },
-      );
+      await this.emitSandboxEvent(runId, organizationId, SandboxEventType.TOOL_EXECUTION, {
+        toolId,
+        result,
+        phase: 'completed',
+      });
 
       return {
         output: result.result,
@@ -740,16 +676,11 @@ export class TestingSandboxService {
         ],
       };
     } catch (error) {
-      await this.emitSandboxEvent(
-        runId,
-        organizationId,
-        SandboxEventType.ERROR_OCCURRED,
-        {
-          toolId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          phase: 'failed',
-        },
-      );
+      await this.emitSandboxEvent(runId, organizationId, SandboxEventType.ERROR_OCCURRED, {
+        toolId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        phase: 'failed',
+      });
       throw error;
     }
   }
@@ -761,28 +692,21 @@ export class TestingSandboxService {
     runId: string,
     sessionToken: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<any> {
     const workflowId = executeTestDto.testData.workflowId;
     const input = executeTestDto.testData.input;
 
     if (!workflowId) {
-      throw new BadRequestException(
-        'Workflow ID is required for workflow test',
-      );
+      throw new BadRequestException('Workflow ID is required for workflow test');
     }
 
     // Emit workflow execution start event
-    await this.emitSandboxEvent(
-      runId,
-      organizationId,
-      SandboxEventType.WORKFLOW_STEP,
-      {
-        workflowId,
-        input,
-        phase: 'started',
-      },
-    );
+    await this.emitSandboxEvent(runId, organizationId, SandboxEventType.WORKFLOW_STEP, {
+      workflowId,
+      input,
+      phase: 'started',
+    });
 
     try {
       // Execute workflow using real workflow service with production logic
@@ -807,20 +731,15 @@ export class TestingSandboxService {
           timeout: executeTestDto.timeout || 30000,
         },
         userId,
-        organizationId,
+        organizationId
       );
 
       // Emit completion event
-      await this.emitSandboxEvent(
-        runId,
-        organizationId,
-        SandboxEventType.WORKFLOW_STEP,
-        {
-          workflowId,
-          result,
-          phase: 'completed',
-        },
-      );
+      await this.emitSandboxEvent(runId, organizationId, SandboxEventType.WORKFLOW_STEP, {
+        workflowId,
+        result,
+        phase: 'completed',
+      });
 
       return {
         output: result.output,
@@ -837,16 +756,11 @@ export class TestingSandboxService {
         ],
       };
     } catch (error) {
-      await this.emitSandboxEvent(
-        runId,
-        organizationId,
-        SandboxEventType.ERROR_OCCURRED,
-        {
-          workflowId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          phase: 'failed',
-        },
-      );
+      await this.emitSandboxEvent(runId, organizationId, SandboxEventType.ERROR_OCCURRED, {
+        workflowId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        phase: 'failed',
+      });
       throw error;
     }
   }
@@ -858,7 +772,7 @@ export class TestingSandboxService {
     runId: string,
     sessionToken: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<any> {
     const testFlow = executeTestDto.testData.testFlow || [];
     const results: any[] = [];
@@ -881,7 +795,7 @@ export class TestingSandboxService {
               runId,
               sessionToken,
               userId,
-              organizationId,
+              organizationId
             );
             break;
           case 'tool':
@@ -892,7 +806,7 @@ export class TestingSandboxService {
               runId,
               sessionToken,
               userId,
-              organizationId,
+              organizationId
             );
             break;
           case 'workflow':
@@ -903,7 +817,7 @@ export class TestingSandboxService {
               runId,
               sessionToken,
               userId,
-              organizationId,
+              organizationId
             );
             break;
           default:
@@ -925,18 +839,13 @@ export class TestingSandboxService {
       });
 
       // If step failed and failFast is enabled, stop execution
-      if (
-        stepStatus === ExecutionStatus.FAILED &&
-        executeTestDto.testData.failFast
-      ) {
+      if (stepStatus === ExecutionStatus.FAILED && executeTestDto.testData.failFast) {
         break;
       }
     }
 
     const totalExecutionTime = Date.now() - startTime;
-    const overallStatus = results.some(
-      (r) => r.status === ExecutionStatus.FAILED,
-    )
+    const overallStatus = results.some((r) => r.status === ExecutionStatus.FAILED)
       ? ExecutionStatus.FAILED
       : ExecutionStatus.COMPLETED;
 
@@ -958,9 +867,7 @@ export class TestingSandboxService {
           data: {
             runId,
             totalSteps: testFlow.length,
-            successfulSteps: results.filter(
-              (r) => r.status === ExecutionStatus.COMPLETED,
-            ).length,
+            successfulSteps: results.filter((r) => r.status === ExecutionStatus.COMPLETED).length,
           },
         },
       ],
@@ -975,7 +882,7 @@ export class TestingSandboxService {
     runId: string,
     sessionToken: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<any> {
     const result = await this.agentService.execute(
       step.moduleId,
@@ -986,7 +893,7 @@ export class TestingSandboxService {
         metadata: { sandboxRun: runId, integrationStep: true },
       },
       userId,
-      organizationId,
+      organizationId
     );
 
     dataFlow.push({
@@ -1013,7 +920,7 @@ export class TestingSandboxService {
     runId: string,
     sessionToken: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<any> {
     const result = await this.toolService.execute(
       step.moduleId,
@@ -1025,7 +932,7 @@ export class TestingSandboxService {
       },
       userId,
       organizationId,
-      sessionToken,
+      sessionToken
     );
 
     dataFlow.push({
@@ -1052,7 +959,7 @@ export class TestingSandboxService {
     runId: string,
     sessionToken: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<any> {
     const result = await this.workflowService.test(step.moduleId, {
       input: step.input,
@@ -1082,7 +989,7 @@ export class TestingSandboxService {
   private async createSandboxSession(
     userId: string,
     organizationId: string,
-    runId: string,
+    runId: string
   ): Promise<string> {
     const session = await this.sessionService.createSession({
       userId,
@@ -1109,7 +1016,7 @@ export class TestingSandboxService {
     runId: string,
     organizationId: string,
     type: SandboxEventType,
-    data: any,
+    data: any
   ): Promise<void> {
     const event = this.sandboxEventRepository.create({
       runId,
@@ -1128,16 +1035,12 @@ export class TestingSandboxService {
     await this.sandboxEventRepository.save(event);
 
     // Send real-time update via WebSocket
-    await this.websocketService.broadcastToOrganization(
-      organizationId,
-      'sandbox_event',
-      {
-        runId,
-        type,
-        data,
-        timestamp: new Date(),
-      },
-    );
+    await this.websocketService.broadcastToOrganization(organizationId, 'sandbox_event', {
+      runId,
+      type,
+      data,
+      timestamp: new Date(),
+    });
 
     // Update event stream if exists
     const eventStream = this.eventStreams.get(runId);
@@ -1158,7 +1061,7 @@ export class TestingSandboxService {
     sandboxId: string,
     createTestScenarioDto: CreateTestScenarioDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<TestScenario> {
     const sandbox = await this.findOneSandbox(sandboxId, organizationId);
 
@@ -1171,17 +1074,12 @@ export class TestingSandboxService {
 
     const savedScenario = await this.testScenarioRepository.save(testScenario);
 
-    this.logger.log(
-      `Test scenario created: ${savedScenario.id} for sandbox ${sandboxId}`,
-    );
+    this.logger.log(`Test scenario created: ${savedScenario.id} for sandbox ${sandboxId}`);
 
     return savedScenario;
   }
 
-  async getTestScenarios(
-    sandboxId: string,
-    organizationId: string,
-  ): Promise<TestScenario[]> {
+  async getTestScenarios(sandboxId: string, organizationId: string): Promise<TestScenario[]> {
     return this.testScenarioRepository.find({
       where: { sandboxId, organizationId },
       order: { createdAt: 'DESC' },
@@ -1193,7 +1091,7 @@ export class TestingSandboxService {
     scenarioId: string,
     updateTestScenarioDto: UpdateTestScenarioDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<TestScenario> {
     const scenario = await this.testScenarioRepository.findOne({
       where: { id: scenarioId, sandboxId, organizationId },
@@ -1213,7 +1111,7 @@ export class TestingSandboxService {
     sandboxId: string,
     scenarioId: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<void> {
     const scenario = await this.testScenarioRepository.findOne({
       where: { id: scenarioId, sandboxId, organizationId },
@@ -1225,9 +1123,7 @@ export class TestingSandboxService {
 
     await this.testScenarioRepository.remove(scenario);
 
-    this.logger.log(
-      `Test scenario deleted: ${scenarioId} from sandbox ${sandboxId}`,
-    );
+    this.logger.log(`Test scenario deleted: ${scenarioId} from sandbox ${sandboxId}`);
   }
 
   // Integration Testing (enhanced with real logic)
@@ -1235,7 +1131,7 @@ export class TestingSandboxService {
     sandboxId: string,
     runIntegrationTestDto: RunIntegrationTestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<IntegrationTestResult> {
     const sandbox = await this.findOneSandbox(sandboxId, organizationId);
     const testId = uuidv4();
@@ -1245,11 +1141,7 @@ export class TestingSandboxService {
     const dataFlow: IntegrationTestResult['dataFlow'] = [];
 
     // Create session for integration test
-    const sessionToken = await this.createSandboxSession(
-      userId,
-      organizationId,
-      testId,
-    );
+    const sessionToken = await this.createSandboxSession(userId, organizationId, testId);
 
     try {
       // Execute integration test flow with real services
@@ -1269,7 +1161,7 @@ export class TestingSandboxService {
                 testId,
                 sessionToken,
                 userId,
-                organizationId,
+                organizationId
               );
               break;
             case 'tool':
@@ -1280,7 +1172,7 @@ export class TestingSandboxService {
                 testId,
                 sessionToken,
                 userId,
-                organizationId,
+                organizationId
               );
               break;
             case 'workflow':
@@ -1291,7 +1183,7 @@ export class TestingSandboxService {
                 testId,
                 sessionToken,
                 userId,
-                organizationId,
+                organizationId
               );
               break;
             default:
@@ -1313,18 +1205,13 @@ export class TestingSandboxService {
         });
 
         // If step failed and failFast is enabled, stop execution
-        if (
-          stepStatus === ExecutionStatus.FAILED &&
-          runIntegrationTestDto.failFast
-        ) {
+        if (stepStatus === ExecutionStatus.FAILED && runIntegrationTestDto.failFast) {
           break;
         }
       }
 
       const totalExecutionTime = Date.now() - startTime;
-      const overallStatus = results.some(
-        (r) => r.status === ExecutionStatus.FAILED,
-      )
+      const overallStatus = results.some((r) => r.status === ExecutionStatus.FAILED)
         ? ExecutionStatus.FAILED
         : ExecutionStatus.COMPLETED;
 
@@ -1368,9 +1255,7 @@ export class TestingSandboxService {
       // Cleanup session
       await this.sessionService.destroySession(sessionToken);
 
-      this.logger.log(
-        `Integration test completed: ${testId} for sandbox ${sandboxId}`,
-      );
+      this.logger.log(`Integration test completed: ${testId} for sandbox ${sandboxId}`);
 
       return integrationResult;
     } catch (error) {
@@ -1386,7 +1271,7 @@ export class TestingSandboxService {
     sandboxId: string,
     performanceTestDto: PerformanceTestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ) {
     const sandbox = await this.findOneSandbox(sandboxId, organizationId);
     const testId = uuidv4();
@@ -1412,7 +1297,7 @@ export class TestingSandboxService {
       performanceTestDto,
       testId,
       userId,
-      organizationId,
+      organizationId
     );
 
     // Calculate real performance metrics
@@ -1422,26 +1307,19 @@ export class TestingSandboxService {
 
     if (executionTimes.length > 0) {
       executionTimes.sort((a, b) => a - b);
-      performanceMetrics.latency.p50 =
-        executionTimes[Math.floor(executionTimes.length * 0.5)];
-      performanceMetrics.latency.p95 =
-        executionTimes[Math.floor(executionTimes.length * 0.95)];
-      performanceMetrics.latency.p99 =
-        executionTimes[Math.floor(executionTimes.length * 0.99)];
-      performanceMetrics.throughput =
-        loadTestResults.length / (performanceTestDto.duration / 1000);
+      performanceMetrics.latency.p50 = executionTimes[Math.floor(executionTimes.length * 0.5)];
+      performanceMetrics.latency.p95 = executionTimes[Math.floor(executionTimes.length * 0.95)];
+      performanceMetrics.latency.p99 = executionTimes[Math.floor(executionTimes.length * 0.99)];
+      performanceMetrics.throughput = loadTestResults.length / (performanceTestDto.duration / 1000);
       performanceMetrics.errorRate =
-        (loadTestResults.filter((r: any) => !r.success).length /
-          loadTestResults.length) *
-        100;
+        (loadTestResults.filter((r: any) => !r.success).length / loadTestResults.length) * 100;
     }
 
     return {
       testId,
       metrics: performanceMetrics,
       results: loadTestResults,
-      recommendations:
-        this.generatePerformanceRecommendations(performanceMetrics),
+      recommendations: this.generatePerformanceRecommendations(performanceMetrics),
     };
   }
 
@@ -1451,7 +1329,7 @@ export class TestingSandboxService {
     performanceTestDto: PerformanceTestDto,
     testId: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<any> {
     const results = [];
     const concurrency = performanceTestDto.concurrency || 10;
@@ -1464,23 +1342,15 @@ export class TestingSandboxService {
       const promises = [];
       for (let i = 0; i < concurrency; i++) {
         promises.push(
-          this.executeLoadTestRequest(
-            sandbox,
-            performanceTestDto,
-            testId,
-            userId,
-            organizationId,
-          ),
+          this.executeLoadTestRequest(sandbox, performanceTestDto, testId, userId, organizationId)
         );
       }
 
       const batchResults = await Promise.allSettled(promises);
       results.push(
         ...batchResults.map((r) =>
-          r.status === 'fulfilled'
-            ? r.value
-            : { success: false, error: 'Promise rejected' },
-        ),
+          r.status === 'fulfilled' ? r.value : { success: false, error: 'Promise rejected' }
+        )
       );
 
       // Wait before next batch
@@ -1495,7 +1365,7 @@ export class TestingSandboxService {
     performanceTestDto: PerformanceTestDto,
     testId: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<any> {
     const startTime = Date.now();
     try {
@@ -1504,7 +1374,7 @@ export class TestingSandboxService {
         sandbox.id,
         performanceTestDto.testRequest,
         userId,
-        organizationId,
+        organizationId
       );
       const endTime = Date.now();
       return {
@@ -1527,7 +1397,7 @@ export class TestingSandboxService {
     sandboxId: string,
     createMockDataDto: CreateMockDataDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<MockData> {
     const sandbox = await this.findOneSandbox(sandboxId, organizationId);
 
@@ -1540,17 +1410,12 @@ export class TestingSandboxService {
 
     const savedMockData = await this.mockDataRepository.save(mockData);
 
-    this.logger.log(
-      `Mock data created: ${savedMockData.id} for sandbox ${sandboxId}`,
-    );
+    this.logger.log(`Mock data created: ${savedMockData.id} for sandbox ${sandboxId}`);
 
     return savedMockData;
   }
 
-  async getMockData(
-    sandboxId: string,
-    organizationId: string,
-  ): Promise<MockData[]> {
+  async getMockData(sandboxId: string, organizationId: string): Promise<MockData[]> {
     return this.mockDataRepository.find({
       where: { sandboxId, organizationId },
       order: { createdAt: 'DESC' },
@@ -1562,7 +1427,7 @@ export class TestingSandboxService {
     sandboxId: string,
     debugSessionDto: DebugSessionDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ) {
     const sandbox = await this.findOneSandbox(sandboxId, organizationId);
     const sessionId = uuidv4();
@@ -1587,18 +1452,12 @@ export class TestingSandboxService {
     // Initialize real debug environment
     await this.initializeDebugEnvironment(sandbox, savedSession);
 
-    this.logger.log(
-      `Debug session started: ${sessionId} for sandbox ${sandboxId}`,
-    );
+    this.logger.log(`Debug session started: ${sessionId} for sandbox ${sandboxId}`);
 
     return savedSession;
   }
 
-  async getDebugSession(
-    sandboxId: string,
-    sessionId: string,
-    organizationId: string,
-  ) {
+  async getDebugSession(sandboxId: string, sessionId: string, organizationId: string) {
     const debugSession = await this.debugSessionRepository.findOne({
       where: { id: sessionId, sandboxId, organizationId },
     });
@@ -1615,7 +1474,7 @@ export class TestingSandboxService {
     sandboxId: string,
     collaborativeTestDto: CollaborativeTestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ) {
     const sandbox = await this.findOneSandbox(sandboxId, organizationId);
     const sessionId = uuidv4();
@@ -1635,21 +1494,15 @@ export class TestingSandboxService {
 
     // Notify participants via WebSocket
     for (const participantId of collaborativeTestDto.participants) {
-      await this.websocketService.sendToUser(
-        participantId,
-        'collaborative_test_invitation',
-        {
-          sessionId,
-          sandboxId,
-          invitedBy: userId,
-          testType: collaborativeTestDto.testType,
-        },
-      );
+      await this.websocketService.sendToUser(participantId, 'collaborative_test_invitation', {
+        sessionId,
+        sandboxId,
+        invitedBy: userId,
+        testType: collaborativeTestDto.testType,
+      });
     }
 
-    this.logger.log(
-      `Collaborative test session started: ${sessionId} for sandbox ${sandboxId}`,
-    );
+    this.logger.log(`Collaborative test session started: ${sessionId} for sandbox ${sandboxId}`);
 
     return collaborativeSession;
   }
@@ -1658,7 +1511,7 @@ export class TestingSandboxService {
   async getAnalytics(
     sandboxId: string,
     organizationId: string,
-    timeRange?: { from: Date; to: Date },
+    timeRange?: { from: Date; to: Date }
   ) {
     const sandbox = await this.findOneSandbox(sandboxId, organizationId);
 
@@ -1679,12 +1532,9 @@ export class TestingSandboxService {
 
     const analytics = {
       totalRuns: runs.length,
-      successRate:
-        runs.filter((r) => r.status === ExecutionStatus.COMPLETED).length /
-        runs.length,
+      successRate: runs.filter((r) => r.status === ExecutionStatus.COMPLETED).length / runs.length,
       averageExecutionTime:
-        runs.reduce((sum, r) => sum + (r.metrics?.executionTime || 0), 0) /
-        runs.length,
+        runs.reduce((sum, r) => sum + (r.metrics?.executionTime || 0), 0) / runs.length,
       totalCost: runs.reduce((sum, r) => sum + (r.metrics?.cost || 0), 0),
       runsByType: this.groupBy(runs, 'config.targetType'),
       runsByStatus: this.groupBy(runs, 'status'),
@@ -1703,9 +1553,7 @@ export class TestingSandboxService {
     // Get real container stats if sandbox is running in Docker
     if (sandbox.containerInfo?.containerId) {
       try {
-        const container = this.docker.getContainer(
-          sandbox.containerInfo.containerId,
-        );
+        const container = this.docker.getContainer(sandbox.containerInfo.containerId);
         const stats = await container.stats({ stream: false });
 
         return {
@@ -1715,10 +1563,7 @@ export class TestingSandboxService {
           disk: this.calculateDiskUsage(stats),
         };
       } catch (error) {
-        this.logger.error(
-          `Failed to get container stats for sandbox ${sandboxId}`,
-          error,
-        );
+        this.logger.error(`Failed to get container stats for sandbox ${sandboxId}`, error);
       }
     }
 
@@ -1730,11 +1575,7 @@ export class TestingSandboxService {
     };
   }
 
-  async cleanupSandbox(
-    sandboxId: string,
-    userId: string,
-    organizationId: string,
-  ) {
+  async cleanupSandbox(sandboxId: string, userId: string, organizationId: string) {
     const sandbox = await this.findOneSandbox(sandboxId, organizationId);
 
     // Cleanup container resources
@@ -1754,9 +1595,7 @@ export class TestingSandboxService {
   }
 
   // Private helper methods
-  private async initializeSandboxEnvironment(
-    sandbox: TestingSandbox,
-  ): Promise<void> {
+  private async initializeSandboxEnvironment(sandbox: TestingSandbox): Promise<void> {
     try {
       // Create secure Docker container for isolated execution
       const container = await this.docker.createContainer({
@@ -1808,15 +1647,11 @@ export class TestingSandboxService {
 
           // Check for resource violations
           if (memoryUsage > 0.9) {
-            this.logger.warn(
-              `High memory usage in sandbox ${sandbox.id}: ${memoryUsage * 100}%`,
-            );
+            this.logger.warn(`High memory usage in sandbox ${sandbox.id}: ${memoryUsage * 100}%`);
           }
 
           if (cpuUsage > 0.8) {
-            this.logger.warn(
-              `High CPU usage in sandbox ${sandbox.id}: ${cpuUsage * 100}%`,
-            );
+            this.logger.warn(`High CPU usage in sandbox ${sandbox.id}: ${cpuUsage * 100}%`);
           }
         } catch (error) {
           // Container might be stopped, clear interval
@@ -1830,10 +1665,7 @@ export class TestingSandboxService {
           await this.cleanupSandboxEnvironment(sandbox);
           clearInterval(resourceMonitor);
         } catch (error) {
-          this.logger.error(
-            `Failed to auto-cleanup sandbox ${sandbox.id}`,
-            error,
-          );
+          this.logger.error(`Failed to auto-cleanup sandbox ${sandbox.id}`, error);
         }
       }, sandbox.resourceLimits.timeout);
 
@@ -1849,44 +1681,32 @@ export class TestingSandboxService {
 
       this.logger.log(`Secure sandbox environment initialized: ${sandbox.id}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to initialize sandbox environment: ${sandbox.id}`,
-        error,
-      );
+      this.logger.error(`Failed to initialize sandbox environment: ${sandbox.id}`, error);
       sandbox.status = 'failed';
       await this.sandboxRepository.save(sandbox);
       throw error;
     }
   }
 
-  private async cleanupSandboxEnvironment(
-    sandbox: TestingSandbox,
-  ): Promise<void> {
+  private async cleanupSandboxEnvironment(sandbox: TestingSandbox): Promise<void> {
     if (sandbox.containerInfo?.containerId) {
       try {
-        const container = this.docker.getContainer(
-          sandbox.containerInfo.containerId,
-        );
+        const container = this.docker.getContainer(sandbox.containerInfo.containerId);
         await container.stop();
         await container.remove();
         this.logger.log(`Container cleaned up for sandbox: ${sandbox.id}`);
       } catch (error) {
-        this.logger.error(
-          `Failed to cleanup container for sandbox: ${sandbox.id}`,
-          error,
-        );
+        this.logger.error(`Failed to cleanup container for sandbox: ${sandbox.id}`, error);
       }
     }
   }
 
   private async initializeDebugEnvironment(
     sandbox: TestingSandbox,
-    debugSession: DebugSession,
+    debugSession: DebugSession
   ): Promise<void> {
     // Initialize real debugging tools and environment
-    this.logger.log(
-      `Debug environment initialized for session: ${debugSession.id}`,
-    );
+    this.logger.log(`Debug environment initialized for session: ${debugSession.id}`);
   }
 
   private async cleanupTemporaryFiles(sandbox: TestingSandbox): Promise<void> {
@@ -1896,10 +1716,7 @@ export class TestingSandboxService {
       await fs.rmdir(tempDir, { recursive: true });
       this.logger.log(`Temporary files cleaned up for sandbox: ${sandbox.id}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to cleanup temporary files for sandbox: ${sandbox.id}`,
-        error,
-      );
+      this.logger.error(`Failed to cleanup temporary files for sandbox: ${sandbox.id}`, error);
     }
   }
 
@@ -1963,10 +1780,8 @@ export class TestingSandboxService {
     }
 
     const cpuDelta =
-      stats.cpu_stats.cpu_usage.total_usage -
-      stats.precpu_stats.cpu_usage.total_usage;
-    const systemDelta =
-      stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+      stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
+    const systemDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
     const numberCpus = stats.cpu_stats.online_cpus || 1;
 
     if (systemDelta > 0 && cpuDelta > 0) {
@@ -2000,7 +1815,7 @@ export class TestingSandboxService {
   }
 
   private calculateDiskUsage(stats: any): number {
-    if (!stats.blkio_stats || !stats.blkio_stats.io_service_bytes_recursive) {
+    if (!stats.blkio_stats?.io_service_bytes_recursive) {
       return 0;
     }
 
@@ -2040,9 +1855,7 @@ export class TestingSandboxService {
       return acc;
     }, {});
 
-    return Object.values(dailyStats).sort((a: any, b: any) =>
-      a.date.localeCompare(b.date),
-    );
+    return Object.values(dailyStats).sort((a: any, b: any) => a.date.localeCompare(b.date));
   }
 
   private async calculateResourceUsage(sandboxId: string): Promise<any> {
@@ -2053,18 +1866,9 @@ export class TestingSandboxService {
       take: 100, // Last 100 runs
     });
 
-    const totalMemory = runs.reduce(
-      (sum, run) => sum + (run.metrics?.memoryUsage || 0),
-      0,
-    );
-    const totalCpu = runs.reduce(
-      (sum, run) => sum + (run.metrics?.cpuUsage || 0),
-      0,
-    );
-    const totalNetwork = runs.reduce(
-      (sum, run) => sum + (run.metrics?.networkCalls || 0),
-      0,
-    );
+    const totalMemory = runs.reduce((sum, run) => sum + (run.metrics?.memoryUsage || 0), 0);
+    const totalCpu = runs.reduce((sum, run) => sum + (run.metrics?.cpuUsage || 0), 0);
+    const totalNetwork = runs.reduce((sum, run) => sum + (run.metrics?.networkCalls || 0), 0);
 
     return {
       cpu: runs.length > 0 ? totalCpu / runs.length : 0,
@@ -2091,9 +1895,7 @@ export class TestingSandboxService {
     const recommendations = [];
 
     if (metrics.latency.p95 > 1000) {
-      recommendations.push(
-        'Consider optimizing response time - P95 latency is above 1 second',
-      );
+      recommendations.push('Consider optimizing response time - P95 latency is above 1 second');
     }
 
     if (metrics.errorRate > 0.05) {
@@ -2101,15 +1903,11 @@ export class TestingSandboxService {
     }
 
     if (metrics.resourceUtilization.cpu > 0.8) {
-      recommendations.push(
-        'CPU utilization is high - consider scaling or optimization',
-      );
+      recommendations.push('CPU utilization is high - consider scaling or optimization');
     }
 
     if (metrics.resourceUtilization.memory > 0.8) {
-      recommendations.push(
-        'Memory utilization is high - check for memory leaks',
-      );
+      recommendations.push('Memory utilization is high - check for memory leaks');
     }
 
     return recommendations;

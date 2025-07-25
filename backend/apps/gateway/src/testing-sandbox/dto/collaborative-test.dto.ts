@@ -1,10 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsObject,
-  IsArray,
-  IsUUID,
-} from 'class-validator';
+import { IsString, IsOptional, IsObject, IsArray, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CollaborativeTestDto {

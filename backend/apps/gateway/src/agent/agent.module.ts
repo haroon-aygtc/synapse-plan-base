@@ -1,11 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import {
-  Agent,
-  AgentExecution,
-  AgentTestResult,
-  PromptTemplate,
-} from '@database/entities';
+import { Agent, AgentExecution, AgentTestResult, PromptTemplate } from '@database/entities';
 import { AgentController } from './agent.controller';
 import { AgentService } from './agent.service';
 import { AgentExecutionEngine } from './agent-execution.engine';
@@ -19,12 +14,7 @@ import { HITLModule } from '../hitl/hitl.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Agent,
-      AgentExecution,
-      AgentTestResult,
-      PromptTemplate,
-    ]),
+    TypeOrmModule.forFeature([Agent, AgentExecution, AgentTestResult, PromptTemplate]),
     SessionModule,
     WebsocketModule,
     ToolModule,

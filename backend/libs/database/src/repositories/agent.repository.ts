@@ -15,7 +15,7 @@ export class AgentRepository extends Repository<Agent> {
       includeInactive?: boolean;
       limit?: number;
       offset?: number;
-    },
+    }
   ): Promise<Agent[]> {
     const query = this.createQueryBuilder('agent')
       .leftJoinAndSelect('agent.promptTemplate', 'promptTemplate')
@@ -44,7 +44,7 @@ export class AgentRepository extends Repository<Agent> {
       includeInactive?: boolean;
       limit?: number;
       offset?: number;
-    },
+    }
   ): Promise<Agent[]> {
     const query = this.createQueryBuilder('agent')
       .leftJoinAndSelect('agent.promptTemplate', 'promptTemplate')
@@ -69,7 +69,7 @@ export class AgentRepository extends Repository<Agent> {
   async findWithExecutions(
     agentId: string,
     organizationId: string,
-    executionLimit = 10,
+    executionLimit = 10
   ): Promise<Agent | null> {
     return this.createQueryBuilder('agent')
       .leftJoinAndSelect('agent.promptTemplate', 'promptTemplate')
@@ -78,7 +78,7 @@ export class AgentRepository extends Repository<Agent> {
         'agent.executions',
         'execution',
         'execution.createdAt >= :since',
-        { since: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Last 24 hours
+        { since: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Last 24 hours
       )
       .where('agent.id = :agentId', { agentId })
       .andWhere('agent.organizationId = :organizationId', { organizationId })
@@ -90,7 +90,7 @@ export class AgentRepository extends Repository<Agent> {
   async findWithTestResults(
     agentId: string,
     organizationId: string,
-    testLimit = 20,
+    testLimit = 20
   ): Promise<Agent | null> {
     return this.createQueryBuilder('agent')
       .leftJoinAndSelect('agent.promptTemplate', 'promptTemplate')
@@ -99,7 +99,7 @@ export class AgentRepository extends Repository<Agent> {
         'agent.testResults',
         'testResult',
         'testResult.createdAt >= :since',
-        { since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, // Last 7 days
+        { since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Last 7 days
       )
       .where('agent.id = :agentId', { agentId })
       .andWhere('agent.organizationId = :organizationId', { organizationId })
@@ -115,7 +115,7 @@ export class AgentRepository extends Repository<Agent> {
       averageResponseTime?: number;
       totalExecutions?: number;
       errorRate?: number;
-    },
+    }
   ): Promise<void> {
     await this.update(
       { id: agentId },
@@ -124,7 +124,7 @@ export class AgentRepository extends Repository<Agent> {
           ...metrics,
           lastUpdated: new Date(),
         },
-      },
+      }
     );
   }
 
@@ -144,16 +144,15 @@ export class AgentRepository extends Repository<Agent> {
     options?: {
       limit?: number;
       offset?: number;
-    },
+    }
   ): Promise<Agent[]> {
     const query = this.createQueryBuilder('agent')
       .leftJoinAndSelect('agent.promptTemplate', 'promptTemplate')
       .leftJoinAndSelect('agent.user', 'user')
       .where('agent.organizationId = :organizationId', { organizationId })
-      .andWhere(
-        '(agent.name ILIKE :searchTerm OR agent.description ILIKE :searchTerm)',
-        { searchTerm: `%${searchTerm}%` },
-      );
+      .andWhere('(agent.name ILIKE :searchTerm OR agent.description ILIKE :searchTerm)', {
+        searchTerm: `%${searchTerm}%`,
+      });
 
     if (filters?.category) {
       query.andWhere('agent.metadata->>"category" = :category', {
@@ -188,7 +187,7 @@ export class AgentRepository extends Repository<Agent> {
 
   async getAgentStatistics(
     organizationId: string,
-    timeRange?: { from: Date; to: Date },
+    timeRange?: { from: Date; to: Date }
   ): Promise<{
     totalAgents: number;
     activeAgents: number;
@@ -203,7 +202,7 @@ export class AgentRepository extends Repository<Agent> {
   }> {
     const baseQuery = this.createQueryBuilder('agent').where(
       'agent.organizationId = :organizationId',
-      { organizationId },
+      { organizationId }
     );
 
     const totalAgents = await baseQuery.getCount();
@@ -215,10 +214,7 @@ export class AgentRepository extends Repository<Agent> {
     const executionQuery = this.dataSource
       .createQueryBuilder()
       .select('COUNT(*)', 'totalExecutions')
-      .addSelect(
-        "AVG(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END)",
-        'avgSuccessRate',
-      )
+      .addSelect("AVG(CASE WHEN status = 'COMPLETED' THEN 1 ELSE 0 END)", 'avgSuccessRate')
       .from(AgentExecution, 'execution')
       .innerJoin('execution.agent', 'agent')
       .where('agent.organizationId = :organizationId', { organizationId });
@@ -248,7 +244,7 @@ export class AgentRepository extends Repository<Agent> {
           name: result.name,
           successRate: result.performanceMetrics?.successRate || 0,
           totalExecutions: result.performanceMetrics?.totalExecutions || 0,
-        })),
+        }))
       );
 
     return {
@@ -263,7 +259,7 @@ export class AgentRepository extends Repository<Agent> {
   async createVersion(
     agentId: string,
     newVersion: string,
-    changes: Record<string, any>,
+    changes: Record<string, any>
   ): Promise<Agent> {
     const originalAgent = await this.findOne({
       where: { id: agentId },
@@ -287,10 +283,7 @@ export class AgentRepository extends Repository<Agent> {
     return this.save(newAgent);
   }
 
-  async getVersionHistory(
-    agentId: string,
-    organizationId: string,
-  ): Promise<Agent[]> {
+  async getVersionHistory(agentId: string, organizationId: string): Promise<Agent[]> {
     // In a full implementation, you'd have a separate versions table
     // For now, we'll return agents with the same name but different versions
     const baseAgent = await this.findOne({

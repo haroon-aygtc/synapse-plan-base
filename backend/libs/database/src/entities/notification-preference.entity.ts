@@ -81,9 +81,7 @@ export class NotificationPreference extends BaseEntity {
     const { startTime, endTime, timezone } = this.settings.quietHours;
 
     // Convert to user's timezone
-    const userDate = new Date(
-      date.toLocaleString('en-US', { timeZone: timezone }),
-    );
+    const userDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
     const currentTime = userDate.getHours() * 60 + userDate.getMinutes();
 
     const [startHour, startMin] = startTime.split(':').map(Number);
@@ -130,20 +128,16 @@ export class NotificationPreference extends BaseEntity {
 
     // Source filter
     if (filters.sources && filters.sources.length > 0) {
-      if (
-        !notification.sourceModule ||
-        !filters.sources.includes(notification.sourceModule)
-      ) {
+      if (!notification.sourceModule || !filters.sources.includes(notification.sourceModule)) {
         return false;
       }
     }
 
     // Keyword filter
     if (filters.keywords && filters.keywords.length > 0) {
-      const content =
-        `${notification.title} ${notification.message}`.toLowerCase();
+      const content = `${notification.title} ${notification.message}`.toLowerCase();
       const hasKeyword = filters.keywords.some((keyword) =>
-        content.includes(keyword.toLowerCase()),
+        content.includes(keyword.toLowerCase())
       );
       if (!hasKeyword) {
         return false;
@@ -156,9 +150,7 @@ export class NotificationPreference extends BaseEntity {
   getDeliveryAddress(): string | null {
     switch (this.type) {
       case NotificationType.EMAIL:
-        return (
-          this.settings?.delivery?.email?.address || this.user?.email || null
-        );
+        return this.settings?.delivery?.email?.address || this.user?.email || null;
       case NotificationType.SMS:
         return this.settings?.delivery?.sms?.number || null;
       case NotificationType.WEBHOOK:

@@ -8,13 +8,7 @@ import {
   HttpException,
   ParseIntPipe,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
@@ -39,15 +33,9 @@ export class AnalyticsController {
     required: false,
     enum: ['today', 'yesterday', 'week', 'month'],
   })
-  async getDashboardStats(
-    @Request() req: any,
-    @Query('period') period: string = 'today',
-  ) {
+  async getDashboardStats(@Request() req: any, @Query('period') period: string = 'today') {
     try {
-      const stats = await this.analyticsService.getDashboardStats(
-        req.user.organizationId,
-        period,
-      );
+      const stats = await this.analyticsService.getDashboardStats(req.user.organizationId, period);
       return {
         success: true,
         data: stats,
@@ -59,7 +47,7 @@ export class AnalyticsController {
           success: false,
           message: error.message,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -79,13 +67,13 @@ export class AnalyticsController {
   async getDashboardActivities(
     @Request() req: any,
     @Query('period') period: string = 'today',
-    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 10,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 10
   ) {
     try {
       const activities = await this.analyticsService.getActivities(
         req.user.organizationId,
         period,
-        limit,
+        limit
       );
       return {
         success: true,
@@ -98,7 +86,7 @@ export class AnalyticsController {
           success: false,
           message: error.message,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -115,13 +103,13 @@ export class AnalyticsController {
   async getDetailedAnalytics(
     @Request() req: any,
     @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
+    @Query('endDate') endDate: string
   ) {
     try {
       const analytics = await this.analyticsService.getAnalytics(
         req.user.organizationId,
         new Date(startDate),
-        new Date(endDate),
+        new Date(endDate)
       );
       return {
         success: true,
@@ -134,7 +122,7 @@ export class AnalyticsController {
           success: false,
           message: error.message,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -151,16 +139,13 @@ export class AnalyticsController {
     required: false,
     enum: ['today', 'yesterday', 'week', 'month'],
   })
-  async getPerformanceMetrics(
-    @Request() req: any,
-    @Query('period') period: string = 'today',
-  ) {
+  async getPerformanceMetrics(@Request() req: any, @Query('period') period: string = 'today') {
     try {
       const { startDate, endDate } = this.getPeriodDates(period);
       const analytics = await this.analyticsService.getAnalytics(
         req.user.organizationId,
         startDate,
-        endDate,
+        endDate
       );
 
       return {
@@ -174,7 +159,7 @@ export class AnalyticsController {
           success: false,
           message: error.message,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -191,16 +176,13 @@ export class AnalyticsController {
     required: false,
     enum: ['today', 'yesterday', 'week', 'month'],
   })
-  async getCostAnalysis(
-    @Request() req: any,
-    @Query('period') period: string = 'month',
-  ) {
+  async getCostAnalysis(@Request() req: any, @Query('period') period: string = 'month') {
     try {
       const { startDate, endDate } = this.getPeriodDates(period);
       const analytics = await this.analyticsService.getAnalytics(
         req.user.organizationId,
         startDate,
-        endDate,
+        endDate
       );
 
       return {
@@ -214,7 +196,7 @@ export class AnalyticsController {
           success: false,
           message: error.message,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -231,16 +213,13 @@ export class AnalyticsController {
     required: false,
     enum: ['today', 'yesterday', 'week', 'month'],
   })
-  async getUserEngagement(
-    @Request() req: any,
-    @Query('period') period: string = 'week',
-  ) {
+  async getUserEngagement(@Request() req: any, @Query('period') period: string = 'week') {
     try {
       const { startDate, endDate } = this.getPeriodDates(period);
       const analytics = await this.analyticsService.getAnalytics(
         req.user.organizationId,
         startDate,
-        endDate,
+        endDate
       );
 
       return {
@@ -254,7 +233,7 @@ export class AnalyticsController {
           success: false,
           message: error.message,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -271,16 +250,13 @@ export class AnalyticsController {
     required: false,
     enum: ['today', 'yesterday', 'week', 'month'],
   })
-  async getExecutionTrends(
-    @Request() req: any,
-    @Query('period') period: string = 'week',
-  ) {
+  async getExecutionTrends(@Request() req: any, @Query('period') period: string = 'week') {
     try {
       const { startDate, endDate } = this.getPeriodDates(period);
       const analytics = await this.analyticsService.getAnalytics(
         req.user.organizationId,
         startDate,
-        endDate,
+        endDate
       );
 
       return {
@@ -294,7 +270,7 @@ export class AnalyticsController {
           success: false,
           message: error.message,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -309,11 +285,7 @@ export class AnalyticsController {
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         break;
       case 'yesterday':
-        startDate = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          now.getDate() - 1,
-        );
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
         endDate.setDate(endDate.getDate() - 1);
         break;
       case 'week':

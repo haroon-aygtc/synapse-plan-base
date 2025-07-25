@@ -1,11 +1,4 @@
-import {
-  IsEnum,
-  IsString,
-  IsOptional,
-  IsNumber,
-  Min,
-  Max,
-} from 'class-validator';
+import { IsEnum, IsString, IsOptional, IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { HITLEscalationReason } from '@shared/enums';
 

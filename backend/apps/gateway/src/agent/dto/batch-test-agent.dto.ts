@@ -21,4 +21,4 @@ export class BatchTestAgentDto {
   @IsOptional()
   @IsNumber()
   maxConcurrency?: number;
-} 
+}

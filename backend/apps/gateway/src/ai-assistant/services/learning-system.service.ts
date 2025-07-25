@@ -49,7 +49,7 @@ interface LearningInsight {
 @Injectable()
 export class LearningSystemService {
   private readonly logger = new Logger(LearningSystemService.name);
-  
+
   // In-memory storage for learning data (in production, use a proper database)
   private readonly learningData: Map<string, LearningData> = new Map();
   private readonly userPatterns: Map<string, UserPattern> = new Map();
@@ -59,7 +59,7 @@ export class LearningSystemService {
   constructor(
     @InjectRepository(Agent)
     private readonly agentRepository: Repository<Agent>,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService
   ) {
     // Initialize learning system
     this.initializeLearningSystem();
@@ -73,7 +73,7 @@ export class LearningSystemService {
     satisfactionRating: number,
     context: Record<string, any>,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<void> {
     this.logger.log(`Recording feedback for configuration ${configurationId}`);
 
@@ -118,7 +118,7 @@ export class LearningSystemService {
     userId: string,
     organizationId: string,
     configurationType: string,
-    context: Record<string, any>,
+    context: Record<string, any>
   ): Promise<{
     suggestions: any[];
     reasoning: string[];
@@ -129,7 +129,7 @@ export class LearningSystemService {
     try {
       const userPattern = await this.getUserPreferences(userId, organizationId);
       const orgPattern = await this.getOrganizationTrends(organizationId);
-      
+
       const suggestions: any[] = [];
       const reasoning: string[] = [];
       let confidence = 0.5; // Base confidence
@@ -137,7 +137,7 @@ export class LearningSystemService {
       // User-based suggestions
       if (userPattern) {
         confidence += 0.2;
-        
+
         if (userPattern.preferences.preferredModels) {
           suggestions.push({
             type: 'model_preference',
@@ -186,8 +186,8 @@ export class LearningSystemService {
       }
 
       // Global insights
-      const relevantInsights = this.globalInsights.filter(
-        insight => insight.applicableScenarios.includes(configurationType)
+      const relevantInsights = this.globalInsights.filter((insight) =>
+        insight.applicableScenarios.includes(configurationType)
       );
 
       for (const insight of relevantInsights.slice(0, 3)) {
@@ -203,8 +203,10 @@ export class LearningSystemService {
       // Cap confidence at 0.95
       confidence = Math.min(confidence, 0.95);
 
-      this.logger.log(`Generated ${suggestions.length} personalized suggestions with confidence ${confidence}`);
-      
+      this.logger.log(
+        `Generated ${suggestions.length} personalized suggestions with confidence ${confidence}`
+      );
+
       return {
         suggestions,
         reasoning,
@@ -224,7 +226,7 @@ export class LearningSystemService {
     configuration: any,
     configurationType: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<{
     recommendations: any[];
     expectedImprovements: Record<string, string>;
@@ -235,7 +237,7 @@ export class LearningSystemService {
     try {
       const userPattern = await this.getUserPreferences(userId, organizationId);
       const orgPattern = await this.getOrganizationTrends(organizationId);
-      
+
       const recommendations: any[] = [];
       const expectedImprovements: Record<string, string> = {};
       let confidence = 0.6;
@@ -244,32 +246,34 @@ export class LearningSystemService {
       const similarConfigs = this.findSimilarSuccessfulConfigurations(
         configuration,
         configurationType,
-        organizationId,
+        organizationId
       );
 
       if (similarConfigs.length > 0) {
         confidence += 0.2;
-        
+
         // Find common patterns in successful configurations
         const patterns = this.extractPatterns(similarConfigs);
-        
+
         for (const pattern of patterns) {
           recommendations.push({
             field: pattern.field,
             currentValue: configuration[pattern.field],
             suggestedValue: pattern.commonValue,
             reason: `${pattern.successRate}% of similar successful configurations use this value`,
-            priority: pattern.successRate > 80 ? 'high' : pattern.successRate > 60 ? 'medium' : 'low',
+            priority:
+              pattern.successRate > 80 ? 'high' : pattern.successRate > 60 ? 'medium' : 'low',
           });
-          
-          expectedImprovements[pattern.field] = `${pattern.averageImprovement}% improvement expected`;
+
+          expectedImprovements[pattern.field] =
+            `${pattern.averageImprovement}% improvement expected`;
         }
       }
 
       // User-specific optimizations
       if (userPattern && userPattern.successfulConfigurations.length > 2) {
         confidence += 0.1;
-        
+
         const userOptimizations = this.analyzeUserOptimizations(userPattern, configuration);
         recommendations.push(...userOptimizations);
       }
@@ -277,13 +281,13 @@ export class LearningSystemService {
       // Organization-specific optimizations
       if (orgPattern && orgPattern.successfulPatterns.length > 0) {
         confidence += 0.1;
-        
+
         const orgOptimizations = this.analyzeOrganizationOptimizations(orgPattern, configuration);
         recommendations.push(...orgOptimizations);
       }
 
       this.logger.log(`Generated ${recommendations.length} optimization recommendations`);
-      
+
       return {
         recommendations,
         expectedImprovements,
@@ -305,10 +309,10 @@ export class LearningSystemService {
 
   private async initializeLearningSystem(): Promise<void> {
     this.logger.log('Initializing learning system');
-    
+
     // Load existing data from database if available
     // This is a placeholder - in production, load from persistent storage
-    
+
     // Generate initial insights
     await this.generateInsights();
   }
@@ -316,7 +320,7 @@ export class LearningSystemService {
   private async updateUserPattern(
     userId: string,
     organizationId: string,
-    learningEntry: LearningData,
+    learningEntry: LearningData
   ): Promise<void> {
     const key = `${organizationId}_${userId}`;
     let userPattern = this.userPatterns.get(key);
@@ -336,8 +340,9 @@ export class LearningSystemService {
 
     // Update satisfaction average
     const totalEntries = userPattern.successfulConfigurations.length + 1;
-    userPattern.averageSatisfaction = 
-      (userPattern.averageSatisfaction * (totalEntries - 1) + learningEntry.satisfactionRating) / totalEntries;
+    userPattern.averageSatisfaction =
+      (userPattern.averageSatisfaction * (totalEntries - 1) + learningEntry.satisfactionRating) /
+      totalEntries;
 
     // Add to successful configurations if rating is high
     if (learningEntry.satisfactionRating >= 4) {
@@ -357,7 +362,7 @@ export class LearningSystemService {
     // Extract preferences from context
     if (learningEntry.context.configuration) {
       const config = learningEntry.context.configuration;
-      
+
       // Track model preferences
       if (config.model) {
         if (!userPattern.preferences.preferredModels) {
@@ -380,7 +385,7 @@ export class LearningSystemService {
 
   private async updateOrganizationPattern(
     organizationId: string,
-    learningEntry: LearningData,
+    learningEntry: LearningData
   ): Promise<void> {
     let orgPattern = this.organizationPatterns.get(organizationId);
 
@@ -428,8 +433,7 @@ export class LearningSystemService {
       if (!orgPattern.averagePerformance[metric]) {
         orgPattern.averagePerformance[metric] = value;
       } else {
-        orgPattern.averagePerformance[metric] = 
-          (orgPattern.averagePerformance[metric] + value) / 2;
+        orgPattern.averagePerformance[metric] = (orgPattern.averagePerformance[metric] + value) / 2;
       }
     }
 
@@ -464,7 +468,7 @@ export class LearningSystemService {
 
   private analyzeUserPatterns(): LearningInsight[] {
     const insights: LearningInsight[] = [];
-    
+
     // Analyze common user preferences
     const modelPreferences: Record<string, number> = {};
     const complexityPreferences: Record<string, number> = {};
@@ -475,17 +479,16 @@ export class LearningSystemService {
           modelPreferences[model] = (modelPreferences[model] || 0) + 1;
         }
       }
-      
+
       if (userPattern.preferredComplexity) {
-        complexityPreferences[userPattern.preferredComplexity] = 
+        complexityPreferences[userPattern.preferredComplexity] =
           (complexityPreferences[userPattern.preferredComplexity] || 0) + 1;
       }
     }
 
     // Generate model preference insights
-    const topModel = Object.entries(modelPreferences)
-      .sort(([,a], [,b]) => b - a)[0];
-    
+    const topModel = Object.entries(modelPreferences).sort(([, a], [, b]) => b - a)[0];
+
     if (topModel) {
       insights.push({
         type: 'global_pattern',
@@ -502,10 +505,10 @@ export class LearningSystemService {
 
   private analyzeOrganizationPatterns(): LearningInsight[] {
     const insights: LearningInsight[] = [];
-    
+
     // Analyze common organization trends
     const useCaseTrends: Record<string, number> = {};
-    
+
     for (const orgPattern of this.organizationPatterns.values()) {
       for (const useCase of orgPattern.commonUseCases) {
         useCaseTrends[useCase] = (useCaseTrends[useCase] || 0) + 1;
@@ -513,9 +516,8 @@ export class LearningSystemService {
     }
 
     // Generate use case insights
-    const topUseCase = Object.entries(useCaseTrends)
-      .sort(([,a], [,b]) => b - a)[0];
-    
+    const topUseCase = Object.entries(useCaseTrends).sort(([, a], [, b]) => b - a)[0];
+
     if (topUseCase) {
       insights.push({
         type: 'organization_trend',
@@ -532,11 +534,11 @@ export class LearningSystemService {
 
   private analyzeGlobalTrends(): LearningInsight[] {
     const insights: LearningInsight[] = [];
-    
+
     // Analyze satisfaction trends
     let totalSatisfaction = 0;
     let totalEntries = 0;
-    
+
     for (const userPattern of this.userPatterns.values()) {
       totalSatisfaction += userPattern.averageSatisfaction;
       totalEntries++;
@@ -544,15 +546,16 @@ export class LearningSystemService {
 
     if (totalEntries > 0) {
       const averageSatisfaction = totalSatisfaction / totalEntries;
-      
+
       insights.push({
         type: 'global_pattern',
         insight: `Average user satisfaction is ${averageSatisfaction.toFixed(2)}/5`,
         confidence: Math.min(totalEntries / 10, 0.9),
         applicableScenarios: ['agent', 'tool', 'workflow', 'widget'],
-        recommendedActions: averageSatisfaction < 4 ? 
-          ['Focus on improving configuration quality'] : 
-          ['Maintain current quality standards'],
+        recommendedActions:
+          averageSatisfaction < 4
+            ? ['Focus on improving configuration quality']
+            : ['Maintain current quality standards'],
         supportingData: { averageSatisfaction, totalEntries },
       });
     }
@@ -563,10 +566,10 @@ export class LearningSystemService {
   private findSimilarSuccessfulConfigurations(
     configuration: any,
     configurationType: string,
-    organizationId: string,
+    organizationId: string
   ): any[] {
     const similar: any[] = [];
-    
+
     // Search in organization patterns
     const orgPattern = this.organizationPatterns.get(organizationId);
     if (orgPattern) {
@@ -588,20 +591,20 @@ export class LearningSystemService {
     // Simple similarity calculation - in production, use more sophisticated algorithms
     const keys1 = Object.keys(config1 || {});
     const keys2 = Object.keys(config2 || {});
-    const commonKeys = keys1.filter(key => keys2.includes(key));
-    
+    const commonKeys = keys1.filter((key) => keys2.includes(key));
+
     if (keys1.length === 0 && keys2.length === 0) return 1;
     if (keys1.length === 0 || keys2.length === 0) return 0;
-    
+
     return commonKeys.length / Math.max(keys1.length, keys2.length);
   }
 
   private extractPatterns(configurations: any[]): any[] {
     const patterns: any[] = [];
-    
+
     // Extract common field values
     const fieldValues: Record<string, Record<string, number>> = {};
-    
+
     for (const config of configurations) {
       for (const [field, value] of Object.entries(config.configuration || {})) {
         if (!fieldValues[field]) {
@@ -617,7 +620,8 @@ export class LearningSystemService {
       const totalConfigs = configurations.length;
       for (const [value, count] of Object.entries(values)) {
         const successRate = (count / totalConfigs) * 100;
-        if (successRate >= 50) { // At least 50% success rate
+        if (successRate >= 50) {
+          // At least 50% success rate
           patterns.push({
             field,
             commonValue: JSON.parse(value),
@@ -633,18 +637,19 @@ export class LearningSystemService {
 
   private analyzeUserOptimizations(userPattern: UserPattern, configuration: any): any[] {
     const optimizations: any[] = [];
-    
+
     // Analyze user's successful configurations for optimization opportunities
     if (userPattern.successfulConfigurations.length > 0) {
       const avgMetrics = this.calculateAverageMetrics(userPattern.successfulConfigurations);
-      
+
       // Suggest optimizations based on user's historical performance
       if (avgMetrics.accuracy && avgMetrics.accuracy > 0.8) {
         optimizations.push({
           field: 'temperature',
           currentValue: configuration.temperature,
           suggestedValue: 0.3,
-          reason: 'Your successful configurations typically use lower temperature for better accuracy',
+          reason:
+            'Your successful configurations typically use lower temperature for better accuracy',
           priority: 'medium',
         });
       }
@@ -653,12 +658,17 @@ export class LearningSystemService {
     return optimizations;
   }
 
-  private analyzeOrganizationOptimizations(orgPattern: OrganizationPattern, configuration: any): any[] {
+  private analyzeOrganizationOptimizations(
+    orgPattern: OrganizationPattern,
+    configuration: any
+  ): any[] {
     const optimizations: any[] = [];
-    
+
     // Suggest optimizations based on organization patterns
-    if (orgPattern.preferredModels.length > 0 && 
-        !orgPattern.preferredModels.includes(configuration.model)) {
+    if (
+      orgPattern.preferredModels.length > 0 &&
+      !orgPattern.preferredModels.includes(configuration.model)
+    ) {
       optimizations.push({
         field: 'model',
         currentValue: configuration.model,
@@ -673,7 +683,7 @@ export class LearningSystemService {
 
   private calculateAverageMetrics(configurations: any[]): Record<string, number> {
     const avgMetrics: Record<string, number> = {};
-    
+
     for (const config of configurations) {
       for (const [metric, value] of Object.entries(config.metrics || {})) {
         if (typeof value === 'number') {

@@ -30,13 +30,7 @@ export interface WidgetTheme {
 export interface WidgetLayout {
   width: number;
   height: number;
-  position:
-    | 'bottom-right'
-    | 'bottom-left'
-    | 'top-right'
-    | 'top-left'
-    | 'center'
-    | 'fullscreen';
+  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center' | 'fullscreen';
   responsive: boolean;
   zIndex?: number;
   margin?: { top: number; right: number; bottom: number; left: number };
@@ -311,11 +305,8 @@ export class Widget extends BaseEntity {
     this.lastUsedAt = new Date();
   }
 
-  generateEmbedCode(
-    format: 'javascript' | 'iframe' | 'react' | 'vue' | 'angular',
-  ): string {
-    const baseUrl =
-      process.env.WIDGET_BASE_URL || 'https://widgets.synapseai.com';
+  generateEmbedCode(format: 'javascript' | 'iframe' | 'react' | 'vue' | 'angular'): string {
+    const baseUrl = process.env.WIDGET_BASE_URL || 'https://widgets.synapseai.com';
     const widgetUrl = `${baseUrl}/widget/${this.id}`;
 
     switch (format) {

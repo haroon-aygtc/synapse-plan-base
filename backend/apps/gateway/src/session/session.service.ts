@@ -16,12 +16,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { Session, User, Organization } from '@database/entities';
-import {
-  ISession,
-  ISessionContext,
-  ISessionAnalytics,
-  ISessionRecovery,
-} from '@shared/interfaces';
+import { ISession, ISessionContext, ISessionAnalytics, ISessionRecovery } from '@shared/interfaces';
 import { SessionEventType } from '@shared/enums';
 
 export interface CreateSessionDto {
@@ -77,23 +72,15 @@ export class SessionService {
     private readonly organizationRepository: Repository<Organization>,
     private readonly configService: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {
-    this.defaultTTL = this.parseTimeToSeconds(
-      this.configService.get('SESSION_TTL', '24h'),
-    );
+    this.defaultTTL = this.parseTimeToSeconds(this.configService.get('SESSION_TTL', '24h'));
     this.memoryConfig = {
       defaultLimit: this.configService.get('SESSION_MEMORY_LIMIT', 10485760), // 10MB
-      warningThreshold: this.configService.get(
-        'SESSION_MEMORY_WARNING_THRESHOLD',
-        0.8,
-      ),
+      warningThreshold: this.configService.get('SESSION_MEMORY_WARNING_THRESHOLD', 0.8),
       maxSessions: this.configService.get('MAX_SESSIONS_PER_USER', 10),
       cleanupInterval: this.configService.get('SESSION_CLEANUP_INTERVAL', 300), // 5 minutes
-      compressionEnabled: this.configService.get(
-        'SESSION_COMPRESSION_ENABLED',
-        true,
-      ),
+      compressionEnabled: this.configService.get('SESSION_COMPRESSION_ENABLED', true),
     };
   }
 
@@ -118,7 +105,7 @@ export class SessionService {
       relations: ['organization'],
     });
 
-    if (!user || !user.organization?.isActive) {
+    if (!user?.organization?.isActive) {
       throw new UnauthorizedException('Invalid user or organization');
     }
 
@@ -157,11 +144,7 @@ export class SessionService {
     await this.storeSessionInRedis(savedSession);
 
     // Initialize session analytics
-    await this.initializeSessionAnalytics(
-      savedSession.id,
-      userId,
-      organizationId,
-    );
+    await this.initializeSessionAnalytics(savedSession.id, userId, organizationId);
 
     // Emit session created event
     this.eventEmitter.emit(SessionEventType.SESSION_CREATED, {
@@ -172,7 +155,7 @@ export class SessionService {
     });
 
     this.logger.log(
-      `Session created: ${savedSession.id} for user ${userId} in org ${organizationId}`,
+      `Session created: ${savedSession.id} for user ${userId} in org ${organizationId}`
     );
 
     return this.sanitizeSession(savedSession);
@@ -224,10 +207,7 @@ export class SessionService {
     return this.sanitizeSession(session);
   }
 
-  async updateSession(
-    sessionToken: string,
-    updateDto: UpdateSessionDto,
-  ): Promise<ISession> {
+  async updateSession(sessionToken: string, updateDto: UpdateSessionDto): Promise<ISession> {
     const session = await this.sessionRepository.findOne({
       where: {
         sessionToken,
@@ -270,8 +250,7 @@ export class SessionService {
     if (updateDto.agentId) session.agentId = updateDto.agentId;
     if (updateDto.toolId) session.toolId = updateDto.toolId;
     if (updateDto.knowledgeId) session.knowledgeId = updateDto.knowledgeId;
-    if (updateDto.hitlRequestId)
-      session.hitlRequestId = updateDto.hitlRequestId;
+    if (updateDto.hitlRequestId) session.hitlRequestId = updateDto.hitlRequestId;
 
     if (updateDto.recoveryData && session.isRecoverable) {
       session.recoveryData = {
@@ -317,17 +296,12 @@ export class SessionService {
       timestamp: new Date(),
     });
 
-    this.logger.debug(
-      `Session updated: ${updatedSession.id} (memory: ${newMemoryUsage} bytes)`,
-    );
+    this.logger.debug(`Session updated: ${updatedSession.id} (memory: ${newMemoryUsage} bytes)`);
 
     return this.sanitizeSession(updatedSession);
   }
 
-  async extendSession(
-    sessionToken: string,
-    additionalTTL?: number,
-  ): Promise<ISession> {
+  async extendSession(sessionToken: string, additionalTTL?: number): Promise<ISession> {
     const session = await this.sessionRepository.findOne({
       where: {
         sessionToken,
@@ -346,9 +320,7 @@ export class SessionService {
     const updatedSession = await this.sessionRepository.save(session);
     await this.storeSessionInRedis(updatedSession);
 
-    this.logger.debug(
-      `Session extended: ${updatedSession.id} until ${updatedSession.expiresAt}`,
-    );
+    this.logger.debug(`Session extended: ${updatedSession.id} until ${updatedSession.expiresAt}`);
 
     return this.sanitizeSession(updatedSession);
   }
@@ -395,9 +367,7 @@ export class SessionService {
     this.logger.log(`All sessions destroyed for user: ${userId}`);
   }
 
-  async getSessionContext(
-    sessionToken: string,
-  ): Promise<ISessionContext | null> {
+  async getSessionContext(sessionToken: string): Promise<ISessionContext | null> {
     const session = await this.getSession(sessionToken);
     if (!session) {
       return null;
@@ -456,7 +426,7 @@ export class SessionService {
   async propagateContextUpdate(
     sessionToken: string,
     moduleType: 'agent' | 'tool' | 'workflow' | 'knowledge' | 'hitl',
-    contextUpdate: Record<string, any>,
+    contextUpdate: Record<string, any>
   ): Promise<void> {
     const session = await this.getSession(sessionToken);
     if (!session) {
@@ -484,9 +454,7 @@ export class SessionService {
       timestamp: new Date(),
     });
 
-    this.logger.debug(
-      `Context propagated for session ${session.id} from ${moduleType}`,
-    );
+    this.logger.debug(`Context propagated for session ${session.id} from ${moduleType}`);
   }
 
   async recoverSession(sessionId: string): Promise<ISessionRecovery | null> {
@@ -494,7 +462,7 @@ export class SessionService {
       where: { id: sessionId, isRecoverable: true },
     });
 
-    if (!session || !session.recoveryData) {
+    if (!session?.recoveryData) {
       return null;
     }
 
@@ -545,20 +513,17 @@ export class SessionService {
 
   async getSessionAnalytics(
     organizationId: string,
-    timeRange?: { from: Date; to: Date },
+    timeRange?: { from: Date; to: Date }
   ): Promise<ISessionAnalytics[]> {
     const analyticsKey = `${this.analyticsPrefix}${organizationId}`;
-    const analytics =
-      await this.cacheManager.get<ISessionAnalytics[]>(analyticsKey);
+    const analytics = await this.cacheManager.get<ISessionAnalytics[]>(analyticsKey);
 
     if (!analytics) {
       return [];
     }
 
     if (timeRange) {
-      return analytics.filter(
-        (a) => a.timestamp >= timeRange.from && a.timestamp <= timeRange.to,
-      );
+      return analytics.filter((a) => a.timestamp >= timeRange.from && a.timestamp <= timeRange.to);
     }
 
     return analytics;
@@ -616,8 +581,7 @@ export class SessionService {
   }
 
   private async checkMemoryLimits(session: Session): Promise<void> {
-    const warningThreshold =
-      session.memoryLimit * this.memoryConfig.warningThreshold;
+    const warningThreshold = session.memoryLimit * this.memoryConfig.warningThreshold;
 
     if (session.memoryUsage > warningThreshold) {
       this.eventEmitter.emit(SessionEventType.SESSION_MEMORY_WARNING, {
@@ -649,10 +613,7 @@ export class SessionService {
     const context = this.decompressData(session.context);
 
     // Remove oldest entries from arrays
-    if (
-      context.conversationHistory &&
-      Array.isArray(context.conversationHistory)
-    ) {
+    if (context.conversationHistory && Array.isArray(context.conversationHistory)) {
       context.conversationHistory = context.conversationHistory.slice(-10); // Keep last 10
     }
 
@@ -671,7 +632,7 @@ export class SessionService {
     await this.storeSessionInRedis(session);
 
     this.logger.warn(
-      `Session data truncated for ${session.id} (new size: ${session.memoryUsage} bytes)`,
+      `Session data truncated for ${session.id} (new size: ${session.memoryUsage} bytes)`
     );
   }
 
@@ -680,17 +641,11 @@ export class SessionService {
     const ttl = Math.floor((session.expiresAt.getTime() - Date.now()) / 1000);
 
     if (ttl > 0) {
-      await this.cacheManager.set(
-        key,
-        this.sanitizeSession(session),
-        ttl * 1000,
-      );
+      await this.cacheManager.set(key, this.sanitizeSession(session), ttl * 1000);
     }
   }
 
-  private async getSessionFromRedis(
-    sessionToken: string,
-  ): Promise<ISession | null> {
+  private async getSessionFromRedis(sessionToken: string): Promise<ISession | null> {
     const key = `${this.redisPrefix}${sessionToken}`;
     return await this.cacheManager.get<ISession>(key);
   }
@@ -701,16 +656,13 @@ export class SessionService {
   }
 
   private async updateLastAccessed(sessionId: string): Promise<void> {
-    await this.sessionRepository.update(
-      { id: sessionId },
-      { lastAccessedAt: new Date() },
-    );
+    await this.sessionRepository.update({ id: sessionId }, { lastAccessedAt: new Date() });
   }
 
   private async initializeSessionAnalytics(
     sessionId: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<void> {
     const analytics: ISessionAnalytics = {
       sessionId,
@@ -741,7 +693,7 @@ export class SessionService {
 
   private async updateSessionAnalytics(
     sessionId: string,
-    updates: Partial<ISessionAnalytics>,
+    updates: Partial<ISessionAnalytics>
   ): Promise<void> {
     // Implementation would update analytics in Redis
     // This is a placeholder for the analytics update logic
@@ -832,15 +784,10 @@ export class SessionService {
       }
 
       if (expiredSessions.length > 0) {
-        this.logger.log(
-          `Cleaned up ${expiredSessions.length} expired sessions`,
-        );
+        this.logger.log(`Cleaned up ${expiredSessions.length} expired sessions`);
       }
     } catch (error) {
-      this.logger.error(
-        `Session cleanup failed: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Session cleanup failed: ${error.message}`, error.stack);
     }
   }
 
@@ -898,14 +845,9 @@ export class SessionService {
         });
       }
 
-      this.logger.debug(
-        `Generated analytics for ${analyticsData.size} organizations`,
-      );
+      this.logger.debug(`Generated analytics for ${analyticsData.size} organizations`);
     } catch (error) {
-      this.logger.error(
-        `Analytics generation failed: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Analytics generation failed: ${error.message}`, error.stack);
     }
   }
 }

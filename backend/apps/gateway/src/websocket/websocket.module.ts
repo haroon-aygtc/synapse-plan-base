@@ -73,11 +73,6 @@ import Redis from 'ioredis';
     APXMonitoringService,
     UserService,
   ],
-  exports: [
-    WebSocketService,
-    ConnectionService,
-    APXMonitoringService,
-    'REDIS_CLIENT',
-  ],
+  exports: [WebSocketService, ConnectionService, APXMonitoringService, 'REDIS_CLIENT'],
 })
 export class WebsocketModule {}

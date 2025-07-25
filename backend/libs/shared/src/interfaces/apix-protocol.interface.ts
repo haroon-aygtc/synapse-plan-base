@@ -1,9 +1,4 @@
-import {
-  APXMessageType,
-  APXSecurityLevel,
-  APXPermissionLevel,
-  APXStreamState,
-} from '../enums';
+import { APXMessageType, APXSecurityLevel, APXPermissionLevel, APXStreamState } from '../enums';
 
 export interface IAPXMessage {
   type: APXMessageType;
@@ -90,11 +85,7 @@ export interface IAPXSessionContext {
 export interface IAPXStreamingSession {
   session_id: string;
   stream_id: string;
-  stream_type:
-    | 'agent_execution'
-    | 'tool_call'
-    | 'knowledge_search'
-    | 'workflow_execution';
+  stream_type: 'agent_execution' | 'tool_call' | 'knowledge_search' | 'workflow_execution';
   state: APXStreamState;
   created_at: string;
   last_activity: string;

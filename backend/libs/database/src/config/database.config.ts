@@ -15,14 +15,11 @@ export const AppDataSource = new DataSource({
   username: configService.get('DATABASE_USERNAME', 'postgres'),
   password: configService.get('DATABASE_PASSWORD'),
   database: configService.get('DATABASE_NAME', 'synapseai'),
-  entities: [__dirname + '/../entities/*.entity{.ts,.js}'],
+  entities: [`${__dirname}/../entities/*.entity{.ts,.js}`],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
   logging: configService.get('NODE_ENV') === 'development',
-  ssl:
-    configService.get('NODE_ENV') === 'production'
-      ? { rejectUnauthorized: false }
-      : false,
+  ssl: configService.get('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 export const databaseConfig = (): TypeOrmModuleOptions => ({
@@ -32,18 +29,17 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
   username: process.env.DATABASE_USERNAME || 'postgres',
   password: process.env.DATABASE_PASSWORD || 'password',
   database: process.env.DATABASE_NAME || 'tempo_ai_platform',
-  entities: [__dirname + '/../entities/*.entity{.ts,.js}'],
-  migrations: [
-    InitialSchema1700000001,
-    CreateRLSPolicies1700000002,
-    SeedInitialData1700000003,
-  ],
+  entities: [`${__dirname}/../entities/*.entity{.ts,.js}`],
+  migrations: [InitialSchema1700000001, CreateRLSPolicies1700000002, SeedInitialData1700000003],
   migrationsRun: process.env.DATABASE_MIGRATIONS_RUN === 'true',
   synchronize: process.env.DATABASE_SYNCHRONIZE === 'true' || false,
   logging: process.env.DATABASE_LOGGING === 'true' || false,
-  ssl: process.env.DATABASE_SSL === 'true' ? {
-    rejectUnauthorized: false,
-  } : false,
+  ssl:
+    process.env.DATABASE_SSL === 'true'
+      ? {
+          rejectUnauthorized: false,
+        }
+      : false,
   extra: {
     connectionLimit: 20,
     acquireTimeout: 60000,

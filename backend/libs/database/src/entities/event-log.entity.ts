@@ -14,7 +14,7 @@ export class EventLog extends BaseEntity {
     type: 'enum',
     enum: AgentEventType,
   })
-        eventType: AgentEventType;
+  eventType: AgentEventType;
 
   @Column({ type: 'varchar', length: 100 })
   sourceModule!: string;

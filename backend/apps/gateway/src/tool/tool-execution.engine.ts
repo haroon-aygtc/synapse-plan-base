@@ -4,11 +4,7 @@ import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Tool, ToolExecution } from '@database/entities';
 import { ExecuteToolDto } from './dto';
-import {
-  ExecutionStatus,
-  HITLRequestType,
-  HITLRequestPriority,
-} from '@shared/enums';
+import { ExecutionStatus, HITLRequestType, HITLRequestPriority } from '@shared/enums';
 import { HITLService } from '../hitl/hitl.service';
 import { AIProviderService } from '../ai-provider/ai-provider.service';
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
@@ -26,14 +22,14 @@ export class ToolExecutionEngine {
     private readonly toolExecutionRepository: Repository<ToolExecution>,
     private readonly eventEmitter: EventEmitter2,
     private readonly hitlService: HITLService,
-    private readonly aiProviderService: AIProviderService,
+    private readonly aiProviderService: AIProviderService
   ) {}
 
   async execute(
     toolId: string,
     executeToolDto: ExecuteToolDto,
     userId?: string,
-    organizationId?: string,
+    organizationId?: string
   ) {
     const tool = await this.toolRepository.findOne({ where: { id: toolId } });
     if (!tool) {
@@ -61,7 +57,7 @@ export class ToolExecutionEngine {
           },
         },
         userId,
-        organizationId,
+        organizationId
       );
 
       // Create paused execution record
@@ -136,7 +132,7 @@ export class ToolExecutionEngine {
             organizationId,
             estimatedCost: 0.005,
             maxResponseTime: executeToolDto.timeout || 30000,
-          },
+          }
         );
       }
 
@@ -146,7 +142,7 @@ export class ToolExecutionEngine {
         executeToolDto,
         selectedProvider,
         organizationId,
-        userId,
+        userId
       );
       const executionTime = Date.now() - startTime;
 
@@ -166,7 +162,7 @@ export class ToolExecutionEngine {
           // For now, we'll skip this for regular API tools
         } catch (error) {
           this.logger.warn(
-            `Failed to record tool execution in AI provider metrics: ${error.message}`,
+            `Failed to record tool execution in AI provider metrics: ${error.message}`
           );
         }
       }
@@ -218,7 +214,7 @@ export class ToolExecutionEngine {
     executeToolDto: ExecuteToolDto,
     aiProvider?: any,
     organizationId?: string,
-    userId?: string,
+    userId?: string
   ) {
     const { endpoint, method, headers } = tool;
     const { parameters } = executeToolDto;

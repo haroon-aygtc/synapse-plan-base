@@ -8,53 +8,53 @@ import {
   ValidateNested,
   Min,
   Max,
-} from "class-validator";
-import { Type } from "class-transformer";
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 class RoutingConditionsDto {
-  @ApiPropertyOptional({ description: "Target model name" })
+  @ApiPropertyOptional({ description: 'Target model name' })
   @IsOptional()
   @IsString()
   model?: string;
 
   @ApiPropertyOptional({
-    description: "Execution type (agent, tool, workflow)",
+    description: 'Execution type (agent, tool, workflow)',
   })
   @IsOptional()
   @IsString()
   executionType?: string;
 
-  @ApiPropertyOptional({ description: "Maximum cost threshold" })
+  @ApiPropertyOptional({ description: 'Maximum cost threshold' })
   @IsOptional()
   @IsNumber()
   @Min(0)
   costThreshold?: number;
 
   @ApiPropertyOptional({
-    description: "Minimum performance threshold (response time)",
+    description: 'Minimum performance threshold (response time)',
   })
   @IsOptional()
   @IsNumber()
   @Min(0)
   performanceThreshold?: number;
 
-  @ApiPropertyOptional({ description: "Target organization ID" })
+  @ApiPropertyOptional({ description: 'Target organization ID' })
   @IsOptional()
   @IsString()
   organizationId?: string;
 
-  @ApiPropertyOptional({ description: "Target user ID" })
+  @ApiPropertyOptional({ description: 'Target user ID' })
   @IsOptional()
   @IsString()
   userId?: string;
 
-  @ApiPropertyOptional({ description: "Request priority level" })
+  @ApiPropertyOptional({ description: 'Request priority level' })
   @IsOptional()
   @IsString()
-  priority?: "low" | "medium" | "high" | "urgent";
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
 
-  @ApiPropertyOptional({ description: "Time-based conditions" })
+  @ApiPropertyOptional({ description: 'Time-based conditions' })
   @IsOptional()
   @IsObject()
   timeConditions?: {
@@ -64,7 +64,7 @@ class RoutingConditionsDto {
     timezone?: string;
   };
 
-  @ApiPropertyOptional({ description: "Geographic conditions" })
+  @ApiPropertyOptional({ description: 'Geographic conditions' })
   @IsOptional()
   @IsObject()
   geoConditions?: {
@@ -75,39 +75,39 @@ class RoutingConditionsDto {
 }
 
 export class ProviderRoutingRuleDto {
-  @ApiProperty({ description: "Rule name" })
+  @ApiProperty({ description: 'Rule name' })
   @IsString()
   name: string;
 
-  @ApiProperty({ description: "Rule description" })
+  @ApiProperty({ description: 'Rule description' })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiProperty({ description: "Rule priority (1-1000)", default: 100 })
+  @ApiProperty({ description: 'Rule priority (1-1000)', default: 100 })
   @IsNumber()
   @Min(1)
   @Max(1000)
   priority: number;
 
-  @ApiProperty({ description: "Routing conditions" })
+  @ApiProperty({ description: 'Routing conditions' })
   @ValidateNested()
   @Type(() => RoutingConditionsDto)
   conditions: RoutingConditionsDto;
 
-  @ApiProperty({ description: "Target provider ID" })
+  @ApiProperty({ description: 'Target provider ID' })
   @IsString()
   targetProvider: string;
 
   @ApiPropertyOptional({
-    description: "Fallback provider IDs in order of preference",
+    description: 'Fallback provider IDs in order of preference',
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   fallbackProviders?: string[];
 
-  @ApiPropertyOptional({ description: "Weight for load balancing (1-100)" })
+  @ApiPropertyOptional({ description: 'Weight for load balancing (1-100)' })
   @IsOptional()
   @IsNumber()
   @Min(1)
@@ -115,18 +115,18 @@ export class ProviderRoutingRuleDto {
   weight?: number;
 
   @ApiPropertyOptional({
-    description: "Whether the rule is active",
+    description: 'Whether the rule is active',
     default: true,
   })
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: "Rule expiration date" })
+  @ApiPropertyOptional({ description: 'Rule expiration date' })
   @IsOptional()
   expiresAt?: Date;
 
-  @ApiPropertyOptional({ description: "Additional metadata for the rule" })
+  @ApiPropertyOptional({ description: 'Additional metadata for the rule' })
   @IsOptional()
   @IsObject()
   metadata?: Record<string, any>;
@@ -135,100 +135,100 @@ export class ProviderRoutingRuleDto {
 export class CreateRoutingRuleDto extends ProviderRoutingRuleDto {}
 
 export class UpdateRoutingRuleDto {
-  @ApiPropertyOptional({ description: "Rule name" })
+  @ApiPropertyOptional({ description: 'Rule name' })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ description: "Rule description" })
+  @ApiPropertyOptional({ description: 'Rule description' })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: "Rule priority (1-1000)" })
+  @ApiPropertyOptional({ description: 'Rule priority (1-1000)' })
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(1000)
   priority?: number;
 
-  @ApiPropertyOptional({ description: "Routing conditions" })
+  @ApiPropertyOptional({ description: 'Routing conditions' })
   @IsOptional()
   @ValidateNested()
   @Type(() => RoutingConditionsDto)
   conditions?: RoutingConditionsDto;
 
-  @ApiPropertyOptional({ description: "Target provider ID" })
+  @ApiPropertyOptional({ description: 'Target provider ID' })
   @IsOptional()
   @IsString()
   targetProvider?: string;
 
-  @ApiPropertyOptional({ description: "Fallback provider IDs" })
+  @ApiPropertyOptional({ description: 'Fallback provider IDs' })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   fallbackProviders?: string[];
 
-  @ApiPropertyOptional({ description: "Weight for load balancing" })
+  @ApiPropertyOptional({ description: 'Weight for load balancing' })
   @IsOptional()
   @IsNumber()
   @Min(1)
   @Max(100)
   weight?: number;
 
-  @ApiPropertyOptional({ description: "Whether the rule is active" })
+  @ApiPropertyOptional({ description: 'Whether the rule is active' })
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: "Rule expiration date" })
+  @ApiPropertyOptional({ description: 'Rule expiration date' })
   @IsOptional()
   expiresAt?: Date;
 
-  @ApiPropertyOptional({ description: "Additional metadata" })
+  @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
   @IsObject()
   metadata?: Record<string, any>;
 }
 
 export class RoutingRuleResponseDto {
-  @ApiProperty({ description: "Rule ID" })
+  @ApiProperty({ description: 'Rule ID' })
   id: string;
 
-  @ApiProperty({ description: "Rule name" })
+  @ApiProperty({ description: 'Rule name' })
   name: string;
 
-  @ApiProperty({ description: "Rule description" })
+  @ApiProperty({ description: 'Rule description' })
   description?: string;
 
-  @ApiProperty({ description: "Rule priority" })
+  @ApiProperty({ description: 'Rule priority' })
   priority: number;
 
-  @ApiProperty({ description: "Routing conditions" })
+  @ApiProperty({ description: 'Routing conditions' })
   conditions: RoutingConditionsDto;
 
-  @ApiProperty({ description: "Target provider ID" })
+  @ApiProperty({ description: 'Target provider ID' })
   targetProvider: string;
 
-  @ApiProperty({ description: "Fallback provider IDs" })
+  @ApiProperty({ description: 'Fallback provider IDs' })
   fallbackProviders: string[];
 
-  @ApiProperty({ description: "Load balancing weight" })
+  @ApiProperty({ description: 'Load balancing weight' })
   weight: number;
 
-  @ApiProperty({ description: "Whether the rule is active" })
+  @ApiProperty({ description: 'Whether the rule is active' })
   isActive: boolean;
 
-  @ApiProperty({ description: "Rule creation date" })
+  @ApiProperty({ description: 'Rule creation date' })
   createdAt: Date;
 
-  @ApiProperty({ description: "Rule last update date" })
+  @ApiProperty({ description: 'Rule last update date' })
   updatedAt: Date;
 
-  @ApiProperty({ description: "Rule expiration date" })
+  @ApiProperty({ description: 'Rule expiration date' })
   expiresAt?: Date;
 
-  @ApiProperty({ description: "Rule usage statistics" })
+  @ApiProperty({ description: 'Rule usage statistics' })
   stats?: {
     totalMatches: number;
     successfulRoutes: number;
@@ -237,21 +237,21 @@ export class RoutingRuleResponseDto {
     lastUsed?: Date;
   };
 
-  @ApiProperty({ description: "Additional metadata" })
+  @ApiProperty({ description: 'Additional metadata' })
   metadata?: Record<string, any>;
 }
 
 export class BulkRoutingRuleOperationDto {
-  @ApiProperty({ description: "Operation type" })
+  @ApiProperty({ description: 'Operation type' })
   @IsString()
-  operation: "activate" | "deactivate" | "delete" | "update_priority";
+  operation: 'activate' | 'deactivate' | 'delete' | 'update_priority';
 
-  @ApiProperty({ description: "Rule IDs to operate on" })
+  @ApiProperty({ description: 'Rule IDs to operate on' })
   @IsArray()
   @IsString({ each: true })
   ruleIds: string[];
 
-  @ApiPropertyOptional({ description: "Data for update operations" })
+  @ApiPropertyOptional({ description: 'Data for update operations' })
   @IsOptional()
   @IsObject()
   data?: {
@@ -261,7 +261,7 @@ export class BulkRoutingRuleOperationDto {
 }
 
 export class RoutingRuleTestDto {
-  @ApiProperty({ description: "Test request data" })
+  @ApiProperty({ description: 'Test request data' })
   @IsObject()
   request: {
     model?: string;
@@ -274,7 +274,7 @@ export class RoutingRuleTestDto {
     context?: Record<string, any>;
   };
 
-  @ApiPropertyOptional({ description: "Specific rule IDs to test" })
+  @ApiPropertyOptional({ description: 'Specific rule IDs to test' })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -282,7 +282,7 @@ export class RoutingRuleTestDto {
 }
 
 export class RoutingRuleTestResultDto {
-  @ApiProperty({ description: "Matched rules in order of priority" })
+  @ApiProperty({ description: 'Matched rules in order of priority' })
   matchedRules: Array<{
     ruleId: string;
     ruleName: string;
@@ -292,7 +292,7 @@ export class RoutingRuleTestResultDto {
     confidence: number;
   }>;
 
-  @ApiProperty({ description: "Selected provider" })
+  @ApiProperty({ description: 'Selected provider' })
   selectedProvider: {
     providerId: string;
     providerName: string;
@@ -301,16 +301,16 @@ export class RoutingRuleTestResultDto {
     estimatedResponseTime?: number;
   };
 
-  @ApiProperty({ description: "Fallback providers" })
+  @ApiProperty({ description: 'Fallback providers' })
   fallbackProviders: Array<{
     providerId: string;
     providerName: string;
     fallbackReason: string;
   }>;
 
-  @ApiProperty({ description: "Test execution time" })
+  @ApiProperty({ description: 'Test execution time' })
   executionTime: number;
 
-  @ApiProperty({ description: "Any warnings or recommendations" })
+  @ApiProperty({ description: 'Any warnings or recommendations' })
   warnings: string[];
 }

@@ -60,7 +60,7 @@ export class HealthService {
     @InjectDataSource() private dataSource: DataSource,
     private configService: ConfigService,
     private logger: CustomLoggerService,
-    private monitoringService: MonitoringService,
+    private monitoringService: MonitoringService
   ) {
     this.serviceName = this.configService.get('SERVICE_NAME', 'synapseai');
     this.serviceVersion = this.configService.get('SERVICE_VERSION', '1.0.0');
@@ -87,7 +87,7 @@ export class HealthService {
       this.logger.error(
         'Failed to initialize Redis for health checks',
         error instanceof Error ? error.stack : String(error),
-        'HealthService',
+        'HealthService'
       );
     }
   }
@@ -127,9 +127,7 @@ export class HealthService {
                   status: HealthStatus.UNHEALTHY,
                   responseTime: 0,
                   error:
-                    redisCheck.status === 'rejected'
-                      ? redisCheck.reason.message
-                      : 'Unknown error',
+                    redisCheck.status === 'rejected' ? redisCheck.reason.message : 'Unknown error',
                 },
           memory:
             memoryCheck.status === 'fulfilled'
@@ -160,13 +158,11 @@ export class HealthService {
       // Determine overall status
       const criticalChecks = [result.checks.database, result.checks.redis];
       const hasCriticalFailure = criticalChecks.some(
-        (check) => check.status === HealthStatus.UNHEALTHY,
+        (check) => check.status === HealthStatus.UNHEALTHY
       );
       const hasDegradation = Object.values(result.checks).some(
         (check) =>
-          typeof check === 'object' &&
-          'status' in check &&
-          check.status === HealthStatus.DEGRADED,
+          typeof check === 'object' && 'status' in check && check.status === HealthStatus.DEGRADED
       );
 
       if (hasCriticalFailure) {
@@ -180,24 +176,27 @@ export class HealthService {
       this.monitoringService.recordHealthCheck(
         this.serviceName,
         result.status === HealthStatus.HEALTHY ? 'healthy' : 'unhealthy',
-        duration,
+        duration
       );
 
       // Log health check result
-      this.logger.log(
-        `Health check completed: ${result.status}`,
-        'HealthService',
-        {
-          status: result.status,
-          duration,
-          checks: result.checks,
-        },
-      );
+      this.logger.log(`Health check completed: ${result.status}`, 'HealthService', {
+        status: result.status,
+        duration,
+        checks: result.checks,
+      });
 
       return result;
     } catch (error) {
-      this.logger.error('Health check failed', error instanceof Error ? error.stack : String(error), 'HealthService');
-      this.monitoringService.recordError(error instanceof Error ? error : new Error(String(error)), 'HEALTH_CHECK');
+      this.logger.error(
+        'Health check failed',
+        error instanceof Error ? error.stack : String(error),
+        'HealthService'
+      );
+      this.monitoringService.recordError(
+        error instanceof Error ? error : new Error(String(error)),
+        'HEALTH_CHECK'
+      );
 
       return {
         status: HealthStatus.UNHEALTHY,
@@ -240,17 +239,12 @@ export class HealthService {
       const responseTime = Date.now() - startTime;
 
       return {
-        status:
-          responseTime < 1000 ? HealthStatus.HEALTHY : HealthStatus.DEGRADED,
+        status: responseTime < 1000 ? HealthStatus.HEALTHY : HealthStatus.DEGRADED,
         responseTime,
       };
     } catch (error) {
       const responseTime = Date.now() - startTime;
-      this.monitoringService.recordDatabaseOperation(
-        'health_check',
-        responseTime,
-        false,
-      );
+      this.monitoringService.recordDatabaseOperation('health_check', responseTime, false);
 
       return {
         status: HealthStatus.UNHEALTHY,
@@ -268,8 +262,7 @@ export class HealthService {
       const responseTime = Date.now() - startTime;
 
       return {
-        status:
-          responseTime < 1000 ? HealthStatus.HEALTHY : HealthStatus.DEGRADED,
+        status: responseTime < 1000 ? HealthStatus.HEALTHY : HealthStatus.DEGRADED,
         responseTime,
       };
     } catch (error) {
@@ -335,8 +328,7 @@ export class HealthService {
   }
 
   private async checkExternalServices() {
-    const datadogEnabled =
-      this.configService.get('DATADOG_ENABLED', 'false') === 'true';
+    const datadogEnabled = this.configService.get('DATADOG_ENABLED', 'false') === 'true';
     const datadogHealthy = datadogEnabled ? this.checkDatadogHealth() : true;
 
     return {

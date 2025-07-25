@@ -8,12 +8,7 @@ import {
   ValidationPipe,
   UsePipes,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
@@ -69,7 +64,7 @@ export class AIAssistantController {
     private readonly multiLanguageSupport: MultiLanguageSupportService,
     private readonly learningSystem: LearningSystemService,
     private readonly visualBuilder: VisualBuilderService,
-    private readonly apiPatternDetection: APIPatternDetectionService,
+    private readonly apiPatternDetection: APIPatternDetectionService
   ) {}
 
   @Post('generate-config')
@@ -80,14 +75,11 @@ export class AIAssistantController {
     description: 'Configuration generated successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async generateConfig(
-    @Body() generateConfigDto: GenerateConfigDto,
-    @Request() req: any,
-  ) {
+  async generateConfig(@Body() generateConfigDto: GenerateConfigDto, @Request() req: any) {
     return this.aiAssistantService.generateAgentConfig(
       generateConfigDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -99,14 +91,11 @@ export class AIAssistantController {
     description: 'Agent analyzed successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async analyzeAgent(
-    @Body() analyzeAgentDto: AnalyzeAgentDto,
-    @Request() req: any,
-  ) {
+  async analyzeAgent(@Body() analyzeAgentDto: AnalyzeAgentDto, @Request() req: any) {
     return this.aiAssistantService.analyzeAgent(
       analyzeAgentDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -120,12 +109,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async generatePromptSuggestions(
     @Body() promptSuggestionsDto: PromptSuggestionsDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.aiAssistantService.generatePromptSuggestions(
       promptSuggestionsDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -137,14 +126,11 @@ export class AIAssistantController {
     description: 'Prompt optimized successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async optimizePrompt(
-    @Body() optimizePromptDto: OptimizePromptDto,
-    @Request() req: any,
-  ) {
+  async optimizePrompt(@Body() optimizePromptDto: OptimizePromptDto, @Request() req: any) {
     return this.aiAssistantService.optimizePrompt(
       optimizePromptDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -156,38 +142,27 @@ export class AIAssistantController {
     description: 'Test cases generated successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async generateTestCases(
-    @Body() generateTestCasesDto: GenerateTestCasesDto,
-    @Request() req: any,
-  ) {
+  async generateTestCases(@Body() generateTestCasesDto: GenerateTestCasesDto, @Request() req: any) {
     return this.aiAssistantService.generateTestCases(
       generateTestCasesDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
   @Post('explain-agent')
-  @Roles(
-    UserRole.VIEWER,
-    UserRole.DEVELOPER,
-    UserRole.ORG_ADMIN,
-    UserRole.SUPER_ADMIN,
-  )
+  @Roles(UserRole.VIEWER, UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Explain agent capabilities and behavior' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Agent explanation generated successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async explainAgent(
-    @Body() explainAgentDto: ExplainAgentDto,
-    @Request() req: any,
-  ) {
+  async explainAgent(@Body() explainAgentDto: ExplainAgentDto, @Request() req: any) {
     return this.aiAssistantService.explainAgent(
       explainAgentDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -201,12 +176,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async generatePersonalityProfile(
     @Body() personalityProfileDto: PersonalityProfileDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.aiAssistantService.generatePersonalityProfile(
       personalityProfileDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -220,12 +195,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async processNaturalLanguage(
     @Body() processNaturalLanguageDto: ProcessNaturalLanguageDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.naturalLanguageProcessor.processNaturalLanguage(
       processNaturalLanguageDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -237,10 +212,7 @@ export class AIAssistantController {
     description: 'Intent recognized successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async recognizeIntent(
-    @Body() intentRecognitionDto: IntentRecognitionDto,
-    @Request() req: any,
-  ) {
+  async recognizeIntent(@Body() intentRecognitionDto: IntentRecognitionDto, @Request() req: any) {
     return this.naturalLanguageProcessor.recognizeIntent(intentRecognitionDto);
   }
 
@@ -254,12 +226,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async generateContextAwareSuggestions(
     @Body() configurationSuggestionDto: ConfigurationSuggestionDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.naturalLanguageProcessor.generateContextAwareSuggestions(
       configurationSuggestionDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -273,12 +245,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async validateAndOptimizeConfiguration(
     @Body() validationOptimizationDto: ValidationOptimizationDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.naturalLanguageProcessor.validateAndOptimizeConfiguration(
       validationOptimizationDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -292,12 +264,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async processLearningFeedback(
     @Body() learningFeedbackDto: LearningFeedbackDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.naturalLanguageProcessor.processLearningFeedback(
       learningFeedbackDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -309,10 +281,7 @@ export class AIAssistantController {
     description: 'Language detected successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async detectLanguage(
-    @Body() body: { text: string },
-    @Request() req: any,
-  ) {
+  async detectLanguage(@Body() body: { text: string }, @Request() req: any) {
     return this.multiLanguageSupport.detectLanguage(body.text);
   }
 
@@ -326,12 +295,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async translateText(
     @Body() body: { text: string; targetLanguage: string; sourceLanguage?: string },
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.multiLanguageSupport.translateText(
       body.text,
       body.targetLanguage,
-      body.sourceLanguage,
+      body.sourceLanguage
     );
   }
 
@@ -345,12 +314,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async localizeConfiguration(
     @Body() body: { configuration: any; targetLanguage: string; configurationType: string },
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.multiLanguageSupport.localizeConfiguration(
       body.configuration,
       body.targetLanguage,
-      body.configurationType,
+      body.configurationType
     );
   }
 
@@ -364,13 +333,13 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async getPersonalizedSuggestions(
     @Body() body: { configurationType: string; context: Record<string, any> },
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.learningSystem.getPersonalizedSuggestions(
       req.user.sub,
       req.user.organizationId,
       body.configurationType,
-      body.context,
+      body.context
     );
   }
 
@@ -384,13 +353,13 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async getOptimizationRecommendations(
     @Body() body: { configuration: any; configurationType: string },
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.learningSystem.getOptimizationRecommendations(
       body.configuration,
       body.configurationType,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -404,12 +373,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async createVisualBuilder(
     @Body() createVisualBuilderDto: CreateVisualBuilderDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.visualBuilder.createVisualBuilder(
       createVisualBuilderDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -423,7 +392,7 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async generateComponentSuggestions(
     @Body() componentSuggestionDto: ComponentSuggestionDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.visualBuilder.generateComponentSuggestions(componentSuggestionDto);
   }
@@ -436,14 +405,11 @@ export class AIAssistantController {
     description: 'Preview generated successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async generatePreview(
-    @Body() previewGenerationDto: PreviewGenerationDto,
-    @Request() req: any,
-  ) {
+  async generatePreview(@Body() previewGenerationDto: PreviewGenerationDto, @Request() req: any) {
     return this.visualBuilder.generatePreview(
       previewGenerationDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -457,12 +423,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async generateTemplate(
     @Body() templateGenerationDto: TemplateGenerationDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.visualBuilder.generateTemplate(
       templateGenerationDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -476,7 +442,7 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async validateComponent(
     @Body() componentValidationDto: ComponentValidationDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.visualBuilder.validateComponent(componentValidationDto);
   }
@@ -491,12 +457,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async handleCollaborativeEdit(
     @Body() collaborativeEditingDto: CollaborativeEditingDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.visualBuilder.handleCollaborativeEdit(
       collaborativeEditingDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -510,12 +476,12 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async analyzeAPIEndpoint(
     @Body() apiEndpointAnalysisDto: APIEndpointAnalysisDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.apiPatternDetection.analyzeAPIEndpoint(
       apiEndpointAnalysisDto,
       req.user.sub,
-      req.user.organizationId,
+      req.user.organizationId
     );
   }
 
@@ -527,10 +493,7 @@ export class AIAssistantController {
     description: 'API schema generated successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async generateAPISchema(
-    @Body() schemaGenerationDto: SchemaGenerationDto,
-    @Request() req: any,
-  ) {
+  async generateAPISchema(@Body() schemaGenerationDto: SchemaGenerationDto, @Request() req: any) {
     return this.apiPatternDetection.generateSchema(schemaGenerationDto);
   }
 
@@ -544,7 +507,7 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async detectAuthentication(
     @Body() authenticationDetectionDto: AuthenticationDetectionDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.apiPatternDetection.detectAuthentication(authenticationDetectionDto);
   }
@@ -559,7 +522,7 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async generateParameterMapping(
     @Body() parameterMappingDto: ParameterMappingDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.apiPatternDetection.generateParameterMapping(parameterMappingDto);
   }
@@ -574,7 +537,7 @@ export class AIAssistantController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async analyzeErrorPatterns(
     @Body() errorPatternAnalysisDto: ErrorPatternAnalysisDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     return this.apiPatternDetection.analyzeErrorPatterns(errorPatternAnalysisDto);
   }
@@ -587,10 +550,7 @@ export class AIAssistantController {
     description: 'API tested successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async testAPI(
-    @Body() apiTestingDto: APITestingDto,
-    @Request() req: any,
-  ) {
+  async testAPI(@Body() apiTestingDto: APITestingDto, @Request() req: any) {
     return this.apiPatternDetection.testAPI(apiTestingDto);
   }
 
@@ -602,10 +562,7 @@ export class AIAssistantController {
     description: 'API configuration validated successfully',
   })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async validateAPIConfiguration(
-    @Body() apiValidationDto: APIValidationDto,
-    @Request() req: any,
-  ) {
+  async validateAPIConfiguration(@Body() apiValidationDto: APIValidationDto, @Request() req: any) {
     return this.apiPatternDetection.validateAPIConfiguration(apiValidationDto);
   }
 }

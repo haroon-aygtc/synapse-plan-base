@@ -5,7 +5,7 @@ export class CreateRLSPolicies1700000002 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create RLS policies for multi-tenant isolation
-    
+
     // Organizations - users can only see their own organization
     await queryRunner.query(`
       CREATE POLICY "tenant_isolation_organizations" ON "organizations"
@@ -140,7 +140,7 @@ export class CreateRLSPolicies1700000002 implements MigrationInterface {
     `);
 
     // Create role-based policies for additional security
-    
+
     // Admin-only policies for sensitive operations
     await queryRunner.query(`
       CREATE POLICY "admin_only_user_management" ON "users"
@@ -225,15 +225,32 @@ export class CreateRLSPolicies1700000002 implements MigrationInterface {
 
     // Grant table permissions to authenticated users
     const tables = [
-      'organizations', 'users', 'agents', 'tools', 'workflows', 'widgets',
-      'agent_executions', 'tool_executions', 'workflow_executions',
-      'sessions', 'notifications', 'hitl_requests', 'prompt_templates',
-      'knowledge_documents', 'widget_analytics', 'testing_sandboxes',
-      'test_scenarios', 'test_executions', 'subscriptions', 'ai_providers'
+      'organizations',
+      'users',
+      'agents',
+      'tools',
+      'workflows',
+      'widgets',
+      'agent_executions',
+      'tool_executions',
+      'workflow_executions',
+      'sessions',
+      'notifications',
+      'hitl_requests',
+      'prompt_templates',
+      'knowledge_documents',
+      'widget_analytics',
+      'testing_sandboxes',
+      'test_scenarios',
+      'test_executions',
+      'subscriptions',
+      'ai_providers',
     ];
 
     for (const table of tables) {
-      await queryRunner.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${table}" TO authenticated_user`);
+      await queryRunner.query(
+        `GRANT SELECT, INSERT, UPDATE, DELETE ON "${table}" TO authenticated_user`
+      );
       await queryRunner.query(`GRANT ALL ON "${table}" TO service_role`);
     }
 
@@ -245,11 +262,25 @@ export class CreateRLSPolicies1700000002 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop all policies
     const tables = [
-      'organizations', 'users', 'agents', 'tools', 'workflows', 'widgets',
-      'agent_executions', 'tool_executions', 'workflow_executions',
-      'sessions', 'notifications', 'hitl_requests', 'prompt_templates',
-      'knowledge_documents', 'widget_analytics', 'testing_sandboxes',
-      'test_scenarios', 'test_executions', 'subscriptions'
+      'organizations',
+      'users',
+      'agents',
+      'tools',
+      'workflows',
+      'widgets',
+      'agent_executions',
+      'tool_executions',
+      'workflow_executions',
+      'sessions',
+      'notifications',
+      'hitl_requests',
+      'prompt_templates',
+      'knowledge_documents',
+      'widget_analytics',
+      'testing_sandboxes',
+      'test_scenarios',
+      'test_executions',
+      'subscriptions',
     ];
 
     for (const table of tables) {
@@ -258,13 +289,19 @@ export class CreateRLSPolicies1700000002 implements MigrationInterface {
 
     // Drop role-based policies
     await queryRunner.query(`DROP POLICY IF EXISTS "admin_only_user_management" ON "users"`);
-    await queryRunner.query(`DROP POLICY IF EXISTS "admin_only_organization_management" ON "organizations"`);
+    await queryRunner.query(
+      `DROP POLICY IF EXISTS "admin_only_organization_management" ON "organizations"`
+    );
     await queryRunner.query(`DROP POLICY IF EXISTS "manager_agent_management" ON "agents"`);
     await queryRunner.query(`DROP POLICY IF EXISTS "manager_tool_management" ON "tools"`);
     await queryRunner.query(`DROP POLICY IF EXISTS "manager_workflow_management" ON "workflows"`);
-    await queryRunner.query(`DROP POLICY IF EXISTS "owner_or_admin_agent_modification" ON "agents"`);
+    await queryRunner.query(
+      `DROP POLICY IF EXISTS "owner_or_admin_agent_modification" ON "agents"`
+    );
     await queryRunner.query(`DROP POLICY IF EXISTS "owner_or_admin_tool_modification" ON "tools"`);
-    await queryRunner.query(`DROP POLICY IF EXISTS "owner_or_admin_workflow_modification" ON "workflows"`);
+    await queryRunner.query(
+      `DROP POLICY IF EXISTS "owner_or_admin_workflow_modification" ON "workflows"`
+    );
 
     // Drop roles
     await queryRunner.query(`DROP ROLE IF EXISTS authenticated_user`);

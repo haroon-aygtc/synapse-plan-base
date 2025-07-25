@@ -4,33 +4,33 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-} from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { EventEmitter2 } from "@nestjs/event-emitter";
-import { CACHE_MANAGER } from "@nestjs/cache-manager";
-import { Inject } from "@nestjs/common";
-import { Cache } from "cache-manager";
-import { PromptTemplate } from "@database/entities";
-import { CreatePromptTemplateDto, UpdatePromptTemplateDto } from "./dto";
-import { PromptTemplateEventType } from "@shared/enums";
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Inject } from '@nestjs/common';
+import { Cache } from 'cache-manager';
+import { PromptTemplate } from '@database/entities';
+import { CreatePromptTemplateDto, UpdatePromptTemplateDto } from './dto';
+import { PromptTemplateEventType } from '@shared/enums';
 
 @Injectable()
 export class PromptTemplateService {
   private readonly logger = new Logger(PromptTemplateService.name);
-  private readonly cachePrefix = "template:";
+  private readonly cachePrefix = 'template:';
 
   constructor(
     @InjectRepository(PromptTemplate)
     private readonly promptTemplateRepository: Repository<PromptTemplate>,
     private readonly eventEmitter: EventEmitter2,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {}
 
   async create(
     createDto: CreatePromptTemplateDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<PromptTemplate> {
     // Check if parent template exists if provided
     if (createDto.parentTemplateId) {
@@ -42,13 +42,13 @@ export class PromptTemplateService {
       });
 
       if (!parentTemplate) {
-        throw new NotFoundException("Parent template not found");
+        throw new NotFoundException('Parent template not found');
       }
 
       // Increment fork count on parent template
       await this.promptTemplateRepository.update(
         { id: createDto.parentTemplateId },
-        { forkCount: () => "fork_count + 1" },
+        { forkCount: () => 'fork_count + 1' }
       );
     }
 
@@ -57,7 +57,7 @@ export class PromptTemplateService {
       ...createDto,
       userId,
       organizationId,
-      version: createDto.version || "1.0.0",
+      version: createDto.version || '1.0.0',
     });
 
     const savedTemplate = await this.promptTemplateRepository.save(template);
@@ -75,7 +75,7 @@ export class PromptTemplateService {
     });
 
     this.logger.log(
-      `Template created: ${savedTemplate.id} by user ${userId} in org ${organizationId}`,
+      `Template created: ${savedTemplate.id} by user ${userId} in org ${organizationId}`
     );
 
     return savedTemplate;
@@ -91,36 +91,36 @@ export class PromptTemplateService {
       search?: string;
       limit?: number;
       offset?: number;
-    },
+    }
   ): Promise<PromptTemplate[]> {
     const query = this.promptTemplateRepository
-      .createQueryBuilder("template")
-      .where("template.organizationId = :organizationId", { organizationId });
+      .createQueryBuilder('template')
+      .where('template.organizationId = :organizationId', { organizationId });
 
     if (options?.userId) {
-      query.andWhere("template.userId = :userId", { userId: options.userId });
+      query.andWhere('template.userId = :userId', { userId: options.userId });
     }
 
     if (options?.includeInactive !== true) {
-      query.andWhere("template.isActive = :isActive", { isActive: true });
+      query.andWhere('template.isActive = :isActive', { isActive: true });
     }
 
     if (options?.category) {
-      query.andWhere("template.category = :category", {
+      query.andWhere('template.category = :category', {
         category: options.category,
       });
     }
 
     if (options?.isPublic !== undefined) {
-      query.andWhere("template.isPublic = :isPublic", {
+      query.andWhere('template.isPublic = :isPublic', {
         isPublic: options.isPublic,
       });
     }
 
     if (options?.search) {
       query.andWhere(
-        "(template.name ILIKE :search OR template.description ILIKE :search OR template.content ILIKE :search)",
-        { search: `%${options.search}%` },
+        '(template.name ILIKE :search OR template.description ILIKE :search OR template.content ILIKE :search)',
+        { search: `%${options.search}%` }
       );
     }
 
@@ -132,7 +132,7 @@ export class PromptTemplateService {
       query.skip(options.offset);
     }
 
-    query.orderBy("template.updatedAt", "DESC");
+    query.orderBy('template.updatedAt', 'DESC');
 
     return query.getMany();
   }
@@ -143,7 +143,7 @@ export class PromptTemplateService {
     options?: {
       includeChildren?: boolean;
       includeAgents?: boolean;
-    },
+    }
   ): Promise<PromptTemplate> {
     // Try cache first
     const cacheKey = `${this.cachePrefix}${id}`;
@@ -151,18 +151,18 @@ export class PromptTemplateService {
 
     if (!template) {
       const query = this.promptTemplateRepository
-        .createQueryBuilder("template")
-        .where("template.id = :id", { id })
-        .andWhere("template.organizationId = :organizationId", {
+        .createQueryBuilder('template')
+        .where('template.id = :id', { id })
+        .andWhere('template.organizationId = :organizationId', {
           organizationId,
         });
 
       if (options?.includeChildren) {
-        query.leftJoinAndSelect("template.childTemplates", "childTemplates");
+        query.leftJoinAndSelect('template.childTemplates', 'childTemplates');
       }
 
       if (options?.includeAgents) {
-        query.leftJoinAndSelect("template.agents", "agents");
+        query.leftJoinAndSelect('template.agents', 'agents');
       }
 
       template = await query.getOne();
@@ -173,7 +173,7 @@ export class PromptTemplateService {
     }
 
     if (!template) {
-      throw new NotFoundException("Template not found");
+      throw new NotFoundException('Template not found');
     }
 
     return template;
@@ -183,21 +183,18 @@ export class PromptTemplateService {
     id: string,
     updateDto: UpdatePromptTemplateDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<PromptTemplate> {
     const template = await this.findOne(id, organizationId);
 
     // Check ownership or admin permissions
     if (template.userId !== userId) {
       // In a real implementation, check if user has admin permissions
-      throw new ForbiddenException("Not authorized to update this template");
+      throw new ForbiddenException('Not authorized to update this template');
     }
 
     // Check if parent template exists if being updated
-    if (
-      updateDto.parentTemplateId &&
-      updateDto.parentTemplateId !== template.parentTemplateId
-    ) {
+    if (updateDto.parentTemplateId && updateDto.parentTemplateId !== template.parentTemplateId) {
       const parentTemplate = await this.promptTemplateRepository.findOne({
         where: {
           id: updateDto.parentTemplateId,
@@ -206,20 +203,20 @@ export class PromptTemplateService {
       });
 
       if (!parentTemplate) {
-        throw new NotFoundException("Parent template not found");
+        throw new NotFoundException('Parent template not found');
       }
 
       // Increment fork count on new parent template
       await this.promptTemplateRepository.update(
         { id: updateDto.parentTemplateId },
-        { forkCount: () => "fork_count + 1" },
+        { forkCount: () => 'fork_count + 1' }
       );
 
       // Decrement fork count on old parent template if it exists
       if (template.parentTemplateId) {
         await this.promptTemplateRepository.update(
           { id: template.parentTemplateId },
-          { forkCount: () => "fork_count - 1" },
+          { forkCount: () => 'fork_count - 1' }
         );
       }
     }
@@ -243,37 +240,29 @@ export class PromptTemplateService {
       timestamp: new Date(),
     });
 
-    this.logger.log(
-      `Template updated: ${updatedTemplate.id} by user ${userId}`,
-    );
+    this.logger.log(`Template updated: ${updatedTemplate.id} by user ${userId}`);
 
     return updatedTemplate;
   }
 
-  async remove(
-    id: string,
-    userId: string,
-    organizationId: string,
-  ): Promise<void> {
+  async remove(id: string, userId: string, organizationId: string): Promise<void> {
     const template = await this.findOne(id, organizationId);
 
     // Check ownership or admin permissions
     if (template.userId !== userId) {
-      throw new ForbiddenException("Not authorized to delete this template");
+      throw new ForbiddenException('Not authorized to delete this template');
     }
 
     // Check if template is used by any agents
     const usedByAgents = await this.promptTemplateRepository
-      .createQueryBuilder("template")
-      .leftJoin("template.agents", "agents")
-      .where("template.id = :id", { id })
-      .andWhere("agents.id IS NOT NULL")
+      .createQueryBuilder('template')
+      .leftJoin('template.agents', 'agents')
+      .where('template.id = :id', { id })
+      .andWhere('agents.id IS NOT NULL')
       .getCount();
 
     if (usedByAgents > 0) {
-      throw new BadRequestException(
-        "Cannot delete template that is used by agents",
-      );
+      throw new BadRequestException('Cannot delete template that is used by agents');
     }
 
     // Soft delete by setting isActive to false
@@ -300,15 +289,13 @@ export class PromptTemplateService {
     newVersion: string,
     changes: Record<string, any>,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<PromptTemplate> {
     const template = await this.findOne(id, organizationId);
 
     // Check ownership or admin permissions
     if (template.userId !== userId) {
-      throw new ForbiddenException(
-        "Not authorized to create version of this template",
-      );
+      throw new ForbiddenException('Not authorized to create version of this template');
     }
 
     // Create new version
@@ -327,10 +314,7 @@ export class PromptTemplateService {
     const savedTemplate = await this.promptTemplateRepository.save(newTemplate);
 
     // Increment fork count on parent template
-    await this.promptTemplateRepository.update(
-      { id },
-      { forkCount: () => "fork_count + 1" },
-    );
+    await this.promptTemplateRepository.update({ id }, { forkCount: () => 'fork_count + 1' });
 
     // Cache the new template
     await this.cacheTemplate(savedTemplate);
@@ -346,16 +330,13 @@ export class PromptTemplateService {
     });
 
     this.logger.log(
-      `Template version created: ${savedTemplate.id} (version ${newVersion}) from ${id} by user ${userId}`,
+      `Template version created: ${savedTemplate.id} (version ${newVersion}) from ${id} by user ${userId}`
     );
 
     return savedTemplate;
   }
 
-  async getVersionHistory(
-    id: string,
-    organizationId: string,
-  ): Promise<PromptTemplate[]> {
+  async getVersionHistory(id: string, organizationId: string): Promise<PromptTemplate[]> {
     // Get the template
     const template = await this.findOne(id, organizationId);
 
@@ -364,10 +345,7 @@ export class PromptTemplateService {
 
     // If this template has a parent, get the parent and its ancestors
     if (template.parentTemplateId) {
-      const ancestors = await this.getAncestors(
-        template.parentTemplateId,
-        organizationId,
-      );
+      const ancestors = await this.getAncestors(template.parentTemplateId, organizationId);
       versions.push(...ancestors);
     }
 
@@ -377,7 +355,7 @@ export class PromptTemplateService {
     // Get all child templates
     const children = await this.promptTemplateRepository.find({
       where: { parentTemplateId: id, organizationId },
-      order: { createdAt: "ASC" },
+      order: { createdAt: 'ASC' },
     });
 
     versions.push(...children);
@@ -388,7 +366,7 @@ export class PromptTemplateService {
   async renderTemplate(
     id: string,
     variables: Record<string, any>,
-    organizationId: string,
+    organizationId: string
   ): Promise<string> {
     const template = await this.findOne(id, organizationId);
 
@@ -396,59 +374,54 @@ export class PromptTemplateService {
     if (template.variables) {
       for (const varDef of template.variables) {
         if (varDef.required && !(varDef.name in variables)) {
-          throw new BadRequestException(
-            `Required variable '${varDef.name}' is missing`,
-          );
+          throw new BadRequestException(`Required variable '${varDef.name}' is missing`);
         }
 
         if (varDef.name in variables) {
           const value = variables[varDef.name];
 
           // Type validation
-          if (typeof value !== varDef.type && varDef.type !== "object") {
+          if (typeof value !== varDef.type && varDef.type !== 'object') {
             throw new BadRequestException(
-              `Variable '${varDef.name}' should be of type '${varDef.type}'`,
+              `Variable '${varDef.name}' should be of type '${varDef.type}'`
             );
           }
 
           // Additional validation rules if defined
           if (varDef.validation) {
             if (
-              varDef.type === "number" &&
+              varDef.type === 'number' &&
               varDef.validation.min !== undefined &&
               value < varDef.validation.min
             ) {
               throw new BadRequestException(
-                `Variable '${varDef.name}' should be >= ${varDef.validation.min}`,
+                `Variable '${varDef.name}' should be >= ${varDef.validation.min}`
               );
             }
 
             if (
-              varDef.type === "number" &&
+              varDef.type === 'number' &&
               varDef.validation.max !== undefined &&
               value > varDef.validation.max
             ) {
               throw new BadRequestException(
-                `Variable '${varDef.name}' should be <= ${varDef.validation.max}`,
+                `Variable '${varDef.name}' should be <= ${varDef.validation.max}`
               );
             }
 
             if (
-              varDef.type === "string" &&
+              varDef.type === 'string' &&
               varDef.validation.pattern &&
               !new RegExp(varDef.validation.pattern).test(value)
             ) {
               throw new BadRequestException(
-                `Variable '${varDef.name}' does not match required pattern`,
+                `Variable '${varDef.name}' does not match required pattern`
               );
             }
 
-            if (
-              varDef.validation.enum &&
-              !varDef.validation.enum.includes(value)
-            ) {
+            if (varDef.validation.enum && !varDef.validation.enum.includes(value)) {
               throw new BadRequestException(
-                `Variable '${varDef.name}' should be one of: ${varDef.validation.enum.join(", ")}`,
+                `Variable '${varDef.name}' should be one of: ${varDef.validation.enum.join(', ')}`
               );
             }
           }
@@ -461,25 +434,22 @@ export class PromptTemplateService {
 
     // Replace variables in the format {{variable_name}}
     for (const [key, value] of Object.entries(variables)) {
-      const regex = new RegExp(`{{\\s*${key}\\s*}}`, "g");
+      const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
       renderedContent = renderedContent.replace(
         regex,
-        typeof value === "object" ? JSON.stringify(value) : String(value),
+        typeof value === 'object' ? JSON.stringify(value) : String(value)
       );
     }
 
     // Update usage count
-    await this.promptTemplateRepository.update(
-      { id },
-      { usageCount: () => "usage_count + 1" },
-    );
+    await this.promptTemplateRepository.update({ id }, { usageCount: () => 'usage_count + 1' });
 
     return renderedContent;
   }
 
   async validateTemplate(
     content: string,
-    variables: Record<string, any>,
+    variables: Record<string, any>
   ): Promise<{ valid: boolean; errors?: string[] }> {
     const errors: string[] = [];
 
@@ -488,7 +458,7 @@ export class PromptTemplateService {
       const openBraces = (content.match(/{{/g) || []).length;
       const closeBraces = (content.match(/}}/g) || []).length;
       if (openBraces !== closeBraces) {
-        errors.push("Unmatched template braces");
+        errors.push('Unmatched template braces');
       }
 
       // Extract variable names from template
@@ -509,17 +479,17 @@ export class PromptTemplateService {
       // Try to render the template
       let rendered = content;
       for (const [key, value] of Object.entries(variables)) {
-        const regex = new RegExp(`{{\\s*${key}\\s*}}`, "g");
+        const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
         rendered = rendered.replace(
           regex,
-          typeof value === "object" ? JSON.stringify(value) : String(value),
+          typeof value === 'object' ? JSON.stringify(value) : String(value)
         );
       }
 
       // Check if there are still unresolved variables
       const unresolvedVars = rendered.match(/{{\s*[^}]+\s*}}/g);
       if (unresolvedVars) {
-        errors.push(`Unresolved variables: ${unresolvedVars.join(", ")}`);
+        errors.push(`Unresolved variables: ${unresolvedVars.join(', ')}`);
       }
 
       return {
@@ -529,7 +499,7 @@ export class PromptTemplateService {
     } catch (error) {
       return {
         valid: false,
-        errors: [error instanceof Error ? error.message : "Validation failed"],
+        errors: [error instanceof Error ? error.message : 'Validation failed'],
       };
     }
   }
@@ -544,7 +514,7 @@ export class PromptTemplateService {
       memory?: Record<string, any>;
       toolOutputs?: Record<string, any>;
       knowledgeChunks?: any[];
-    },
+    }
   ): Promise<{
     rendered: string;
     metadata: {
@@ -572,14 +542,10 @@ export class PromptTemplateService {
     if (context.knowledgeChunks && context.knowledgeChunks.length > 0) {
       contextVariables.knowledge_context = context.knowledgeChunks
         .map((chunk) => chunk.content)
-        .join("\n\n");
+        .join('\n\n');
     }
 
-    const rendered = await this.renderTemplate(
-      id,
-      contextVariables,
-      context.organizationId,
-    );
+    const rendered = await this.renderTemplate(id, contextVariables, context.organizationId);
     const renderTime = Date.now() - startTime;
 
     // Extract used variables
@@ -611,18 +577,17 @@ export class PromptTemplateService {
     id: string,
     rating: number,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<PromptTemplate> {
     if (rating < 0 || rating > 5) {
-      throw new BadRequestException("Rating must be between 0 and 5");
+      throw new BadRequestException('Rating must be between 0 and 5');
     }
 
     const template = await this.findOne(id, organizationId);
 
     // Calculate new average rating
     const newRatingCount = template.ratingCount + 1;
-    const newRating =
-      (template.rating * template.ratingCount + rating) / newRatingCount;
+    const newRating = (template.rating * template.ratingCount + rating) / newRatingCount;
 
     // Update template
     template.rating = newRating;
@@ -655,7 +620,7 @@ export class PromptTemplateService {
 
   private async getAncestors(
     templateId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<PromptTemplate[]> {
     const ancestors: PromptTemplate[] = [];
     let currentId = templateId;

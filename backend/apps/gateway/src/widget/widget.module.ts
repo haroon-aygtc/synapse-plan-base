@@ -56,4 +56,4 @@ import { BullModule } from '@nestjs/bull';
   ],
   exports: [WidgetService, WidgetAnalyticsService],
 })
-export class WidgetModule { }
+export class WidgetModule {}

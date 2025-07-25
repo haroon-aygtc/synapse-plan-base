@@ -35,7 +35,7 @@ export class WebSocketService implements OnModuleInit {
 
   constructor(
     private readonly connectionService: ConnectionService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   onModuleInit() {
@@ -60,21 +60,13 @@ export class WebSocketService implements OnModuleInit {
   }
 
   // Broadcast to specific user
-  async broadcastToUser(
-    userId: string,
-    event: string,
-    payload: any,
-  ): Promise<void> {
+  async broadcastToUser(userId: string, event: string, payload: any): Promise<void> {
     if (!this.server) {
       this.logger.warn('WebSocket server not initialized');
       return;
     }
 
-    const message = this.connectionService.createMessage(
-      event,
-      payload,
-      userId,
-    );
+    const message = this.connectionService.createMessage(event, payload, userId);
     this.server.to(`user:${userId}`).emit('message', message);
     this.logger.debug(`Broadcasted to user ${userId}: ${event}`);
   }
@@ -83,19 +75,14 @@ export class WebSocketService implements OnModuleInit {
   async broadcastToOrganization(
     organizationId: string,
     event: string,
-    payload: any,
+    payload: any
   ): Promise<void> {
     if (!this.server) {
       this.logger.warn('WebSocket server not initialized');
       return;
     }
 
-    const message = this.connectionService.createMessage(
-      event,
-      payload,
-      undefined,
-      organizationId,
-    );
+    const message = this.connectionService.createMessage(event, payload, undefined, organizationId);
     this.server.to(`org:${organizationId}`).emit('message', message);
     this.logger.debug(`Broadcasted to org ${organizationId}: ${event}`);
   }
@@ -106,90 +93,46 @@ export class WebSocketService implements OnModuleInit {
     event: string,
     payload: any,
     userId?: string,
-    organizationId?: string,
+    organizationId?: string
   ): Promise<void> {
     if (!this.server) {
       this.logger.warn('WebSocket server not initialized');
       return;
     }
 
-    const message = this.connectionService.createMessage(
-      event,
-      payload,
-      userId,
-      organizationId,
-    );
+    const message = this.connectionService.createMessage(event, payload, userId, organizationId);
     this.server.to(room).emit('message', message);
     this.logger.debug(`Broadcasted to room ${room}: ${event}`);
   }
 
   // Send activity updates
-  async sendActivityUpdate(
-    organizationId: string,
-    activityData: any,
-  ): Promise<void> {
-    await this.broadcastToOrganization(
-      organizationId,
-      'activity_update',
-      activityData,
-    );
+  async sendActivityUpdate(organizationId: string, activityData: any): Promise<void> {
+    await this.broadcastToOrganization(organizationId, 'activity_update', activityData);
   }
 
   // Send stats updates
   async sendStatsUpdate(organizationId: string, statsData: any): Promise<void> {
-    await this.broadcastToOrganization(
-      organizationId,
-      'stats_update',
-      statsData,
-    );
+    await this.broadcastToOrganization(organizationId, 'stats_update', statsData);
   }
 
   // Send resource usage updates
-  async sendResourceUpdate(
-    organizationId: string,
-    resourceData: any,
-  ): Promise<void> {
-    await this.broadcastToOrganization(
-      organizationId,
-      'resource_update',
-      resourceData,
-    );
+  async sendResourceUpdate(organizationId: string, resourceData: any): Promise<void> {
+    await this.broadcastToOrganization(organizationId, 'resource_update', resourceData);
   }
 
   // Send agent execution updates
-  async sendAgentExecutionUpdate(
-    organizationId: string,
-    executionData: any,
-  ): Promise<void> {
-    await this.broadcastToOrganization(
-      organizationId,
-      'agent_execution_update',
-      executionData,
-    );
+  async sendAgentExecutionUpdate(organizationId: string, executionData: any): Promise<void> {
+    await this.broadcastToOrganization(organizationId, 'agent_execution_update', executionData);
   }
 
   // Send workflow execution updates
-  async sendWorkflowExecutionUpdate(
-    organizationId: string,
-    executionData: any,
-  ): Promise<void> {
-    await this.broadcastToOrganization(
-      organizationId,
-      'workflow_execution_update',
-      executionData,
-    );
+  async sendWorkflowExecutionUpdate(organizationId: string, executionData: any): Promise<void> {
+    await this.broadcastToOrganization(organizationId, 'workflow_execution_update', executionData);
   }
 
   // Send tool execution updates
-  async sendToolExecutionUpdate(
-    organizationId: string,
-    executionData: any,
-  ): Promise<void> {
-    await this.broadcastToOrganization(
-      organizationId,
-      'tool_execution_update',
-      executionData,
-    );
+  async sendToolExecutionUpdate(organizationId: string, executionData: any): Promise<void> {
+    await this.broadcastToOrganization(organizationId, 'tool_execution_update', executionData);
   }
 
   // Send system notifications
@@ -200,7 +143,7 @@ export class WebSocketService implements OnModuleInit {
       title: string;
       message: string;
       timestamp?: Date;
-    },
+    }
   ): Promise<void> {
     await this.broadcastToOrganization(organizationId, 'system_notification', {
       ...notification,
@@ -214,7 +157,7 @@ export class WebSocketService implements OnModuleInit {
     payload: any,
     targetType: 'all' | 'tenant' | 'user' | 'flow' = 'tenant',
     targetId?: string,
-    organizationId?: string,
+    organizationId?: string
   ): Promise<void> {
     if (!this.server) {
       this.logger.warn('WebSocket server not initialized');
@@ -229,7 +172,7 @@ export class WebSocketService implements OnModuleInit {
     });
 
     this.logger.debug(
-      `Published event ${eventType} with targeting: ${targetType}${targetId ? `:${targetId}` : ''}`,
+      `Published event ${eventType} with targeting: ${targetType}${targetId ? `:${targetId}` : ''}`
     );
   }
 
@@ -241,9 +184,7 @@ export class WebSocketService implements OnModuleInit {
     targetConnections: string[];
   }): Promise<void> {
     if (!this.server) {
-      this.logger.warn(
-        'WebSocket server not initialized for event publication',
-      );
+      this.logger.warn('WebSocket server not initialized for event publication');
       return;
     }
 
@@ -252,8 +193,7 @@ export class WebSocketService implements OnModuleInit {
 
     // Send to each target connection
     for (const connectionId of targetConnections) {
-      const connection =
-        this.connectionService.getConnectionBySocketId(connectionId);
+      const connection = this.connectionService.getConnectionBySocketId(connectionId);
       if (connection) {
         try {
           // Send to user's room
@@ -261,14 +201,14 @@ export class WebSocketService implements OnModuleInit {
           deliveredCount++;
         } catch (error: any) {
           this.logger.error(
-            `Failed to deliver message to connection ${connectionId}: ${error.message}`,
+            `Failed to deliver message to connection ${connectionId}: ${error.message}`
           );
         }
       }
     }
 
     this.logger.debug(
-      `Event ${data.eventPublication.eventType} delivered to ${deliveredCount}/${targetConnections.length} connections`,
+      `Event ${data.eventPublication.eventType} delivered to ${deliveredCount}/${targetConnections.length} connections`
     );
   }
 
@@ -286,7 +226,7 @@ export class WebSocketService implements OnModuleInit {
       agentId?: string;
       toolId?: string;
     },
-    metadata?: Record<string, any>,
+    metadata?: Record<string, any>
   ): Promise<void> {
     const crossModuleEvent: ICrossModuleEvent = {
       sourceModule,
@@ -304,17 +244,14 @@ export class WebSocketService implements OnModuleInit {
   async broadcastToSubscribers(
     eventType: string,
     payload: any,
-    organizationId?: string,
+    organizationId?: string
   ): Promise<void> {
     if (!this.server) {
       this.logger.warn('WebSocket server not initialized');
       return;
     }
 
-    const subscribers = this.connectionService.getSubscribersForEvent(
-      eventType,
-      organizationId,
-    );
+    const subscribers = this.connectionService.getSubscribersForEvent(eventType, organizationId);
 
     if (subscribers.length === 0) {
       this.logger.debug(`No subscribers found for event: ${eventType}`);
@@ -325,22 +262,19 @@ export class WebSocketService implements OnModuleInit {
       eventType,
       payload,
       undefined,
-      organizationId,
+      organizationId
     );
 
     // Emit to each subscriber's socket
     for (const connectionId of subscribers) {
-      const connection =
-        this.connectionService.getConnectionBySocketId(connectionId);
+      const connection = this.connectionService.getConnectionBySocketId(connectionId);
       if (connection) {
         // Find socket by connection info and emit
         this.server.to(`user:${connection.userId}`).emit('message', message);
       }
     }
 
-    this.logger.debug(
-      `Broadcasted event ${eventType} to ${subscribers.length} subscribers`,
-    );
+    this.logger.debug(`Broadcasted event ${eventType} to ${subscribers.length} subscribers`);
   }
 
   // Send targeted event to specific flow participants
@@ -348,16 +282,10 @@ export class WebSocketService implements OnModuleInit {
     flowId: string,
     eventType: string,
     payload: any,
-    organizationId: string,
+    organizationId: string
   ): Promise<void> {
     const flowEventType = `FLOW:${flowId}:${eventType}`;
-    await this.publishEvent(
-      flowEventType,
-      { ...payload, flowId },
-      'flow',
-      flowId,
-      organizationId,
-    );
+    await this.publishEvent(flowEventType, { ...payload, flowId }, 'flow', flowId, organizationId);
   }
 
   // Send node-specific events (for canvas/flow updates)
@@ -366,18 +294,16 @@ export class WebSocketService implements OnModuleInit {
     eventType: 'NODE_MOVED' | 'NODE_CREATED' | 'NODE_DELETED' | 'NODE_UPDATED',
     payload: any,
     organizationId: string,
-    flowId?: string,
+    flowId?: string
   ): Promise<void> {
-    const nodeEventType = flowId
-      ? `${eventType}:${flowId}:${nodeId}`
-      : `${eventType}:${nodeId}`;
+    const nodeEventType = flowId ? `${eventType}:${flowId}:${nodeId}` : `${eventType}:${nodeId}`;
 
     await this.publishEvent(
       nodeEventType,
       { ...payload, nodeId, flowId },
       'tenant',
       undefined,
-      organizationId,
+      organizationId
     );
   }
 
@@ -398,18 +324,14 @@ export class WebSocketService implements OnModuleInit {
   // APIX Protocol Handlers
   async handleAgentExecutionStart(
     payload: IAPXAgentExecutionStarted,
-    context: { userId: string; organizationId: string; sessionId: string },
+    context: { userId: string; organizationId: string; sessionId: string }
   ): Promise<void> {
     // Validate execution limits
     const activeExecutions = this.getActiveExecutionsForUser(context.userId);
-    const maxConcurrentExecutions = this.getMaxConcurrentExecutions(
-      context.userId,
-    );
+    const maxConcurrentExecutions = this.getMaxConcurrentExecutions(context.userId);
 
     if (activeExecutions >= maxConcurrentExecutions) {
-      throw new Error(
-        `Maximum concurrent executions exceeded: ${maxConcurrentExecutions}`,
-      );
+      throw new Error(`Maximum concurrent executions exceeded: ${maxConcurrentExecutions}`);
     }
     try {
       // Create streaming session for agent execution
@@ -441,16 +363,16 @@ export class WebSocketService implements OnModuleInit {
         context.organizationId,
         APXMessageType.AGENT_EXECUTION_STARTED,
         payload,
-        context.sessionId,
+        context.sessionId
       );
 
       this.logger.log(
-        `Agent execution started: ${payload.execution_id} for agent ${payload.agent_id}`,
+        `Agent execution started: ${payload.execution_id} for agent ${payload.agent_id}`
       );
     } catch (error: any) {
       this.logger.error(
         `Failed to handle agent execution start: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
       throw error;
     }
@@ -473,7 +395,7 @@ export class WebSocketService implements OnModuleInit {
 
   async handleToolCallStart(
     payload: IAPXToolCallStart,
-    context: { userId: string; organizationId: string; sessionId: string },
+    context: { userId: string; organizationId: string; sessionId: string }
   ): Promise<void> {
     try {
       // Create streaming session for tool call
@@ -504,16 +426,14 @@ export class WebSocketService implements OnModuleInit {
         context.organizationId,
         APXMessageType.TOOL_CALL_START,
         payload,
-        context.sessionId,
+        context.sessionId
       );
 
-      this.logger.log(
-        `Tool call started: ${payload.tool_call_id} for tool ${payload.tool_id}`,
-      );
+      this.logger.log(`Tool call started: ${payload.tool_call_id} for tool ${payload.tool_id}`);
     } catch (error: any) {
       this.logger.error(
         `Failed to handle tool call start: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
       throw error;
     }
@@ -521,7 +441,7 @@ export class WebSocketService implements OnModuleInit {
 
   async handleHITLRequest(
     payload: IAPXHITLRequestCreated,
-    context: { userId: string; organizationId: string; sessionId: string },
+    context: { userId: string; organizationId: string; sessionId: string }
   ): Promise<void> {
     try {
       // Store HITL request context
@@ -541,16 +461,16 @@ export class WebSocketService implements OnModuleInit {
         {
           targetRoles: payload.assignee_roles,
           targetUsers: payload.assignee_users,
-        },
+        }
       );
 
       this.logger.log(
-        `HITL request created: ${payload.request_id} with priority ${payload.priority}`,
+        `HITL request created: ${payload.request_id} with priority ${payload.priority}`
       );
     } catch (error: any) {
       this.logger.error(
         `Failed to handle HITL request: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
       throw error;
     }
@@ -558,7 +478,7 @@ export class WebSocketService implements OnModuleInit {
 
   async handleKnowledgeSearch(
     payload: IAPXKBSearchPerformed,
-    context: { userId: string; organizationId: string; sessionId: string },
+    context: { userId: string; organizationId: string; sessionId: string }
   ): Promise<void> {
     try {
       // Create streaming session for knowledge search
@@ -589,16 +509,16 @@ export class WebSocketService implements OnModuleInit {
         context.organizationId,
         APXMessageType.KB_SEARCH_PERFORMED,
         payload,
-        context.sessionId,
+        context.sessionId
       );
 
       this.logger.log(
-        `Knowledge search performed: ${payload.search_id} with query "${payload.query}"`,
+        `Knowledge search performed: ${payload.search_id} with query "${payload.query}"`
       );
     } catch (error: any) {
       this.logger.error(
         `Failed to handle knowledge search: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
       throw error;
     }
@@ -606,7 +526,7 @@ export class WebSocketService implements OnModuleInit {
 
   async handleWidgetQuery(
     payload: IAPXWidgetQuerySubmitted,
-    context: { userId: string; organizationId: string; sessionId: string },
+    context: { userId: string; organizationId: string; sessionId: string }
   ): Promise<void> {
     try {
       // Store widget interaction context
@@ -623,16 +543,16 @@ export class WebSocketService implements OnModuleInit {
         context.organizationId,
         APXMessageType.WIDGET_QUERY_SUBMITTED,
         payload,
-        context.sessionId,
+        context.sessionId
       );
 
       this.logger.log(
-        `Widget query submitted: ${payload.interaction_id} for widget ${payload.widget_id}`,
+        `Widget query submitted: ${payload.interaction_id} for widget ${payload.widget_id}`
       );
     } catch (error: any) {
       this.logger.error(
         `Failed to handle widget query: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
       throw error;
     }
@@ -641,7 +561,7 @@ export class WebSocketService implements OnModuleInit {
   async handleStreamControl(
     executionId: string,
     action: 'pause' | 'resume',
-    context: { userId: string; organizationId: string; reason?: string },
+    context: { userId: string; organizationId: string; reason?: string }
   ): Promise<void> {
     try {
       const streamingSession = this.activeStreams.get(executionId);
@@ -665,20 +585,16 @@ export class WebSocketService implements OnModuleInit {
 
       await this.broadcastAPXMessage(
         context.organizationId,
-        action === 'pause'
-          ? APXMessageType.STREAM_PAUSE
-          : APXMessageType.STREAM_RESUME,
+        action === 'pause' ? APXMessageType.STREAM_PAUSE : APXMessageType.STREAM_RESUME,
         controlPayload,
-        streamingSession.session_id,
+        streamingSession.session_id
       );
 
-      this.logger.log(
-        `Stream ${action}d: ${executionId} by user ${context.userId}`,
-      );
+      this.logger.log(`Stream ${action}d: ${executionId} by user ${context.userId}`);
     } catch (error: any) {
       this.logger.error(
         `Failed to handle stream control: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
       throw error;
     }
@@ -691,16 +607,14 @@ export class WebSocketService implements OnModuleInit {
     text: string,
     isFinal: boolean = false,
     tokenCount: number = 0,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, any>
   ): Promise<void> {
     try {
       const streamingSession = this.activeStreams.get(executionId);
       const executionContext = this.executionContexts.get(executionId);
 
       if (!streamingSession || !executionContext) {
-        this.logger.warn(
-          `No active stream found for execution: ${executionId}`,
-        );
+        this.logger.warn(`No active stream found for execution: ${executionId}`);
         return;
       }
 
@@ -723,7 +637,7 @@ export class WebSocketService implements OnModuleInit {
         executionContext.organizationId,
         APXMessageType.AGENT_TEXT_CHUNK,
         chunkPayload,
-        streamingSession.session_id,
+        streamingSession.session_id
       );
 
       // Update stream state if final
@@ -733,12 +647,12 @@ export class WebSocketService implements OnModuleInit {
       }
 
       this.logger.debug(
-        `Streamed text chunk ${chunkId} for execution ${executionId} (${text.length} chars)`,
+        `Streamed text chunk ${chunkId} for execution ${executionId} (${text.length} chars)`
       );
     } catch (error: any) {
       this.logger.error(
         `Failed to stream text chunk: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
     }
   }
@@ -753,7 +667,7 @@ export class WebSocketService implements OnModuleInit {
       | 'cost_update',
     payload: any,
     organizationId: string,
-    sessionId?: string,
+    sessionId?: string
   ): Promise<void> {
     try {
       const message = {
@@ -767,13 +681,11 @@ export class WebSocketService implements OnModuleInit {
       // Broadcast to organization
       await this.broadcastToOrganization(organizationId, eventType, message);
 
-      this.logger.debug(
-        `Streamed provider event ${eventType} to organization ${organizationId}`,
-      );
+      this.logger.debug(`Streamed provider event ${eventType} to organization ${organizationId}`);
     } catch (error: any) {
       this.logger.error(
         `Failed to stream provider event: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
     }
   }
@@ -782,7 +694,7 @@ export class WebSocketService implements OnModuleInit {
   async completeExecution(
     executionId: string,
     finalResponse: string,
-    executionStats: any,
+    executionStats: any
   ): Promise<void> {
     try {
       const streamingSession = this.activeStreams.get(executionId);
@@ -815,7 +727,7 @@ export class WebSocketService implements OnModuleInit {
         executionContext.organizationId,
         APXMessageType.AGENT_EXECUTION_COMPLETE,
         completionPayload,
-        streamingSession.session_id,
+        streamingSession.session_id
       );
 
       // Cleanup
@@ -823,13 +735,11 @@ export class WebSocketService implements OnModuleInit {
       this.activeStreams.delete(executionId);
       this.executionContexts.delete(executionId);
 
-      this.logger.log(
-        `Execution completed: ${executionId} in ${executionTimeMs}ms`,
-      );
+      this.logger.log(`Execution completed: ${executionId} in ${executionTimeMs}ms`);
     } catch (error: any) {
       this.logger.error(
         `Failed to complete execution: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
     }
   }
@@ -839,7 +749,7 @@ export class WebSocketService implements OnModuleInit {
     executionId: string,
     errorType: string,
     errorMessage: string,
-    errorDetails?: any,
+    errorDetails?: any
   ): Promise<void> {
     try {
       const streamingSession = this.activeStreams.get(executionId);
@@ -865,20 +775,18 @@ export class WebSocketService implements OnModuleInit {
         executionContext.organizationId,
         APXMessageType.AGENT_ERROR,
         errorPayload,
-        streamingSession.session_id,
+        streamingSession.session_id
       );
 
       // Update stream state
       streamingSession.state = APXStreamState.ERROR;
       streamingSession.last_activity = new Date().toISOString();
 
-      this.logger.error(
-        `Execution error: ${executionId} - ${errorType}: ${errorMessage}`,
-      );
+      this.logger.error(`Execution error: ${executionId} - ${errorType}: ${errorMessage}`);
     } catch (error: any) {
       this.logger.error(
         `Failed to handle execution error: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
     }
   }
@@ -892,7 +800,7 @@ export class WebSocketService implements OnModuleInit {
     options?: {
       targetRoles?: string[];
       targetUsers?: string[];
-    },
+    }
   ): Promise<void> {
     if (!this.server) {
       this.logger.warn('WebSocket server not initialized');
@@ -912,9 +820,7 @@ export class WebSocketService implements OnModuleInit {
       // Targeted broadcast to specific roles or users
       if (options.targetRoles) {
         for (const role of options.targetRoles) {
-          this.server
-            .to(`role:${role}:${organizationId}`)
-            .emit('apx_message', message);
+          this.server.to(`role:${role}:${organizationId}`).emit('apx_message', message);
         }
       }
       if (options.targetUsers) {
@@ -927,9 +833,7 @@ export class WebSocketService implements OnModuleInit {
       this.server.to(`org:${organizationId}`).emit('apx_message', message);
     }
 
-    this.logger.debug(
-      `Broadcasted APIX message: ${messageType} to organization ${organizationId}`,
-    );
+    this.logger.debug(`Broadcasted APIX message: ${messageType} to organization ${organizationId}`);
   }
 
   // Get active streaming sessions

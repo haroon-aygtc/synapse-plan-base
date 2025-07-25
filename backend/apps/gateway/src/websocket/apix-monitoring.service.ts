@@ -48,17 +48,13 @@ export class APXMonitoringService {
 
   constructor(
     @Inject('REDIS_CLIENT') private readonly redis: Redis,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {
     this.startMetricsCleanup();
   }
 
   // Message-level monitoring
-  recordMessageStart(
-    messageType: APXMessageType,
-    organizationId: string,
-    userId: string,
-  ): string {
+  recordMessageStart(messageType: APXMessageType, organizationId: string, userId: string): string {
     const traceId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Store start time in Redis for distributed tracing
@@ -71,7 +67,7 @@ export class APXMonitoringService {
           organizationId,
           userId,
           startTime: Date.now(),
-        }),
+        })
       )
       .catch((error) => {
         this.logger.warn(`Failed to store trace start: ${error.message}`);
@@ -84,7 +80,7 @@ export class APXMonitoringService {
     traceId: string,
     success: boolean,
     payloadSize: number,
-    errorCode?: string,
+    errorCode?: string
   ): Promise<void> {
     try {
       const traceData = await this.redis.get(`apix:trace:${traceId}`);
@@ -113,11 +109,11 @@ export class APXMonitoringService {
       // Store in Redis for persistence and cross-instance aggregation
       await this.redis.lpush(
         `apix:metrics:messages:${trace.organizationId}`,
-        JSON.stringify(metrics),
+        JSON.stringify(metrics)
       );
       await this.redis.expire(
         `apix:metrics:messages:${trace.organizationId}`,
-        86400, // 24 hours
+        86400 // 24 hours
       );
 
       // Emit event for real-time monitoring
@@ -129,13 +125,13 @@ export class APXMonitoringService {
       // Log high latency or errors
       if (latency > 5000) {
         this.logger.warn(
-          `High latency detected: ${trace.messageType} took ${latency}ms for org ${trace.organizationId}`,
+          `High latency detected: ${trace.messageType} took ${latency}ms for org ${trace.organizationId}`
         );
       }
 
       if (!success) {
         this.logger.error(
-          `Message failed: ${trace.messageType} for org ${trace.organizationId} - ${errorCode}`,
+          `Message failed: ${trace.messageType} for org ${trace.organizationId} - ${errorCode}`
         );
       }
     } catch (error) {
@@ -144,11 +140,7 @@ export class APXMonitoringService {
   }
 
   // Connection-level monitoring
-  recordConnectionStart(
-    connectionId: string,
-    organizationId: string,
-    userId: string,
-  ): void {
+  recordConnectionStart(connectionId: string, organizationId: string, userId: string): void {
     const metrics: ConnectionMetrics = {
       organizationId,
       userId,
@@ -167,20 +159,14 @@ export class APXMonitoringService {
     if (!metrics) return;
 
     metrics.disconnectedAt = new Date();
-    metrics.duration =
-      metrics.disconnectedAt.getTime() - metrics.connectedAt.getTime();
+    metrics.duration = metrics.disconnectedAt.getTime() - metrics.connectedAt.getTime();
     metrics.disconnectReason = reason;
 
     // Store final metrics in Redis
     this.redis
-      .lpush(
-        `apix:metrics:connections:${metrics.organizationId}`,
-        JSON.stringify(metrics),
-      )
+      .lpush(`apix:metrics:connections:${metrics.organizationId}`, JSON.stringify(metrics))
       .catch((error) => {
-        this.logger.warn(
-          `Failed to store connection metrics: ${error.message}`,
-        );
+        this.logger.warn(`Failed to store connection metrics: ${error.message}`);
       });
 
     this.eventEmitter.emit('apix.connection.ended', metrics);
@@ -200,18 +186,14 @@ export class APXMonitoringService {
   // Performance metrics aggregation
   getPerformanceMetrics(
     organizationId?: string,
-    timeWindowMs: number = 300000,
+    timeWindowMs: number = 300000
   ): PerformanceMetrics {
     const cutoff = new Date(Date.now() - timeWindowMs);
 
-    let relevantMetrics = this.messageMetrics.filter(
-      (m) => m.timestamp >= cutoff,
-    );
+    let relevantMetrics = this.messageMetrics.filter((m) => m.timestamp >= cutoff);
 
     if (organizationId) {
-      relevantMetrics = relevantMetrics.filter(
-        (m) => m.organizationId === organizationId,
-      );
+      relevantMetrics = relevantMetrics.filter((m) => m.organizationId === organizationId);
     }
 
     if (relevantMetrics.length === 0) {
@@ -227,11 +209,8 @@ export class APXMonitoringService {
     }
 
     // Calculate latency metrics
-    const latencies = relevantMetrics
-      .map((m) => m.latency)
-      .sort((a, b) => a - b);
-    const avgLatency =
-      latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
+    const latencies = relevantMetrics.map((m) => m.latency).sort((a, b) => a - b);
+    const avgLatency = latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length;
     const p95Index = Math.floor(latencies.length * 0.95);
     const p99Index = Math.floor(latencies.length * 0.99);
     const p95Latency = latencies[p95Index] || 0;
@@ -247,7 +226,7 @@ export class APXMonitoringService {
     // Get current connection count
     const connectionCount = organizationId
       ? Array.from(this.connectionMetrics.values()).filter(
-          (c) => c.organizationId === organizationId,
+          (c) => c.organizationId === organizationId
         ).length
       : this.connectionMetrics.size;
 
@@ -344,27 +323,18 @@ export class APXMonitoringService {
     topErrorCodes: Array<{ code: string; count: number }>;
   } {
     const cutoff = new Date(Date.now() - 300000); // 5 minutes
-    let relevantMetrics = this.messageMetrics.filter(
-      (m) => m.timestamp >= cutoff,
-    );
+    let relevantMetrics = this.messageMetrics.filter((m) => m.timestamp >= cutoff);
     let relevantConnections = Array.from(this.connectionMetrics.values());
 
     if (organizationId) {
-      relevantMetrics = relevantMetrics.filter(
-        (m) => m.organizationId === organizationId,
-      );
-      relevantConnections = relevantConnections.filter(
-        (c) => c.organizationId === organizationId,
-      );
+      relevantMetrics = relevantMetrics.filter((m) => m.organizationId === organizationId);
+      relevantConnections = relevantConnections.filter((c) => c.organizationId === organizationId);
     }
 
     // Top message types
     const messageTypeCounts = new Map<string, number>();
     relevantMetrics.forEach((m) => {
-      messageTypeCounts.set(
-        m.messageType,
-        (messageTypeCounts.get(m.messageType) || 0) + 1,
-      );
+      messageTypeCounts.set(m.messageType, (messageTypeCounts.get(m.messageType) || 0) + 1);
     });
     const topMessageTypes = Array.from(messageTypeCounts.entries())
       .map(([type, count]) => ({ type, count }))
@@ -376,10 +346,7 @@ export class APXMonitoringService {
     relevantMetrics
       .filter((m) => !m.success && m.errorCode)
       .forEach((m) => {
-        errorCodeCounts.set(
-          m.errorCode!,
-          (errorCodeCounts.get(m.errorCode!) || 0) + 1,
-        );
+        errorCodeCounts.set(m.errorCode!, (errorCodeCounts.get(m.errorCode!) || 0) + 1);
       });
     const topErrorCodes = Array.from(errorCodeCounts.entries())
       .map(([code, count]) => ({ code, count }))

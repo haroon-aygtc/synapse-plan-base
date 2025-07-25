@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleInit,
-  OnModuleDestroy,
-} from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -11,11 +6,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import {
-  AIProvider,
-  AIProviderMetrics,
-  ProviderStatus,
-} from '@database/entities';
+import { AIProvider, AIProviderMetrics, ProviderStatus } from '@database/entities';
 import { ProviderAdapterService } from './provider-adapter.service';
 import { AgentEventType } from '@shared/enums';
 
@@ -62,7 +53,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
     private readonly metricsRepository: Repository<AIProviderMetrics>,
     private readonly providerAdapter: ProviderAdapterService,
     private readonly eventEmitter: EventEmitter2,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
   ) {}
 
   async onModuleInit() {
@@ -84,19 +75,12 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
       await this.startMonitoring(provider.id, provider.organizationId);
     }
 
-    this.logger.log(
-      `Started health monitoring for ${activeProviders.length} providers`,
-    );
+    this.logger.log(`Started health monitoring for ${activeProviders.length} providers`);
   }
 
-  async startMonitoring(
-    providerId: string,
-    organizationId: string,
-  ): Promise<void> {
+  async startMonitoring(providerId: string, organizationId: string): Promise<void> {
     if (this.monitoringIntervals.has(providerId)) {
-      this.logger.warn(
-        `Health monitoring already active for provider ${providerId}`,
-      );
+      this.logger.warn(`Health monitoring already active for provider ${providerId}`);
       return;
     }
 
@@ -142,10 +126,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
     this.healthStats.clear();
   }
 
-  async performHealthCheck(
-    providerId: string,
-    organizationId: string,
-  ): Promise<HealthCheckResult> {
+  async performHealthCheck(providerId: string, organizationId: string): Promise<HealthCheckResult> {
     const provider = await this.providerRepository.findOne({
       where: { id: providerId, organizationId },
     });
@@ -159,10 +140,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
 
     try {
       // Perform connection test
-      const testResult = await this.providerAdapter.testConnection(
-        provider.type,
-        provider.config,
-      );
+      const testResult = await this.providerAdapter.testConnection(provider.type, provider.config);
 
       const responseTime = Date.now() - startTime;
       const stats = this.healthStats.get(providerId);
@@ -175,19 +153,14 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
           stats.consecutiveFailures = 0;
           stats.lastSuccessfulCheck = new Date();
           stats.averageResponseTime =
-            (stats.averageResponseTime * (stats.totalChecks - 1) +
-              responseTime) /
+            (stats.averageResponseTime * (stats.totalChecks - 1) + responseTime) /
             stats.totalChecks;
           stats.uptime = stats.successfulChecks / stats.totalChecks;
         }
 
         result = {
           providerId,
-          status: this.determineHealthStatus(
-            responseTime,
-            0,
-            stats?.uptime || 1,
-          ),
+          status: this.determineHealthStatus(responseTime, 0, stats?.uptime || 1),
           responseTime,
           errorRate: 0,
           uptime: stats?.uptime || 1,
@@ -243,7 +216,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
     await this.cacheManager.set(
       `health:${providerId}`,
       result,
-      300000, // 5 minutes
+      300000 // 5 minutes
     );
 
     // Emit health check event
@@ -266,7 +239,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
   private determineHealthStatus(
     responseTime: number,
     errorRate: number,
-    uptime: number,
+    uptime: number
   ): 'healthy' | 'unhealthy' | 'degraded' {
     if (
       responseTime > this.healthThresholds.responseTimeError ||
@@ -289,7 +262,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
 
   private async updateProviderHealth(
     provider: AIProvider,
-    result: HealthCheckResult,
+    result: HealthCheckResult
   ): Promise<void> {
     provider.healthCheck = {
       lastCheck: result.lastCheck,
@@ -304,7 +277,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
 
   private async handleUnhealthyProvider(
     provider: AIProvider,
-    result: HealthCheckResult,
+    result: HealthCheckResult
   ): Promise<void> {
     const stats = this.healthStats.get(provider.id);
 
@@ -328,13 +301,10 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
         });
 
         this.logger.error(
-          `Provider ${provider.id} marked as ERROR due to ${stats.consecutiveFailures} consecutive failures`,
+          `Provider ${provider.id} marked as ERROR due to ${stats.consecutiveFailures} consecutive failures`
         );
       }
-    } else if (
-      result.status === 'healthy' &&
-      provider.status === ProviderStatus.ERROR
-    ) {
+    } else if (result.status === 'healthy' && provider.status === ProviderStatus.ERROR) {
       // Restore provider if it becomes healthy again
       provider.status = ProviderStatus.ACTIVE;
       await this.providerRepository.save(provider);
@@ -348,20 +318,16 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
         timestamp: new Date(),
       });
 
-      this.logger.log(
-        `Provider ${provider.id} restored to ACTIVE status after recovery`,
-      );
+      this.logger.log(`Provider ${provider.id} restored to ACTIVE status after recovery`);
     }
   }
 
   async getProviderHealth(
     providerId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<HealthCheckResult | null> {
     // Try cache first
-    const cached = await this.cacheManager.get<HealthCheckResult>(
-      `health:${providerId}`,
-    );
+    const cached = await this.cacheManager.get<HealthCheckResult>(`health:${providerId}`);
     if (cached) {
       return cached;
     }
@@ -370,9 +336,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
     try {
       return await this.performHealthCheck(providerId, organizationId);
     } catch (error) {
-      this.logger.error(
-        `Failed to get health for provider ${providerId}: ${error.message}`,
-      );
+      this.logger.error(`Failed to get health for provider ${providerId}: ${error.message}`);
       return null;
     }
   }
@@ -480,9 +444,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
         .where('timestamp < :cutoffDate', { cutoffDate })
         .execute();
 
-      this.logger.log(
-        `Cleaned up ${result.affected} old health metrics records`,
-      );
+      this.logger.log(`Cleaned up ${result.affected} old health metrics records`);
     } catch (error) {
       this.logger.error(`Failed to cleanup old metrics: ${error.message}`);
     }

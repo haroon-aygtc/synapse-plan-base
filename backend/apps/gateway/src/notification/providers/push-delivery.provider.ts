@@ -18,16 +18,21 @@ export class PushDeliveryProvider {
       const projectId = this.configService.get<string>('FIREBASE_PROJECT_ID');
 
       if (!serviceAccountKey || !projectId) {
-        this.logger.warn('Firebase credentials not configured. Push notifications will be disabled.');
+        this.logger.warn(
+          'Firebase credentials not configured. Push notifications will be disabled.'
+        );
         return;
       }
 
       const serviceAccount = JSON.parse(serviceAccountKey);
 
-      this.firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        projectId: projectId,
-      }, 'synapseai-notifications');
+      this.firebaseApp = admin.initializeApp(
+        {
+          credential: admin.credential.cert(serviceAccount),
+          projectId,
+        },
+        'synapseai-notifications'
+      );
 
       this.logger.log('Firebase push notification provider initialized successfully');
     } catch (error) {
@@ -57,7 +62,7 @@ export class PushDeliveryProvider {
           ...message,
           token: pushData.deviceTokens[0],
         });
-        
+
         return {
           success: true,
           messageId: result,
@@ -71,7 +76,9 @@ export class PushDeliveryProvider {
           tokens: pushData.deviceTokens,
         });
 
-        this.logger.debug(`Push notification sent: ${result.successCount} successful, ${result.failureCount} failed`);
+        this.logger.debug(
+          `Push notification sent: ${result.successCount} successful, ${result.failureCount} failed`
+        );
 
         // Handle failed tokens
         const failedTokens = [];
@@ -119,15 +126,15 @@ export class PushDeliveryProvider {
         organizationId: notification.organizationId,
         userId: notification.userId,
         createdAt: notification.createdAt?.toISOString() || new Date().toISOString(),
-        ...(notification.data && typeof notification.data === 'object' 
-          ? this.flattenObjectForData(notification.data) 
+        ...(notification.data && typeof notification.data === 'object'
+          ? this.flattenObjectForData(notification.data)
           : {}),
       },
       android: {
-        priority: this.mapPriorityToAndroid(notification.priority) as 'high' | 'default',
+        priority: this.mapPriorityToAndroid(notification.priority),
         notification: {
           channelId: 'synapseai-notifications',
-          priority: this.mapPriorityToAndroid(notification.priority) as 'high' | 'default',
+          priority: this.mapPriorityToAndroid(notification.priority),
           defaultSound: true,
           defaultVibrateTimings: true,
           defaultLightSettings: true,
@@ -190,12 +197,12 @@ export class PushDeliveryProvider {
 
   private flattenObjectForData(obj: any, prefix = ''): Record<string, string> {
     const flattened: Record<string, string> = {};
-    
+
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
         const value = obj[key];
         const newKey = prefix ? `${prefix}.${key}` : key;
-        
+
         if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
           Object.assign(flattened, this.flattenObjectForData(value, newKey));
         } else {
@@ -203,7 +210,7 @@ export class PushDeliveryProvider {
         }
       }
     }
-    
+
     return flattened;
   }
 
@@ -241,14 +248,17 @@ export class PushDeliveryProvider {
     // Test each token by sending a dry-run message
     for (const token of tokens) {
       try {
-        await admin.messaging(this.firebaseApp).send({
-          token,
-          notification: {
-            title: 'Test',
-            body: 'Test message',
+        await admin.messaging(this.firebaseApp).send(
+          {
+            token,
+            notification: {
+              title: 'Test',
+              body: 'Test message',
+            },
           },
-        }, true); // dry-run mode
-        
+          true
+        ); // dry-run mode
+
         validTokens.push(token);
       } catch (error) {
         invalidTokens.push(token);
@@ -262,25 +272,25 @@ export class PushDeliveryProvider {
   async sendBatchPush(deliveries: NotificationDelivery[]): Promise<any[]> {
     const results = [];
     const batchSize = 500; // Firebase FCM batch limit
-    
+
     for (let i = 0; i < deliveries.length; i += batchSize) {
       const batch = deliveries.slice(i, i + batchSize);
-      
+
       const batchPromises = batch.map(async (delivery) => {
         try {
           const result = await this.sendPush(delivery);
           return { deliveryId: delivery.id, success: true, result };
         } catch (error) {
-          return { 
-            deliveryId: delivery.id, 
-            success: false, 
-            error: error.message 
+          return {
+            deliveryId: delivery.id,
+            success: false,
+            error: error.message,
           };
         }
       });
-      
+
       const batchResults = await Promise.allSettled(batchPromises);
-      
+
       batchResults.forEach((result) => {
         if (result.status === 'fulfilled') {
           results.push(result.value);
@@ -292,7 +302,7 @@ export class PushDeliveryProvider {
         }
       });
     }
-    
+
     return results;
   }
 
@@ -318,9 +328,9 @@ export class PushDeliveryProvider {
 
     try {
       const result = await admin.messaging(this.firebaseApp).subscribeToTopic(tokens, topic);
-      
+
       this.logger.debug(`Subscribed ${result.successCount} tokens to topic: ${topic}`);
-      
+
       return {
         success: result.successCount > 0,
         successCount: result.successCount,
@@ -340,9 +350,9 @@ export class PushDeliveryProvider {
 
     try {
       const result = await admin.messaging(this.firebaseApp).unsubscribeFromTopic(tokens, topic);
-      
+
       this.logger.debug(`Unsubscribed ${result.successCount} tokens from topic: ${topic}`);
-      
+
       return {
         success: result.successCount > 0,
         successCount: result.successCount,

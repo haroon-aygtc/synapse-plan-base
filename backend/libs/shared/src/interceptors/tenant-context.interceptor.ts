@@ -34,7 +34,7 @@ export class TenantContextInterceptor implements NestInterceptor {
     // Check if route requires tenant context
     const requiresTenantContext = this.reflector.getAllAndOverride<boolean>(
       'requiresTenantContext',
-      [context.getHandler(), context.getClass()],
+      [context.getHandler(), context.getClass()]
     );
 
     // Check if route is public
@@ -54,7 +54,7 @@ export class TenantContextInterceptor implements NestInterceptor {
 
       if (!organizationId && requiresTenantContext !== false) {
         throw new BadRequestException(
-          'User must belong to an organization to access this resource',
+          'User must belong to an organization to access this resource'
         );
       }
 
@@ -69,9 +69,7 @@ export class TenantContextInterceptor implements NestInterceptor {
       request.organizationId = organizationId;
     } else if (requiresTenantContext !== false) {
       // If tenant context is required but user is not authenticated
-      throw new BadRequestException(
-        'Authentication required for tenant context',
-      );
+      throw new BadRequestException('Authentication required for tenant context');
     }
 
     return next.handle();
@@ -80,17 +78,9 @@ export class TenantContextInterceptor implements NestInterceptor {
 
 // Decorator to mark routes that require tenant context
 export const RequiresTenantContext = (required: boolean = true) => {
-  return (
-    target: any,
-    _propertyKey?: string,
-    descriptor?: PropertyDescriptor,
-  ) => {
+  return (target: any, _propertyKey?: string, descriptor?: PropertyDescriptor) => {
     if (descriptor) {
-      Reflect.defineMetadata(
-        'requiresTenantContext',
-        required,
-        descriptor.value,
-      );
+      Reflect.defineMetadata('requiresTenantContext', required, descriptor.value);
     } else {
       Reflect.defineMetadata('requiresTenantContext', required, target);
     }
@@ -99,11 +89,7 @@ export const RequiresTenantContext = (required: boolean = true) => {
 
 // Decorator to mark routes as public (no tenant context required)
 export const Public = () => {
-  return (
-    target: any,
-    _propertyKey?: string,
-    descriptor?: PropertyDescriptor,
-  ) => {
+  return (target: any, _propertyKey?: string, descriptor?: PropertyDescriptor) => {
     if (descriptor) {
       Reflect.defineMetadata('isPublic', true, descriptor.value);
     } else {

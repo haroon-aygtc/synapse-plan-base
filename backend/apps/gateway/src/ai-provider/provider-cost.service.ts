@@ -35,7 +35,7 @@ export class ProviderCostService {
     @InjectRepository(AIProviderExecution)
     private readonly executionRepository: Repository<AIProviderExecution>,
     @InjectRepository(AIProviderMetrics)
-    private readonly metricsRepository: Repository<AIProviderMetrics>,
+    private readonly metricsRepository: Repository<AIProviderMetrics>
   ) {}
 
   async getCostAnalytics(
@@ -43,12 +43,10 @@ export class ProviderCostService {
     options: {
       startDate?: Date;
       endDate?: Date;
-    } = {},
+    } = {}
   ): Promise<CostAnalysis> {
     const endDate = options.endDate || new Date();
-    const startDate =
-      options.startDate ||
-      new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const startDate = options.startDate || new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     return this.analyzeCosts(organizationId, startDate, endDate);
   }
@@ -56,7 +54,7 @@ export class ProviderCostService {
   async analyzeCosts(
     organizationId: string,
     startDate: Date,
-    endDate: Date,
+    endDate: Date
   ): Promise<CostAnalysis> {
     const executions = await this.executionRepository.find({
       where: {
@@ -66,10 +64,7 @@ export class ProviderCostService {
       relations: ['provider'],
     });
 
-    const totalCost = executions.reduce(
-      (sum, exec) => sum + (exec.cost || 0),
-      0,
-    );
+    const totalCost = executions.reduce((sum, exec) => sum + (exec.cost || 0), 0);
 
     // Cost by provider
     const costByProvider = executions.reduce(
@@ -78,7 +73,7 @@ export class ProviderCostService {
         acc[providerName] = (acc[providerName] || 0) + (exec.cost || 0);
         return acc;
       },
-      {} as Record<string, number>,
+      {} as Record<string, number>
     );
 
     // Cost by model
@@ -87,17 +82,16 @@ export class ProviderCostService {
         acc[exec.model] = (acc[exec.model] || 0) + (exec.cost || 0);
         return acc;
       },
-      {} as Record<string, number>,
+      {} as Record<string, number>
     );
 
     // Cost by execution type
     const costByExecutionType = executions.reduce(
       (acc, exec) => {
-        acc[exec.executionType] =
-          (acc[exec.executionType] || 0) + (exec.cost || 0);
+        acc[exec.executionType] = (acc[exec.executionType] || 0) + (exec.cost || 0);
         return acc;
       },
-      {} as Record<string, number>,
+      {} as Record<string, number>
     );
 
     // Daily trends
@@ -111,7 +105,7 @@ export class ProviderCostService {
       executions,
       costByProvider,
       costByModel,
-      totalCost,
+      totalCost
     );
 
     return {
@@ -129,7 +123,7 @@ export class ProviderCostService {
     organizationId: string,
     model: string,
     executionType: ExecutionType,
-    period: 'day' | 'week' | 'month',
+    period: 'day' | 'week' | 'month'
   ): Promise<{
     providers: Array<{
       providerId: string;
@@ -171,7 +165,7 @@ export class ProviderCostService {
         acc[key].totalResponseTime += exec.responseTimeMs || 0;
         return acc;
       },
-      {} as Record<string, any>,
+      {} as Record<string, any>
     );
 
     const providers = Object.values(providerStats).map((stats: any) => ({
@@ -183,7 +177,7 @@ export class ProviderCostService {
       efficiency: this.calculateEfficiency(
         stats.totalCost,
         stats.requestCount,
-        stats.totalResponseTime,
+        stats.totalResponseTime
       ),
     }));
 
@@ -199,7 +193,7 @@ export class ProviderCostService {
       weeklyLimit?: number;
       monthlyLimit?: number;
       costPerRequestLimit?: number;
-    },
+    }
   ): Promise<
     Array<{
       type: 'daily' | 'weekly' | 'monthly' | 'per_request';
@@ -214,24 +208,15 @@ export class ProviderCostService {
 
     // Daily cost check
     if (thresholds.dailyLimit) {
-      const dayStart = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-      );
-      const dailyCost = await this.getCostForPeriod(
-        organizationId,
-        dayStart,
-        now,
-      );
+      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const dailyCost = await this.getCostForPeriod(organizationId, dayStart, now);
 
       if (dailyCost >= thresholds.dailyLimit) {
         alerts.push({
           type: 'daily',
           current: dailyCost,
           threshold: thresholds.dailyLimit,
-          severity:
-            dailyCost >= thresholds.dailyLimit * 1.2 ? 'critical' : 'warning',
+          severity: dailyCost >= thresholds.dailyLimit * 1.2 ? 'critical' : 'warning',
           message: `Daily cost limit ${dailyCost >= thresholds.dailyLimit * 1.2 ? 'exceeded' : 'approaching'}`,
         });
       }
@@ -240,19 +225,14 @@ export class ProviderCostService {
     // Weekly cost check
     if (thresholds.weeklyLimit) {
       const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const weeklyCost = await this.getCostForPeriod(
-        organizationId,
-        weekStart,
-        now,
-      );
+      const weeklyCost = await this.getCostForPeriod(organizationId, weekStart, now);
 
       if (weeklyCost >= thresholds.weeklyLimit) {
         alerts.push({
           type: 'weekly',
           current: weeklyCost,
           threshold: thresholds.weeklyLimit,
-          severity:
-            weeklyCost >= thresholds.weeklyLimit * 1.2 ? 'critical' : 'warning',
+          severity: weeklyCost >= thresholds.weeklyLimit * 1.2 ? 'critical' : 'warning',
           message: `Weekly cost limit ${weeklyCost >= thresholds.weeklyLimit * 1.2 ? 'exceeded' : 'approaching'}`,
         });
       }
@@ -261,21 +241,14 @@ export class ProviderCostService {
     // Monthly cost check
     if (thresholds.monthlyLimit) {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthlyCost = await this.getCostForPeriod(
-        organizationId,
-        monthStart,
-        now,
-      );
+      const monthlyCost = await this.getCostForPeriod(organizationId, monthStart, now);
 
       if (monthlyCost >= thresholds.monthlyLimit) {
         alerts.push({
           type: 'monthly',
           current: monthlyCost,
           threshold: thresholds.monthlyLimit,
-          severity:
-            monthlyCost >= thresholds.monthlyLimit * 1.2
-              ? 'critical'
-              : 'warning',
+          severity: monthlyCost >= thresholds.monthlyLimit * 1.2 ? 'critical' : 'warning',
           message: `Monthly cost limit ${monthlyCost >= thresholds.monthlyLimit * 1.2 ? 'exceeded' : 'approaching'}`,
         });
       }
@@ -285,7 +258,7 @@ export class ProviderCostService {
   }
 
   private calculateDailyTrends(
-    executions: AIProviderExecution[],
+    executions: AIProviderExecution[]
   ): Array<{ date: string; cost: number; requests: number }> {
     const dailyData = executions.reduce(
       (acc, exec) => {
@@ -297,7 +270,7 @@ export class ProviderCostService {
         acc[date].requests += 1;
         return acc;
       },
-      {} as Record<string, { cost: number; requests: number }>,
+      {} as Record<string, { cost: number; requests: number }>
     );
 
     return Object.entries(dailyData)
@@ -305,9 +278,7 @@ export class ProviderCostService {
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  private calculateProjections(
-    trends: Array<{ date: string; cost: number; requests: number }>,
-  ): {
+  private calculateProjections(trends: Array<{ date: string; cost: number; requests: number }>): {
     daily: number;
     weekly: number;
     monthly: number;
@@ -319,8 +290,7 @@ export class ProviderCostService {
     // Calculate average daily cost from recent trends
     const recentTrends = trends.slice(-7); // Last 7 days
     const avgDailyCost =
-      recentTrends.reduce((sum, trend) => sum + trend.cost, 0) /
-      recentTrends.length;
+      recentTrends.reduce((sum, trend) => sum + trend.cost, 0) / recentTrends.length;
 
     return {
       daily: avgDailyCost,
@@ -333,7 +303,7 @@ export class ProviderCostService {
     executions: AIProviderExecution[],
     costByProvider: Record<string, number>,
     costByModel: Record<string, number>,
-    totalCost: number,
+    totalCost: number
   ): Array<{
     type: 'cost_reduction' | 'optimization' | 'alert';
     description: string;
@@ -343,9 +313,7 @@ export class ProviderCostService {
     const recommendations = [];
 
     // High-cost provider recommendation
-    const sortedProviders = Object.entries(costByProvider).sort(
-      ([, a], [, b]) => b - a,
-    );
+    const sortedProviders = Object.entries(costByProvider).sort(([, a], [, b]) => b - a);
     if (sortedProviders.length > 1 && sortedProviders[0][1] > totalCost * 0.6) {
       recommendations.push({
         type: 'cost_reduction' as const,
@@ -356,9 +324,7 @@ export class ProviderCostService {
     }
 
     // Expensive model recommendation
-    const sortedModels = Object.entries(costByModel).sort(
-      ([, a], [, b]) => b - a,
-    );
+    const sortedModels = Object.entries(costByModel).sort(([, a], [, b]) => b - a);
     if (sortedModels.length > 0 && sortedModels[0][1] > totalCost * 0.4) {
       recommendations.push({
         type: 'optimization' as const,
@@ -370,10 +336,7 @@ export class ProviderCostService {
 
     // High error rate cost impact
     const failedExecutions = executions.filter((exec) => exec.error);
-    const errorCost = failedExecutions.reduce(
-      (sum, exec) => sum + (exec.cost || 0),
-      0,
-    );
+    const errorCost = failedExecutions.reduce((sum, exec) => sum + (exec.cost || 0), 0);
     if (errorCost > totalCost * 0.1) {
       recommendations.push({
         type: 'alert' as const,
@@ -390,30 +353,25 @@ export class ProviderCostService {
     const recommendations = [];
 
     if (providers.length > 1) {
-      const sortedByEfficiency = providers.sort(
-        (a, b) => b.efficiency - a.efficiency,
-      );
+      const sortedByEfficiency = providers.sort((a, b) => b.efficiency - a.efficiency);
       const mostEfficient = sortedByEfficiency[0];
       const leastEfficient = sortedByEfficiency[sortedByEfficiency.length - 1];
 
       if (mostEfficient.efficiency > leastEfficient.efficiency * 1.5) {
         recommendations.push(
-          `Consider using ${mostEfficient.providerName} more frequently for better cost efficiency`,
+          `Consider using ${mostEfficient.providerName} more frequently for better cost efficiency`
         );
       }
 
       const sortedByCost = providers.sort(
-        (a, b) => a.averageCostPerRequest - b.averageCostPerRequest,
+        (a, b) => a.averageCostPerRequest - b.averageCostPerRequest
       );
       const cheapest = sortedByCost[0];
       const mostExpensive = sortedByCost[sortedByCost.length - 1];
 
-      if (
-        mostExpensive.averageCostPerRequest >
-        cheapest.averageCostPerRequest * 2
-      ) {
+      if (mostExpensive.averageCostPerRequest > cheapest.averageCostPerRequest * 2) {
         recommendations.push(
-          `${mostExpensive.providerName} costs ${(mostExpensive.averageCostPerRequest / cheapest.averageCostPerRequest).toFixed(1)}x more than ${cheapest.providerName} per request`,
+          `${mostExpensive.providerName} costs ${(mostExpensive.averageCostPerRequest / cheapest.averageCostPerRequest).toFixed(1)}x more than ${cheapest.providerName} per request`
         );
       }
     }
@@ -424,7 +382,7 @@ export class ProviderCostService {
   private calculateEfficiency(
     totalCost: number,
     requestCount: number,
-    totalResponseTime: number,
+    totalResponseTime: number
   ): number {
     if (requestCount === 0) return 0;
 
@@ -442,7 +400,7 @@ export class ProviderCostService {
   private async getCostForPeriod(
     organizationId: string,
     startDate: Date,
-    endDate: Date,
+    endDate: Date
   ): Promise<number> {
     const executions = await this.executionRepository.find({
       where: {

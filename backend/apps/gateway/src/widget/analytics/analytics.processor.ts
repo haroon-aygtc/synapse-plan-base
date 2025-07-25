@@ -17,7 +17,7 @@ export class AnalyticsProcessor {
     private widgetRepository: Repository<Widget>,
     @InjectRepository(WidgetAnalytics)
     private widgetAnalyticsRepository: Repository<WidgetAnalytics>,
-    private websocketService: WebSocketService,
+    private websocketService: WebSocketService
   ) {}
 
   @Process('process-event')
@@ -25,9 +25,7 @@ export class AnalyticsProcessor {
     const { widgetId, analyticsId, eventType } = job.data;
 
     try {
-      this.logger.log(
-        `Processing analytics event: ${eventType} for widget: ${widgetId}`,
-      );
+      this.logger.log(`Processing analytics event: ${eventType} for widget: ${widgetId}`);
 
       // Get the analytics record
       const analytics = await this.widgetAnalyticsRepository.findOne({
@@ -52,7 +50,7 @@ export class AnalyticsProcessor {
     } catch (error) {
       this.logger.error(
         `Failed to process analytics event: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
       throw error;
     }
@@ -63,20 +61,16 @@ export class AnalyticsProcessor {
     const { widgetId, period } = job.data;
 
     try {
-      this.logger.log(
-        `Aggregating analytics for widget: ${widgetId}, period: ${period}`,
-      );
+      this.logger.log(`Aggregating analytics for widget: ${widgetId}, period: ${period}`);
 
       // Perform analytics aggregation
       await this.performAnalyticsAggregation(widgetId, period);
 
-      this.logger.log(
-        `Successfully aggregated analytics for widget: ${widgetId}`,
-      );
+      this.logger.log(`Successfully aggregated analytics for widget: ${widgetId}`);
     } catch (error) {
       this.logger.error(
         `Failed to aggregate analytics: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
       throw error;
     }
@@ -92,22 +86,17 @@ export class AnalyticsProcessor {
       // Calculate user retention metrics
       await this.calculateUserRetention(widgetId);
 
-      this.logger.log(
-        `Successfully calculated retention for widget: ${widgetId}`,
-      );
+      this.logger.log(`Successfully calculated retention for widget: ${widgetId}`);
     } catch (error) {
       this.logger.error(
         `Failed to calculate retention: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined,
+        error instanceof Error ? error.stack : undefined
       );
       throw error;
     }
   }
 
-  private async processRealTimeAnalytics(
-    widgetId: string,
-    analytics: WidgetAnalytics,
-  ) {
+  private async processRealTimeAnalytics(widgetId: string, analytics: WidgetAnalytics) {
     // Update real-time metrics cache
     const cacheKey = `realtime:${widgetId}`;
 
@@ -133,15 +122,12 @@ export class AnalyticsProcessor {
       // Update previous events in this session to not be bounces
       await this.widgetAnalyticsRepository.update(
         { sessionId: analytics.sessionId },
-        { isBounce: false },
+        { isBounce: false }
       );
     }
   }
 
-  private async emitRealTimeUpdates(
-    widgetId: string,
-    analytics: WidgetAnalytics,
-  ) {
+  private async emitRealTimeUpdates(widgetId: string, analytics: WidgetAnalytics) {
     // Get widget to find organization
     const widget = await this.widgetRepository.findOne({
       where: { id: widgetId },
@@ -149,19 +135,15 @@ export class AnalyticsProcessor {
 
     if (widget) {
       // Emit real-time analytics update to organization
-      this.websocketService.emitToOrganization(
-        widget.organizationId,
-        'widget:analytics:realtime',
-        {
-          widgetId,
-          eventType: analytics.eventType,
-          timestamp: analytics.date,
-          sessionId: analytics.sessionId,
-          pageUrl: analytics.pageUrl,
-          deviceType: analytics.deviceType,
-          country: analytics.country,
-        },
-      );
+      this.websocketService.emitToOrganization(widget.organizationId, 'widget:analytics:realtime', {
+        widgetId,
+        eventType: analytics.eventType,
+        timestamp: analytics.date,
+        sessionId: analytics.sessionId,
+        pageUrl: analytics.pageUrl,
+        deviceType: analytics.deviceType,
+        country: analytics.country,
+      });
     }
   }
 
@@ -176,8 +158,7 @@ export class AnalyticsProcessor {
       const firstEvent = sessionEvents[0];
       const lastEvent = sessionEvents[sessionEvents.length - 1];
       const sessionDuration =
-        new Date(lastEvent.date).getTime() -
-        new Date(firstEvent.date).getTime();
+        new Date(lastEvent.date).getTime() - new Date(firstEvent.date).getTime();
 
       // Update session duration in analytics records
       await this.widgetAnalyticsRepository.update(
@@ -187,7 +168,7 @@ export class AnalyticsProcessor {
             ...analytics.properties,
             sessionDuration: Math.round(sessionDuration / 1000), // in seconds
           },
-        },
+        }
       );
     }
   }
@@ -195,9 +176,7 @@ export class AnalyticsProcessor {
   private async performAnalyticsAggregation(widgetId: string, period: string) {
     // This would perform daily/hourly aggregations for better query performance
     // For now, we'll just log the aggregation
-    this.logger.debug(
-      `Performing analytics aggregation for widget ${widgetId}, period ${period}`,
-    );
+    this.logger.debug(`Performing analytics aggregation for widget ${widgetId}, period ${period}`);
 
     // In a real implementation, this would:
     // 1. Aggregate hourly/daily metrics

@@ -1,5 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsArray, IsEnum, IsObject, ValidateNested, IsUrl, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsEnum,
+  IsObject,
+  ValidateNested,
+  IsUrl,
+  IsNumber,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum AuthenticationType {

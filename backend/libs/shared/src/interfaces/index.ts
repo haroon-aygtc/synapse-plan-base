@@ -83,7 +83,6 @@ export interface IUsageMetric {
   timestamp: Date;
 }
 
-
 export enum SubscriptionPlan {
   FREE = 'FREE',
   STARTER = 'STARTER',
@@ -106,7 +105,7 @@ export {
   EventTargetType,
   WebSocketEventType,
   AgentEventType, // Changed EventType to AgentEventType
-  UserRole
+  UserRole,
 } from '../enums';
 
 export interface IJwtPayload {

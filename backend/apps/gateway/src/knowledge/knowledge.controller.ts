@@ -15,23 +15,14 @@ import {
   Request,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiConsumes,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { UserRole } from '@shared/enums';
 import { KnowledgeService } from './knowledge.service';
 import { SecurityContext } from './knowledge-security.service';
-import {
-  CreateDocumentDto,
-  UpdateDocumentDto,
-  SearchDocumentsDto,
-} from './dto';
+import { CreateDocumentDto, UpdateDocumentDto, SearchDocumentsDto } from './dto';
 
 @ApiTags('knowledge')
 @Controller('knowledge')
@@ -45,7 +36,7 @@ export class KnowledgeController {
   @ApiResponse({ status: 201, description: 'Document created successfully' })
   async createDocument(
     @Body(ValidationPipe) createDocumentDto: CreateDocumentDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -67,7 +58,7 @@ export class KnowledgeController {
     @Body('tags') tags?: string,
     @Body('metadata') metadata?: string,
     @Body('visibility') visibility?: string,
-    @Request() req: any,
+    @Request() req: any
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -82,7 +73,7 @@ export class KnowledgeController {
         metadata: metadata ? JSON.parse(metadata) : undefined,
         visibility: visibility as any,
       },
-      context,
+      context
     );
   }
 
@@ -95,7 +86,7 @@ export class KnowledgeController {
   async bulkUploadDocuments(
     @UploadedFiles() files: Express.Multer.File[],
     @Body('metadata') metadata: string,
-    @Request() req: any,
+    @Request() req: any
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -103,11 +94,7 @@ export class KnowledgeController {
       role: req.user.role,
     };
     const parsedMetadata = JSON.parse(metadata);
-    return this.knowledgeService.bulkUploadDocuments(
-      files,
-      parsedMetadata,
-      context,
-    );
+    return this.knowledgeService.bulkUploadDocuments(files, parsedMetadata, context);
   }
 
   @Get('/documents')
@@ -120,7 +107,7 @@ export class KnowledgeController {
     @Query('type') type?: string,
     @Query('status') status?: string,
     @Query('tags') tags?: string,
-    @Request() req: any,
+    @Request() req: any
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -136,7 +123,7 @@ export class KnowledgeController {
         status,
         tags: tags ? tags.split(',') : undefined,
       },
-      context,
+      context
     );
   }
 
@@ -159,7 +146,7 @@ export class KnowledgeController {
   async updateDocument(
     @Param('id') id: string,
     @Body(ValidationPipe) updateDocumentDto: UpdateDocumentDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -185,10 +172,7 @@ export class KnowledgeController {
   @Post('/search')
   @ApiOperation({ summary: 'Search knowledge base' })
   @ApiResponse({ status: 200, description: 'Search completed successfully' })
-  async searchDocuments(
-    @Body(ValidationPipe) searchDto: SearchDocumentsDto,
-    @Request() req: any,
-  ) {
+  async searchDocuments(@Body(ValidationPipe) searchDto: SearchDocumentsDto, @Request() req: any) {
     const context: SecurityContext = {
       userId: req.user.id,
       organizationId: req.user.organizationId,
@@ -207,17 +191,14 @@ export class KnowledgeController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
     @Query('userId') userId?: string,
-    @Request() req: any,
+    @Request() req: any
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
       organizationId: req.user.organizationId,
       role: req.user.role,
     };
-    return this.knowledgeService.getSearchHistory(
-      { page, limit, userId },
-      context,
-    );
+    return this.knowledgeService.getSearchHistory({ page, limit, userId }, context);
   }
 
   @Get('/search/:id')
@@ -270,7 +251,7 @@ export class KnowledgeController {
     @Param('id') id: string,
     @Query('maxResults') maxResults: number = 5,
     @Query('threshold') threshold: number = 0.8,
-    @Request() req: any,
+    @Request() req: any
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -283,7 +264,7 @@ export class KnowledgeController {
         maxResults,
         threshold,
       },
-      context,
+      context
     );
   }
 
@@ -293,7 +274,7 @@ export class KnowledgeController {
   async getAnalytics(
     @Query('start') start: string,
     @Query('end') end: string,
-    @Request() req: any,
+    @Request() req: any
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -305,7 +286,7 @@ export class KnowledgeController {
         start: new Date(start),
         end: new Date(end),
       },
-      context,
+      context
     );
   }
 
@@ -331,17 +312,13 @@ export class KnowledgeController {
   async searchCollection(
     @Param('id') collectionId: string,
     @Body(ValidationPipe) searchDto: SearchDocumentsDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
       organizationId: req.user.organizationId,
       role: req.user.role,
     };
-    return this.knowledgeService.searchCollection(
-      collectionId,
-      searchDto,
-      context,
-    );
+    return this.knowledgeService.searchCollection(collectionId, searchDto, context);
   }
 }

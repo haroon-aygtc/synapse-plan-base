@@ -15,13 +15,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiBody,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -37,18 +31,14 @@ import {
   BulkUserActionDto,
 } from './dto';
 import { IApiResponse, IUser, IPaginatedResponse } from '@shared/interfaces';
-import {
-  Public,
-  RequireOrgAdmin,
-  RequireDeveloper,
-} from '@shared/decorators/roles.decorator';
+import { Public, RequireOrgAdmin, RequireDeveloper } from '@shared/decorators/roles.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly userService: UserService,
+    private readonly userService: UserService
   ) {}
 
   @Public()
@@ -78,10 +68,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User successfully logged in' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 429, description: 'Too many failed attempts' })
-  async login(
-    @Body() loginDto: LoginDto,
-    @Request() req,
-  ): Promise<IApiResponse> {
+  async login(@Body() loginDto: LoginDto, @Request() req): Promise<IApiResponse> {
     const result = await this.authService.login(req.user);
     return {
       success: true,
@@ -110,7 +97,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User successfully logged out' })
   async logout(
     @Request() req,
-    @Headers('authorization') authHeader?: string,
+    @Headers('authorization') authHeader?: string
   ): Promise<IApiResponse> {
     const accessToken = authHeader?.replace('Bearer ', '');
     await this.authService.logout(req.user.id, accessToken);
@@ -140,9 +127,7 @@ export class AuthController {
       required: ['refreshToken'],
     },
   })
-  async refresh(
-    @Body('refreshToken') refreshToken: string,
-  ): Promise<IApiResponse> {
+  async refresh(@Body('refreshToken') refreshToken: string): Promise<IApiResponse> {
     const result = await this.authService.refreshToken(refreshToken);
     return {
       success: true,
@@ -174,14 +159,11 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 409, description: 'User already exists' })
-  async inviteUser(
-    @Body() inviteUserDto: InviteUserDto,
-    @Request() req,
-  ): Promise<IApiResponse> {
+  async inviteUser(@Body() inviteUserDto: InviteUserDto, @Request() req): Promise<IApiResponse> {
     const result = await this.authService.inviteUser(
       inviteUserDto,
       req.user.organizationId,
-      req.user.id,
+      req.user.id
     );
     return {
       success: true,
@@ -200,7 +182,7 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async activateUser(
     @Body() activateUserDto: ActivateUserDto,
-    @Request() req,
+    @Request() req
   ): Promise<IApiResponse> {
     await this.userService.activate(activateUserDto.userId);
     return {
@@ -219,7 +201,7 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async deactivateUser(
     @Body() deactivateUserDto: DeactivateUserDto,
-    @Request() req,
+    @Request() req
   ): Promise<IApiResponse> {
     await this.userService.deactivate(deactivateUserDto.userId);
     return {
@@ -240,13 +222,13 @@ export class AuthController {
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   async bulkUserAction(
     @Body() bulkActionDto: BulkUserActionDto,
-    @Request() req,
+    @Request() req
   ): Promise<IApiResponse> {
     const result = await this.userService.bulkAction(
       bulkActionDto.userIds,
       bulkActionDto.action,
       req.user.organizationId,
-      bulkActionDto.reason,
+      bulkActionDto.reason
     );
     return {
       success: true,
@@ -271,22 +253,19 @@ export class AuthController {
     @Query('role') role?: string,
     @Query('isActive') isActive?: boolean,
     @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC'
   ): Promise<IPaginatedResponse<IUser>> {
-    const result = await this.userService.findByOrganization(
-      req.user.organizationId,
-      {
-        page: page || 1,
-        limit: limit || 10,
-        search,
-        role: role as any,
-        isActive,
-        sortBy,
-        sortOrder,
-        requestingUserId: req.user.id,
-        requestingUserRole: req.user.role,
-      },
-    );
+    const result = await this.userService.findByOrganization(req.user.organizationId, {
+      page: page || 1,
+      limit: limit || 10,
+      search,
+      role: role as any,
+      isActive,
+      sortBy,
+      sortOrder,
+      requestingUserId: req.user.id,
+      requestingUserRole: req.user.role,
+    });
 
     const totalPages = Math.ceil(result.total / (limit || 10));
 
@@ -309,10 +288,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User retrieved successfully' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async getUserById(
-    @Param('id') id: string,
-    @Request() req,
-  ): Promise<IApiResponse<IUser>> {
+  async getUserById(@Param('id') id: string, @Request() req): Promise<IApiResponse<IUser>> {
     const user = await this.userService.findById(id);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -339,14 +315,9 @@ export class AuthController {
   async updateUser(
     @Param('id') id: string,
     @Body() updateData: any,
-    @Request() req,
+    @Request() req
   ): Promise<IApiResponse<IUser>> {
-    const updatedUser = await this.userService.update(
-      id,
-      updateData,
-      req.user.id,
-      req.user.role,
-    );
+    const updatedUser = await this.userService.update(id, updateData, req.user.id, req.user.role);
 
     return {
       success: true,

@@ -10,12 +10,7 @@ import {
   HttpStatus,
   HttpException,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 // import { RolesGuard } from '@libs/shared/guards/roles.guard';
 import { WidgetAnalyticsService } from './widget-analytics.service';
@@ -32,9 +27,7 @@ import {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class WidgetAnalyticsController {
-  constructor(
-    private readonly widgetAnalyticsService: WidgetAnalyticsService,
-  ) {}
+  constructor(private readonly widgetAnalyticsService: WidgetAnalyticsService) {}
 
   @Post('track')
   @ApiOperation({ summary: 'Track widget analytics event' })
@@ -42,13 +35,13 @@ export class WidgetAnalyticsController {
   async trackEvent(
     @Param('widgetId') widgetId: string,
     @Body() trackEventDto: TrackEventDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const result = await this.widgetAnalyticsService.trackEvent(
         widgetId,
         trackEventDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -62,7 +55,7 @@ export class WidgetAnalyticsController {
           message: error.message,
           error: 'EVENT_TRACKING_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -73,13 +66,13 @@ export class WidgetAnalyticsController {
   async getOverview(
     @Param('widgetId') widgetId: string,
     @Query() getAnalyticsDto: GetAnalyticsDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const analytics = await this.widgetAnalyticsService.getOverview(
         widgetId,
         getAnalyticsDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -93,7 +86,7 @@ export class WidgetAnalyticsController {
           message: error.message,
           error: 'ANALYTICS_RETRIEVAL_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -101,14 +94,11 @@ export class WidgetAnalyticsController {
   @Get('real-time')
   @ApiOperation({ summary: 'Get real-time analytics data' })
   @ApiResponse({ status: 200, description: 'Real-time data retrieved' })
-  async getRealTimeData(
-    @Param('widgetId') widgetId: string,
-    @Request() req: any,
-  ) {
+  async getRealTimeData(@Param('widgetId') widgetId: string, @Request() req: any) {
     try {
       const realTimeData = await this.widgetAnalyticsService.getRealTimeData(
         widgetId,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -122,7 +112,7 @@ export class WidgetAnalyticsController {
           message: error.message,
           error: 'REAL_TIME_DATA_RETRIEVAL_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -133,13 +123,13 @@ export class WidgetAnalyticsController {
   async getConversionFunnel(
     @Param('widgetId') widgetId: string,
     @Query() getConversionFunnelDto: GetConversionFunnelDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const funnel = await this.widgetAnalyticsService.getConversionFunnel(
         widgetId,
         getConversionFunnelDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -153,7 +143,7 @@ export class WidgetAnalyticsController {
           message: error.message,
           error: 'CONVERSION_FUNNEL_RETRIEVAL_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -164,13 +154,13 @@ export class WidgetAnalyticsController {
   async getUserJourney(
     @Param('widgetId') widgetId: string,
     @Query() getUserJourneyDto: GetUserJourneyDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const journey = await this.widgetAnalyticsService.getUserJourney(
         widgetId,
         getUserJourneyDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -184,7 +174,7 @@ export class WidgetAnalyticsController {
           message: error.message,
           error: 'USER_JOURNEY_RETRIEVAL_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -195,13 +185,13 @@ export class WidgetAnalyticsController {
   async getPerformanceMetrics(
     @Param('widgetId') widgetId: string,
     @Query() getPerformanceMetricsDto: GetPerformanceMetricsDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const metrics = await this.widgetAnalyticsService.getPerformanceMetrics(
         widgetId,
         getPerformanceMetricsDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -215,7 +205,7 @@ export class WidgetAnalyticsController {
           message: error.message,
           error: 'PERFORMANCE_METRICS_RETRIEVAL_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -226,13 +216,13 @@ export class WidgetAnalyticsController {
   async getCrossDomainAnalytics(
     @Param('widgetId') widgetId: string,
     @Query() getAnalyticsDto: GetAnalyticsDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const analytics = await this.widgetAnalyticsService.getCrossDomainAnalytics(
         widgetId,
         getAnalyticsDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -246,7 +236,7 @@ export class WidgetAnalyticsController {
           message: error.message,
           error: 'CROSS_DOMAIN_ANALYTICS_RETRIEVAL_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -257,13 +247,13 @@ export class WidgetAnalyticsController {
   async getHeatmapData(
     @Param('widgetId') widgetId: string,
     @Query() getAnalyticsDto: GetAnalyticsDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const heatmap = await this.widgetAnalyticsService.getHeatmapData(
         widgetId,
         getAnalyticsDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -277,7 +267,7 @@ export class WidgetAnalyticsController {
           message: error.message,
           error: 'HEATMAP_DATA_RETRIEVAL_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -288,13 +278,13 @@ export class WidgetAnalyticsController {
   async getRetentionAnalysis(
     @Param('widgetId') widgetId: string,
     @Query() getAnalyticsDto: GetAnalyticsDto,
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const retention = await this.widgetAnalyticsService.getRetentionAnalysis(
         widgetId,
         getAnalyticsDto,
-        req.user.organizationId,
+        req.user.organizationId
       );
       return {
         success: true,
@@ -308,7 +298,7 @@ export class WidgetAnalyticsController {
           message: error.message,
           error: 'RETENTION_ANALYSIS_RETRIEVAL_FAILED',
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }

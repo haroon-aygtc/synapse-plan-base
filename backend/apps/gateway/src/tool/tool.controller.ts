@@ -17,12 +17,7 @@ import { Roles } from '@shared/decorators/roles.decorator';
 import { UserRole } from '@shared/enums';
 import { ToolService } from './tool.service';
 import { ToolExecutionEngine } from './tool-execution.engine';
-import {
-  CreateToolDto,
-  UpdateToolDto,
-  ExecuteToolDto,
-  TestToolDto,
-} from './dto';
+import { CreateToolDto, UpdateToolDto, ExecuteToolDto, TestToolDto } from './dto';
 
 @ApiTags('tools')
 @Controller('tools')
@@ -30,7 +25,7 @@ import {
 export class ToolController {
   constructor(
     private readonly toolService: ToolService,
-    private readonly toolExecutionEngine: ToolExecutionEngine,
+    private readonly toolExecutionEngine: ToolExecutionEngine
   ) {}
 
   @Post()
@@ -49,7 +44,7 @@ export class ToolController {
     @Query('limit') limit: number = 20,
     @Query('search') search?: string,
     @Query('category') category?: string,
-    @Query('isActive') isActive?: boolean,
+    @Query('isActive') isActive?: boolean
   ) {
     return this.toolService.findAll({
       page,
@@ -71,10 +66,7 @@ export class ToolController {
   @Roles(UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update tool' })
   @ApiResponse({ status: 200, description: 'Tool updated successfully' })
-  async update(
-    @Param('id') id: string,
-    @Body(ValidationPipe) updateToolDto: UpdateToolDto,
-  ) {
+  async update(@Param('id') id: string, @Body(ValidationPipe) updateToolDto: UpdateToolDto) {
     return this.toolService.update(id, updateToolDto);
   }
 
@@ -89,10 +81,7 @@ export class ToolController {
   @Post(':id/execute')
   @ApiOperation({ summary: 'Execute tool' })
   @ApiResponse({ status: 200, description: 'Tool executed successfully' })
-  async execute(
-    @Param('id') id: string,
-    @Body(ValidationPipe) executeToolDto: ExecuteToolDto,
-  ) {
+  async execute(@Param('id') id: string, @Body(ValidationPipe) executeToolDto: ExecuteToolDto) {
     return this.toolExecutionEngine.execute(id, executeToolDto);
   }
 
@@ -100,10 +89,7 @@ export class ToolController {
   @Roles(UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Test tool' })
   @ApiResponse({ status: 200, description: 'Tool tested successfully' })
-  async test(
-    @Param('id') id: string,
-    @Body(ValidationPipe) testToolDto: TestToolDto,
-  ) {
+  async test(@Param('id') id: string, @Body(ValidationPipe) testToolDto: TestToolDto) {
     return this.toolService.test(id, testToolDto);
   }
 
@@ -117,7 +103,7 @@ export class ToolController {
     @Param('id') id: string,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
-    @Query('status') status?: string,
+    @Query('status') status?: string
   ) {
     return this.toolService.getExecutions(id, { page, limit, status });
   }
@@ -128,7 +114,7 @@ export class ToolController {
   async getAnalytics(
     @Param('id') id: string,
     @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query('endDate') endDate?: string
   ) {
     return this.toolService.getAnalytics(id, {
       startDate: startDate ? new Date(startDate) : undefined,
@@ -164,7 +150,7 @@ export class ToolController {
     @Query('q') query: string,
     @Query('category') category?: string,
     @Query('tags') tags?: string,
-    @Query('limit') limit: number = 20,
+    @Query('limit') limit: number = 20
   ) {
     return this.toolService.search(query, {
       category,
@@ -194,12 +180,10 @@ export class ToolController {
   async getPerformanceMetrics(
     @Param('id') id: string,
     @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query('endDate') endDate?: string
   ) {
     const period = {
-      start: startDate
-        ? new Date(startDate)
-        : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      start: startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
       end: endDate ? new Date(endDate) : new Date(),
     };
     return this.toolService.getToolPerformanceMetrics(id, period);
@@ -217,7 +201,7 @@ export class ToolController {
     @Query('category') category?: string,
     @Query('search') search?: string,
     @Query('sortBy') sortBy?: 'rating' | 'downloads' | 'name' | 'createdAt',
-    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC'
   ) {
     return this.toolService.getMarketplaceTools({
       page,
@@ -234,12 +218,12 @@ export class ToolController {
   @ApiResponse({ status: 201, description: 'Tool installed successfully' })
   async installMarketplaceTool(
     @Param('id') toolId: string,
-    @Body() installData: { organizationId: string; userId: string },
+    @Body() installData: { organizationId: string; userId: string }
   ) {
     return this.toolService.installMarketplaceTool(
       toolId,
       installData.organizationId,
-      installData.userId,
+      installData.userId
     );
   }
 
@@ -260,12 +244,12 @@ export class ToolController {
       endpoint: string;
       method: string;
       headers?: Record<string, string>;
-    },
+    }
   ) {
     return this.toolService.detectAPIPatterns(
       detectData.endpoint,
       detectData.method,
-      detectData.headers,
+      detectData.headers
     );
   }
 
@@ -284,12 +268,12 @@ export class ToolController {
       description: string;
       apiUrl?: string;
       serviceType?: string;
-    },
+    }
   ) {
     return this.toolService.generateAIConfiguration(
       configData.description,
       configData.apiUrl,
-      configData.serviceType,
+      configData.serviceType
     );
   }
 
@@ -311,7 +295,7 @@ export class ToolController {
   async getCostAnalysis(
     @Param('id') id: string,
     @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
+    @Query('endDate') endDate?: string
   ) {
     return this.toolService.getCostAnalysis(id, {
       startDate: startDate ? new Date(startDate) : undefined,
@@ -349,7 +333,7 @@ export class ToolController {
     @Param('id') id: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
-    @Query('groupBy') groupBy?: 'day' | 'week' | 'month',
+    @Query('groupBy') groupBy?: 'day' | 'week' | 'month'
   ) {
     return this.toolService.getUsageAnalytics(id, {
       startDate: startDate ? new Date(startDate) : undefined,
@@ -370,7 +354,7 @@ export class ToolController {
       agentId?: string;
       context: Record<string, any>;
       parameters: Record<string, any>;
-    },
+    }
   ) {
     return this.toolService.testInContext(id, testData);
   }
@@ -383,12 +367,9 @@ export class ToolController {
   })
   async getDashboardMetrics(
     @Query('organizationId') organizationId: string,
-    @Query('timeRange') timeRange?: '24h' | '7d' | '30d' | '90d',
+    @Query('timeRange') timeRange?: '24h' | '7d' | '30d' | '90d'
   ) {
-    return this.toolService.getDashboardMetrics(
-      organizationId,
-      timeRange || '30d',
-    );
+    return this.toolService.getDashboardMetrics(organizationId, timeRange || '30d');
   }
 
   @Get(':id/health-monitoring')
@@ -413,7 +394,7 @@ export class ToolController {
       responseTimeThreshold: number;
       availabilityThreshold: number;
       notificationChannels: string[];
-    },
+    }
   ) {
     return this.toolService.configureHealthAlerts(id, alertConfig);
   }

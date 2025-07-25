@@ -47,14 +47,14 @@ export class HITLService {
     private readonly userRepository: Repository<User>,
     private readonly eventEmitter: EventEmitter2,
     private readonly websocketService: WebSocketService,
-    private readonly notificationService: NotificationService,
+    private readonly notificationService: NotificationService
   ) {}
 
   // HITL Request Management
   async createRequest(
     createDto: CreateHITLRequestDto,
     requesterId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<HITLRequest> {
     const expiresAt = createDto.expiresAt
       ? new Date(createDto.expiresAt)
@@ -90,11 +90,7 @@ export class HITLService {
     await this.hitlRequestRepository.save(savedRequest);
 
     // Auto-assign if assignee specified
-    if (
-      createDto.assigneeId ||
-      createDto.assigneeRoles ||
-      createDto.assigneeUsers
-    ) {
+    if (createDto.assigneeId || createDto.assigneeRoles || createDto.assigneeUsers) {
       await this.assignRequest(
         savedRequest.id,
         {
@@ -104,7 +100,7 @@ export class HITLService {
           reason: 'Auto-assigned during creation',
         },
         requesterId,
-        organizationId,
+        organizationId
       );
     }
 
@@ -121,14 +117,10 @@ export class HITLService {
     });
 
     // Send real-time notification
-    await this.websocketService.broadcastToOrganization(
-      organizationId,
-      'hitl_request_created',
-      {
-        request: savedRequest,
-        timestamp: new Date(),
-      },
-    );
+    await this.websocketService.broadcastToOrganization(organizationId, 'hitl_request_created', {
+      request: savedRequest,
+      timestamp: new Date(),
+    });
 
     // Send notifications to assignees
     await this.sendAssignmentNotifications(savedRequest);
@@ -151,7 +143,7 @@ export class HITLService {
       category?: string;
       sortBy?: string;
       sortOrder?: 'ASC' | 'DESC';
-    } = {},
+    } = {}
   ): Promise<{
     requests: HITLRequest[];
     total: number;
@@ -193,7 +185,7 @@ export class HITLService {
     if (assignedToMe && userId) {
       queryBuilder.andWhere(
         '(request.assigneeId = :userId OR :userId = ANY(request.assigneeUsers))',
-        { userId },
+        { userId }
       );
     }
 
@@ -210,13 +202,7 @@ export class HITLService {
     }
 
     // Add sorting
-    const validSortFields = [
-      'createdAt',
-      'updatedAt',
-      'priority',
-      'status',
-      'expiresAt',
-    ];
+    const validSortFields = ['createdAt', 'updatedAt', 'priority', 'status', 'expiresAt'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
     queryBuilder.orderBy(`request.${sortField}`, sortOrder);
 
@@ -237,11 +223,7 @@ export class HITLService {
     };
   }
 
-  async getRequestById(
-    id: string,
-    organizationId: string,
-    userId?: string,
-  ): Promise<HITLRequest> {
+  async getRequestById(id: string, organizationId: string, userId?: string): Promise<HITLRequest> {
     const request = await this.hitlRequestRepository.findOne({
       where: { id, organizationId },
       relations: [
@@ -273,15 +255,13 @@ export class HITLService {
     id: string,
     updateDto: UpdateHITLRequestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<HITLRequest> {
     const request = await this.getRequestById(id, organizationId, userId);
 
     // Check permissions
     if (!this.canModifyRequest(request, userId)) {
-      throw new ForbiddenException(
-        'Insufficient permissions to modify this request',
-      );
+      throw new ForbiddenException('Insufficient permissions to modify this request');
     }
 
     Object.assign(request, updateDto);
@@ -305,27 +285,21 @@ export class HITLService {
     id: string,
     resolveDto: ResolveHITLRequestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<HITLRequest> {
     const request = await this.getRequestById(id, organizationId, userId);
 
     if (!request.canBeApproved()) {
-      throw new BadRequestException(
-        'Request cannot be resolved in its current state',
-      );
+      throw new BadRequestException('Request cannot be resolved in its current state');
     }
 
     // Check permissions
     if (!this.canResolveRequest(request, userId)) {
-      throw new ForbiddenException(
-        'Insufficient permissions to resolve this request',
-      );
+      throw new ForbiddenException('Insufficient permissions to resolve this request');
     }
 
     // Update request status and decision data
-    request.status = resolveDto.approved
-      ? HITLRequestStatus.APPROVED
-      : HITLRequestStatus.REJECTED;
+    request.status = resolveDto.approved ? HITLRequestStatus.APPROVED : HITLRequestStatus.REJECTED;
     request.completedAt = new Date();
     request.decisionData = {
       approved: resolveDto.approved,
@@ -387,14 +361,9 @@ export class HITLService {
     await this.resumeExecution(resolvedRequest, resolveDto.approved);
 
     // Send notifications
-    await this.sendResolutionNotifications(
-      resolvedRequest,
-      resolveDto.approved,
-    );
+    await this.sendResolutionNotifications(resolvedRequest, resolveDto.approved);
 
-    this.logger.log(
-      `HITL request ${resolveDto.approved ? 'approved' : 'rejected'}: ${id}`,
-    );
+    this.logger.log(`HITL request ${resolveDto.approved ? 'approved' : 'rejected'}: ${id}`);
 
     return resolvedRequest;
   }
@@ -403,14 +372,12 @@ export class HITLService {
     id: string,
     assignDto: AssignHITLRequestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<HITLRequest> {
     const request = await this.getRequestById(id, organizationId, userId);
 
     if (request.status !== HITLRequestStatus.PENDING) {
-      throw new BadRequestException(
-        'Request cannot be assigned in its current state',
-      );
+      throw new BadRequestException('Request cannot be assigned in its current state');
     }
 
     // Update assignment
@@ -450,7 +417,7 @@ export class HITLService {
     id: string,
     delegateDto: DelegateHITLRequestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<HITLRequest> {
     const request = await this.getRequestById(id, organizationId, userId);
 
@@ -492,7 +459,7 @@ export class HITLService {
     id: string,
     escalateDto: EscalateHITLRequestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<HITLRequest> {
     const request = await this.getRequestById(id, organizationId, userId);
 
@@ -544,29 +511,21 @@ export class HITLService {
     requestId: string,
     voteDto: VoteHITLRequestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<HITLVote> {
-    const request = await this.getRequestById(
-      requestId,
-      organizationId,
-      userId,
-    );
+    const request = await this.getRequestById(requestId, organizationId, userId);
 
     if (!request.requiresVoting()) {
       throw new BadRequestException('This request does not require voting');
     }
 
     if (!request.canBeApproved()) {
-      throw new BadRequestException(
-        'Request cannot accept votes in its current state',
-      );
+      throw new BadRequestException('Request cannot accept votes in its current state');
     }
 
     // Check if user can vote
     if (!this.canVoteOnRequest(request, userId)) {
-      throw new ForbiddenException(
-        'You are not authorized to vote on this request',
-      );
+      throw new ForbiddenException('You are not authorized to vote on this request');
     }
 
     // Check if user already voted
@@ -608,7 +567,7 @@ export class HITLService {
           metadata: { votingResult: true },
         },
         'system',
-        organizationId,
+        organizationId
       );
     }
 
@@ -629,13 +588,9 @@ export class HITLService {
     requestId: string,
     commentDto: CommentHITLRequestDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<HITLComment> {
-    const request = await this.getRequestById(
-      requestId,
-      organizationId,
-      userId,
-    );
+    const request = await this.getRequestById(requestId, organizationId, userId);
 
     const comment = this.hitlCommentRepository.create({
       requestId,
@@ -652,8 +607,7 @@ export class HITLService {
 
     // Update discussion metrics
     request.updatePerformanceMetrics({
-      discussionMessages:
-        (request.performanceMetrics?.discussionMessages || 0) + 1,
+      discussionMessages: (request.performanceMetrics?.discussionMessages || 0) + 1,
     });
     await this.hitlRequestRepository.save(request);
 
@@ -676,7 +630,7 @@ export class HITLService {
   // Analytics and Reporting
   async getAnalytics(
     organizationId: string,
-    query: HITLAnalyticsQueryDto,
+    query: HITLAnalyticsQueryDto
   ): Promise<{
     summary: {
       totalRequests: number;
@@ -722,45 +676,32 @@ export class HITLService {
       .where('request.organizationId = :organizationId', { organizationId });
 
     if (startDate && endDate) {
-      queryBuilder.andWhere(
-        'request.createdAt BETWEEN :startDate AND :endDate',
-        {
-          startDate: new Date(startDate),
-          endDate: new Date(endDate),
-        },
-      );
+      queryBuilder.andWhere('request.createdAt BETWEEN :startDate AND :endDate', {
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+      });
     }
 
     if (type) queryBuilder.andWhere('request.type = :type', { type });
     if (status) queryBuilder.andWhere('request.status = :status', { status });
-    if (priority)
-      queryBuilder.andWhere('request.priority = :priority', { priority });
-    if (sourceType)
-      queryBuilder.andWhere('request.sourceType = :sourceType', { sourceType });
+    if (priority) queryBuilder.andWhere('request.priority = :priority', { priority });
+    if (sourceType) queryBuilder.andWhere('request.sourceType = :sourceType', { sourceType });
 
     const requests = await queryBuilder.getMany();
 
     // Calculate summary metrics
     const totalRequests = requests.length;
-    const pendingRequests = requests.filter(
-      (r) => r.status === HITLRequestStatus.PENDING,
-    ).length;
-    const approvedRequests = requests.filter(
-      (r) => r.status === HITLRequestStatus.APPROVED,
-    ).length;
-    const rejectedRequests = requests.filter(
-      (r) => r.status === HITLRequestStatus.REJECTED,
-    ).length;
-    const expiredRequests = requests.filter(
-      (r) => r.status === HITLRequestStatus.EXPIRED,
-    ).length;
+    const pendingRequests = requests.filter((r) => r.status === HITLRequestStatus.PENDING).length;
+    const approvedRequests = requests.filter((r) => r.status === HITLRequestStatus.APPROVED).length;
+    const rejectedRequests = requests.filter((r) => r.status === HITLRequestStatus.REJECTED).length;
+    const expiredRequests = requests.filter((r) => r.status === HITLRequestStatus.EXPIRED).length;
 
     const completedRequests = requests.filter((r) => r.completedAt);
     const averageResponseTime =
       completedRequests.length > 0
         ? completedRequests.reduce(
             (sum, r) => sum + (r.performanceMetrics?.responseTimeMs || 0),
-            0,
+            0
           ) / completedRequests.length
         : 0;
 
@@ -768,15 +709,12 @@ export class HITLService {
       completedRequests.length > 0
         ? completedRequests.reduce(
             (sum, r) => sum + (r.performanceMetrics?.decisionTimeMs || 0),
-            0,
+            0
           ) / completedRequests.length
         : 0;
 
-    const escalatedRequests = requests.filter(
-      (r) => r.escalationLevel > 0,
-    ).length;
-    const escalationRate =
-      totalRequests > 0 ? (escalatedRequests / totalRequests) * 100 : 0;
+    const escalatedRequests = requests.filter((r) => r.escalationLevel > 0).length;
+    const escalationRate = totalRequests > 0 ? (escalatedRequests / totalRequests) * 100 : 0;
 
     // Generate trends
     const dailyTrends = this.generateDailyTrends(requests, startDate, endDate);
@@ -785,11 +723,7 @@ export class HITLService {
     const byStatus = this.groupByField(requests, 'status');
 
     // Performance analysis
-    const topPerformers = await this.getTopPerformers(
-      organizationId,
-      startDate,
-      endDate,
-    );
+    const topPerformers = await this.getTopPerformers(organizationId, startDate, endDate);
     const bottlenecks = this.identifyBottlenecks(requests);
 
     return {
@@ -875,22 +809,16 @@ export class HITLService {
             {
               reason: HITLEscalationReason.TIMEOUT,
               description: `Auto-escalated due to approaching timeout. Original request created at ${request.createdAt.toISOString()}`,
-              justification:
-                'Automatic escalation triggered by system timeout rules',
+              justification: 'Automatic escalation triggered by system timeout rules',
             },
             'system',
-            request.organizationId,
+            request.organizationId
           );
 
-          this.logger.log(
-            `Auto-escalated HITL request ${request.id} due to timeout`,
-          );
+          this.logger.log(`Auto-escalated HITL request ${request.id} due to timeout`);
         }
       } catch (error) {
-        this.logger.error(
-          `Failed to auto-escalate request ${request.id}:`,
-          error,
-        );
+        this.logger.error(`Failed to auto-escalate request ${request.id}:`, error);
       }
     }
   }
@@ -912,8 +840,7 @@ export class HITLService {
     return (
       (shouldEscalateByTime || shouldEscalateByProgress) &&
       hasEscalationRules &&
-      request.escalationLevel <
-        (request.escalationRules?.maxEscalationLevel || 3)
+      request.escalationLevel < (request.escalationRules?.maxEscalationLevel || 3)
     );
   }
 
@@ -944,9 +871,7 @@ export class HITLService {
   }
 
   private canVoteOnRequest(request: HITLRequest, userId: string): boolean {
-    return (
-      request.assigneeUsers?.includes(userId) || request.assigneeId === userId
-    );
+    return request.assigneeUsers?.includes(userId) || request.assigneeId === userId;
   }
 
   private async updateVotingData(request: HITLRequest): Promise<void> {
@@ -992,10 +917,7 @@ export class HITLService {
     return false;
   }
 
-  private async resumeExecution(
-    request: HITLRequest,
-    approved: boolean,
-  ): Promise<void> {
+  private async resumeExecution(request: HITLRequest, approved: boolean): Promise<void> {
     if (!request.executionId) return;
 
     const resumeData = {
@@ -1019,9 +941,7 @@ export class HITLService {
     }
   }
 
-  private async sendAssignmentNotifications(
-    request: HITLRequest,
-  ): Promise<void> {
+  private async sendAssignmentNotifications(request: HITLRequest): Promise<void> {
     const assignees = [];
 
     if (request.assigneeId) {
@@ -1046,14 +966,14 @@ export class HITLService {
             sourceId: request.sourceId,
           },
         },
-        request.organizationId,
+        request.organizationId
       );
     }
   }
 
   private async sendResolutionNotifications(
     request: HITLRequest,
-    approved: boolean,
+    approved: boolean
   ): Promise<void> {
     // Notify requester
     await this.notificationService.createNotification(
@@ -1069,13 +989,13 @@ export class HITLService {
           reason: request.decisionData?.reason,
         },
       },
-      request.organizationId,
+      request.organizationId
     );
   }
 
   private async sendDelegationNotifications(
     request: HITLRequest,
-    delegateDto: DelegateHITLRequestDto,
+    delegateDto: DelegateHITLRequestDto
   ): Promise<void> {
     // Notify new assignee
     await this.notificationService.createNotification(
@@ -1091,13 +1011,11 @@ export class HITLService {
           instructions: delegateDto.instructions,
         },
       },
-      request.organizationId,
+      request.organizationId
     );
   }
 
-  private async sendEscalationNotifications(
-    request: HITLRequest,
-  ): Promise<void> {
+  private async sendEscalationNotifications(request: HITLRequest): Promise<void> {
     const assignees = [];
 
     if (request.assigneeUsers) {
@@ -1118,14 +1036,14 @@ export class HITLService {
             escalationReason: request.escalationReason,
           },
         },
-        request.organizationId,
+        request.organizationId
       );
     }
   }
 
   private async sendCommentNotifications(
     request: HITLRequest,
-    comment: HITLComment,
+    comment: HITLComment
   ): Promise<void> {
     const notifyUsers = new Set<string>();
 
@@ -1155,7 +1073,7 @@ export class HITLService {
             commentAuthor: comment.userId,
           },
         },
-        request.organizationId,
+        request.organizationId
       );
     }
   }
@@ -1163,17 +1081,14 @@ export class HITLService {
   private generateDailyTrends(
     requests: HITLRequest[],
     startDate?: string,
-    endDate?: string,
+    endDate?: string
   ): Array<{
     date: string;
     created: number;
     resolved: number;
     expired: number;
   }> {
-    const trends = new Map<
-      string,
-      { created: number; resolved: number; expired: number }
-    >();
+    const trends = new Map<string, { created: number; resolved: number; expired: number }>();
 
     requests.forEach((request) => {
       const createdDate = request.createdAt.toISOString().split('T')[0];
@@ -1202,10 +1117,7 @@ export class HITLService {
     }));
   }
 
-  private groupByField(
-    requests: HITLRequest[],
-    field: keyof HITLRequest,
-  ): Record<string, number> {
+  private groupByField(requests: HITLRequest[], field: keyof HITLRequest): Record<string, number> {
     const groups: Record<string, number> = {};
 
     requests.forEach((request) => {
@@ -1219,7 +1131,7 @@ export class HITLService {
   private async getTopPerformers(
     organizationId: string,
     startDate?: string,
-    endDate?: string,
+    endDate?: string
   ): Promise<
     Array<{
       userId: string;
@@ -1246,24 +1158,21 @@ export class HITLService {
     const longRunningRequests = requests.filter(
       (r) =>
         r.performanceMetrics?.responseTimeMs &&
-        r.performanceMetrics.responseTimeMs > 24 * 60 * 60 * 1000,
+        r.performanceMetrics.responseTimeMs > 24 * 60 * 60 * 1000
     );
 
     if (longRunningRequests.length > 0) {
       const averageTime =
         longRunningRequests.reduce(
           (sum, r) => sum + (r.performanceMetrics?.responseTimeMs || 0),
-          0,
+          0
         ) / longRunningRequests.length;
 
       bottlenecks.push({
         type: 'Long Response Time',
         count: longRunningRequests.length,
         averageTime: Math.round(averageTime),
-        impact:
-          longRunningRequests.length > requests.length * 0.2
-            ? 'high'
-            : 'medium',
+        impact: longRunningRequests.length > requests.length * 0.2 ? 'high' : 'medium',
       });
     }
 
@@ -1274,8 +1183,7 @@ export class HITLService {
         type: 'High Escalation Rate',
         count: escalatedRequests.length,
         averageTime: 0,
-        impact:
-          escalatedRequests.length > requests.length * 0.1 ? 'high' : 'medium',
+        impact: escalatedRequests.length > requests.length * 0.1 ? 'high' : 'medium',
       });
     }
 

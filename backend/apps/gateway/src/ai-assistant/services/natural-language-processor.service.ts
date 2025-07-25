@@ -66,7 +66,7 @@ export class NaturalLanguageProcessorService {
   async processNaturalLanguage(
     dto: ProcessNaturalLanguageDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<ConfigurationSuggestion> {
     this.logger.log(`Processing natural language request for ${dto.configurationType}`);
 
@@ -79,7 +79,7 @@ export class NaturalLanguageProcessorService {
 
       // Generate configuration based on intent and description
       const configPrompt = this.buildConfigurationPrompt(dto, intentResult);
-      
+
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-4',
         messages: [
@@ -102,10 +102,13 @@ export class NaturalLanguageProcessorService {
       }
 
       const result = JSON.parse(content);
-      
+
       // Validate the generated configuration
-      const validationResults = await this.validateConfiguration(result.suggestedConfig, dto.configurationType);
-      
+      const validationResults = await this.validateConfiguration(
+        result.suggestedConfig,
+        dto.configurationType
+      );
+
       const suggestion: ConfigurationSuggestion = {
         confidence: result.confidence || 0.8,
         suggestedConfig: result.suggestedConfig,
@@ -114,7 +117,9 @@ export class NaturalLanguageProcessorService {
         validationResults,
       };
 
-      this.logger.log(`Generated configuration suggestion with confidence: ${suggestion.confidence}`);
+      this.logger.log(
+        `Generated configuration suggestion with confidence: ${suggestion.confidence}`
+      );
       return suggestion;
     } catch (error) {
       this.logger.error('Failed to process natural language request', error);
@@ -154,7 +159,8 @@ Identify the user's intent and extract relevant entities. Respond in JSON format
         messages: [
           {
             role: 'system',
-            content: 'You are an expert intent recognition system for AI configuration. Always respond with valid JSON.',
+            content:
+              'You are an expert intent recognition system for AI configuration. Always respond with valid JSON.',
           },
           {
             role: 'user',
@@ -172,7 +178,7 @@ Identify the user's intent and extract relevant entities. Respond in JSON format
 
       const result = JSON.parse(content);
       this.logger.log(`Recognized intent: ${result.intent} with confidence: ${result.confidence}`);
-      
+
       return result;
     } catch (error) {
       this.logger.error('Failed to recognize intent', error);
@@ -183,7 +189,7 @@ Identify the user's intent and extract relevant entities. Respond in JSON format
   async generateContextAwareSuggestions(
     dto: ConfigurationSuggestionDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<ConfigurationSuggestion[]> {
     this.logger.log('Generating context-aware suggestions');
 
@@ -227,7 +233,8 @@ Generate 3-5 suggestions in JSON format:
         messages: [
           {
             role: 'system',
-            content: 'You are an expert configuration advisor. Generate practical, context-aware suggestions in valid JSON format.',
+            content:
+              'You are an expert configuration advisor. Generate practical, context-aware suggestions in valid JSON format.',
           },
           {
             role: 'user',
@@ -244,16 +251,16 @@ Generate 3-5 suggestions in JSON format:
       }
 
       const result = JSON.parse(content);
-      
+
       // Validate each suggestion
       const suggestions = await Promise.all(
         result.suggestions.map(async (suggestion: any) => ({
           ...suggestion,
           validationResults: await this.validateConfiguration(
             suggestion.suggestedConfig,
-            this.inferConfigurationType(suggestion.suggestedConfig),
+            this.inferConfigurationType(suggestion.suggestedConfig)
           ),
-        })),
+        }))
       );
 
       this.logger.log(`Generated ${suggestions.length} context-aware suggestions`);
@@ -267,7 +274,7 @@ Generate 3-5 suggestions in JSON format:
   async validateAndOptimizeConfiguration(
     dto: ValidationOptimizationDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<{
     validationResults: ValidationResult[];
     optimizationSuggestions: OptimizationSuggestion[];
@@ -279,7 +286,7 @@ Generate 3-5 suggestions in JSON format:
       // Validate configuration
       const validationResults = await this.validateConfiguration(
         dto.configuration,
-        dto.configurationType,
+        dto.configurationType
       );
 
       // Generate optimization suggestions
@@ -317,7 +324,8 @@ Provide optimization suggestions in JSON format:
         messages: [
           {
             role: 'system',
-            content: 'You are an expert configuration optimizer. Provide detailed, actionable optimization suggestions in valid JSON format.',
+            content:
+              'You are an expert configuration optimizer. Provide detailed, actionable optimization suggestions in valid JSON format.',
           },
           {
             role: 'user',
@@ -335,8 +343,10 @@ Provide optimization suggestions in JSON format:
 
       const result = JSON.parse(content);
 
-      this.logger.log(`Generated ${result.optimizationSuggestions?.length || 0} optimization suggestions`);
-      
+      this.logger.log(
+        `Generated ${result.optimizationSuggestions?.length || 0} optimization suggestions`
+      );
+
       return {
         validationResults,
         optimizationSuggestions: result.optimizationSuggestions || [],
@@ -351,7 +361,7 @@ Provide optimization suggestions in JSON format:
   async processLearningFeedback(
     dto: LearningFeedbackDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<void> {
     this.logger.log('Processing learning feedback');
 
@@ -392,7 +402,8 @@ Provide learning insights in JSON format:
         messages: [
           {
             role: 'system',
-            content: 'You are an expert learning system analyzer. Extract actionable insights from user feedback.',
+            content:
+              'You are an expert learning system analyzer. Extract actionable insights from user feedback.',
           },
           {
             role: 'user',
@@ -406,8 +417,10 @@ Provide learning insights in JSON format:
       const content = completion.choices[0]?.message?.content;
       if (content) {
         const insights = JSON.parse(content);
-        this.logger.log(`Processed feedback insights: ${insights.insights?.length || 0} insights identified`);
-        
+        this.logger.log(
+          `Processed feedback insights: ${insights.insights?.length || 0} insights identified`
+        );
+
         // Store insights for future use
         const insightsKey = `insights_${organizationId}_${userId}`;
         const existingInsights = this.learningData.get(insightsKey) || [];
@@ -427,7 +440,7 @@ Provide learning insights in JSON format:
 
   private buildConfigurationPrompt(
     dto: ProcessNaturalLanguageDto,
-    intentResult: IntentRecognitionResult,
+    intentResult: IntentRecognitionResult
   ): string {
     return `
 Generate a ${dto.configurationType} configuration based on this natural language description:
@@ -466,8 +479,9 @@ Make the configuration production-ready and optimized for the described use case
   }
 
   private getSystemPrompt(configurationType: ConfigurationType): string {
-    const basePrompt = 'You are an expert AI configuration generator. Always respond with valid JSON.';
-    
+    const basePrompt =
+      'You are an expert AI configuration generator. Always respond with valid JSON.';
+
     switch (configurationType) {
       case ConfigurationType.AGENT:
         return `${basePrompt} You specialize in creating AI agent configurations with optimal prompts, model selection, and tool integration.`;
@@ -484,7 +498,7 @@ Make the configuration production-ready and optimized for the described use case
 
   private async validateConfiguration(
     configuration: any,
-    configurationType: ConfigurationType,
+    configurationType: ConfigurationType
   ): Promise<ValidationResult[]> {
     const validationResults: ValidationResult[] = [];
 
@@ -545,7 +559,7 @@ Make the configuration production-ready and optimized for the described use case
       }
 
       // Add success validation if no errors found
-      if (validationResults.filter(r => r.status === 'error').length === 0) {
+      if (validationResults.filter((r) => r.status === 'error').length === 0) {
         validationResults.push({
           field: 'overall',
           status: 'valid',

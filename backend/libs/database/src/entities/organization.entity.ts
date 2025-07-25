@@ -60,7 +60,7 @@ export class Organization extends BaseEntity {
   sessions!: Session[];
 
   @OneToMany(() => APXSession, (session) => session.organization)
-      apixSessions!: APXSession[];
+  apixSessions!: APXSession[];
 
   @OneToMany(() => APXExecution, (execution) => execution.organization)
   apixExecutions!: APXExecution[];

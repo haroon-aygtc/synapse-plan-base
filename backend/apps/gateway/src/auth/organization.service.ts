@@ -39,12 +39,10 @@ export class OrganizationService {
   constructor(
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
-  async create(
-    organizationData: CreateOrganizationData,
-  ): Promise<IOrganization> {
+  async create(organizationData: CreateOrganizationData): Promise<IOrganization> {
     // Check if organization with slug already exists
     const existingOrg = await this.findBySlug(organizationData.slug);
     if (existingOrg) {
@@ -52,9 +50,7 @@ export class OrganizationService {
     }
 
     // Set default quotas based on plan
-    const defaultQuotas = this.getDefaultQuotas(
-      organizationData.plan || SubscriptionPlan.FREE,
-    );
+    const defaultQuotas = this.getDefaultQuotas(organizationData.plan || SubscriptionPlan.FREE);
 
     const organization = this.organizationRepository.create({
       ...organizationData,
@@ -71,8 +67,7 @@ export class OrganizationService {
       isActive: true,
     });
 
-    const savedOrganization =
-      await this.organizationRepository.save(organization);
+    const savedOrganization = await this.organizationRepository.save(organization);
 
     // Emit organization created event
     this.eventEmitter.emit(EventType.ORGANIZATION_CREATED, {
@@ -130,22 +125,18 @@ export class OrganizationService {
       whereConditions.isActive = isActive;
     }
 
-    const [organizations, total] =
-      await this.organizationRepository.findAndCount({
-        where: whereConditions,
-        relations: ['users'],
-        skip: (page - 1) * limit,
-        take: limit,
-        order: { createdAt: 'DESC' },
-      });
+    const [organizations, total] = await this.organizationRepository.findAndCount({
+      where: whereConditions,
+      relations: ['users'],
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { createdAt: 'DESC' },
+    });
 
     return { organizations, total };
   }
 
-  async update(
-    id: string,
-    updateData: UpdateOrganizationData,
-  ): Promise<IOrganization> {
+  async update(id: string, updateData: UpdateOrganizationData): Promise<IOrganization> {
     const organization = await this.findById(id);
     if (!organization) {
       throw new NotFoundException('Organization not found');
@@ -198,10 +189,7 @@ export class OrganizationService {
     await this.organizationRepository.update(id, { isActive: true });
   }
 
-  async updateQuotas(
-    id: string,
-    quotas: Record<string, number>,
-  ): Promise<void> {
+  async updateQuotas(id: string, quotas: Record<string, number>): Promise<void> {
     const organization = await this.findById(id);
     if (!organization) {
       throw new NotFoundException('Organization not found');
@@ -218,7 +206,7 @@ export class OrganizationService {
   async checkQuota(
     organizationId: string,
     resourceType: string,
-    requestedAmount: number = 1,
+    requestedAmount: number = 1
   ): Promise<boolean> {
     const organization = await this.findById(organizationId);
     if (!organization) {

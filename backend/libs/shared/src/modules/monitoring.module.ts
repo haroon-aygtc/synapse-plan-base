@@ -8,17 +8,7 @@ import { MonitoringInterceptor } from '../interceptors/monitoring.interceptor';
 @Global()
 @Module({
   imports: [ConfigModule],
-  providers: [
-    CustomLoggerService,
-    MonitoringService,
-    HealthService,
-    MonitoringInterceptor,
-  ],
-  exports: [
-    CustomLoggerService,
-    MonitoringService,
-    HealthService,
-    MonitoringInterceptor,
-  ],
+  providers: [CustomLoggerService, MonitoringService, HealthService, MonitoringInterceptor],
+  exports: [CustomLoggerService, MonitoringService, HealthService, MonitoringInterceptor],
 })
 export class MonitoringModule {}

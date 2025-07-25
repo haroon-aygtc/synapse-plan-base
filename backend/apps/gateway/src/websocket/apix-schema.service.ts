@@ -1,15 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
-import {
-  APXMessageType,
-  APXSecurityLevel,
-  APXPermissionLevel,
-} from '@shared/enums';
-import {
-  IAPXMessage,
-  IAPXValidationError,
-  IAPXMessageSchema,
-} from '@shared/interfaces';
+import { APXMessageType, APXSecurityLevel, APXPermissionLevel } from '@shared/enums';
+import { IAPXMessage, IAPXValidationError, IAPXMessageSchema } from '@shared/interfaces';
 
 @Injectable()
 export class APXSchemaService {
@@ -50,7 +42,7 @@ export class APXSchemaService {
           knowledge_sources: z.array(z.string()).optional(),
           execution_context: z.record(z.any()).optional(),
         }),
-      }),
+      })
     );
 
     // Agent Text Chunk
@@ -65,7 +57,7 @@ export class APXSchemaService {
           token_count: z.number().int().nonnegative(),
           cumulative_tokens: z.number().int().nonnegative(),
         }),
-      }),
+      })
     );
 
     // Agent Tool Call
@@ -80,7 +72,7 @@ export class APXSchemaService {
           parameters: z.record(z.any()),
           start_time: z.string().datetime(),
         }),
-      }),
+      })
     );
 
     // Agent Memory Used
@@ -95,7 +87,7 @@ export class APXSchemaService {
           relevance_score: z.number().min(0).max(1),
           source: z.string(),
         }),
-      }),
+      })
     );
 
     // Agent Error
@@ -111,7 +103,7 @@ export class APXSchemaService {
           retry_possible: z.boolean(),
           suggested_action: z.string(),
         }),
-      }),
+      })
     );
 
     // Agent Execution Complete
@@ -128,13 +120,13 @@ export class APXSchemaService {
               tool_id: z.string(),
               function_name: z.string(),
               execution_time_ms: z.number().int().nonnegative(),
-            }),
+            })
           ),
           memory_updates: z.array(
             z.object({
               memory_id: z.string(),
               memory_type: z.string(),
-            }),
+            })
           ),
           cost_breakdown: z.object({
             model_cost: z.number().nonnegative(),
@@ -142,7 +134,7 @@ export class APXSchemaService {
             total_cost: z.number().nonnegative(),
           }),
         }),
-      }),
+      })
     );
 
     // Tool Call Start
@@ -157,7 +149,7 @@ export class APXSchemaService {
           timeout_ms: z.number().int().nonnegative().optional(),
           execution_context: z.record(z.any()).optional(),
         }),
-      }),
+      })
     );
 
     // Tool Call Result
@@ -172,7 +164,7 @@ export class APXSchemaService {
           execution_time_ms: z.number().int().nonnegative(),
           cost: z.number().nonnegative().optional(),
         }),
-      }),
+      })
     );
 
     // Tool Call Error
@@ -188,7 +180,7 @@ export class APXSchemaService {
           error_details: z.any().optional(),
           retry_possible: z.boolean(),
         }),
-      }),
+      })
     );
 
     // Knowledge Base Search Performed
@@ -203,7 +195,7 @@ export class APXSchemaService {
           filters: z.record(z.any()).optional(),
           top_k: z.number().int().positive().optional(),
         }),
-      }),
+      })
     );
 
     // Knowledge Base Chunk Injected
@@ -218,7 +210,7 @@ export class APXSchemaService {
           relevance_score: z.number().min(0).max(1),
           metadata: z.record(z.any()).optional(),
         }),
-      }),
+      })
     );
 
     // HITL Request Created
@@ -237,7 +229,7 @@ export class APXSchemaService {
                 id: z.string(),
                 label: z.string(),
                 value: z.any(),
-              }),
+              })
             )
             .optional(),
           priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
@@ -245,7 +237,7 @@ export class APXSchemaService {
           assignee_roles: z.array(z.string()).optional(),
           assignee_users: z.array(z.string()).optional(),
         }),
-      }),
+      })
     );
 
     // HITL Resolution Pending
@@ -258,7 +250,7 @@ export class APXSchemaService {
           assigned_at: z.string().datetime(),
           expected_resolution_by: z.string().datetime().optional(),
         }),
-      }),
+      })
     );
 
     // HITL Resolved
@@ -272,7 +264,7 @@ export class APXSchemaService {
           resolution_time_ms: z.number().int().nonnegative(),
           notes: z.string().optional(),
         }),
-      }),
+      })
     );
 
     // HITL Expired
@@ -286,7 +278,7 @@ export class APXSchemaService {
           fallback_action: z.string().optional(),
           fallback_result: z.any().optional(),
         }),
-      }),
+      })
     );
 
     // Widget Loaded
@@ -300,7 +292,7 @@ export class APXSchemaService {
           load_time_ms: z.number().int().nonnegative(),
           configuration: z.record(z.any()).optional(),
         }),
-      }),
+      })
     );
 
     // Widget Opened
@@ -315,7 +307,7 @@ export class APXSchemaService {
           user_agent: z.string().optional(),
           device_info: z.record(z.any()).optional(),
         }),
-      }),
+      })
     );
 
     // Widget Query Submitted
@@ -330,7 +322,7 @@ export class APXSchemaService {
           context: z.record(z.any()).optional(),
           user_info: z.record(z.any()).optional(),
         }),
-      }),
+      })
     );
 
     // Widget Converted
@@ -344,7 +336,7 @@ export class APXSchemaService {
           conversion_value: z.number().optional(),
           conversion_details: z.record(z.any()).optional(),
         }),
-      }),
+      })
     );
 
     // Stream Control
@@ -358,13 +350,10 @@ export class APXSchemaService {
           reason: z.string().optional(),
           timestamp: z.string().datetime(),
         }),
-      }),
+      })
     );
 
-    this.schemas.set(
-      APXMessageType.STREAM_RESUME,
-      this.schemas.get(APXMessageType.STREAM_PAUSE)!,
-    );
+    this.schemas.set(APXMessageType.STREAM_RESUME, this.schemas.get(APXMessageType.STREAM_PAUSE)!);
 
     // Token Limit Reached
     this.schemas.set(
@@ -377,7 +366,7 @@ export class APXSchemaService {
           limit_type: z.enum(['user', 'organization', 'model']),
           suggested_action: z.string(),
         }),
-      }),
+      })
     );
 
     // Provider Fallback
@@ -391,7 +380,7 @@ export class APXSchemaService {
           reason: z.string(),
           impact_assessment: z.string(),
         }),
-      }),
+      })
     );
 
     // Connection Acknowledgment
@@ -410,7 +399,7 @@ export class APXSchemaService {
             concurrent_streams: z.number().int().nonnegative(),
           }),
         }),
-      }),
+      })
     );
 
     // Connection Heartbeat
@@ -421,7 +410,7 @@ export class APXSchemaService {
           timestamp: z.string().datetime(),
           client_id: z.string().optional(),
         }),
-      }),
+      })
     );
 
     // Session Created
@@ -443,7 +432,7 @@ export class APXSchemaService {
             })
             .optional(),
         }),
-      }),
+      })
     );
 
     // Session Ended
@@ -458,7 +447,7 @@ export class APXSchemaService {
           duration_ms: z.number().int().nonnegative(),
           end_reason: z.string(),
         }),
-      }),
+      })
     );
 
     this.logger.log(`Initialized ${this.schemas.size} APIX message schemas`);
@@ -475,8 +464,7 @@ export class APXSchemaService {
           valid: false,
           errors: {
             error_code: 'MISSING_REQUIRED_FIELDS',
-            error_message:
-              'Message must include type, session_id, and request_id',
+            error_message: 'Message must include type, session_id, and request_id',
             request_id: message.request_id || 'unknown',
           },
         };

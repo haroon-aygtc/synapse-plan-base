@@ -10,9 +10,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AgentEventType } from '@shared/enums';
 
 @EventSubscriber()
-export class OrganizationSubscriber
-  implements EntitySubscriberInterface<Organization>
-{
+export class OrganizationSubscriber implements EntitySubscriberInterface<Organization> {
   constructor(private readonly eventEmitter: EventEmitter2) {}
 
   listenTo() {

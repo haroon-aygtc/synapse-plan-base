@@ -33,13 +33,13 @@ export class KnowledgeSecurityService {
 
   constructor(
     @InjectRepository(KnowledgeDocument)
-    private readonly documentRepository: Repository<KnowledgeDocument>,
+    private readonly documentRepository: Repository<KnowledgeDocument>
   ) {}
 
   async checkDocumentAccess(
     documentId: string,
     context: SecurityContext,
-    action: 'read' | 'write' | 'delete' | 'share' = 'read',
+    action: 'read' | 'write' | 'delete' | 'share' = 'read'
   ): Promise<boolean> {
     try {
       const document = await this.documentRepository.findOne({
@@ -54,7 +54,7 @@ export class KnowledgeSecurityService {
       // Organization isolation - documents can only be accessed within the same org
       if (document.organizationId !== context.organizationId) {
         this.logger.warn(
-          `Cross-organization access attempt: user ${context.userId} tried to access document ${documentId}`,
+          `Cross-organization access attempt: user ${context.userId} tried to access document ${documentId}`
         );
         return false;
       }
@@ -80,11 +80,8 @@ export class KnowledgeSecurityService {
   }
 
   async getDocumentPermissions(
-    document: Pick<
-      KnowledgeDocument,
-      'userId' | 'organizationId' | 'visibility'
-    >,
-    context: SecurityContext,
+    document: Pick<KnowledgeDocument, 'userId' | 'organizationId' | 'visibility'>,
+    context: SecurityContext
   ): Promise<AccessPermissions> {
     // Super admin has full access
     if (context.role === UserRole.SUPER_ADMIN) {
@@ -97,10 +94,7 @@ export class KnowledgeSecurityService {
     }
 
     // Organization admin has full access within their org
-    if (
-      context.role === UserRole.ORG_ADMIN &&
-      document.organizationId === context.organizationId
-    ) {
+    if (context.role === UserRole.ORG_ADMIN && document.organizationId === context.organizationId) {
       return {
         canRead: true,
         canWrite: true,
@@ -141,9 +135,7 @@ export class KnowledgeSecurityService {
         };
 
       case DocumentVisibility.ORGANIZATION:
-        const canAccessOrg = [UserRole.DEVELOPER, UserRole.ORG_ADMIN].includes(
-          context.role,
-        );
+        const canAccessOrg = [UserRole.DEVELOPER, UserRole.ORG_ADMIN].includes(context.role);
         return {
           canRead: canAccessOrg,
           canWrite: false,
@@ -163,16 +155,12 @@ export class KnowledgeSecurityService {
 
   async filterDocumentsByAccess(
     documents: KnowledgeDocument[],
-    context: SecurityContext,
+    context: SecurityContext
   ): Promise<KnowledgeDocument[]> {
     const accessibleDocuments: KnowledgeDocument[] = [];
 
     for (const document of documents) {
-      const hasAccess = await this.checkDocumentAccess(
-        document.id,
-        context,
-        'read',
-      );
+      const hasAccess = await this.checkDocumentAccess(document.id, context, 'read');
       if (hasAccess) {
         accessibleDocuments.push(document);
       }
@@ -184,7 +172,7 @@ export class KnowledgeSecurityService {
   async validateDocumentUpload(
     buffer: Buffer,
     filename: string,
-    context: SecurityContext,
+    context: SecurityContext
   ): Promise<{
     isValid: boolean;
     issues: string[];
@@ -214,9 +202,7 @@ export class KnowledgeSecurityService {
     // Rate limiting check
     const rateLimitCheck = await this.checkUploadRateLimit(context.userId);
     if (!rateLimitCheck.allowed) {
-      issues.push(
-        `Upload rate limit exceeded. Try again in ${rateLimitCheck.retryAfter} seconds`,
-      );
+      issues.push(`Upload rate limit exceeded. Try again in ${rateLimitCheck.retryAfter} seconds`);
     }
 
     return {
@@ -248,7 +234,7 @@ export class KnowledgeSecurityService {
     sanitizedContent?: Buffer;
   }> {
     const issues: string[] = [];
-    let content = buffer.toString('utf-8', 0, Math.min(10000, buffer.length));
+    const content = buffer.toString('utf-8', 0, Math.min(10000, buffer.length));
 
     // Check for malicious patterns
     for (const pattern of this.virusPatterns) {
@@ -291,9 +277,7 @@ export class KnowledgeSecurityService {
       '504b0304', // ZIP (could contain executables)
     ];
 
-    return suspiciousHeaders.some((suspicious) =>
-      header.startsWith(suspicious),
-    );
+    return suspiciousHeaders.some((suspicious) => header.startsWith(suspicious));
   }
 
   private async checkUploadRateLimit(userId: string): Promise<{
@@ -317,7 +301,7 @@ export class KnowledgeSecurityService {
     context: SecurityContext,
     action: string,
     success: boolean,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, any>
   ): Promise<void> {
     const auditLog = {
       timestamp: new Date(),
@@ -335,10 +319,7 @@ export class KnowledgeSecurityService {
     this.logger.log(`Audit: ${JSON.stringify(auditLog)}`);
   }
 
-  async encryptSensitiveContent(
-    content: string,
-    organizationId: string,
-  ): Promise<string> {
+  async encryptSensitiveContent(content: string, organizationId: string): Promise<string> {
     // Simple encryption for demonstration
     // In production, use proper encryption with key management
     const key = this.getOrganizationKey(organizationId);
@@ -348,10 +329,7 @@ export class KnowledgeSecurityService {
     return encrypted;
   }
 
-  async decryptSensitiveContent(
-    encryptedContent: string,
-    organizationId: string,
-  ): Promise<string> {
+  async decryptSensitiveContent(encryptedContent: string, organizationId: string): Promise<string> {
     try {
       const key = this.getOrganizationKey(organizationId);
       const decipher = crypto.createDecipher('aes-256-cbc', key);
@@ -366,15 +344,12 @@ export class KnowledgeSecurityService {
 
   private getOrganizationKey(organizationId: string): string {
     // In production, retrieve from secure key management service
-    return crypto
-      .createHash('sha256')
-      .update(organizationId + 'secret_salt')
-      .digest('hex');
+    return crypto.createHash('sha256').update(`${organizationId}secret_salt`).digest('hex');
   }
 
   async validateSearchQuery(
     query: string,
-    context: SecurityContext,
+    context: SecurityContext
   ): Promise<{
     isValid: boolean;
     sanitizedQuery?: string;
@@ -417,7 +392,7 @@ export class KnowledgeSecurityService {
 
   async checkOrganizationQuota(
     organizationId: string,
-    action: 'upload' | 'search' | 'storage',
+    action: 'upload' | 'search' | 'storage'
   ): Promise<{
     allowed: boolean;
     currentUsage: number;

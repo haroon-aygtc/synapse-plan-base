@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  CanActivate,
-  ExecutionContext,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { UserRole } from '@shared/interfaces';
 
@@ -22,13 +17,13 @@ export class RowLevelSecurityGuard implements CanActivate {
     // Check if resource ownership is required
     const requiresResourceOwnership = this.reflector.getAllAndOverride<boolean>(
       'requiresResourceOwnership',
-      [context.getHandler(), context.getClass()],
+      [context.getHandler(), context.getClass()]
     );
 
     // Check if cross-organization access is allowed
     const allowCrossOrganization = this.reflector.getAllAndOverride<boolean>(
       'allowCrossOrganization',
-      [context.getHandler(), context.getClass()],
+      [context.getHandler(), context.getClass()]
     );
 
     // Super admins can access cross-organization resources if explicitly allowed

@@ -21,13 +21,13 @@ export class PrivacyService {
     @InjectRepository(WidgetAnalytics)
     private widgetAnalyticsRepository: Repository<WidgetAnalytics>,
     @InjectRepository(Organization)
-    private organizationRepository: Repository<Organization>,
+    private organizationRepository: Repository<Organization>
   ) {}
 
   async processDataWithPrivacyCompliance(
     analyticsData: Partial<WidgetAnalytics>,
     organizationId: string,
-    userConsent?: any,
+    userConsent?: any
   ): Promise<Partial<WidgetAnalytics>> {
     // Get organization privacy settings
     const privacySettings = await this.getPrivacySettings(organizationId);
@@ -70,10 +70,14 @@ export class PrivacyService {
       .createQueryBuilder()
       .delete()
       .where('date < :retentionDate', { retentionDate })
-      .andWhere('widgetId IN (SELECT id FROM widgets WHERE organizationId = :organizationId)', { organizationId })
+      .andWhere('widgetId IN (SELECT id FROM widgets WHERE organizationId = :organizationId)', {
+        organizationId,
+      })
       .execute();
 
-    this.logger.log(`Cleaned up ${deletedCount.affected} expired analytics records for organization ${organizationId}`);
+    this.logger.log(
+      `Cleaned up ${deletedCount.affected} expired analytics records for organization ${organizationId}`
+    );
   }
 
   async exportUserData(sessionId: string, organizationId: string): Promise<any[]> {
@@ -96,7 +100,7 @@ export class PrivacyService {
       ],
     });
 
-    return userData.map(record => ({
+    return userData.map((record) => ({
       ...record,
       ipAddress: '[ANONYMIZED]', // Never export IP addresses
     }));
@@ -108,7 +112,9 @@ export class PrivacyService {
       .createQueryBuilder()
       .delete()
       .where('sessionId = :sessionId', { sessionId })
-      .andWhere('widgetId IN (SELECT id FROM widgets WHERE organizationId = :organizationId)', { organizationId })
+      .andWhere('widgetId IN (SELECT id FROM widgets WHERE organizationId = :organizationId)', {
+        organizationId,
+      })
       .execute();
 
     this.logger.log(`Deleted ${deletedCount.affected} analytics records for session ${sessionId}`);
@@ -125,7 +131,9 @@ export class PrivacyService {
         properties: {},
       })
       .where('sessionId = :sessionId', { sessionId })
-      .andWhere('widgetId IN (SELECT id FROM widgets WHERE organizationId = :organizationId)', { organizationId })
+      .andWhere('widgetId IN (SELECT id FROM widgets WHERE organizationId = :organizationId)', {
+        organizationId,
+      })
       .execute();
 
     this.logger.log(`Anonymized analytics data for session ${sessionId}`);
@@ -148,7 +156,7 @@ export class PrivacyService {
 
     // Merge with organization-specific settings if available
     const orgPrivacySettings = organization?.privacySettings as PrivacySettings | undefined;
-    
+
     return {
       ...defaultSettings,
       ...(orgPrivacySettings || {}),
@@ -160,11 +168,11 @@ export class PrivacyService {
     if (ipAddress.includes(':')) {
       // IPv6 - remove last 80 bits
       const parts = ipAddress.split(':');
-      return parts.slice(0, 3).join(':') + '::';
+      return `${parts.slice(0, 3).join(':')}::`;
     } else {
       // IPv4 - remove last octet
       const parts = ipAddress.split('.');
-      return parts.slice(0, 3).join('.') + '.0';
+      return `${parts.slice(0, 3).join('.')}.0`;
     }
   }
 
@@ -198,7 +206,7 @@ export class PrivacyService {
 
   private async applyGdprCompliance(
     data: Partial<WidgetAnalytics>,
-    userConsent?: any,
+    userConsent?: any
   ): Promise<Partial<WidgetAnalytics>> {
     // Apply GDPR compliance measures
     if (!userConsent?.analyticsConsent) {
@@ -216,7 +224,7 @@ export class PrivacyService {
   async generatePrivacyReport(organizationId: string): Promise<any> {
     // Generate privacy compliance report
     const privacySettings = await this.getPrivacySettings(organizationId);
-    
+
     const totalRecords = await this.widgetAnalyticsRepository
       .createQueryBuilder('analytics')
       .innerJoin('widgets', 'widget', 'widget.id = analytics.widgetId')
@@ -245,7 +253,10 @@ export class PrivacyService {
         anonymizedRecords,
         anonymizationRate: totalRecords > 0 ? (anonymizedRecords / totalRecords) * 100 : 0,
         oldestRecordDate: oldestRecord?.date,
-        dataRetentionCompliance: this.checkDataRetentionCompliance(oldestRecord?.date, privacySettings.dataRetentionDays),
+        dataRetentionCompliance: this.checkDataRetentionCompliance(
+          oldestRecord?.date,
+          privacySettings.dataRetentionDays
+        ),
       },
       complianceStatus: {
         gdprCompliant: privacySettings.gdprCompliant,
@@ -259,10 +270,10 @@ export class PrivacyService {
 
   private checkDataRetentionCompliance(oldestDate?: Date, retentionDays?: number): boolean {
     if (!oldestDate || !retentionDays) return true;
-    
+
     const retentionLimit = new Date();
     retentionLimit.setDate(retentionLimit.getDate() - retentionDays);
-    
+
     return oldestDate >= retentionLimit;
   }
 }

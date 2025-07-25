@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -15,11 +10,7 @@ import { SessionService } from '../session/session.service';
 import { WebSocketService } from '../websocket/websocket.service';
 import { HITLService } from '../hitl/hitl.service';
 import { ExecuteWorkflowDto } from './dto';
-import {
-  ExecutionStatus,
-  HITLRequestType,
-  HITLRequestPriority,
-} from '@shared/enums';
+import { ExecutionStatus, HITLRequestType, HITLRequestPriority } from '@shared/enums';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface WorkflowStep {
@@ -132,14 +123,8 @@ export interface WorkflowExecutionResult {
 @Injectable()
 export class WorkflowExecutionEngine {
   private readonly logger = new Logger(WorkflowExecutionEngine.name);
-  private readonly activeExecutions = new Map<
-    string,
-    WorkflowExecutionContext
-  >();
-  private readonly pausedExecutions = new Map<
-    string,
-    WorkflowExecutionContext
-  >();
+  private readonly activeExecutions = new Map<string, WorkflowExecutionContext>();
+  private readonly pausedExecutions = new Map<string, WorkflowExecutionContext>();
 
   constructor(
     @InjectRepository(Workflow)
@@ -152,14 +137,14 @@ export class WorkflowExecutionEngine {
     private readonly websocketService: WebSocketService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
-    private readonly hitlService: HITLService,
+    private readonly hitlService: HITLService
   ) {}
 
   async execute(
     workflowId: string,
     executeDto: ExecuteWorkflowDto,
     userId?: string,
-    organizationId?: string,
+    organizationId?: string
   ): Promise<any> {
     return this.executeWorkflow(workflowId, executeDto, userId, organizationId);
   }
@@ -168,7 +153,7 @@ export class WorkflowExecutionEngine {
     workflowId: string,
     executeDto: ExecuteWorkflowDto,
     userId?: string,
-    organizationId?: string,
+    organizationId?: string
   ): Promise<any> {
     const workflow = await this.workflowRepository.findOne({
       where: { id: workflowId },
@@ -215,12 +200,8 @@ export class WorkflowExecutionEngine {
       context: executeDto.input,
       stepResults: {},
       metadata: {
-        timeout:
-          executeDto.timeout || workflow.definition.settings?.timeout || 300000,
-        retryAttempts:
-          executeDto.retryAttempts ||
-          workflow.definition.settings?.retryAttempts ||
-          3,
+        timeout: executeDto.timeout || workflow.definition.settings?.timeout || 300000,
+        retryAttempts: executeDto.retryAttempts || workflow.definition.settings?.retryAttempts || 3,
         notifyOnCompletion: executeDto.notifyOnCompletion || false,
       },
       organizationId: context.organizationId,
@@ -266,21 +247,18 @@ export class WorkflowExecutionEngine {
     });
 
     // Send real-time update
-    await this.websocketService.sendWorkflowExecutionUpdate(
-      context.organizationId,
-      {
-        executionId,
-        workflowId,
-        status: ExecutionStatus.RUNNING,
-        currentStep: context.currentStep,
-        progress: 0,
-      },
-    );
+    await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
+      executionId,
+      workflowId,
+      status: ExecutionStatus.RUNNING,
+      currentStep: context.currentStep,
+      progress: 0,
+    });
 
     try {
       // Find start node
       const startNode = workflow.definition.nodes.find(
-        (node: WorkflowStep) => node.type === 'start',
+        (node: WorkflowStep) => node.type === 'start'
       );
 
       if (!startNode) {
@@ -288,11 +266,7 @@ export class WorkflowExecutionEngine {
       }
 
       // Execute workflow
-      const result = await this.executeWorkflowSteps(
-        workflow,
-        context,
-        startNode.id,
-      );
+      const result = await this.executeWorkflowSteps(workflow, context, startNode.id);
 
       const executionTime = Date.now() - startTime;
 
@@ -331,26 +305,21 @@ export class WorkflowExecutionEngine {
       });
 
       // Send real-time update
-      await this.websocketService.sendWorkflowExecutionUpdate(
-        context.organizationId,
-        {
-          executionId,
-          workflowId,
-          status: ExecutionStatus.COMPLETED,
-          output: result.output,
-          executionTime,
-          progress: 100,
-        },
-      );
+      await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
+        executionId,
+        workflowId,
+        status: ExecutionStatus.COMPLETED,
+        output: result.output,
+        executionTime,
+        progress: 100,
+      });
 
       // Send notification if requested
       if (executeDto.notifyOnCompletion) {
         await this.sendCompletionNotification(context, result);
       }
 
-      this.logger.log(
-        `Workflow execution completed: ${executionId} in ${executionTime}ms`,
-      );
+      this.logger.log(`Workflow execution completed: ${executionId} in ${executionTime}ms`);
 
       return {
         id: executionId,
@@ -381,7 +350,9 @@ export class WorkflowExecutionEngine {
         stackTrace: error.stack || '',
         recoveryAttempts: context.retryCount,
         lastRecoveryAt: new Date(),
-        isRecoverable: this.isRecoverableError(error instanceof Error ? error : new Error(error.message || 'Unknown error')),
+        isRecoverable: this.isRecoverableError(
+          error instanceof Error ? error : new Error(error.message || 'Unknown error')
+        ),
       };
 
       await this.workflowExecutionRepository.save(execution);
@@ -405,17 +376,15 @@ export class WorkflowExecutionEngine {
           workflowId,
           status: ExecutionStatus.FAILED,
           error: error.message || 'Unknown error',
-          progress:
-            (context.completedSteps.length / workflow.definition.nodes.length) *
-            100,
+          progress: (context.completedSteps.length / workflow.definition.nodes.length) * 100,
           executionId,
           timestamp: new Date(),
-        },
+        }
       );
 
       this.logger.error(
         `Workflow execution failed: ${executionId} - ${error.message || 'Unknown error'}`,
-        error.stack || '',
+        error.stack || ''
       );
 
       throw error;
@@ -448,7 +417,7 @@ export class WorkflowExecutionEngine {
           pausedAt: new Date(),
           lastCheckpoint: new Date(),
         },
-      },
+      }
     );
 
     // Emit paused event
@@ -461,15 +430,12 @@ export class WorkflowExecutionEngine {
     });
 
     // Send real-time update
-    await this.websocketService.sendWorkflowExecutionUpdate(
-      context.organizationId,
-      {
-        executionId,
-        workflowId: context.workflowId,
-        status: ExecutionStatus.PAUSED,
-        currentStep: context.currentStep,
-      },
-    );
+    await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
+      executionId,
+      workflowId: context.workflowId,
+      status: ExecutionStatus.PAUSED,
+      currentStep: context.currentStep,
+    });
 
     this.logger.log(`Workflow execution paused: ${executionId}`);
   }
@@ -501,7 +467,7 @@ export class WorkflowExecutionEngine {
           resumedAt: new Date(),
           lastCheckpoint: new Date(),
         },
-      },
+      }
     );
 
     // Emit resumed event
@@ -514,23 +480,19 @@ export class WorkflowExecutionEngine {
     });
 
     // Send real-time update
-    await this.websocketService.sendWorkflowExecutionUpdate(
-      context.organizationId,
-      {
-        executionId,
-        workflowId: context.workflowId,
-        status: ExecutionStatus.RUNNING,
-        currentStep: context.currentStep,
-      },
-    );
+    await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
+      executionId,
+      workflowId: context.workflowId,
+      status: ExecutionStatus.RUNNING,
+      currentStep: context.currentStep,
+    });
 
     this.logger.log(`Workflow execution resumed: ${executionId}`);
   }
 
   async cancel(executionId: string): Promise<void> {
     const context =
-      this.activeExecutions.get(executionId) ||
-      this.pausedExecutions.get(executionId);
+      this.activeExecutions.get(executionId) || this.pausedExecutions.get(executionId);
 
     if (!context) {
       throw new NotFoundException(`Execution ${executionId} not found`);
@@ -553,7 +515,7 @@ export class WorkflowExecutionEngine {
           retryCount: context.retryCount,
           lastCheckpoint: new Date(),
         },
-      },
+      }
     );
 
     // Emit cancelled event
@@ -566,14 +528,11 @@ export class WorkflowExecutionEngine {
     });
 
     // Send real-time update
-    await this.websocketService.sendWorkflowExecutionUpdate(
-      context.organizationId,
-      {
-        executionId,
-        workflowId: context.workflowId,
-        status: ExecutionStatus.CANCELLED,
-      },
-    );
+    await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
+      executionId,
+      workflowId: context.workflowId,
+      status: ExecutionStatus.CANCELLED,
+    });
 
     this.logger.log(`Workflow execution cancelled: ${executionId}`);
   }
@@ -581,7 +540,7 @@ export class WorkflowExecutionEngine {
   private async executeWorkflowSteps(
     workflow: Workflow,
     context: WorkflowExecutionContext,
-    currentStepId: string,
+    currentStepId: string
   ): Promise<any> {
     const nodes = workflow.definition.nodes as WorkflowStep[];
     const edges = workflow.definition.edges as WorkflowEdge[];
@@ -625,11 +584,7 @@ export class WorkflowExecutionEngine {
 
       try {
         // Execute step based on type
-        const stepResult = await this.executeStep(
-          currentNode,
-          context,
-          workflow,
-        );
+        const stepResult = await this.executeStep(currentNode, context, workflow);
 
         const stepExecutionTime = Date.now() - stepStartTime;
         stepExecutionTimes[currentStepId] = stepExecutionTime;
@@ -668,36 +623,25 @@ export class WorkflowExecutionEngine {
               executionPath,
               decisionPoints,
               parallelExecutions: [],
-              optimizationSuggestions: this.generateOptimizationSuggestions(
-                bottlenecks,
-                context,
-              ),
+              optimizationSuggestions: this.generateOptimizationSuggestions(bottlenecks, context),
             },
           };
         }
 
         // Find next step
-        const nextStep = await this.findNextStep(
-          currentNode,
-          edges,
-          context,
-          decisionPoints,
-        );
+        const nextStep = await this.findNextStep(currentNode, edges, context, decisionPoints);
         currentStepId = nextStep || '';
 
         // Send progress update
         const progress = (context.completedSteps.length / nodes.length) * 100;
-        await this.websocketService.sendWorkflowExecutionUpdate(
-          context.organizationId,
-          {
-            executionId: context.executionId,
-            workflowId: context.workflowId,
-            status: ExecutionStatus.RUNNING,
-            currentStep: currentStepId,
-            progress,
-            stepResult,
-          },
-        );
+        await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
+          executionId: context.executionId,
+          workflowId: context.workflowId,
+          status: ExecutionStatus.RUNNING,
+          currentStep: currentStepId,
+          progress,
+          stepResult,
+        });
       } catch (error: any) {
         context.failedSteps.push(currentStepId);
 
@@ -707,22 +651,17 @@ export class WorkflowExecutionEngine {
         if (errorHandling === 'retry' && context.retryCount < maxRetries) {
           context.retryCount++;
           this.logger.warn(
-            `Retrying step ${currentStepId} (attempt ${context.retryCount}): ${error.message || 'Unknown error'}`,
+            `Retrying step ${currentStepId} (attempt ${context.retryCount}): ${error.message || 'Unknown error'}`
           );
           continue; // Retry the same step
         } else if (errorHandling === 'continue') {
           this.logger.warn(
-            `Continuing after error in step ${currentStepId}: ${error.message || 'Unknown error'}`,
+            `Continuing after error in step ${currentStepId}: ${error.message || 'Unknown error'}`
           );
           // Find next step and continue
-          const nextStep = await this.findNextStep(
-            currentNode,
-            edges,
-            context,
-            decisionPoints,
-          );
+          const nextStep = await this.findNextStep(currentNode, edges, context, decisionPoints);
           const nextStepId = nextStep || '';
-          
+
           if (nextStepId) {
             currentStepId = nextStepId;
             continue;
@@ -743,7 +682,7 @@ export class WorkflowExecutionEngine {
   private async executeStep(
     step: WorkflowStep,
     context: WorkflowExecutionContext,
-    workflow: Workflow,
+    workflow: Workflow
   ): Promise<any> {
     const stepStartTime = Date.now();
 
@@ -784,7 +723,7 @@ export class WorkflowExecutionEngine {
 
   private async executeAgentStep(
     step: WorkflowStep,
-    context: WorkflowExecutionContext,
+    context: WorkflowExecutionContext
   ): Promise<any> {
     const agentId = step.data.agentId;
     if (!agentId) {
@@ -795,7 +734,7 @@ export class WorkflowExecutionEngine {
     const agentInput = this.mapParametersToAgent(
       step.data.inputMapping || {},
       context.variables,
-      context.stepResults,
+      context.stepResults
     );
 
     const startTime = Date.now();
@@ -805,10 +744,7 @@ export class WorkflowExecutionEngine {
       const agentResult = await this.agentService.execute(
         agentId,
         {
-          input:
-            typeof agentInput === 'string'
-              ? agentInput
-              : JSON.stringify(agentInput),
+          input: typeof agentInput === 'string' ? agentInput : JSON.stringify(agentInput),
           sessionId: context.sessionId,
           context: {
             workflowId: context.workflowId,
@@ -822,7 +758,7 @@ export class WorkflowExecutionEngine {
           },
         },
         context.userId,
-        context.organizationId,
+        context.organizationId
       );
 
       const executionTime = Date.now() - startTime;
@@ -840,11 +776,7 @@ export class WorkflowExecutionEngine {
 
       // Map agent output to workflow variables
       const outputMapping = step.data.outputMapping || {};
-      this.mapAgentOutputToVariables(
-        agentResult.output,
-        outputMapping,
-        context.variables,
-      );
+      this.mapAgentOutputToVariables(agentResult.output, outputMapping, context.variables);
 
       return {
         output: agentResult.output,
@@ -872,14 +804,14 @@ export class WorkflowExecutionEngine {
       });
 
       throw new Error(
-        `Agent execution failed in step ${step.id}: ${error.message || 'Unknown error'}`,
+        `Agent execution failed in step ${step.id}: ${error.message || 'Unknown error'}`
       );
     }
   }
 
   private async executeToolStep(
     step: WorkflowStep,
-    context: WorkflowExecutionContext,
+    context: WorkflowExecutionContext
   ): Promise<any> {
     const toolId = step.data.toolId;
     if (!toolId) {
@@ -890,7 +822,7 @@ export class WorkflowExecutionEngine {
     const toolParameters = this.mapParametersToTool(
       step.data.parameterMapping || {},
       context.variables,
-      context.stepResults,
+      context.stepResults
     );
 
     const startTime = Date.now();
@@ -908,7 +840,7 @@ export class WorkflowExecutionEngine {
         },
         context.userId,
         context.organizationId,
-        context.sessionId,
+        context.sessionId
       );
 
       const executionTime = Date.now() - startTime;
@@ -925,11 +857,7 @@ export class WorkflowExecutionEngine {
 
       // Map tool output to workflow variables
       const outputMapping = step.data.outputMapping || {};
-      this.mapToolOutputToVariables(
-        toolResult.result,
-        outputMapping,
-        context.variables,
-      );
+      this.mapToolOutputToVariables(toolResult.result, outputMapping, context.variables);
 
       return {
         output: toolResult.result,
@@ -955,14 +883,14 @@ export class WorkflowExecutionEngine {
       });
 
       throw new Error(
-        `Tool execution failed in step ${step.id}: ${error.message || 'Unknown error'}`,
+        `Tool execution failed in step ${step.id}: ${error.message || 'Unknown error'}`
       );
     }
   }
 
   private async executeConditionStep(
     step: WorkflowStep,
-    context: WorkflowExecutionContext,
+    context: WorkflowExecutionContext
   ): Promise<any> {
     const startTime = Date.now();
     const condition = step.data.condition;
@@ -972,11 +900,7 @@ export class WorkflowExecutionEngine {
     }
 
     // Evaluate condition
-    const result = this.evaluateCondition(
-      condition,
-      context.variables,
-      context.stepResults,
-    );
+    const result = this.evaluateCondition(condition, context.variables, context.stepResults);
     const executionTime = Date.now() - startTime;
 
     // Store condition result in variables
@@ -996,7 +920,7 @@ export class WorkflowExecutionEngine {
   private async executeLoopStep(
     step: WorkflowStep,
     context: WorkflowExecutionContext,
-    workflow: Workflow,
+    workflow: Workflow
   ): Promise<any> {
     const startTime = Date.now();
     const loopConfig = step.data.loop;
@@ -1028,7 +952,7 @@ export class WorkflowExecutionEngine {
         const loopResult = await this.executeWorkflowSteps(
           workflow,
           context,
-          loopConfig.bodyStepId,
+          loopConfig.bodyStepId
         );
 
         results.push(loopResult.output);
@@ -1041,7 +965,7 @@ export class WorkflowExecutionEngine {
         const shouldContinue = this.evaluateCondition(
           loopConfig.condition,
           context.variables,
-          context.stepResults,
+          context.stepResults
         );
 
         if (!shouldContinue) break;
@@ -1053,7 +977,7 @@ export class WorkflowExecutionEngine {
         const loopResult = await this.executeWorkflowSteps(
           workflow,
           context,
-          loopConfig.bodyStepId,
+          loopConfig.bodyStepId
         );
 
         results.push(loopResult.output);
@@ -1078,7 +1002,7 @@ export class WorkflowExecutionEngine {
 
   private async executeHitlStep(
     step: WorkflowStep,
-    context: WorkflowExecutionContext,
+    context: WorkflowExecutionContext
   ): Promise<any> {
     const startTime = Date.now();
     const hitlConfig = step.data.hitl;
@@ -1092,8 +1016,7 @@ export class WorkflowExecutionEngine {
       {
         title: hitlConfig.title || `Workflow Step Approval Required`,
         description:
-          hitlConfig.description ||
-          `Please review and approve workflow step: ${step.id}`,
+          hitlConfig.description || `Please review and approve workflow step: ${step.id}`,
         type: hitlConfig.type || HITLRequestType.APPROVAL,
         priority: hitlConfig.priority || HITLRequestPriority.MEDIUM,
         sourceType: 'workflow',
@@ -1110,13 +1033,12 @@ export class WorkflowExecutionEngine {
         assigneeUsers: hitlConfig.assigneeUsers,
         timeoutMs: hitlConfig.timeout || 86400000,
         allowDiscussion: hitlConfig.allowDiscussion || false,
-        requireExpertConsultation:
-          hitlConfig.requireExpertConsultation || false,
+        requireExpertConsultation: hitlConfig.requireExpertConsultation || false,
         expertConsultants: hitlConfig.expertConsultants,
         escalationRules: hitlConfig.escalationRules,
       },
       'system', // System user for workflow-generated requests
-      context.organizationId,
+      context.organizationId
     );
 
     // Update context with HITL request info
@@ -1134,7 +1056,7 @@ export class WorkflowExecutionEngine {
     // Set up event listener for HITL resolution
     const approvalPromise = this.waitForHITLApproval(
       hitlRequest.id,
-      hitlConfig.timeout || 86400000,
+      hitlConfig.timeout || 86400000
     );
 
     try {
@@ -1142,12 +1064,10 @@ export class WorkflowExecutionEngine {
 
       // Update HITL request status in context
       const hitlRequestIndex = context.hitlRequests.findIndex(
-        (r) => r.requestId === hitlRequest.id,
+        (r) => r.requestId === hitlRequest.id
       );
       if (hitlRequestIndex !== -1) {
-        context.hitlRequests[hitlRequestIndex].status = approval.approved
-          ? 'approved'
-          : 'rejected';
+        context.hitlRequests[hitlRequestIndex].status = approval.approved ? 'approved' : 'rejected';
         context.hitlRequests[hitlRequestIndex].resolvedAt = new Date();
         context.hitlRequests[hitlRequestIndex].resolvedBy = approval.resolvedBy;
         context.hitlRequests[hitlRequestIndex].resolution = approval;
@@ -1159,9 +1079,7 @@ export class WorkflowExecutionEngine {
       const executionTime = Date.now() - startTime;
 
       if (!approval.approved) {
-        throw new Error(
-          `HITL request rejected: ${approval.reason || 'No reason provided'}`,
-        );
+        throw new Error(`HITL request rejected: ${approval.reason || 'No reason provided'}`);
       }
 
       return {
@@ -1187,7 +1105,7 @@ export class WorkflowExecutionEngine {
 
       // Update HITL request status in context
       const hitlRequestIndex = context.hitlRequests.findIndex(
-        (r) => r.requestId === hitlRequest.id,
+        (r) => r.requestId === hitlRequest.id
       );
       if (hitlRequestIndex !== -1) {
         context.hitlRequests[hitlRequestIndex].status = 'expired';
@@ -1223,11 +1141,9 @@ export class WorkflowExecutionEngine {
       condition: string;
       result: boolean;
       evaluationTime: number;
-    }>,
+    }>
   ): Promise<string | null> {
-    const outgoingEdges = edges.filter(
-      (edge) => edge.source === currentNode.id,
-    );
+    const outgoingEdges = edges.filter((edge) => edge.source === currentNode.id);
 
     if (outgoingEdges.length === 0) {
       return null; // No next step
@@ -1248,7 +1164,7 @@ export class WorkflowExecutionEngine {
       const conditionResult = this.evaluateCondition(
         edge.condition,
         context.variables,
-        context.stepResults,
+        context.stepResults
       );
       const evaluationTime = Date.now() - evaluationStartTime;
 
@@ -1270,7 +1186,7 @@ export class WorkflowExecutionEngine {
   private async createHITLRequest(
     step: WorkflowStep,
     context: WorkflowExecutionContext,
-    hitlConfig: any,
+    hitlConfig: any
   ): Promise<any> {
     try {
       const startTime = Date.now();
@@ -1278,8 +1194,7 @@ export class WorkflowExecutionEngine {
         {
           title: hitlConfig.title || `Workflow Step Approval Required`,
           description:
-            hitlConfig.description ||
-            `Please review and approve workflow step: ${step.id}`,
+            hitlConfig.description || `Please review and approve workflow step: ${step.id}`,
           type: hitlConfig.type || HITLRequestType.APPROVAL,
           priority: hitlConfig.priority || HITLRequestPriority.MEDIUM,
           sourceType: 'workflow',
@@ -1296,13 +1211,12 @@ export class WorkflowExecutionEngine {
           assigneeUsers: hitlConfig.assigneeUsers,
           timeoutMs: hitlConfig.timeout || 86400000,
           allowDiscussion: hitlConfig.allowDiscussion || false,
-          requireExpertConsultation:
-            hitlConfig.requireExpertConsultation || false,
+          requireExpertConsultation: hitlConfig.requireExpertConsultation || false,
           expertConsultants: hitlConfig.expertConsultants,
           escalationRules: hitlConfig.escalationRules,
         },
         'system', // System user for workflow-generated requests
-        context.organizationId,
+        context.organizationId
       );
 
       // Update context with HITL request info
@@ -1320,7 +1234,7 @@ export class WorkflowExecutionEngine {
       // Set up event listener for HITL resolution
       const approvalPromise = this.waitForHITLApproval(
         hitlRequest.id,
-        hitlConfig.timeout || 86400000,
+        hitlConfig.timeout || 86400000
       );
 
       try {
@@ -1328,7 +1242,7 @@ export class WorkflowExecutionEngine {
 
         // Update HITL request status in context
         const hitlRequestIndex = context.hitlRequests.findIndex(
-          (r) => r.requestId === hitlRequest.id,
+          (r) => r.requestId === hitlRequest.id
         );
         if (hitlRequestIndex !== -1) {
           context.hitlRequests[hitlRequestIndex].status = approval.approved
@@ -1345,9 +1259,7 @@ export class WorkflowExecutionEngine {
         const executionTime = Date.now() - startTime;
 
         if (!approval.approved) {
-          throw new Error(
-            `HITL request rejected: ${approval.reason || 'No reason provided'}`,
-          );
+          throw new Error(`HITL request rejected: ${approval.reason || 'No reason provided'}`);
         }
 
         return {
@@ -1373,7 +1285,7 @@ export class WorkflowExecutionEngine {
 
         // Update HITL request status in context
         const hitlRequestIndex = context.hitlRequests.findIndex(
-          (r) => r.requestId === hitlRequest.id,
+          (r) => r.requestId === hitlRequest.id
         );
         if (hitlRequestIndex !== -1) {
           context.hitlRequests[hitlRequestIndex].status = 'expired';
@@ -1421,7 +1333,7 @@ export class WorkflowExecutionEngine {
   private evaluateCondition(
     condition: string,
     variables: Record<string, any>,
-    stepResults: Record<string, any>,
+    stepResults: Record<string, any>
   ): boolean {
     try {
       // Simple condition evaluation - in production, use a proper expression evaluator
@@ -1431,29 +1343,22 @@ export class WorkflowExecutionEngine {
       let evaluatedCondition = condition;
 
       // Replace ${variable} with actual values
-      evaluatedCondition = evaluatedCondition.replace(
-        /\$\{([^}]+)\}/g,
-        (match, varName) => {
-          const value = this.getVariableValue(varName, variables);
-          return typeof value === 'string' ? `"${value}"` : String(value);
-        },
-      );
+      evaluatedCondition = evaluatedCondition.replace(/\$\{([^}]+)\}/g, (match, varName) => {
+        const value = this.getVariableValue(varName, variables);
+        return typeof value === 'string' ? `"${value}"` : String(value);
+      });
 
       // Replace step result references
       evaluatedCondition = evaluatedCondition.replace(
         /\$\{steps\.([^.]+)\.([^}]+)\}/g,
         (match, stepId, property) => {
           const stepResult = stepResults[stepId];
-          if (
-            stepResult &&
-            stepResult.output &&
-            stepResult.output[property] !== undefined
-          ) {
+          if (stepResult?.output && stepResult.output[property] !== undefined) {
             const value = stepResult.output[property];
             return typeof value === 'string' ? `"${value}"` : String(value);
           }
           return 'null';
-        },
+        }
       );
 
       // Evaluate the condition (basic implementation)
@@ -1482,7 +1387,7 @@ export class WorkflowExecutionEngine {
   private mapParametersToAgent(
     mapping: Record<string, string>,
     variables: Record<string, any>,
-    stepResults: Record<string, any>,
+    stepResults: Record<string, any>
   ): any {
     if (Object.keys(mapping).length === 0) {
       return variables;
@@ -1497,11 +1402,8 @@ export class WorkflowExecutionEngine {
         if (match) {
           const [, stepId, property] = match;
           const stepResult = stepResults[stepId];
-          if (stepResult && stepResult.output) {
-            result[targetKey] = this.getVariableValue(
-              property,
-              stepResult.output,
-            );
+          if (stepResult?.output) {
+            result[targetKey] = this.getVariableValue(property, stepResult.output);
           }
         }
       } else if (sourcePath.startsWith('${')) {
@@ -1520,7 +1422,7 @@ export class WorkflowExecutionEngine {
   private mapParametersToTool(
     mapping: Record<string, string>,
     variables: Record<string, any>,
-    stepResults: Record<string, any>,
+    stepResults: Record<string, any>
   ): Record<string, any> {
     return this.mapParametersToAgent(mapping, variables, stepResults);
   }
@@ -1528,7 +1430,7 @@ export class WorkflowExecutionEngine {
   private mapAgentOutputToVariables(
     output: any,
     mapping: Record<string, string>,
-    variables: Record<string, any>,
+    variables: Record<string, any>
   ): void {
     if (Object.keys(mapping).length === 0) {
       // No mapping specified, store entire output
@@ -1549,16 +1451,12 @@ export class WorkflowExecutionEngine {
   private mapToolOutputToVariables(
     output: any,
     mapping: Record<string, string>,
-    variables: Record<string, any>,
+    variables: Record<string, any>
   ): void {
     this.mapAgentOutputToVariables(output, mapping, variables);
   }
 
-  private setVariableValue(
-    path: string,
-    value: any,
-    variables: Record<string, any>,
-  ): void {
+  private setVariableValue(path: string, value: any, variables: Record<string, any>): void {
     const keys = path.split('.');
     let current = variables;
 
@@ -1575,7 +1473,7 @@ export class WorkflowExecutionEngine {
 
   private async waitForHITLApproval(
     requestId: string,
-    timeout: number,
+    timeout: number
   ): Promise<{
     approved: boolean;
     resolvedBy?: string;
@@ -1654,17 +1552,12 @@ export class WorkflowExecutionEngine {
         agentExecutions: context.agentExecutions,
         toolExecutions: context.toolExecutions,
       }),
-      'utf8',
+      'utf8'
     );
   }
 
-  private calculateCpuUsage(
-    stepExecutionTimes: Record<string, number>,
-  ): number {
-    const totalTime = Object.values(stepExecutionTimes).reduce(
-      (sum, time) => sum + time,
-      0,
-    );
+  private calculateCpuUsage(stepExecutionTimes: Record<string, number>): number {
+    const totalTime = Object.values(stepExecutionTimes).reduce((sum, time) => sum + time, 0);
     return totalTime / Object.keys(stepExecutionTimes).length; // Average execution time
   }
 
@@ -1674,7 +1567,7 @@ export class WorkflowExecutionEngine {
       executionTime: number;
       reason: string;
     }>,
-    context: WorkflowExecutionContext,
+    context: WorkflowExecutionContext
   ): Array<{
     type: 'performance' | 'cost' | 'reliability';
     suggestion: string;
@@ -1699,15 +1592,11 @@ export class WorkflowExecutionEngine {
     }
 
     // Cost optimization suggestions
-    const totalAgentCost = context.agentExecutions.reduce(
-      (sum, exec) => sum + exec.cost,
-      0,
-    );
+    const totalAgentCost = context.agentExecutions.reduce((sum, exec) => sum + exec.cost, 0);
     if (totalAgentCost > 1.0) {
       suggestions.push({
         type: 'cost',
-        suggestion:
-          'Consider using more cost-effective AI models for non-critical steps',
+        suggestion: 'Consider using more cost-effective AI models for non-critical steps',
         impact: 'medium',
         estimatedImprovement: `Reduce cost by up to ${Math.round(totalAgentCost * 0.3 * 100)}%`,
       });
@@ -1729,14 +1618,12 @@ export class WorkflowExecutionEngine {
   private isRecoverableError(error: Error): boolean {
     const recoverableErrors = ['timeout', 'rate_limit', 'network', 'temporary'];
 
-    return recoverableErrors.some((type) =>
-      error.message.toLowerCase().includes(type),
-    );
+    return recoverableErrors.some((type) => error.message.toLowerCase().includes(type));
   }
 
   private async sendCompletionNotification(
     context: WorkflowExecutionContext,
-    result: any,
+    result: any
   ): Promise<void> {
     await this.websocketService.sendSystemNotification(context.organizationId, {
       type: 'success',

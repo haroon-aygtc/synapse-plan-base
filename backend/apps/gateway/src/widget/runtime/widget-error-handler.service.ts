@@ -57,20 +57,20 @@ export class WidgetErrorHandlerService {
     private widgetExecutionRepository: Repository<WidgetExecution>,
     @InjectQueue('widget-error-recovery')
     private errorRecoveryQueue: Queue,
-    private websocketService: WebSocketService,
+    private websocketService: WebSocketService
   ) {
     this.initializeErrorHandler();
   }
 
   private initializeErrorHandler(): void {
     this.logger.log('Initializing Widget Error Handler...');
-    
+
     // Set up default recovery strategies
     this.setupDefaultRecoveryStrategies();
-    
+
     // Set up error cleanup interval
     setInterval(() => this.cleanupResolvedErrors(), 300000); // Every 5 minutes
-    
+
     this.logger.log('Widget Error Handler initialized successfully');
   }
 
@@ -82,14 +82,14 @@ export class WidgetErrorHandlerService {
     sessionId: string,
     error: Error,
     context: Record<string, any> = {},
-    executionId?: string,
+    executionId?: string
   ): Promise<ErrorRecoveryResult> {
     const widgetError = await this.createWidgetError(
       widgetId,
       sessionId,
       error,
       context,
-      executionId,
+      executionId
     );
 
     this.logger.error(`Widget error occurred: ${widgetError.id}`, {
@@ -140,7 +140,7 @@ export class WidgetErrorHandlerService {
    */
   async attemptRecovery(widgetError: WidgetError): Promise<ErrorRecoveryResult> {
     const strategy = this.getRecoveryStrategy(widgetError);
-    
+
     if (!strategy) {
       return {
         success: false,
@@ -151,12 +151,17 @@ export class WidgetErrorHandlerService {
       };
     }
 
-    this.logger.debug(`Attempting recovery for error ${widgetError.id} using strategy: ${strategy.type}`);
+    this.logger.debug(
+      `Attempting recovery for error ${widgetError.id} using strategy: ${strategy.type}`
+    );
 
     let attempts = 0;
     let lastError: string | undefined;
 
-    while (attempts < strategy.maxAttempts && widgetError.recoveryAttempts < widgetError.maxRecoveryAttempts) {
+    while (
+      attempts < strategy.maxAttempts &&
+      widgetError.recoveryAttempts < widgetError.maxRecoveryAttempts
+    ) {
       attempts++;
       widgetError.recoveryAttempts++;
 
@@ -190,12 +195,14 @@ export class WidgetErrorHandlerService {
         };
       } catch (error) {
         lastError = error.message;
-        this.logger.warn(`Recovery attempt ${attempts} failed for error ${widgetError.id}: ${error.message}`);
+        this.logger.warn(
+          `Recovery attempt ${attempts} failed for error ${widgetError.id}: ${error.message}`
+        );
 
         // Wait before next attempt (exponential backoff)
         if (attempts < strategy.maxAttempts) {
           const backoffMs = strategy.backoffMs * Math.pow(2, attempts - 1);
-          await new Promise(resolve => setTimeout(resolve, backoffMs));
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
         }
       }
     }
@@ -220,12 +227,13 @@ export class WidgetErrorHandlerService {
       .andWhere('execution.status = :status', { status: 'failed' });
 
     if (timeRange) {
-      query.andWhere('execution.createdAt >= :start', { start: timeRange.start })
-           .andWhere('execution.createdAt <= :end', { end: timeRange.end });
+      query
+        .andWhere('execution.createdAt >= :start', { start: timeRange.start })
+        .andWhere('execution.createdAt <= :end', { end: timeRange.end });
     }
 
     const failedExecutions = await query.getMany();
-    
+
     // Categorize errors
     const errorsByType = new Map<string, number>();
     const errorsBySeverity = new Map<string, number>();
@@ -234,7 +242,7 @@ export class WidgetErrorHandlerService {
     for (const execution of failedExecutions) {
       const errorType = this.categorizeError(execution.error);
       const severity = this.determineSeverity(execution.error);
-      
+
       errorsByType.set(errorType, (errorsByType.get(errorType) || 0) + 1);
       errorsBySeverity.set(severity, (errorsBySeverity.get(severity) || 0) + 1);
     }
@@ -264,8 +272,9 @@ export class WidgetErrorHandlerService {
    * Get active errors for a widget
    */
   getActiveErrors(widgetId: string): WidgetError[] {
-    return Array.from(this.activeErrors.values())
-      .filter(error => error.widgetId === widgetId && !error.resolved);
+    return Array.from(this.activeErrors.values()).filter(
+      (error) => error.widgetId === widgetId && !error.resolved
+    );
   }
 
   /**
@@ -301,7 +310,7 @@ export class WidgetErrorHandlerService {
     sessionId: string,
     error: Error,
     context: Record<string, any>,
-    executionId?: string,
+    executionId?: string
   ): Promise<WidgetError> {
     const errorType = this.categorizeError(error.message);
     const severity = this.determineSeverity(error.message);
@@ -330,10 +339,18 @@ export class WidgetErrorHandlerService {
     if (errorMessage.includes('memory') || errorMessage.includes('resource')) {
       return 'resource';
     }
-    if (errorMessage.includes('origin') || errorMessage.includes('security') || errorMessage.includes('unauthorized')) {
+    if (
+      errorMessage.includes('origin') ||
+      errorMessage.includes('security') ||
+      errorMessage.includes('unauthorized')
+    ) {
       return 'security';
     }
-    if (errorMessage.includes('network') || errorMessage.includes('connection') || errorMessage.includes('fetch')) {
+    if (
+      errorMessage.includes('network') ||
+      errorMessage.includes('connection') ||
+      errorMessage.includes('fetch')
+    ) {
       return 'network';
     }
     if (errorMessage.includes('validation') || errorMessage.includes('invalid')) {
@@ -355,7 +372,10 @@ export class WidgetErrorHandlerService {
     return 'low';
   }
 
-  private getMaxRecoveryAttempts(type: WidgetError['type'], severity: WidgetError['severity']): number {
+  private getMaxRecoveryAttempts(
+    type: WidgetError['type'],
+    severity: WidgetError['severity']
+  ): number {
     if (severity === 'critical') return 1;
     if (severity === 'high') return 2;
     if (type === 'timeout' || type === 'network') return 3;
@@ -446,11 +466,14 @@ export class WidgetErrorHandlerService {
     return { jobId: job.id, type: 'retry_queued' };
   }
 
-  private async executeFallback(widgetError: WidgetError, strategy: RecoveryStrategy): Promise<any> {
+  private async executeFallback(
+    widgetError: WidgetError,
+    strategy: RecoveryStrategy
+  ): Promise<any> {
     if (strategy.fallbackAction) {
       return await strategy.fallbackAction();
     }
-    
+
     // Default fallback response
     return {
       type: 'fallback_response',
@@ -484,7 +507,7 @@ export class WidgetErrorHandlerService {
 
   private async requestUserIntervention(
     widgetError: WidgetError,
-    strategy: RecoveryStrategy,
+    strategy: RecoveryStrategy
   ): Promise<any> {
     if (strategy.userNotification) {
       this.websocketService.broadcastToUser(
@@ -506,7 +529,7 @@ export class WidgetErrorHandlerService {
   }
 
   private calculateAverageRecoveryTime(executions: WidgetExecution[]): number {
-    const recoveredExecutions = executions.filter(e => e.context?.recovered);
+    const recoveredExecutions = executions.filter((e) => e.context?.recovered);
     if (recoveredExecutions.length === 0) return 0;
 
     const totalRecoveryTime = recoveredExecutions.reduce((sum, e) => {
@@ -518,18 +541,19 @@ export class WidgetErrorHandlerService {
   }
 
   private calculateRecoverySuccessRate(widgetId: string): number {
-    const widgetErrors = Array.from(this.activeErrors.values())
-      .filter(error => error.widgetId === widgetId);
+    const widgetErrors = Array.from(this.activeErrors.values()).filter(
+      (error) => error.widgetId === widgetId
+    );
 
     if (widgetErrors.length === 0) return 100;
 
-    const resolvedErrors = widgetErrors.filter(error => error.resolved);
+    const resolvedErrors = widgetErrors.filter((error) => error.resolved);
     return (resolvedErrors.length / widgetErrors.length) * 100;
   }
 
   private cleanupResolvedErrors(): void {
     const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
-    
+
     for (const [errorId, error] of this.activeErrors.entries()) {
       if (error.resolved && error.timestamp < cutoffTime) {
         this.activeErrors.delete(errorId);

@@ -1,17 +1,11 @@
-import {
-  IsString,
-  IsOptional,
-  IsArray,
-  IsObject,
-  Length,
-} from 'class-validator';
+import { IsString, IsOptional, IsArray, IsObject, Length } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class OptimizePromptDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Current prompt to optimize',
     minLength: 10,
-    maxLength: 5000
+    maxLength: 5000,
   })
   @IsString()
   @Length(10, 5000)
@@ -27,9 +21,9 @@ export class OptimizePromptDto {
   @IsString({ each: true })
   performanceIssues?: string[];
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     description: 'Target metrics to achieve',
-    example: { accuracy: 0.9, responseTime: 0.8, relevance: 0.85 }
+    example: { accuracy: 0.9, responseTime: 0.8, relevance: 0.85 },
   })
   @IsOptional()
   @IsObject()

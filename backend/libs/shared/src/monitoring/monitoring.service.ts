@@ -25,10 +25,9 @@ export class MonitoringService {
 
   constructor(
     private configService: ConfigService,
-    private logger: CustomLoggerService,
+    private logger: CustomLoggerService
   ) {
-    this.isDatadogEnabled =
-      this.configService.get('DATADOG_ENABLED', 'false') === 'true';
+    this.isDatadogEnabled = this.configService.get('DATADOG_ENABLED', 'false') === 'true';
     this.serviceName = this.configService.get('SERVICE_NAME', 'synapseai');
     this.environment = this.configService.get('NODE_ENV', 'development');
   }
@@ -50,7 +49,7 @@ export class MonitoringService {
         this.logger.error(
           'Failed to send metric to DataDog',
           error instanceof Error ? error.stack : String(error),
-          'MonitoringService',
+          'MonitoringService'
         );
       }
     }
@@ -87,18 +86,14 @@ export class MonitoringService {
         this.logger.error(
           'Failed to send trace to DataDog',
           error instanceof Error ? error.stack : String(error),
-          'MonitoringService',
+          'MonitoringService'
         );
       }
     }
   }
 
   // Health check metrics
-  recordHealthCheck(
-    service: string,
-    status: 'healthy' | 'unhealthy',
-    responseTime: number,
-  ) {
+  recordHealthCheck(service: string, status: 'healthy' | 'unhealthy', responseTime: number) {
     this.recordMetric({
       name: 'health_check',
       value: status === 'healthy' ? 1 : 0,
@@ -120,12 +115,7 @@ export class MonitoringService {
   }
 
   // Database metrics
-  recordDatabaseOperation(
-    operation: string,
-    duration: number,
-    success: boolean,
-    table?: string,
-  ) {
+  recordDatabaseOperation(operation: string, duration: number, success: boolean, table?: string) {
     this.recordMetric({
       name: 'database_operation',
       value: 1,
@@ -148,12 +138,7 @@ export class MonitoringService {
   }
 
   // API metrics
-  recordApiRequest(
-    method: string,
-    endpoint: string,
-    statusCode: number,
-    duration: number,
-  ) {
+  recordApiRequest(method: string, endpoint: string, statusCode: number, duration: number) {
     this.recordMetric({
       name: 'api_request',
       value: 1,
@@ -178,12 +163,7 @@ export class MonitoringService {
   }
 
   // Business metrics
-  recordAgentExecution(
-    agentId: string,
-    success: boolean,
-    duration: number,
-    tokensUsed: number,
-  ) {
+  recordAgentExecution(agentId: string, success: boolean, duration: number, tokensUsed: number) {
     this.recordMetric({
       name: 'agent_execution',
       value: 1,
@@ -236,7 +216,7 @@ export class MonitoringService {
     workflowId: string,
     success: boolean,
     duration: number,
-    stepsCompleted: number,
+    stepsCompleted: number
   ) {
     this.recordMetric({
       name: 'workflow_execution',
@@ -268,12 +248,7 @@ export class MonitoringService {
 
   // Error tracking
   recordError(error: Error, context: string, metadata?: Record<string, any>) {
-    this.logger.error(
-      `Error in ${context}: ${error.message}`,
-      error.stack,
-      context,
-      metadata,
-    );
+    this.logger.error(`Error in ${context}: ${error.message}`, error.stack, context, metadata);
 
     this.recordMetric({
       name: 'error_count',
@@ -287,19 +262,13 @@ export class MonitoringService {
     if (this.isDatadogEnabled && global.ddTrace) {
       try {
         global.ddTrace.tracer.scope().active()?.setTag('error', true);
-        global.ddTrace.tracer
-          .scope()
-          .active()
-          ?.setTag('error.message', error.message);
-        global.ddTrace.tracer
-          .scope()
-          .active()
-          ?.setTag('error.stack', error.stack);
+        global.ddTrace.tracer.scope().active()?.setTag('error.message', error.message);
+        global.ddTrace.tracer.scope().active()?.setTag('error.stack', error.stack);
       } catch (error) {
         this.logger.error(
           'Failed to record error in DataDog',
           error instanceof Error ? error.stack : String(error),
-          'MonitoringService',
+          'MonitoringService'
         );
       }
     }

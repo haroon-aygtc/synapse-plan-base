@@ -16,18 +16,8 @@ import { ConnectionService, MessageProtocol } from './connection.service';
 import { WebSocketService } from './websocket.service';
 import { APXSchemaService } from './apix-schema.service';
 import { APXPermissionService } from './apix-permission.service';
-import {
-  IsString,
-  IsOptional,
-  IsObject,
-  IsEnum,
-  IsArray,
-} from 'class-validator';
-import {
-  APXMessageType,
-  APXSecurityLevel,
-  APXPermissionLevel,
-} from '@shared/enums';
+import { IsString, IsOptional, IsObject, IsEnum, IsArray } from 'class-validator';
+import { APXMessageType, APXSecurityLevel, APXPermissionLevel } from '@shared/enums';
 import {
   IAPXMessage,
   IAPXMessageSchema,
@@ -133,14 +123,8 @@ export class WebSocketGatewayImpl
   server: Server;
 
   private readonly logger = new Logger(WebSocketGatewayImpl.name);
-  private readonly messageSchemas = new Map<
-    APXMessageType,
-    IAPXMessageSchema
-  >();
-  private readonly rateLimiters = new Map<
-    string,
-    { count: number; resetTime: number }
-  >();
+  private readonly messageSchemas = new Map<APXMessageType, IAPXMessageSchema>();
+  private readonly rateLimiters = new Map<string, { count: number; resetTime: number }>();
   private readonly activeStreams = new Map<string, Set<string>>();
 
   constructor(
@@ -149,7 +133,7 @@ export class WebSocketGatewayImpl
     private readonly connectionService: ConnectionService,
     private readonly websocketService: WebSocketService,
     private readonly apxSchemaService: APXSchemaService,
-    private readonly apxPermissionService: APXPermissionService,
+    private readonly apxPermissionService: APXPermissionService
   ) {
     this.initializeMessageSchemas();
   }
@@ -163,9 +147,7 @@ export class WebSocketGatewayImpl
   private initializeMessageSchemas(): void {
     // Load schemas from the APXSchemaService
     for (const messageType of Object.values(APXMessageType)) {
-      const schema = this.apxSchemaService.getMessageSchema(
-        messageType as APXMessageType,
-      );
+      const schema = this.apxSchemaService.getMessageSchema(messageType as APXMessageType);
       if (schema) {
         this.messageSchemas.set(messageType as APXMessageType, schema);
       }
@@ -207,7 +189,7 @@ export class WebSocketGatewayImpl
         client,
         userId,
         organizationId,
-        role,
+        role
       );
 
       // Store user info in socket
@@ -247,18 +229,9 @@ export class WebSocketGatewayImpl
             'real_time_orchestration',
           ],
           rate_limits: {
-            messages_per_minute: this.apxPermissionService.getRateLimit(
-              role,
-              'messages',
-            ),
-            executions_per_hour: this.apxPermissionService.getRateLimit(
-              role,
-              'executions',
-            ),
-            concurrent_streams: this.apxPermissionService.getRateLimit(
-              role,
-              'streams',
-            ),
+            messages_per_minute: this.apxPermissionService.getRateLimit(role, 'messages'),
+            executions_per_hour: this.apxPermissionService.getRateLimit(role, 'executions'),
+            concurrent_streams: this.apxPermissionService.getRateLimit(role, 'streams'),
           },
         },
         timestamp: new Date().toISOString(),
@@ -289,7 +262,7 @@ export class WebSocketGatewayImpl
           },
         },
         userId,
-        organizationId,
+        organizationId
       );
 
       client.emit('message', confirmationMessage);
@@ -300,19 +273,16 @@ export class WebSocketGatewayImpl
         'connection_stats_update',
         stats,
         undefined,
-        organizationId,
+        organizationId
       );
 
       this.server.to(`org:${organizationId}`).emit('message', statsMessage);
 
       this.logger.log(
-        `Client connected: ${client.id} (User: ${userId}, Org: ${organizationId}, Role: ${role})`,
+        `Client connected: ${client.id} (User: ${userId}, Org: ${organizationId}, Role: ${role})`
       );
     } catch (error) {
-      this.logger.error(
-        `Connection error: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
+      this.logger.error(`Connection error: ${(error as Error).message}`, (error as Error).stack);
       client.disconnect(true);
     }
   }
@@ -331,29 +301,26 @@ export class WebSocketGatewayImpl
           'connection_stats_update',
           stats,
           undefined,
-          organizationId,
+          organizationId
         );
 
         this.server.to(`org:${organizationId}`).emit('message', statsMessage);
 
         this.logger.log(
-          `Client disconnected: ${client.id} (User: ${userId}, Org: ${organizationId})`,
+          `Client disconnected: ${client.id} (User: ${userId}, Org: ${organizationId})`
         );
       } else {
         this.logger.log(`Client disconnected: ${client.id} (No user data)`);
       }
     } catch (error) {
-      this.logger.error(
-        `Disconnect error: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
+      this.logger.error(`Disconnect error: ${(error as Error).message}`, (error as Error).stack);
     }
   }
 
   @SubscribeMessage('heartbeat')
   async handleHeartbeat(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: any,
+    @MessageBody() data: any
   ): Promise<void> {
     try {
       await this.connectionService.updateHeartbeat(client.id);
@@ -365,22 +332,19 @@ export class WebSocketGatewayImpl
           connectionId: client.data?.connectionId,
         },
         client.data?.userId,
-        client.data?.organizationId,
+        client.data?.organizationId
       );
 
       client.emit('message', response);
     } catch (error) {
-      this.logger.error(
-        `Heartbeat error: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
+      this.logger.error(`Heartbeat error: ${(error as Error).message}`, (error as Error).stack);
     }
   }
 
   @SubscribeMessage('send_message')
   async handleMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() messageDto: WebSocketMessageDto,
+    @MessageBody() messageDto: WebSocketMessageDto
   ): Promise<void> {
     try {
       const { userId, organizationId } = client.data || {};
@@ -394,30 +358,24 @@ export class WebSocketGatewayImpl
         messageDto.event,
         messageDto.payload,
         userId,
-        organizationId,
+        organizationId
       );
 
       // Route message based on target
       if (messageDto.targetUserId) {
-        this.server
-          .to(`user:${messageDto.targetUserId}`)
-          .emit('message', message);
+        this.server.to(`user:${messageDto.targetUserId}`).emit('message', message);
       } else if (messageDto.targetOrganizationId) {
-        this.server
-          .to(`org:${messageDto.targetOrganizationId}`)
-          .emit('message', message);
+        this.server.to(`org:${messageDto.targetOrganizationId}`).emit('message', message);
       } else {
         // Broadcast to organization by default
         this.server.to(`org:${organizationId}`).emit('message', message);
       }
 
-      this.logger.debug(
-        `Message sent: ${messageDto.event} from user ${userId}`,
-      );
+      this.logger.debug(`Message sent: ${messageDto.event} from user ${userId}`);
     } catch (error) {
       this.logger.error(
         `Message handling error: ${(error as Error).message}`,
-        (error as Error).stack,
+        (error as Error).stack
       );
       client.emit('error', { message: 'Message processing failed' });
     }
@@ -426,7 +384,7 @@ export class WebSocketGatewayImpl
   @SubscribeMessage('join_room')
   async handleJoinRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { room: string },
+    @MessageBody() data: { room: string }
   ): Promise<void> {
     try {
       const { userId, organizationId, role } = client.data || {};
@@ -439,16 +397,11 @@ export class WebSocketGatewayImpl
       }
 
       // Enhanced room access validation with tenant filtering
-      const roomValidation = this.validateRoomAccess(
-        data.room,
-        userId,
-        organizationId,
-        role,
-      );
+      const roomValidation = this.validateRoomAccess(data.room, userId, organizationId, role);
 
       if (!roomValidation.allowed) {
         this.logger.warn(
-          `Room access denied for user ${userId}: ${data.room} - ${roomValidation.reason}`,
+          `Room access denied for user ${userId}: ${data.room} - ${roomValidation.reason}`
         );
         client.emit('error', {
           message: 'Room access denied',
@@ -468,18 +421,15 @@ export class WebSocketGatewayImpl
           joinedAt: new Date().toISOString(),
         },
         userId,
-        organizationId,
+        organizationId
       );
 
       client.emit('message', response);
       this.logger.debug(
-        `Client ${client.id} joined room: ${data.room} with permissions: ${JSON.stringify(roomValidation.permissions)}`,
+        `Client ${client.id} joined room: ${data.room} with permissions: ${JSON.stringify(roomValidation.permissions)}`
       );
     } catch (error) {
-      this.logger.error(
-        `Join room error: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
+      this.logger.error(`Join room error: ${(error as Error).message}`, (error as Error).stack);
       client.emit('error', {
         message: 'Failed to join room',
         code: 'ROOM_JOIN_ERROR',
@@ -491,7 +441,7 @@ export class WebSocketGatewayImpl
     eventType: string,
     userId: string,
     organizationId: string,
-    role: string,
+    role: string
   ): {
     allowed: boolean;
     reason?: string;
@@ -540,11 +490,7 @@ export class WebSocketGatewayImpl
 
       case 'USER_ACTIVITY':
         // User can subscribe to their own activity or admins to any
-        if (
-          eventName === userId ||
-          role === 'ORG_ADMIN' ||
-          role === 'SUPER_ADMIN'
-        ) {
+        if (eventName === userId || role === 'ORG_ADMIN' || role === 'SUPER_ADMIN') {
           permissions.push('read');
           return { allowed: true, permissions };
         }
@@ -573,7 +519,7 @@ export class WebSocketGatewayImpl
     targetType: string,
     userId: string,
     organizationId: string,
-    role: string,
+    role: string
   ): {
     allowed: boolean;
     reason?: string;
@@ -581,11 +527,7 @@ export class WebSocketGatewayImpl
     const [category] = eventType.split(':');
 
     // System events can only be published by the system or admins
-    if (
-      ['SYSTEM_NOTIFICATION', 'RESOURCE_UPDATE', 'STATS_UPDATE'].includes(
-        category,
-      )
-    ) {
+    if (['SYSTEM_NOTIFICATION', 'RESOURCE_UPDATE', 'STATS_UPDATE'].includes(category)) {
       if (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN') {
         return { allowed: true };
       }
@@ -624,7 +566,7 @@ export class WebSocketGatewayImpl
     room: string,
     userId: string,
     organizationId: string,
-    role: string,
+    role: string
   ): {
     allowed: boolean;
     reason?: string;
@@ -666,11 +608,7 @@ export class WebSocketGatewayImpl
         // Resource rooms within organization
         if (roomOrgId === organizationId) {
           permissions.push('read');
-          if (
-            role === 'ORG_ADMIN' ||
-            role === 'SUPER_ADMIN' ||
-            role === 'DEVELOPER'
-          ) {
+          if (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN' || role === 'DEVELOPER') {
             permissions.push('write');
           }
           return { allowed: true, permissions };
@@ -679,10 +617,7 @@ export class WebSocketGatewayImpl
 
       case 'admin':
         // Admin rooms - restricted access
-        if (
-          roomOrgId === organizationId &&
-          (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN')
-        ) {
+        if (roomOrgId === organizationId && (role === 'ORG_ADMIN' || role === 'SUPER_ADMIN')) {
           permissions.push('read', 'write', 'admin');
           return { allowed: true, permissions };
         }
@@ -710,7 +645,7 @@ export class WebSocketGatewayImpl
   @SubscribeMessage('leave_room')
   async handleLeaveRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { room: string },
+    @MessageBody() data: { room: string }
   ): Promise<void> {
     try {
       await client.leave(data.room);
@@ -719,16 +654,13 @@ export class WebSocketGatewayImpl
         'room_left',
         { room: data.room },
         client.data?.userId,
-        client.data?.organizationId,
+        client.data?.organizationId
       );
 
       client.emit('message', response);
       this.logger.debug(`Client ${client.id} left room: ${data.room}`);
     } catch (error) {
-      this.logger.error(
-        `Leave room error: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
+      this.logger.error(`Leave room error: ${(error as Error).message}`, (error as Error).stack);
     }
   }
 
@@ -741,7 +673,7 @@ export class WebSocketGatewayImpl
       targetType?: string;
       targetId?: string;
       filters?: Record<string, any>;
-    },
+    }
   ): Promise<void> {
     try {
       const { userId, organizationId, connectionId, role } = client.data || {};
@@ -759,7 +691,7 @@ export class WebSocketGatewayImpl
         data.eventType,
         (data.targetType as any) || 'tenant',
         data.targetId,
-        data.filters,
+        data.filters
       );
 
       const response = this.connectionService.createMessage(
@@ -772,20 +704,18 @@ export class WebSocketGatewayImpl
           timestamp: new Date().toISOString(),
         },
         userId,
-        organizationId,
+        organizationId
       );
 
       client.emit('message', response);
 
       if (success) {
-        this.logger.debug(
-          `Client ${client.id} subscribed to event: ${data.eventType}`,
-        );
+        this.logger.debug(`Client ${client.id} subscribed to event: ${data.eventType}`);
       }
     } catch (error) {
       this.logger.error(
         `Subscribe event error: ${(error as Error).message}`,
-        (error as Error).stack,
+        (error as Error).stack
       );
       client.emit('error', {
         message: 'Subscription failed',
@@ -797,7 +727,7 @@ export class WebSocketGatewayImpl
   @SubscribeMessage('unsubscribe_event')
   async handleUnsubscribeEvent(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { eventType: string },
+    @MessageBody() data: { eventType: string }
   ): Promise<void> {
     try {
       const { userId, organizationId, connectionId } = client.data || {};
@@ -812,7 +742,7 @@ export class WebSocketGatewayImpl
 
       const success = await this.connectionService.unsubscribeFromEvent(
         connectionId,
-        data.eventType,
+        data.eventType
       );
 
       const response = this.connectionService.createMessage(
@@ -823,18 +753,16 @@ export class WebSocketGatewayImpl
           timestamp: new Date().toISOString(),
         },
         userId,
-        organizationId,
+        organizationId
       );
 
       client.emit('message', response);
 
-      this.logger.debug(
-        `Client ${client.id} unsubscribed from event: ${data.eventType}`,
-      );
+      this.logger.debug(`Client ${client.id} unsubscribed from event: ${data.eventType}`);
     } catch (error) {
       this.logger.error(
         `Unsubscribe event error: ${(error as Error).message}`,
-        (error as Error).stack,
+        (error as Error).stack
       );
     }
   }
@@ -850,7 +778,7 @@ export class WebSocketGatewayImpl
       targetId?: string;
       priority?: string;
       correlationId?: string;
-    },
+    }
   ): Promise<void> {
     try {
       const { userId, organizationId, role } = client.data || {};
@@ -869,7 +797,7 @@ export class WebSocketGatewayImpl
         data.targetType || 'tenant',
         userId,
         organizationId,
-        role,
+        role
       );
 
       if (!canPublish.allowed) {
@@ -906,19 +834,14 @@ export class WebSocketGatewayImpl
           timestamp: new Date().toISOString(),
         },
         userId,
-        organizationId,
+        organizationId
       );
 
       client.emit('message', response);
 
-      this.logger.debug(
-        `Client ${client.id} published event: ${data.eventType}`,
-      );
+      this.logger.debug(`Client ${client.id} published event: ${data.eventType}`);
     } catch (error) {
-      this.logger.error(
-        `Publish event error: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
+      this.logger.error(`Publish event error: ${(error as Error).message}`, (error as Error).stack);
       client.emit('error', {
         message: 'Publishing failed',
         code: 'PUBLISH_ERROR',
@@ -927,9 +850,7 @@ export class WebSocketGatewayImpl
   }
 
   @SubscribeMessage('get_connection_stats')
-  async handleGetConnectionStats(
-    @ConnectedSocket() client: Socket,
-  ): Promise<void> {
+  async handleGetConnectionStats(@ConnectedSocket() client: Socket): Promise<void> {
     try {
       const { userId, organizationId } = client.data || {};
 
@@ -943,22 +864,17 @@ export class WebSocketGatewayImpl
         'connection_stats',
         stats,
         userId,
-        organizationId,
+        organizationId
       );
 
       client.emit('message', response);
     } catch (error) {
-      this.logger.error(
-        `Get stats error: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
+      this.logger.error(`Get stats error: ${(error as Error).message}`, (error as Error).stack);
     }
   }
 
   @SubscribeMessage('get_subscription_stats')
-  async handleGetSubscriptionStats(
-    @ConnectedSocket() client: Socket,
-  ): Promise<void> {
+  async handleGetSubscriptionStats(@ConnectedSocket() client: Socket): Promise<void> {
     try {
       const { userId, organizationId, role } = client.data || {};
 
@@ -978,14 +894,14 @@ export class WebSocketGatewayImpl
         'subscription_stats',
         subscriptionStats,
         userId,
-        organizationId,
+        organizationId
       );
 
       client.emit('message', response);
     } catch (error) {
       this.logger.error(
         `Get subscription stats error: ${(error as Error).message}`,
-        (error as Error).stack,
+        (error as Error).stack
       );
     }
   }
@@ -1001,7 +917,7 @@ export class WebSocketGatewayImpl
       userId?: string;
       correlationId?: string;
       maxEvents?: number;
-    },
+    }
   ): Promise<void> {
     try {
       const { userId, organizationId, role } = client.data || {};
@@ -1038,19 +954,16 @@ export class WebSocketGatewayImpl
           timestamp: new Date().toISOString(),
         },
         userId,
-        organizationId,
+        organizationId
       );
 
       client.emit('message', response);
 
       this.logger.log(
-        `Event replay initiated by user ${userId} for organization ${organizationId}`,
+        `Event replay initiated by user ${userId} for organization ${organizationId}`
       );
     } catch (error) {
-      this.logger.error(
-        `Event replay error: ${(error as Error).message}`,
-        (error as Error).stack,
-      );
+      this.logger.error(`Event replay error: ${(error as Error).message}`, (error as Error).stack);
       client.emit('error', {
         message: 'Event replay failed',
         code: 'REPLAY_ERROR',
@@ -1062,17 +975,13 @@ export class WebSocketGatewayImpl
   @SubscribeMessage('apx_message')
   async handleAPXMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() messageDto: APXMessageDto,
+    @MessageBody() messageDto: APXMessageDto
   ): Promise<void> {
     try {
       const { userId, organizationId, connectionId, role } = client.data || {};
 
       if (!userId || !organizationId || !connectionId) {
-        this.sendAPXError(
-          client,
-          'AUTHENTICATION_REQUIRED',
-          'User not authenticated',
-        );
+        this.sendAPXError(client, 'AUTHENTICATION_REQUIRED', 'User not authenticated');
         return;
       }
 
@@ -1080,7 +989,7 @@ export class WebSocketGatewayImpl
       const rateLimitResult = await this.connectionService.enforceRateLimit(
         userId,
         organizationId,
-        messageDto.type,
+        messageDto.type
       );
 
       if (!rateLimitResult.allowed) {
@@ -1088,15 +997,13 @@ export class WebSocketGatewayImpl
           error_code: 'RATE_LIMIT_EXCEEDED',
           error_message: 'Message rate limit exceeded',
           limit: this.apxPermissionService.getRateLimit(role, 'messages'),
-          reset_at: new Date(
-            rateLimitResult.resetTime || Date.now() + 60000,
-          ).toISOString(),
+          reset_at: new Date(rateLimitResult.resetTime || Date.now() + 60000).toISOString(),
         };
         this.sendAPXMessage(
           client,
           APXMessageType.RATE_LIMIT_EXCEEDED,
           rateLimitError,
-          messageDto.request_id,
+          messageDto.request_id
         );
         return;
       }
@@ -1111,24 +1018,21 @@ export class WebSocketGatewayImpl
         correlation_id: messageDto.correlation_id,
         user_id: userId,
         organization_id: organizationId,
-        security_level:
-          messageDto.security_level || this.getSecurityLevel(role),
+        security_level: messageDto.security_level || this.getSecurityLevel(role),
         permissions: messageDto.permissions || this.getPermissions(role),
         metadata: messageDto.metadata,
       };
 
       // Validate message structure and security
-      const validationResult =
-        this.apxSchemaService.validateMessage(fullMessage);
+      const validationResult = this.apxSchemaService.validateMessage(fullMessage);
 
       // Additional security validation
-      const securityResult =
-        await this.connectionService.validateMessageSecurity(
-          fullMessage,
-          userId,
-          organizationId,
-          role,
-        );
+      const securityResult = await this.connectionService.validateMessageSecurity(
+        fullMessage,
+        userId,
+        organizationId,
+        role
+      );
 
       if (!securityResult.valid) {
         const securityError = {
@@ -1140,7 +1044,7 @@ export class WebSocketGatewayImpl
           client,
           APXMessageType.PERMISSION_DENIED,
           securityError,
-          messageDto.request_id,
+          messageDto.request_id
         );
         return;
       }
@@ -1150,7 +1054,7 @@ export class WebSocketGatewayImpl
           client,
           APXMessageType.VALIDATION_ERROR,
           validationResult.errors,
-          messageDto.request_id,
+          messageDto.request_id
         );
         return;
       }
@@ -1160,7 +1064,7 @@ export class WebSocketGatewayImpl
         messageDto.type,
         userId,
         organizationId,
-        role,
+        role
       );
       if (!hasPermission) {
         const permissionError: IAPXPermissionDenied = {
@@ -1174,7 +1078,7 @@ export class WebSocketGatewayImpl
           client,
           APXMessageType.PERMISSION_DENIED,
           permissionError,
-          messageDto.request_id,
+          messageDto.request_id
         );
         return;
       }
@@ -1186,26 +1090,26 @@ export class WebSocketGatewayImpl
         organization_id: organizationId,
         security_level: fullMessage.security_level,
         permissions: fullMessage.permissions,
-      } as APXMessageDto & { 
-        user_id: string; 
-        organization_id: string; 
+      } as APXMessageDto & {
+        user_id: string;
+        organization_id: string;
         security_level: APXSecurityLevel;
         permissions: APXPermissionLevel[];
       });
 
       this.logger.debug(
-        `Processed APIX message: ${messageDto.type} from user ${userId} in session ${messageDto.session_id}`,
+        `Processed APIX message: ${messageDto.type} from user ${userId} in session ${messageDto.session_id}`
       );
     } catch (error) {
       this.logger.error(
         `APIX message handling error: ${(error as Error).message}`,
-        (error as Error).stack,
+        (error as Error).stack
       );
       this.sendAPXError(
         client,
         'PROCESSING_ERROR',
         'Failed to process message',
-        messageDto.request_id,
+        messageDto.request_id
       );
     }
   }
@@ -1213,17 +1117,13 @@ export class WebSocketGatewayImpl
   @SubscribeMessage('apx_stream_control')
   async handleAPXStreamControl(
     @ConnectedSocket() client: Socket,
-    @MessageBody() controlDto: APXStreamControlDto,
+    @MessageBody() controlDto: APXStreamControlDto
   ): Promise<void> {
     try {
       const { userId, organizationId, role } = client.data || {};
 
       if (!userId || !organizationId) {
-        this.sendAPXError(
-          client,
-          'AUTHENTICATION_REQUIRED',
-          'User not authenticated',
-        );
+        this.sendAPXError(client, 'AUTHENTICATION_REQUIRED', 'User not authenticated');
         return;
       }
 
@@ -1231,27 +1131,19 @@ export class WebSocketGatewayImpl
       const hasPermission = await this.checkExecutionPermission(
         controlDto.execution_id,
         userId,
-        organizationId,
+        organizationId
       );
       if (!hasPermission) {
-        this.sendAPXError(
-          client,
-          'PERMISSION_DENIED',
-          'Cannot control this execution',
-        );
+        this.sendAPXError(client, 'PERMISSION_DENIED', 'Cannot control this execution');
         return;
       }
 
       // Process stream control
-      await this.websocketService.handleStreamControl(
-        controlDto.execution_id,
-        controlDto.action,
-        {
-          userId,
-          organizationId,
-          reason: controlDto.reason,
-        },
-      );
+      await this.websocketService.handleStreamControl(controlDto.execution_id, controlDto.action, {
+        userId,
+        organizationId,
+        reason: controlDto.reason,
+      });
 
       // Send confirmation
       this.sendAPXMessage(client, APXMessageType.STREAM_PAUSE, {
@@ -1262,49 +1154,34 @@ export class WebSocketGatewayImpl
       });
 
       this.logger.log(
-        `Stream control applied: ${controlDto.action} on execution ${controlDto.execution_id} by user ${userId}`,
+        `Stream control applied: ${controlDto.action} on execution ${controlDto.execution_id} by user ${userId}`
       );
     } catch (error) {
       this.logger.error(
         `Stream control error: ${(error as Error).message}`,
-        (error as Error).stack,
+        (error as Error).stack
       );
-      this.sendAPXError(
-        client,
-        'STREAM_CONTROL_ERROR',
-        'Failed to control stream',
-      );
+      this.sendAPXError(client, 'STREAM_CONTROL_ERROR', 'Failed to control stream');
     }
   }
 
   @SubscribeMessage('apx_subscribe')
   async handleAPXSubscribe(
     @ConnectedSocket() client: Socket,
-    @MessageBody() subscriptionDto: APXSubscriptionDto,
+    @MessageBody() subscriptionDto: APXSubscriptionDto
   ): Promise<void> {
     try {
       const { userId, organizationId, connectionId, role } = client.data || {};
 
       if (!userId || !organizationId || !connectionId) {
-        this.sendAPXError(
-          client,
-          'AUTHENTICATION_REQUIRED',
-          'User not authenticated',
-        );
+        this.sendAPXError(client, 'AUTHENTICATION_REQUIRED', 'User not authenticated');
         return;
       }
 
       // Check subscription permissions
-      const hasPermission = this.checkSubscriptionPermissions(
-        subscriptionDto.message_type,
-        role,
-      );
+      const hasPermission = this.checkSubscriptionPermissions(subscriptionDto.message_type, role);
       if (!hasPermission) {
-        this.sendAPXError(
-          client,
-          'PERMISSION_DENIED',
-          'Cannot subscribe to this message type',
-        );
+        this.sendAPXError(client, 'PERMISSION_DENIED', 'Cannot subscribe to this message type');
         return;
       }
 
@@ -1314,7 +1191,7 @@ export class WebSocketGatewayImpl
         subscriptionDto.message_type,
         'tenant' as any,
         subscriptionDto.target_id,
-        subscriptionDto.filters,
+        subscriptionDto.filters
       );
 
       if (success) {
@@ -1324,30 +1201,19 @@ export class WebSocketGatewayImpl
           timestamp: new Date().toISOString(),
         });
       } else {
-        this.sendAPXError(
-          client,
-          'SUBSCRIPTION_FAILED',
-          'Failed to create subscription',
-        );
+        this.sendAPXError(client, 'SUBSCRIPTION_FAILED', 'Failed to create subscription');
       }
     } catch (error) {
       this.logger.error(
         `APIX subscription error: ${(error as Error).message}`,
-        (error as Error).stack,
+        (error as Error).stack
       );
-      this.sendAPXError(
-        client,
-        'SUBSCRIPTION_ERROR',
-        'Subscription processing failed',
-      );
+      this.sendAPXError(client, 'SUBSCRIPTION_ERROR', 'Subscription processing failed');
     }
   }
 
   // Helper methods for APIX protocol
-  private async processAPXMessage(
-    client: Socket,
-    message: APXMessageDto,
-  ): Promise<void> {
+  private async processAPXMessage(client: Socket, message: APXMessageDto): Promise<void> {
     const { userId, organizationId } = client.data || {};
 
     switch (message.type) {
@@ -1396,7 +1262,7 @@ export class WebSocketGatewayImpl
         this.sendAPXError(
           client,
           'UNSUPPORTED_MESSAGE_TYPE',
-          `Message type ${message.type} is not supported`,
+          `Message type ${message.type} is not supported`
         );
     }
   }
@@ -1405,27 +1271,20 @@ export class WebSocketGatewayImpl
     messageType: APXMessageType,
     userId: string,
     organizationId: string,
-    role: string,
+    role: string
   ): boolean {
     const schema = this.messageSchemas.get(messageType);
     if (!schema) return false;
 
     const userPermissions = this.getPermissions(role);
-    const requiredPermission =
-      schema.security_requirements.min_permission_level;
+    const requiredPermission = schema.security_requirements.min_permission_level;
 
     return userPermissions.includes(requiredPermission);
   }
 
-  private checkSubscriptionPermissions(
-    messageType: APXMessageType,
-    role: string,
-  ): boolean {
+  private checkSubscriptionPermissions(messageType: APXMessageType, role: string): boolean {
     // Admin messages require admin role
-    const adminMessages = [
-      APXMessageType.SESSION_CREATED,
-      APXMessageType.SESSION_ENDED,
-    ];
+    const adminMessages = [APXMessageType.SESSION_CREATED, APXMessageType.SESSION_ENDED];
 
     if (adminMessages.includes(messageType)) {
       return ['ORG_ADMIN', 'SUPER_ADMIN'].includes(role);
@@ -1448,17 +1307,14 @@ export class WebSocketGatewayImpl
   private async checkExecutionPermission(
     executionId: string,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<boolean> {
     // This would typically check against a database or cache
     // For now, we'll assume users can control executions in their organization
     return true;
   }
 
-  private checkRateLimit(
-    userId: string,
-    limitType: 'messages' | 'executions',
-  ): boolean {
+  private checkRateLimit(userId: string, limitType: 'messages' | 'executions'): boolean {
     const key = `${userId}:${limitType}`;
     const now = Date.now();
     const windowMs = 60000; // 1 minute window
@@ -1478,10 +1334,7 @@ export class WebSocketGatewayImpl
     return true;
   }
 
-  private getRateLimitUsage(
-    userId: string,
-    limitType: 'messages' | 'executions',
-  ): number {
+  private getRateLimitUsage(userId: string, limitType: 'messages' | 'executions'): number {
     const key = `${userId}:${limitType}`;
     const limiter = this.rateLimiters.get(key);
     return limiter?.count || 0;
@@ -1489,10 +1342,7 @@ export class WebSocketGatewayImpl
 
   // These methods are now handled by APXPermissionService
   // Keeping these as thin wrappers for backward compatibility
-  private getRateLimit(
-    role: string,
-    limitType: 'messages' | 'executions' | 'streams',
-  ): number {
+  private getRateLimit(role: string, limitType: 'messages' | 'executions' | 'streams'): number {
     return this.apxPermissionService.getRateLimit(role, limitType);
   }
 
@@ -1504,9 +1354,7 @@ export class WebSocketGatewayImpl
     return this.apxPermissionService.getPermissions(role);
   }
 
-  private getRequiredPermission(
-    messageType: APXMessageType,
-  ): APXPermissionLevel {
+  private getRequiredPermission(messageType: APXMessageType): APXPermissionLevel {
     return this.apxPermissionService.getRequiredPermission(messageType);
   }
 
@@ -1514,7 +1362,7 @@ export class WebSocketGatewayImpl
     client: Socket,
     type: APXMessageType,
     payload: any,
-    requestId?: string,
+    requestId?: string
   ): void {
     const { userId, organizationId, connectionId } = client.data || {};
 
@@ -1535,7 +1383,7 @@ export class WebSocketGatewayImpl
     client: Socket,
     errorCode: string,
     errorMessage: string,
-    requestId?: string,
+    requestId?: string
   ): void {
     const errorPayload = {
       error_code: errorCode,
@@ -1543,11 +1391,6 @@ export class WebSocketGatewayImpl
       timestamp: new Date().toISOString(),
     };
 
-    this.sendAPXMessage(
-      client,
-      APXMessageType.VALIDATION_ERROR,
-      errorPayload,
-      requestId,
-    );
+    this.sendAPXMessage(client, APXMessageType.VALIDATION_ERROR, errorPayload, requestId);
   }
 }

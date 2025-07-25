@@ -12,13 +12,7 @@ export interface WidgetTheme {
 export interface WidgetLayout {
   width: number;
   height: number;
-  position:
-    | 'bottom-right'
-    | 'bottom-left'
-    | 'top-right'
-    | 'top-left'
-    | 'center'
-    | 'fullscreen';
+  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left' | 'center' | 'fullscreen';
   responsive: boolean;
   zIndex?: number;
   margin?: { top: number; right: number; bottom: number; left: number };

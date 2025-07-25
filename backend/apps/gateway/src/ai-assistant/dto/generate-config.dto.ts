@@ -1,17 +1,11 @@
-import {
-  IsString,
-  IsOptional,
-  IsObject,
-  IsArray,
-  Length,
-} from 'class-validator';
+import { IsString, IsOptional, IsObject, IsArray, Length } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class GenerateConfigDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Description of what the agent should do',
     minLength: 10,
-    maxLength: 1000
+    maxLength: 1000,
   })
   @IsString()
   @Length(10, 1000)
@@ -21,9 +15,9 @@ export class GenerateConfigDto {
   @IsString()
   useCase: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Personality traits with values 0-100',
-    example: { friendliness: 80, professionalism: 90, creativity: 60 }
+    example: { friendliness: 80, professionalism: 90, creativity: 60 },
   })
   @IsObject()
   personalityTraits: Record<string, number>;

@@ -18,14 +18,10 @@ export class SessionEventHandler {
   }): Promise<void> {
     try {
       // Broadcast session creation to user
-      await this.websocketService.broadcastToUser(
-        payload.userId,
-        'session_created',
-        {
-          sessionId: payload.sessionId,
-          timestamp: payload.timestamp,
-        },
-      );
+      await this.websocketService.broadcastToUser(payload.userId, 'session_created', {
+        sessionId: payload.sessionId,
+        timestamp: payload.timestamp,
+      });
 
       // Broadcast to organization admins
       await this.websocketService.broadcastToOrganization(
@@ -36,17 +32,12 @@ export class SessionEventHandler {
           userId: payload.userId,
           sessionId: payload.sessionId,
           timestamp: payload.timestamp,
-        },
+        }
       );
 
-      this.logger.debug(
-        `Session created event broadcasted: ${payload.sessionId}`,
-      );
+      this.logger.debug(`Session created event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session created event: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to handle session created event: ${error.message}`, error.stack);
     }
   }
 
@@ -60,24 +51,15 @@ export class SessionEventHandler {
   }): Promise<void> {
     try {
       // Broadcast session update to user
-      await this.websocketService.broadcastToUser(
-        payload.userId,
-        'session_updated',
-        {
-          sessionId: payload.sessionId,
-          changes: payload.changes,
-          timestamp: payload.timestamp,
-        },
-      );
+      await this.websocketService.broadcastToUser(payload.userId, 'session_updated', {
+        sessionId: payload.sessionId,
+        changes: payload.changes,
+        timestamp: payload.timestamp,
+      });
 
-      this.logger.debug(
-        `Session updated event broadcasted: ${payload.sessionId}`,
-      );
+      this.logger.debug(`Session updated event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session updated event: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to handle session updated event: ${error.message}`, error.stack);
     }
   }
 
@@ -90,24 +72,15 @@ export class SessionEventHandler {
   }): Promise<void> {
     try {
       // Notify user of session expiration
-      await this.websocketService.broadcastToUser(
-        payload.userId,
-        'session_expired',
-        {
-          sessionId: payload.sessionId,
-          message: 'Your session has expired. Please log in again.',
-          timestamp: payload.timestamp,
-        },
-      );
+      await this.websocketService.broadcastToUser(payload.userId, 'session_expired', {
+        sessionId: payload.sessionId,
+        message: 'Your session has expired. Please log in again.',
+        timestamp: payload.timestamp,
+      });
 
-      this.logger.debug(
-        `Session expired event broadcasted: ${payload.sessionId}`,
-      );
+      this.logger.debug(`Session expired event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session expired event: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to handle session expired event: ${error.message}`, error.stack);
     }
   }
 
@@ -120,23 +93,14 @@ export class SessionEventHandler {
   }): Promise<void> {
     try {
       // Notify user of session destruction
-      await this.websocketService.broadcastToUser(
-        payload.userId,
-        'session_destroyed',
-        {
-          sessionId: payload.sessionId,
-          timestamp: payload.timestamp,
-        },
-      );
+      await this.websocketService.broadcastToUser(payload.userId, 'session_destroyed', {
+        sessionId: payload.sessionId,
+        timestamp: payload.timestamp,
+      });
 
-      this.logger.debug(
-        `Session destroyed event broadcasted: ${payload.sessionId}`,
-      );
+      this.logger.debug(`Session destroyed event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session destroyed event: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to handle session destroyed event: ${error.message}`, error.stack);
     }
   }
 
@@ -150,23 +114,17 @@ export class SessionEventHandler {
   }): Promise<void> {
     try {
       // Broadcast context update to user
-      await this.websocketService.broadcastToUser(
-        payload.userId,
-        'session_context_updated',
-        {
-          sessionId: payload.sessionId,
-          contextUpdate: payload.contextUpdate,
-          timestamp: payload.timestamp,
-        },
-      );
+      await this.websocketService.broadcastToUser(payload.userId, 'session_context_updated', {
+        sessionId: payload.sessionId,
+        contextUpdate: payload.contextUpdate,
+        timestamp: payload.timestamp,
+      });
 
-      this.logger.debug(
-        `Session context updated event broadcasted: ${payload.sessionId}`,
-      );
+      this.logger.debug(`Session context updated event broadcasted: ${payload.sessionId}`);
     } catch (error) {
       this.logger.error(
         `Failed to handle session context updated event: ${error.message}`,
-        error.stack,
+        error.stack
       );
     }
   }
@@ -182,24 +140,18 @@ export class SessionEventHandler {
   }): Promise<void> {
     try {
       // Send memory warning to user
-      await this.websocketService.sendSystemNotification(
-        payload.organizationId,
-        {
-          type: 'warning',
-          title: 'Session Memory Warning',
-          message: `Session ${payload.sessionId} is approaching memory limit (${Math.round((payload.memoryUsage / payload.memoryLimit) * 100)}% used)`,
-          timestamp: payload.timestamp,
-        },
-      );
+      await this.websocketService.sendSystemNotification(payload.organizationId, {
+        type: 'warning',
+        title: 'Session Memory Warning',
+        message: `Session ${payload.sessionId} is approaching memory limit (${Math.round((payload.memoryUsage / payload.memoryLimit) * 100)}% used)`,
+        timestamp: payload.timestamp,
+      });
 
       this.logger.warn(
-        `Session memory warning: ${payload.sessionId} (${payload.memoryUsage}/${payload.memoryLimit} bytes)`,
+        `Session memory warning: ${payload.sessionId} (${payload.memoryUsage}/${payload.memoryLimit} bytes)`
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session memory warning: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to handle session memory warning: ${error.message}`, error.stack);
     }
   }
 
@@ -214,23 +166,20 @@ export class SessionEventHandler {
   }): Promise<void> {
     try {
       // Send memory limit exceeded notification
-      await this.websocketService.sendSystemNotification(
-        payload.organizationId,
-        {
-          type: 'error',
-          title: 'Session Memory Limit Exceeded',
-          message: `Session ${payload.sessionId} has exceeded memory limit. Data has been truncated to prevent system issues.`,
-          timestamp: payload.timestamp,
-        },
-      );
+      await this.websocketService.sendSystemNotification(payload.organizationId, {
+        type: 'error',
+        title: 'Session Memory Limit Exceeded',
+        message: `Session ${payload.sessionId} has exceeded memory limit. Data has been truncated to prevent system issues.`,
+        timestamp: payload.timestamp,
+      });
 
       this.logger.error(
-        `Session memory limit exceeded: ${payload.sessionId} (${payload.memoryUsage}/${payload.memoryLimit} bytes)`,
+        `Session memory limit exceeded: ${payload.sessionId} (${payload.memoryUsage}/${payload.memoryLimit} bytes)`
       );
     } catch (error) {
       this.logger.error(
         `Failed to handle session memory limit exceeded: ${error.message}`,
-        error.stack,
+        error.stack
       );
     }
   }
@@ -254,16 +203,16 @@ export class SessionEventHandler {
           moduleType: payload.moduleType,
           contextUpdate: payload.contextUpdate,
           timestamp: payload.timestamp,
-        },
+        }
       );
 
       this.logger.debug(
-        `Session cross-module update broadcasted: ${payload.sessionId} (${payload.moduleType})`,
+        `Session cross-module update broadcasted: ${payload.sessionId} (${payload.moduleType})`
       );
     } catch (error) {
       this.logger.error(
         `Failed to handle session cross-module update: ${error.message}`,
-        error.stack,
+        error.stack
       );
     }
   }
@@ -278,21 +227,17 @@ export class SessionEventHandler {
   }): Promise<void> {
     try {
       // Notify user of session recovery initiation
-      await this.websocketService.broadcastToUser(
-        payload.userId,
-        'session_recovery_initiated',
-        {
-          sessionId: payload.sessionId,
-          recoveryData: payload.recoveryData,
-          timestamp: payload.timestamp,
-        },
-      );
+      await this.websocketService.broadcastToUser(payload.userId, 'session_recovery_initiated', {
+        sessionId: payload.sessionId,
+        recoveryData: payload.recoveryData,
+        timestamp: payload.timestamp,
+      });
 
       this.logger.log(`Session recovery initiated: ${payload.sessionId}`);
     } catch (error) {
       this.logger.error(
         `Failed to handle session recovery initiated: ${error.message}`,
-        error.stack,
+        error.stack
       );
     }
   }
@@ -306,21 +251,18 @@ export class SessionEventHandler {
   }): Promise<void> {
     try {
       // Notify user of successful session recovery
-      await this.websocketService.sendSystemNotification(
-        payload.organizationId,
-        {
-          type: 'success',
-          title: 'Session Recovery Completed',
-          message: `Session ${payload.sessionId} has been successfully recovered.`,
-          timestamp: payload.timestamp,
-        },
-      );
+      await this.websocketService.sendSystemNotification(payload.organizationId, {
+        type: 'success',
+        title: 'Session Recovery Completed',
+        message: `Session ${payload.sessionId} has been successfully recovered.`,
+        timestamp: payload.timestamp,
+      });
 
       this.logger.log(`Session recovery completed: ${payload.sessionId}`);
     } catch (error) {
       this.logger.error(
         `Failed to handle session recovery completed: ${error.message}`,
-        error.stack,
+        error.stack
       );
     }
   }
@@ -339,17 +281,12 @@ export class SessionEventHandler {
         {
           analytics: payload.analytics,
           timestamp: payload.timestamp,
-        },
+        }
       );
 
-      this.logger.debug(
-        `Session analytics update broadcasted for org: ${payload.organizationId}`,
-      );
+      this.logger.debug(`Session analytics update broadcasted for org: ${payload.organizationId}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session analytics update: ${error.message}`,
-        error.stack,
-      );
+      this.logger.error(`Failed to handle session analytics update: ${error.message}`, error.stack);
     }
   }
 }

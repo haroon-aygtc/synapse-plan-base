@@ -1,10 +1,4 @@
-import {
-  IsUUID,
-  IsString,
-  IsOptional,
-  IsArray,
-  ValidateIf,
-} from 'class-validator';
+import { IsUUID, IsString, IsOptional, IsArray, ValidateIf } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AssignHITLRequestDto {

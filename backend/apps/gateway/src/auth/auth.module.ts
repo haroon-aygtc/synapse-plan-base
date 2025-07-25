@@ -28,17 +28,13 @@ import { RowLevelSecurityMiddleware } from '@shared/middleware/row-level-securit
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         // Generate cryptographically secure JWT secret if not provided
-        const jwtSecret =
-          configService.get('JWT_SECRET') ||
-          crypto.randomBytes(64).toString('hex');
+        const jwtSecret = configService.get('JWT_SECRET') || crypto.randomBytes(64).toString('hex');
 
         if (!configService.get('JWT_SECRET')) {
           console.warn(
-            '⚠️  JWT_SECRET not found in environment variables. Using generated secret.',
+            '⚠️  JWT_SECRET not found in environment variables. Using generated secret.'
           );
-          console.warn(
-            '🔒 For production, set JWT_SECRET environment variable.',
-          );
+          console.warn('🔒 For production, set JWT_SECRET environment variable.');
         }
 
         return {

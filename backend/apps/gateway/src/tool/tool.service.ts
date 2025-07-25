@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In } from 'typeorm';
 import { Tool, ToolExecution, Agent, Workflow } from '@database/entities';
@@ -28,7 +23,7 @@ export class ToolService {
     @InjectRepository(Workflow)
     private readonly workflowRepository: Repository<Workflow>,
     private readonly eventEmitter: EventEmitter2,
-    private readonly aiProviderService: AIProviderService,
+    private readonly aiProviderService: AIProviderService
   ) {}
 
   async create(createToolDto: CreateToolDto): Promise<Tool> {
@@ -36,14 +31,14 @@ export class ToolService {
     await this.validateEndpoint(
       createToolDto.endpoint,
       createToolDto.method,
-      createToolDto.headers,
+      createToolDto.headers
     );
 
     // Auto-detect API patterns and generate schema if not provided
     const detectedSchema = await this.detectAPIPatterns(
       createToolDto.endpoint,
       createToolDto.method,
-      createToolDto.headers,
+      createToolDto.headers
     );
     const finalSchema = createToolDto.schema || detectedSchema;
 
@@ -73,7 +68,7 @@ export class ToolService {
   private async validateEndpoint(
     endpoint: string,
     method: string,
-    headers?: Record<string, string>,
+    headers?: Record<string, string>
   ): Promise<void> {
     try {
       const response = await axios({
@@ -88,11 +83,9 @@ export class ToolService {
       });
 
       if (response.status >= 500) {
-        throw new BadRequestException(
-          `Endpoint returned server error: ${response.status}`,
-        );
+        throw new BadRequestException(`Endpoint returned server error: ${response.status}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
         throw new BadRequestException(`Cannot reach endpoint: ${endpoint}`);
       }
@@ -100,16 +93,14 @@ export class ToolService {
         throw new BadRequestException(`Endpoint timeout: ${endpoint}`);
       }
       // Log but don't fail for other errors (might be auth-related)
-      this.logger.warn(
-        `Endpoint validation warning for ${endpoint}: ${error.message}`,
-      );
+      this.logger.warn(`Endpoint validation warning for ${endpoint}: ${error.message}`);
     }
   }
 
   async detectAPIPatterns(
     endpoint: string,
     method: string,
-    headers?: Record<string, string>,
+    headers?: Record<string, string>
   ): Promise<any> {
     try {
       // Try to get OpenAPI/Swagger spec
@@ -128,15 +119,8 @@ export class ToolService {
             timeout: 5000,
           });
 
-          if (
-            response.data &&
-            (response.data.openapi || response.data.swagger)
-          ) {
-            return this.extractSchemaFromOpenAPI(
-              response.data,
-              endpoint,
-              method,
-            );
+          if (response.data && (response.data.openapi || response.data.swagger)) {
+            return this.extractSchemaFromOpenAPI(response.data, endpoint, method);
           }
         } catch (error) {
           // Continue to next URL
@@ -145,32 +129,24 @@ export class ToolService {
 
       // Fallback: Generate basic schema based on endpoint analysis
       return this.generateBasicSchema(endpoint, method);
-    } catch (error) {
-      this.logger.warn(
-        `API pattern detection failed for ${endpoint}: ${error.message}`,
-      );
+    } catch (error: any) {
+      this.logger.warn(`API pattern detection failed for ${endpoint}: ${error.message}`);
       return this.generateBasicSchema(endpoint, method);
     }
   }
 
-  private extractSchemaFromOpenAPI(
-    spec: any,
-    endpoint: string,
-    method: string,
-  ): any {
+  private extractSchemaFromOpenAPI(spec: any, endpoint: string, method: string): any {
     const paths = spec.paths || {};
     const pathKey = Object.keys(paths).find((path) => endpoint.includes(path));
 
-    if (pathKey && paths[pathKey] && paths[pathKey][method.toLowerCase()]) {
+    if (pathKey && paths[pathKey]?.[method.toLowerCase()]) {
       const operation = paths[pathKey][method.toLowerCase()];
       return {
         type: 'object',
         properties: this.extractParametersFromOperation(operation),
         required: this.extractRequiredFromOperation(operation),
         description:
-          operation.summary ||
-          operation.description ||
-          'Auto-detected from OpenAPI spec',
+          operation.summary || operation.description || 'Auto-detected from OpenAPI spec',
       };
     }
 
@@ -190,20 +166,18 @@ export class ToolService {
       });
     }
 
-    if (
-      operation.requestBody?.content?.['application/json']?.schema?.properties
-    ) {
+    if (operation.requestBody?.content?.['application/json']?.schema?.properties) {
       Object.assign(
         properties,
-        operation.requestBody.content['application/json'].schema.properties,
+        operation.requestBody.content['application/json'].schema.properties
       );
     }
 
     return properties;
   }
 
-  private extractRequiredFromOperation(operation: any): string[] {
-    const required: string[] = [];
+  private extractRequiredFromOperation(operation: any): any[] {
+    const required: any[] = [];
 
     if (operation.parameters) {
       operation.parameters.forEach((param: any) => {
@@ -213,12 +187,8 @@ export class ToolService {
       });
     }
 
-    if (
-      operation.requestBody?.content?.['application/json']?.schema?.required
-    ) {
-      required.push(
-        ...operation.requestBody.content['application/json'].schema.required,
-      );
+    if (operation.requestBody?.content?.['application/json']?.schema?.required) {
+      required.push(...operation.requestBody.content['application/json'].schema.required);
     }
 
     return required;
@@ -296,10 +266,9 @@ export class ToolService {
     const queryBuilder = this.toolRepository.createQueryBuilder('tool');
 
     if (search) {
-      queryBuilder.andWhere(
-        '(tool.name ILIKE :search OR tool.description ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      queryBuilder.andWhere('(tool.name ILIKE :search OR tool.description ILIKE :search)', {
+        search: `%${search}%`,
+      });
     }
 
     if (category) {
@@ -346,7 +315,7 @@ export class ToolService {
     executeDto: any,
     userId: string,
     organizationId: string,
-    sessionId?: string,
+    sessionId?: string
   ): Promise<any> {
     const tool = await this.findOne(toolId, organizationId);
 
@@ -397,7 +366,7 @@ export class ToolService {
           // For now, we'll skip this for regular API tools
         } catch (error) {
           this.logger.warn(
-            `Failed to record tool execution in AI provider metrics: ${error.message}`,
+            `Failed to record tool execution in AI provider metrics: ${error.message}`
           );
         }
       }
@@ -427,10 +396,7 @@ export class ToolService {
     }
   }
 
-  private async performToolExecution(
-    tool: Tool,
-    executeDto: any,
-  ): Promise<any> {
+  private async performToolExecution(tool: Tool, executeDto: any): Promise<any> {
     const { endpoint, method, headers } = tool;
     const { parameters } = executeDto;
 
@@ -497,14 +463,12 @@ export class ToolService {
             stepId: testToolDto.workflowContext.stepId,
             stepName: testToolDto.workflowContext.stepName,
             stepType: testToolDto.workflowContext.stepType,
-            previousStepResults:
-              testToolDto.workflowContext.previousStepResults || {},
-            workflowVariables:
-              testToolDto.workflowContext.workflowVariables || {},
+            previousStepResults: testToolDto.workflowContext.previousStepResults || {},
+            workflowVariables: testToolDto.workflowContext.workflowVariables || {},
             executionId: testToolDto.workflowContext.executionId,
             availableVariables: this.extractAvailableVariables(
               workflow.definition,
-              testToolDto.workflowContext.stepId,
+              testToolDto.workflowContext.stepId
             ),
           };
         }
@@ -549,12 +513,7 @@ export class ToolService {
         executionTime,
         cost,
         context: testContext,
-        recommendations: this.generateTestRecommendations(
-          tool,
-          testToolDto,
-          result,
-          executionTime,
-        ),
+        recommendations: this.generateTestRecommendations(tool, testToolDto, result, executionTime),
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
@@ -589,7 +548,7 @@ export class ToolService {
           testToolDto,
           null,
           executionTime,
-          error.message,
+          error.message
         ),
       };
     }
@@ -600,7 +559,7 @@ export class ToolService {
     testData: TestToolDto,
     result: any,
     executionTime: number,
-    error?: string,
+    error?: string
   ) {
     const recommendations = [];
 
@@ -610,8 +569,7 @@ export class ToolService {
         priority: 'high',
         title: 'Test Failed',
         description: `Tool test failed: ${error}`,
-        suggestion:
-          'Check tool configuration, authentication, and input parameters',
+        suggestion: 'Check tool configuration, authentication, and input parameters',
       });
     }
 
@@ -631,14 +589,12 @@ export class ToolService {
         priority: 'info',
         title: 'Workflow Context Test',
         description: 'Tool tested successfully within workflow context',
-        suggestion:
-          'Monitor performance when integrated into the full workflow execution',
+        suggestion: 'Monitor performance when integrated into the full workflow execution',
       });
     }
 
     if (testData.expectedResult && result) {
-      const matches =
-        JSON.stringify(result) === JSON.stringify(testData.expectedResult);
+      const matches = JSON.stringify(result) === JSON.stringify(testData.expectedResult);
       if (!matches) {
         recommendations.push({
           type: 'validation',
@@ -659,7 +615,7 @@ export class ToolService {
       page?: number;
       limit?: number;
       status?: string;
-    },
+    }
   ) {
     const { page = 1, limit = 20, status } = options;
     const queryBuilder = this.toolExecutionRepository
@@ -693,7 +649,7 @@ export class ToolService {
     options: {
       startDate?: Date;
       endDate?: Date;
-    },
+    }
   ) {
     const tool = await this.findOne(id);
     const { startDate, endDate } = options;
@@ -713,38 +669,28 @@ export class ToolService {
     const executions = await queryBuilder.getMany();
     const totalExecutions = executions.length;
     const successfulExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.COMPLETED,
+      (e) => e.status === ExecutionStatus.COMPLETED
     ).length;
-    const failedExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.FAILED,
-    ).length;
+    const failedExecutions = executions.filter((e) => e.status === ExecutionStatus.FAILED).length;
 
     const averageExecutionTime =
       totalExecutions > 0
-        ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
-          totalExecutions
+        ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions
         : 0;
 
     const totalCost = executions.reduce((sum, e) => sum + (e.cost || 0), 0);
 
     return {
       totalExecutions,
-      successRate:
-        totalExecutions > 0
-          ? (successfulExecutions / totalExecutions) * 100
-          : 0,
+      successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0,
       averageExecutionTime,
       totalCost,
-      errorRate:
-        totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0,
+      errorRate: totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0,
       popularFunctions: [
         {
           functionName: 'execute',
           callCount: totalExecutions,
-          successRate:
-            totalExecutions > 0
-              ? (successfulExecutions / totalExecutions) * 100
-              : 0,
+          successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0,
         },
       ],
     };
@@ -796,7 +742,7 @@ export class ToolService {
       category?: string;
       tags?: string[];
       limit?: number;
-    },
+    }
   ) {
     const { category, tags, limit = 20 } = options;
     const queryBuilder = this.toolRepository
@@ -806,7 +752,7 @@ export class ToolService {
         '(tool.name ILIKE :query OR tool.description ILIKE :query OR tool.tags::text ILIKE :query)',
         {
           query: `%${query}%`,
-        },
+        }
       );
 
     if (category) {
@@ -873,7 +819,7 @@ export class ToolService {
       agents: agents.map((agent) => ({
         ...agent,
         usage: usageStats.filter(
-          (stat) => stat.callerType === 'agent' && stat.callerId === agent.id,
+          (stat) => stat.callerType === 'agent' && stat.callerId === agent.id
         )[0] || {
           executionCount: 0,
           avgExecutionTime: 0,
@@ -883,8 +829,7 @@ export class ToolService {
       workflows: workflows.map((workflow) => ({
         ...workflow,
         usage: usageStats.filter(
-          (stat) =>
-            stat.callerType === 'workflow' && stat.callerId === workflow.id,
+          (stat) => stat.callerType === 'workflow' && stat.callerId === workflow.id
         )[0] || {
           executionCount: 0,
           avgExecutionTime: 0,
@@ -892,29 +837,18 @@ export class ToolService {
         },
       })),
       totalUsage: {
-        totalExecutions: usageStats.reduce(
-          (sum, stat) => sum + parseInt(stat.executionCount),
-          0,
-        ),
+        totalExecutions: usageStats.reduce((sum, stat) => sum + parseInt(stat.executionCount), 0),
         avgExecutionTime:
           usageStats.length > 0
-            ? usageStats.reduce(
-                (sum, stat) => sum + parseFloat(stat.avgExecutionTime || '0'),
-                0,
-              ) / usageStats.length
+            ? usageStats.reduce((sum, stat) => sum + parseFloat(stat.avgExecutionTime || '0'), 0) /
+              usageStats.length
             : 0,
-        totalCost: usageStats.reduce(
-          (sum, stat) => sum + parseFloat(stat.totalCost || '0'),
-          0,
-        ),
+        totalCost: usageStats.reduce((sum, stat) => sum + parseFloat(stat.totalCost || '0'), 0),
       },
     };
   }
 
-  async getToolPerformanceMetrics(
-    toolId: string,
-    period: { start: Date; end: Date },
-  ) {
+  async getToolPerformanceMetrics(toolId: string, period: { start: Date; end: Date }) {
     const tool = await this.findOne(toolId);
 
     const executions = await this.toolExecutionRepository
@@ -926,11 +860,9 @@ export class ToolService {
 
     const totalExecutions = executions.length;
     const successfulExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.COMPLETED,
+      (e) => e.status === ExecutionStatus.COMPLETED
     ).length;
-    const failedExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.FAILED,
-    ).length;
+    const failedExecutions = executions.filter((e) => e.status === ExecutionStatus.FAILED).length;
 
     const executionTimes = executions
       .filter((e) => e.executionTimeMs)
@@ -958,36 +890,27 @@ export class ToolService {
           };
         }
         acc[date].executions++;
-        if (execution.status === ExecutionStatus.COMPLETED)
-          acc[date].successes++;
+        if (execution.status === ExecutionStatus.COMPLETED) acc[date].successes++;
         if (execution.status === ExecutionStatus.FAILED) acc[date].failures++;
-        if (execution.executionTimeMs)
-          acc[date].totalTime += execution.executionTimeMs;
+        if (execution.executionTimeMs) acc[date].totalTime += execution.executionTimeMs;
         if (execution.cost) acc[date].totalCost += execution.cost;
         return acc;
       },
-      {} as Record<string, any>,
+      {} as Record<string, any>
     );
 
     return {
       summary: {
         totalExecutions,
-        successRate:
-          totalExecutions > 0
-            ? (successfulExecutions / totalExecutions) * 100
-            : 0,
-        errorRate:
-          totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0,
+        successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0,
+        errorRate: totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0,
         averageExecutionTime:
           executionTimes.length > 0
-            ? executionTimes.reduce((sum, time) => sum + time, 0) /
-              executionTimes.length
+            ? executionTimes.reduce((sum, time) => sum + time, 0) / executionTimes.length
             : 0,
         totalCost: costs.reduce((sum, cost) => sum + cost, 0),
         averageCost:
-          costs.length > 0
-            ? costs.reduce((sum, cost) => sum + cost, 0) / costs.length
-            : 0,
+          costs.length > 0 ? costs.reduce((sum, cost) => sum + cost, 0) / costs.length : 0,
       },
       performance: {
         p50ExecutionTime: p50,
@@ -1000,12 +923,8 @@ export class ToolService {
         .map(([date, stats]) => ({
           date,
           executions: stats.executions,
-          successRate:
-            stats.executions > 0
-              ? (stats.successes / stats.executions) * 100
-              : 0,
-          averageExecutionTime:
-            stats.executions > 0 ? stats.totalTime / stats.executions : 0,
+          successRate: stats.executions > 0 ? (stats.successes / stats.executions) * 100 : 0,
+          averageExecutionTime: stats.executions > 0 ? stats.totalTime / stats.executions : 0,
           totalCost: stats.totalCost,
         }))
         .sort((a, b) => a.date.localeCompare(b.date)),
@@ -1020,7 +939,7 @@ export class ToolService {
         acc[error] = (acc[error] || 0) + 1;
         return acc;
       },
-      {} as Record<string, number>,
+      {} as Record<string, number>
     );
 
     return Object.entries(errorCounts)
@@ -1054,7 +973,7 @@ export class ToolService {
     if (search) {
       queryBuilder.andWhere(
         '(tool.name ILIKE :search OR tool.description ILIKE :search OR tool.tags::text ILIKE :search)',
-        { search: `%${search}%` },
+        { search: `%${search}%` }
       );
     }
 
@@ -1074,7 +993,7 @@ export class ToolService {
             : sortBy === 'name'
               ? 'tool.name'
               : 'tool.createdAt',
-        sortOrder,
+        sortOrder
       )
       .skip((page - 1) * limit)
       .take(limit);
@@ -1098,11 +1017,7 @@ export class ToolService {
     };
   }
 
-  async installMarketplaceTool(
-    toolId: string,
-    organizationId: string,
-    userId: string,
-  ) {
+  async installMarketplaceTool(toolId: string, organizationId: string, userId: string) {
     const marketplaceTool = await this.toolRepository.findOne({
       where: { id: toolId, isPublic: true, isActive: true },
     });
@@ -1146,20 +1061,14 @@ export class ToolService {
     await this.toolRepository.update(toolId, {
       metadata: {
         ...marketplaceTool.metadata,
-        downloads: (
-          parseInt(marketplaceTool.metadata?.downloads || '0') + 1
-        ).toString(),
+        downloads: (parseInt(marketplaceTool.metadata?.downloads || '0') + 1).toString(),
       },
     });
 
     return savedTool;
   }
 
-  async generateAIConfiguration(
-    description: string,
-    apiUrl?: string,
-    serviceType?: string,
-  ) {
+  async generateAIConfiguration(description: string, apiUrl?: string, serviceType?: string) {
     try {
       // Use OpenAI or similar service for real AI configuration
       const openaiApiKey = process.env.OPENAI_API_KEY;
@@ -1168,35 +1077,25 @@ export class ToolService {
         const openaiResponse = await this.callOpenAIForConfiguration(
           description,
           apiUrl,
-          serviceType,
+          serviceType
         );
 
         if (openaiResponse) {
           return {
             success: true,
             data: openaiResponse,
-            suggestions: this.generateConfigurationSuggestions(
-              description,
-              serviceType,
-            ),
+            suggestions: this.generateConfigurationSuggestions(description, serviceType),
           };
         }
       }
 
       // Fallback to intelligent pattern matching
-      const config = this.generateIntelligentDefaults(
-        description,
-        apiUrl,
-        serviceType,
-      );
+      const config = this.generateIntelligentDefaults(description, apiUrl, serviceType);
 
       return {
         success: true,
         data: config,
-        suggestions: this.generateConfigurationSuggestions(
-          description,
-          serviceType,
-        ),
+        suggestions: this.generateConfigurationSuggestions(description, serviceType),
       };
     } catch (error) {
       this.logger.error(`AI configuration failed: ${error.message}`);
@@ -1207,7 +1106,7 @@ export class ToolService {
   private async callOpenAIForConfiguration(
     description: string,
     apiUrl?: string,
-    serviceType?: string,
+    serviceType?: string
   ) {
     try {
       const axios = require('axios');
@@ -1252,7 +1151,7 @@ Return a JSON object with:
             'Content-Type': 'application/json',
           },
           timeout: 30000,
-        },
+        }
       );
 
       const content = response.data.choices[0]?.message?.content;
@@ -1272,11 +1171,7 @@ Return a JSON object with:
     }
   }
 
-  private generateIntelligentDefaults(
-    description: string,
-    apiUrl?: string,
-    serviceType?: string,
-  ) {
+  private generateIntelligentDefaults(description: string, apiUrl?: string, serviceType?: string) {
     const lowerDesc = description.toLowerCase();
 
     // Detect service type from description
@@ -1295,7 +1190,7 @@ Return a JSON object with:
     // Generate configuration based on detected service
     const baseConfig = {
       name: this.generateToolName(description),
-      description: description,
+      description,
       endpoint: apiUrl || this.suggestEndpoint(detectedService),
       method: this.suggestMethod(description, detectedService),
       category: this.suggestCategory(detectedService),
@@ -1313,10 +1208,8 @@ Return a JSON object with:
     const words = description.split(' ').filter((word) => word.length > 2);
     const keyWords = words
       .slice(0, 3)
-      .map(
-        (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
-      );
-    return keyWords.join(' ') + ' Tool';
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+    return `${keyWords.join(' ')} Tool`;
   }
 
   private suggestEndpoint(serviceType?: string): string {
@@ -1364,8 +1257,7 @@ Return a JSON object with:
     const lowerDesc = description.toLowerCase();
 
     if (serviceType) baseTags.push(serviceType);
-    if (lowerDesc.includes('message') || lowerDesc.includes('send'))
-      baseTags.push('messaging');
+    if (lowerDesc.includes('message') || lowerDesc.includes('send')) baseTags.push('messaging');
     if (lowerDesc.includes('email')) baseTags.push('email');
     if (lowerDesc.includes('notification')) baseTags.push('notifications');
     if (lowerDesc.includes('data')) baseTags.push('data');
@@ -1454,17 +1346,12 @@ Return a JSON object with:
     };
   }
 
-  private generateConfigurationSuggestions(
-    description: string,
-    serviceType?: string,
-  ) {
+  private generateConfigurationSuggestions(description: string, serviceType?: string) {
     const suggestions = [];
 
     if (serviceType === 'slack') {
       suggestions.push('Consider adding support for rich message blocks');
-      suggestions.push(
-        'Add channel validation to prevent sending to wrong channels',
-      );
+      suggestions.push('Add channel validation to prevent sending to wrong channels');
     }
 
     if (serviceType === 'email') {
@@ -1537,7 +1424,7 @@ Return a JSON object with:
     options: {
       startDate?: Date;
       endDate?: Date;
-    },
+    }
   ) {
     const tool = await this.findOne(toolId);
     const { startDate, endDate } = options;
@@ -1571,7 +1458,7 @@ Return a JSON object with:
         acc[date].cost += execution.cost || 0;
         return acc;
       },
-      {} as Record<string, { executions: number; cost: number }>,
+      {} as Record<string, { executions: number; cost: number }>
     );
 
     const costTrends = Object.entries(dailyCosts)
@@ -1588,7 +1475,7 @@ Return a JSON object with:
       tool,
       executions,
       totalCost,
-      averageCost,
+      averageCost
     );
 
     return {
@@ -1606,15 +1493,11 @@ Return a JSON object with:
       trends: costTrends,
       recommendations,
       breakdown: {
-        successfulExecutions: executions.filter(
-          (e) => e.status === ExecutionStatus.COMPLETED,
-        ).length,
-        failedExecutions: executions.filter(
-          (e) => e.status === ExecutionStatus.FAILED,
-        ).length,
+        successfulExecutions: executions.filter((e) => e.status === ExecutionStatus.COMPLETED)
+          .length,
+        failedExecutions: executions.filter((e) => e.status === ExecutionStatus.FAILED).length,
         averageExecutionTime:
-          executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
-          totalExecutions,
+          executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions,
       },
     };
   }
@@ -1623,7 +1506,7 @@ Return a JSON object with:
     tool: Tool,
     executions: ToolExecution[],
     totalCost: number,
-    averageCost: number,
+    averageCost: number
   ) {
     const recommendations = [];
 
@@ -1642,24 +1525,21 @@ Return a JSON object with:
 
     // High failure rate
     const failureRate =
-      executions.filter((e) => e.status === ExecutionStatus.FAILED).length /
-      executions.length;
+      executions.filter((e) => e.status === ExecutionStatus.FAILED).length / executions.length;
     if (failureRate > 0.1) {
       recommendations.push({
         type: 'reliability',
         priority: 'high',
         title: 'High Failure Rate',
         description: `${(failureRate * 100).toFixed(1)}% of executions are failing`,
-        suggestion:
-          'Implement better error handling, retry logic, and input validation',
+        suggestion: 'Implement better error handling, retry logic, and input validation',
         potentialSavings: totalCost * failureRate, // Cost of failed executions
       });
     }
 
     // Slow execution times
     const avgExecutionTime =
-      executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
-      executions.length;
+      executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / executions.length;
     if (avgExecutionTime > 5000) {
       recommendations.push({
         type: 'performance',
@@ -1679,8 +1559,7 @@ Return a JSON object with:
         priority: 'low',
         title: 'Rate Limiting Optimization',
         description: 'Current rate limit may be higher than necessary',
-        suggestion:
-          'Monitor actual usage patterns and adjust rate limits to optimize costs',
+        suggestion: 'Monitor actual usage patterns and adjust rate limits to optimize costs',
         potentialSavings: totalCost * 0.05, // Estimated 5% savings
       });
     }
@@ -1694,8 +1573,7 @@ Return a JSON object with:
     // Calculate average daily cost from recent trends
     const recentTrends = costTrends.slice(-7); // Last 7 days
     const avgDailyCost =
-      recentTrends.reduce((sum, trend) => sum + trend.cost, 0) /
-      recentTrends.length;
+      recentTrends.reduce((sum, trend) => sum + trend.cost, 0) / recentTrends.length;
 
     return avgDailyCost * 30; // Project for 30 days
   }
@@ -1739,12 +1617,11 @@ Return a JSON object with:
 
         const totalExecutions = executions.length;
         const successfulExecutions = executions.filter(
-          (e) => e.status === ExecutionStatus.COMPLETED,
+          (e) => e.status === ExecutionStatus.COMPLETED
         ).length;
         const avgExecutionTime =
           totalExecutions > 0
-            ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
-              totalExecutions
+            ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions
             : 0;
         const totalCost = executions.reduce((sum, e) => sum + (e.cost || 0), 0);
 
@@ -1753,16 +1630,13 @@ Return a JSON object with:
           usage: {
             totalExecutions,
             successfulExecutions,
-            successRate:
-              totalExecutions > 0
-                ? (successfulExecutions / totalExecutions) * 100
-                : 0,
+            successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0,
             avgExecutionTime,
             totalCost,
             lastExecution: executions[0]?.createdAt || null,
           },
         };
-      }),
+      })
     );
 
     return {
@@ -1771,14 +1645,8 @@ Return a JSON object with:
       summary: {
         totalAgents: agents.length,
         activeAgents: agents.filter((a) => a.isActive).length,
-        totalExecutions: agentUsageStats.reduce(
-          (sum, a) => sum + a.usage.totalExecutions,
-          0,
-        ),
-        totalCost: agentUsageStats.reduce(
-          (sum, a) => sum + a.usage.totalCost,
-          0,
-        ),
+        totalExecutions: agentUsageStats.reduce((sum, a) => sum + a.usage.totalExecutions, 0),
+        totalCost: agentUsageStats.reduce((sum, a) => sum + a.usage.totalCost, 0),
       },
     };
   }
@@ -1824,20 +1692,16 @@ Return a JSON object with:
 
         const totalExecutions = executions.length;
         const successfulExecutions = executions.filter(
-          (e) => e.status === ExecutionStatus.COMPLETED,
+          (e) => e.status === ExecutionStatus.COMPLETED
         ).length;
         const avgExecutionTime =
           totalExecutions > 0
-            ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
-              totalExecutions
+            ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions
             : 0;
         const totalCost = executions.reduce((sum, e) => sum + (e.cost || 0), 0);
 
         // Extract tool usage context from workflow definition
-        const toolSteps = this.extractToolStepsFromWorkflow(
-          workflow.definition,
-          toolId,
-        );
+        const toolSteps = this.extractToolStepsFromWorkflow(workflow.definition, toolId);
 
         return {
           ...workflow,
@@ -1845,16 +1709,13 @@ Return a JSON object with:
           usage: {
             totalExecutions,
             successfulExecutions,
-            successRate:
-              totalExecutions > 0
-                ? (successfulExecutions / totalExecutions) * 100
-                : 0,
+            successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0,
             avgExecutionTime,
             totalCost,
             lastExecution: executions[0]?.createdAt || null,
           },
         };
-      }),
+      })
     );
 
     return {
@@ -1863,14 +1724,8 @@ Return a JSON object with:
       summary: {
         totalWorkflows: workflows.length,
         activeWorkflows: workflows.filter((w) => w.isActive).length,
-        totalExecutions: workflowUsageStats.reduce(
-          (sum, w) => sum + w.usage.totalExecutions,
-          0,
-        ),
-        totalCost: workflowUsageStats.reduce(
-          (sum, w) => sum + w.usage.totalCost,
-          0,
-        ),
+        totalExecutions: workflowUsageStats.reduce((sum, w) => sum + w.usage.totalExecutions, 0),
+        totalCost: workflowUsageStats.reduce((sum, w) => sum + w.usage.totalCost, 0),
       },
     };
   }
@@ -1879,7 +1734,7 @@ Return a JSON object with:
     const steps = [];
 
     if (definition.steps && Array.isArray(definition.steps)) {
-      definition.steps.forEach((step, index) => {
+      definition.steps.forEach((step: any, index: number) => {
         if (step.toolId === toolId || step.tool === toolId) {
           steps.push({
             stepIndex: index,
@@ -1901,7 +1756,7 @@ Return a JSON object with:
       startDate?: Date;
       endDate?: Date;
       groupBy: 'day' | 'week' | 'month';
-    },
+    }
   ) {
     const { startDate, endDate, groupBy } = options;
     const tool = await this.findOne(toolId);
@@ -1918,9 +1773,7 @@ Return a JSON object with:
       queryBuilder.andWhere('execution.createdAt <= :endDate', { endDate });
     }
 
-    const executions = await queryBuilder
-      .orderBy('execution.createdAt', 'ASC')
-      .getMany();
+    const executions = await queryBuilder.orderBy('execution.createdAt', 'ASC').getMany();
 
     // Group executions by time period
     const groupedData = this.groupExecutionsByPeriod(executions, groupBy);
@@ -1943,16 +1796,12 @@ Return a JSON object with:
       },
       summary: {
         totalExecutions: executions.length,
-        successfulExecutions: executions.filter(
-          (e) => e.status === ExecutionStatus.COMPLETED,
-        ).length,
-        failedExecutions: executions.filter(
-          (e) => e.status === ExecutionStatus.FAILED,
-        ).length,
+        successfulExecutions: executions.filter((e) => e.status === ExecutionStatus.COMPLETED)
+          .length,
+        failedExecutions: executions.filter((e) => e.status === ExecutionStatus.FAILED).length,
         avgExecutionTime:
           executions.length > 0
-            ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
-              executions.length
+            ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / executions.length
             : 0,
         totalCost: executions.reduce((sum, e) => sum + (e.cost || 0), 0),
       },
@@ -1963,10 +1812,7 @@ Return a JSON object with:
     };
   }
 
-  private groupExecutionsByPeriod(
-    executions: ToolExecution[],
-    groupBy: 'day' | 'week' | 'month',
-  ) {
+  private groupExecutionsByPeriod(executions: ToolExecution[], groupBy: 'day' | 'week' | 'month') {
     const grouped = executions.reduce(
       (acc, execution) => {
         let key: string;
@@ -2012,17 +1858,14 @@ Return a JSON object with:
 
         return acc;
       },
-      {} as Record<string, any>,
+      {} as Record<string, any>
     );
 
     return Object.values(grouped).map((group: any) => ({
       ...group,
-      avgExecutionTime:
-        group.totalExecutions > 0 ? group.totalTime / group.totalExecutions : 0,
+      avgExecutionTime: group.totalExecutions > 0 ? group.totalTime / group.totalExecutions : 0,
       successRate:
-        group.totalExecutions > 0
-          ? (group.successfulExecutions / group.totalExecutions) * 100
-          : 0,
+        group.totalExecutions > 0 ? (group.successfulExecutions / group.totalExecutions) * 100 : 0,
       executions: undefined, // Remove executions array to reduce payload size
     }));
   }
@@ -2061,16 +1904,14 @@ Return a JSON object with:
 
         return acc;
       },
-      {} as Record<string, any>,
+      {} as Record<string, any>
     );
 
     return Object.values(patterns)
       .map((pattern: any) => ({
         ...pattern,
         avgExecutionTime:
-          pattern.totalExecutions > 0
-            ? pattern.totalTime / pattern.totalExecutions
-            : 0,
+          pattern.totalExecutions > 0 ? pattern.totalTime / pattern.totalExecutions : 0,
         successRate:
           pattern.totalExecutions > 0
             ? (pattern.successfulExecutions / pattern.totalExecutions) * 100
@@ -2101,9 +1942,7 @@ Return a JSON object with:
                   (prevGroup.avgExecutionTime || 1)) *
                 100,
               costChange:
-                ((group.totalCost - prevGroup.totalCost) /
-                  (prevGroup.totalCost || 1)) *
-                100,
+                ((group.totalCost - prevGroup.totalCost) / (prevGroup.totalCost || 1)) * 100,
             }
           : null,
       };
@@ -2112,7 +1951,7 @@ Return a JSON object with:
 
   private analyzeErrorPatterns(executions: ToolExecution[]) {
     const failedExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.FAILED && e.error,
+      (e) => e.status === ExecutionStatus.FAILED && e.error
     );
 
     const errorCounts = failedExecutions.reduce(
@@ -2146,7 +1985,7 @@ Return a JSON object with:
 
         return acc;
       },
-      {} as Record<string, any>,
+      {} as Record<string, any>
     );
 
     return Object.values(errorCounts)
@@ -2189,10 +2028,7 @@ Return a JSON object with:
     return 'Other Error';
   }
 
-  private extractAvailableVariables(
-    definition: any,
-    stepId?: string,
-  ): string[] {
+  private extractAvailableVariables(definition: any, stepId?: string): string[] {
     const variables = [];
 
     if (definition?.steps && Array.isArray(definition.steps)) {
@@ -2226,7 +2062,7 @@ Return a JSON object with:
       agentId?: string;
       context: Record<string, any>;
       parameters: Record<string, any>;
-    },
+    }
   ) {
     const tool = await this.findOne(toolId);
     const startTime = Date.now();
@@ -2245,11 +2081,7 @@ Return a JSON object with:
       const result = await this.performToolExecution(tool, {
         functionName: 'execute',
         parameters: testData.parameters,
-        callerType: testData.workflowId
-          ? 'workflow'
-          : testData.agentId
-            ? 'agent'
-            : 'user',
+        callerType: testData.workflowId ? 'workflow' : testData.agentId ? 'agent' : 'user',
         callerId: testData.workflowId || testData.agentId || 'test',
         timeout: 30000,
       });
@@ -2286,7 +2118,7 @@ Return a JSON object with:
           tool,
           testData,
           result,
-          executionTime,
+          executionTime
         ),
       };
     } catch (error) {
@@ -2323,7 +2155,7 @@ Return a JSON object with:
           testData,
           null,
           executionTime,
-          error.message,
+          error.message
         ),
       };
     }
@@ -2334,7 +2166,7 @@ Return a JSON object with:
     testData: any,
     result: any,
     executionTime: number,
-    error?: string,
+    error?: string
   ) {
     const recommendations = [];
 
@@ -2344,8 +2176,7 @@ Return a JSON object with:
         priority: 'high',
         title: 'Test Failed',
         description: `Tool execution failed: ${error}`,
-        suggestion:
-          'Check tool configuration, authentication, and input parameters',
+        suggestion: 'Check tool configuration, authentication, and input parameters',
       });
     }
 
@@ -2365,8 +2196,7 @@ Return a JSON object with:
         priority: 'low',
         title: 'Workflow Integration',
         description: 'Tool tested successfully in workflow context',
-        suggestion:
-          'Monitor performance when integrated into the full workflow',
+        suggestion: 'Monitor performance when integrated into the full workflow',
       });
     }
 
@@ -2383,10 +2213,7 @@ Return a JSON object with:
     return recommendations;
   }
 
-  async getDashboardMetrics(
-    organizationId: string,
-    timeRange: '24h' | '7d' | '30d' | '90d',
-  ) {
+  async getDashboardMetrics(organizationId: string, timeRange: '24h' | '7d' | '30d' | '90d') {
     const timeRangeMs = {
       '24h': 24 * 60 * 60 * 1000,
       '7d': 7 * 24 * 60 * 60 * 1000,
@@ -2414,16 +2241,13 @@ Return a JSON object with:
     // Calculate overall metrics
     const totalExecutions = executions.length;
     const successfulExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.COMPLETED,
+      (e) => e.status === ExecutionStatus.COMPLETED
     ).length;
-    const failedExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.FAILED,
-    ).length;
+    const failedExecutions = executions.filter((e) => e.status === ExecutionStatus.FAILED).length;
     const totalCost = executions.reduce((sum, e) => sum + (e.cost || 0), 0);
     const avgExecutionTime =
       totalExecutions > 0
-        ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
-          totalExecutions
+        ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions
         : 0;
 
     // Calculate metrics by category
@@ -2445,16 +2269,13 @@ Return a JSON object with:
         acc[category].toolCount++;
         acc[category].executions += toolExecutions.length;
         acc[category].successfulExecutions += toolExecutions.filter(
-          (e) => e.status === ExecutionStatus.COMPLETED,
+          (e) => e.status === ExecutionStatus.COMPLETED
         ).length;
-        acc[category].cost += toolExecutions.reduce(
-          (sum, e) => sum + (e.cost || 0),
-          0,
-        );
+        acc[category].cost += toolExecutions.reduce((sum, e) => sum + (e.cost || 0), 0);
 
         return acc;
       },
-      {} as Record<string, any>,
+      {} as Record<string, any>
     );
 
     // Get top performing tools
@@ -2462,7 +2283,7 @@ Return a JSON object with:
       .map((tool) => {
         const toolExecutions = executions.filter((e) => e.toolId === tool.id);
         const successful = toolExecutions.filter(
-          (e) => e.status === ExecutionStatus.COMPLETED,
+          (e) => e.status === ExecutionStatus.COMPLETED
         ).length;
 
         return {
@@ -2470,16 +2291,11 @@ Return a JSON object with:
           name: tool.name,
           category: tool.category,
           executions: toolExecutions.length,
-          successRate:
-            toolExecutions.length > 0
-              ? (successful / toolExecutions.length) * 100
-              : 0,
+          successRate: toolExecutions.length > 0 ? (successful / toolExecutions.length) * 100 : 0,
           avgExecutionTime:
             toolExecutions.length > 0
-              ? toolExecutions.reduce(
-                  (sum, e) => sum + (e.executionTimeMs || 0),
-                  0,
-                ) / toolExecutions.length
+              ? toolExecutions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
+                toolExecutions.length
               : 0,
           cost: toolExecutions.reduce((sum, e) => sum + (e.cost || 0), 0),
         };
@@ -2504,10 +2320,7 @@ Return a JSON object with:
         totalExecutions,
         successfulExecutions,
         failedExecutions,
-        successRate:
-          totalExecutions > 0
-            ? (successfulExecutions / totalExecutions) * 100
-            : 0,
+        successRate: totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0,
         totalCost,
         avgExecutionTime,
       },
@@ -2515,59 +2328,37 @@ Return a JSON object with:
       topTools: toolPerformance.slice(0, 10),
       dailyTrends,
       healthAlerts,
-      recommendations: this.generateDashboardRecommendations(
-        tools,
-        executions,
-        categoryMetrics,
-      ),
+      recommendations: this.generateDashboardRecommendations(tools, executions, categoryMetrics),
     };
   }
 
   private calculateDailyTrends(executions: ToolExecution[], timeRange: string) {
-    const days =
-      timeRange === '24h'
-        ? 1
-        : timeRange === '7d'
-          ? 7
-          : timeRange === '30d'
-            ? 30
-            : 90;
+    const days = timeRange === '24h' ? 1 : timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
     const trends = [];
 
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      const dayStart = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-      );
+      const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
       const dayExecutions = executions.filter(
-        (e) => e.createdAt >= dayStart && e.createdAt < dayEnd,
+        (e) => e.createdAt >= dayStart && e.createdAt < dayEnd
       );
 
-      const successful = dayExecutions.filter(
-        (e) => e.status === ExecutionStatus.COMPLETED,
-      ).length;
+      const successful = dayExecutions.filter((e) => e.status === ExecutionStatus.COMPLETED).length;
 
       trends.push({
         date: dayStart.toISOString().split('T')[0],
         executions: dayExecutions.length,
         successful,
         failed: dayExecutions.length - successful,
-        successRate:
-          dayExecutions.length > 0
-            ? (successful / dayExecutions.length) * 100
-            : 0,
+        successRate: dayExecutions.length > 0 ? (successful / dayExecutions.length) * 100 : 0,
         cost: dayExecutions.reduce((sum, e) => sum + (e.cost || 0), 0),
         avgExecutionTime:
           dayExecutions.length > 0
-            ? dayExecutions.reduce(
-                (sum, e) => sum + (e.executionTimeMs || 0),
-                0,
-              ) / dayExecutions.length
+            ? dayExecutions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
+              dayExecutions.length
             : 0,
       });
     }
@@ -2591,14 +2382,12 @@ Return a JSON object with:
 
       if (recentExecutions.length > 0) {
         const failureRate =
-          recentExecutions.filter((e) => e.status === ExecutionStatus.FAILED)
-            .length / recentExecutions.length;
+          recentExecutions.filter((e) => e.status === ExecutionStatus.FAILED).length /
+          recentExecutions.length;
 
         const avgResponseTime =
-          recentExecutions.reduce(
-            (sum, e) => sum + (e.executionTimeMs || 0),
-            0,
-          ) / recentExecutions.length;
+          recentExecutions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
+          recentExecutions.length;
 
         if (failureRate > 0.5) {
           alerts.push({
@@ -2628,14 +2417,12 @@ Return a JSON object with:
   private generateDashboardRecommendations(
     tools: Tool[],
     executions: ToolExecution[],
-    categoryMetrics: Record<string, any>,
+    categoryMetrics: Record<string, any>
   ) {
     const recommendations = [];
 
     // Check for unused tools
-    const unusedTools = tools.filter(
-      (tool) => !executions.some((e) => e.toolId === tool.id),
-    );
+    const unusedTools = tools.filter((tool) => !executions.some((e) => e.toolId === tool.id));
 
     if (unusedTools.length > 0) {
       recommendations.push({
@@ -2643,8 +2430,7 @@ Return a JSON object with:
         priority: 'low',
         title: 'Unused Tools',
         description: `${unusedTools.length} tools haven't been used recently`,
-        suggestion:
-          'Consider deactivating or removing unused tools to reduce clutter',
+        suggestion: 'Consider deactivating or removing unused tools to reduce clutter',
       });
     }
 
@@ -2654,22 +2440,20 @@ Return a JSON object with:
       .sort((a: any, b: any) => b.cost - a.cost);
 
     if (highCostCategories.length > 0) {
-      const topCategory = highCostCategories[0] as any;
+      const topCategory = highCostCategories[0];
       recommendations.push({
         type: 'cost',
         priority: 'medium',
         title: 'High Cost Category',
         description: `${topCategory.category} category has high costs: ${topCategory.cost.toFixed(2)}`,
-        suggestion:
-          'Review tools in this category for optimization opportunities',
+        suggestion: 'Review tools in this category for optimization opportunities',
       });
     }
 
     // Check overall success rate
     const overallSuccessRate =
       executions.length > 0
-        ? (executions.filter((e) => e.status === ExecutionStatus.COMPLETED)
-            .length /
+        ? (executions.filter((e) => e.status === ExecutionStatus.COMPLETED).length /
             executions.length) *
           100
         : 100;
@@ -2703,24 +2487,17 @@ Return a JSON object with:
     // Calculate health metrics
     const totalExecutions = recentExecutions.length;
     const successfulExecutions = recentExecutions.filter(
-      (e) => e.status === ExecutionStatus.COMPLETED,
+      (e) => e.status === ExecutionStatus.COMPLETED
     ).length;
     const failedExecutions = recentExecutions.filter(
-      (e) => e.status === ExecutionStatus.FAILED,
+      (e) => e.status === ExecutionStatus.FAILED
     ).length;
 
-    const availability =
-      totalExecutions > 0
-        ? (successfulExecutions / totalExecutions) * 100
-        : 100;
-    const errorRate =
-      totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0;
+    const availability = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 100;
+    const errorRate = totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0;
     const avgResponseTime =
       totalExecutions > 0
-        ? recentExecutions.reduce(
-            (sum, e) => sum + (e.executionTimeMs || 0),
-            0,
-          ) / totalExecutions
+        ? recentExecutions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions
         : 0;
 
     // Analyze error patterns
@@ -2730,11 +2507,7 @@ Return a JSON object with:
     const uptimePeriods = this.calculateUptimePeriods(recentExecutions);
 
     // Generate health status
-    const healthStatus = this.determineHealthStatus(
-      availability,
-      errorRate,
-      avgResponseTime,
-    );
+    const healthStatus = this.determineHealthStatus(availability, errorRate, avgResponseTime);
 
     // Get configured alerts
     const alertConfig = await this.getAlertConfiguration(toolId);
@@ -2746,7 +2519,7 @@ Return a JSON object with:
         errorRate,
         avgResponseTime,
       },
-      alertConfig,
+      alertConfig
     );
 
     return {
@@ -2780,7 +2553,7 @@ Return a JSON object with:
 
     // Sort executions by time
     const sortedExecutions = executions.sort(
-      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
     );
 
     for (const execution of sortedExecutions) {
@@ -2806,8 +2579,7 @@ Return a JSON object with:
     // Close the last period
     if (currentPeriod) {
       currentPeriod.endTime = new Date();
-      currentPeriod.duration =
-        currentPeriod.endTime.getTime() - currentPeriod.startTime.getTime();
+      currentPeriod.duration = currentPeriod.endTime.getTime() - currentPeriod.startTime.getTime();
       periods.push(currentPeriod);
     }
 
@@ -2817,7 +2589,7 @@ Return a JSON object with:
   private determineHealthStatus(
     availability: number,
     errorRate: number,
-    avgResponseTime: number,
+    avgResponseTime: number
   ): 'healthy' | 'warning' | 'critical' | 'unknown' {
     if (availability >= 99 && errorRate <= 1 && avgResponseTime <= 5000) {
       return 'healthy';
@@ -2851,7 +2623,7 @@ Return a JSON object with:
       errorRate: number;
       avgResponseTime: number;
     },
-    alertConfig: any,
+    alertConfig: any
   ) {
     const alerts = [];
 
@@ -2942,10 +2714,8 @@ Return a JSON object with:
     }
 
     return recommendations;
-  }
-
-  private getErrorPatternSuggestion(errorType: string): string {
-    const suggestions = {
+  }private getErrorPatternSuggestion(errorType: string): string {
+    const suggestions: Record<string, string> = {
       'Timeout Error': 'Increase timeout values or optimize API performance',
       'Network Error': 'Check network connectivity and DNS resolution',
       'Authentication Error': 'Verify API credentials and token expiration',
@@ -2955,20 +2725,15 @@ Return a JSON object with:
       'Validation Error': 'Review input parameters and data formats',
     };
 
-    return (
-      suggestions[errorType] ||
-      'Review error details and contact support if needed'
-    );
-  }
-
-  async configureHealthAlerts(
+    return suggestions[errorType] || 'Review error details and contact support if needed';
+  }async configureHealthAlerts(
     toolId: string,
     alertConfig: {
       errorRateThreshold: number;
       responseTimeThreshold: number;
       availabilityThreshold: number;
       notificationChannels: string[];
-    },
+    }
   ) {
     // In a real implementation, this would save to a database table
     // For now, we'll simulate the configuration
@@ -2977,13 +2742,13 @@ Return a JSON object with:
 
     // Update tool metadata with alert configuration
     await this.toolRepository.update(toolId, {
-      metadata: {
+      metadata: JSON.stringify({
         ...tool.metadata,
         alertConfig: {
           ...alertConfig,
-          updatedAt: new Date(),
+          updatedAt: new Date().toISOString(),
         },
-      },
+      }),
     });
 
     return {

@@ -40,14 +40,17 @@ export class EmailDeliveryProvider {
       const { notification } = delivery;
       const emailData = delivery.deliveryData?.email;
 
-      if (!emailData || !emailData.toAddresses?.length) {
+      if (!emailData?.toAddresses?.length) {
         throw new Error('No email recipients specified');
       }
 
       const mailOptions = {
         from: {
           name: this.configService.get<string>('EMAIL_FROM_NAME', 'SynapseAI'),
-          address: this.configService.get<string>('EMAIL_FROM_ADDRESS', emailData.fromAddress || this.configService.get<string>('EMAIL_USER')),
+          address: this.configService.get<string>(
+            'EMAIL_FROM_ADDRESS',
+            emailData.fromAddress || this.configService.get<string>('EMAIL_USER')
+          ),
         },
         to: emailData.toAddresses,
         cc: emailData.ccAddresses,
@@ -167,12 +170,16 @@ export class EmailDeliveryProvider {
             ${message.replace(/\n/g, '<br>')}
           </div>
           
-          ${data ? `
+          ${
+            data
+              ? `
             <div class="data-section">
               <strong>Additional Information:</strong><br>
               <pre>${JSON.stringify(data, null, 2)}</pre>
             </div>
-          ` : ''}
+          `
+              : ''
+          }
           
           <div class="footer">
             <p>This notification was sent by SynapseAI</p>
@@ -196,20 +203,20 @@ export class EmailDeliveryProvider {
 
   async sendBatchEmail(deliveries: NotificationDelivery[]): Promise<any[]> {
     const results = [];
-    
+
     for (const delivery of deliveries) {
       try {
         const result = await this.sendEmail(delivery);
         results.push({ deliveryId: delivery.id, success: true, result });
       } catch (error) {
-        results.push({ 
-          deliveryId: delivery.id, 
-          success: false, 
-          error: error.message 
+        results.push({
+          deliveryId: delivery.id,
+          success: false,
+          error: error.message,
         });
       }
     }
-    
+
     return results;
   }
 }

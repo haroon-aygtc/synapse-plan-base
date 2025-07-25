@@ -26,28 +26,43 @@ interface LocalizedConfigurationResult {
 export class MultiLanguageSupportService {
   private readonly logger = new Logger(MultiLanguageSupportService.name);
   private readonly openai: OpenAI;
-  
+
   private readonly supportedLanguages = [
-    'en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'ja', 'ko', 'zh', 'ar', 'hi', 'nl', 'sv', 'no', 'da'
+    'en',
+    'es',
+    'fr',
+    'de',
+    'it',
+    'pt',
+    'ru',
+    'ja',
+    'ko',
+    'zh',
+    'ar',
+    'hi',
+    'nl',
+    'sv',
+    'no',
+    'da',
   ];
 
   private readonly languageNames: { [key: string]: string } = {
-    'en': 'English',
-    'es': 'Spanish',
-    'fr': 'French',
-    'de': 'German',
-    'it': 'Italian',
-    'pt': 'Portuguese',
-    'ru': 'Russian',
-    'ja': 'Japanese',
-    'ko': 'Korean',
-    'zh': 'Chinese',
-    'ar': 'Arabic',
-    'hi': 'Hindi',
-    'nl': 'Dutch',
-    'sv': 'Swedish',
-    'no': 'Norwegian',
-    'da': 'Danish',
+    en: 'English',
+    es: 'Spanish',
+    fr: 'French',
+    de: 'German',
+    it: 'Italian',
+    pt: 'Portuguese',
+    ru: 'Russian',
+    ja: 'Japanese',
+    ko: 'Korean',
+    zh: 'Chinese',
+    ar: 'Arabic',
+    hi: 'Hindi',
+    nl: 'Dutch',
+    sv: 'Swedish',
+    no: 'Norwegian',
+    da: 'Danish',
   };
 
   constructor(private readonly configService: ConfigService) {
@@ -80,7 +95,8 @@ Use ISO 639-1 language codes (en, es, fr, de, etc.).
         messages: [
           {
             role: 'system',
-            content: 'You are a language detection expert. Always respond with valid JSON using ISO 639-1 language codes.',
+            content:
+              'You are a language detection expert. Always respond with valid JSON using ISO 639-1 language codes.',
           },
           {
             role: 'user',
@@ -97,7 +113,7 @@ Use ISO 639-1 language codes (en, es, fr, de, etc.).
       }
 
       const result = JSON.parse(content);
-      
+
       // Validate detected language is supported
       if (!this.supportedLanguages.includes(result.detectedLanguage)) {
         result.detectedLanguage = 'en'; // Default to English
@@ -106,7 +122,9 @@ Use ISO 639-1 language codes (en, es, fr, de, etc.).
 
       result.supportedLanguages = this.supportedLanguages;
 
-      this.logger.log(`Detected language: ${result.detectedLanguage} with confidence: ${result.confidence}`);
+      this.logger.log(
+        `Detected language: ${result.detectedLanguage} with confidence: ${result.confidence}`
+      );
       return result;
     } catch (error) {
       this.logger.error('Failed to detect language', error);
@@ -122,7 +140,7 @@ Use ISO 639-1 language codes (en, es, fr, de, etc.).
   async translateText(
     text: string,
     targetLanguage: string,
-    sourceLanguage?: string,
+    sourceLanguage?: string
   ): Promise<TranslationResult> {
     this.logger.log(`Translating text to ${targetLanguage}`);
 
@@ -131,7 +149,9 @@ Use ISO 639-1 language codes (en, es, fr, de, etc.).
         throw new Error(`Unsupported target language: ${targetLanguage}`);
       }
 
-      const sourceInfo = sourceLanguage ? `from ${this.languageNames[sourceLanguage] || sourceLanguage}` : '';
+      const sourceInfo = sourceLanguage
+        ? `from ${this.languageNames[sourceLanguage] || sourceLanguage}`
+        : '';
       const targetName = this.languageNames[targetLanguage] || targetLanguage;
 
       const prompt = `
@@ -171,7 +191,7 @@ Respond in JSON format:
       }
 
       const result = JSON.parse(content);
-      
+
       this.logger.log(`Translated text from ${result.sourceLanguage} to ${result.targetLanguage}`);
       return result;
     } catch (error) {
@@ -183,7 +203,7 @@ Respond in JSON format:
   async localizeConfiguration(
     configuration: any,
     targetLanguage: string,
-    configurationType: string,
+    configurationType: string
   ): Promise<LocalizedConfigurationResult> {
     this.logger.log(`Localizing ${configurationType} configuration for ${targetLanguage}`);
 
@@ -236,8 +256,10 @@ Respond in JSON format:
       }
 
       const result = JSON.parse(content);
-      
-      this.logger.log(`Localized configuration for ${targetLanguage} with ${result.culturalAdaptations?.length || 0} adaptations`);
+
+      this.logger.log(
+        `Localized configuration for ${targetLanguage} with ${result.culturalAdaptations?.length || 0} adaptations`
+      );
       return result;
     } catch (error) {
       this.logger.error('Failed to localize configuration', error);
@@ -247,13 +269,15 @@ Respond in JSON format:
 
   async generateMultilingualPrompts(
     basePrompt: string,
-    targetLanguages: string[],
+    targetLanguages: string[]
   ): Promise<Record<string, string>> {
     this.logger.log(`Generating multilingual prompts for ${targetLanguages.length} languages`);
 
     try {
-      const validLanguages = targetLanguages.filter(lang => this.supportedLanguages.includes(lang));
-      
+      const validLanguages = targetLanguages.filter((lang) =>
+        this.supportedLanguages.includes(lang)
+      );
+
       if (validLanguages.length === 0) {
         throw new Error('No supported languages provided');
       }
@@ -264,7 +288,7 @@ Respond in JSON format:
       const batchSize = 3;
       for (let i = 0; i < validLanguages.length; i += batchSize) {
         const batch = validLanguages.slice(i, i + batchSize);
-        const languageNames = batch.map(lang => this.languageNames[lang] || lang).join(', ');
+        const languageNames = batch.map((lang) => this.languageNames[lang] || lang).join(', ');
 
         const prompt = `
 Translate and culturally adapt the following AI agent prompt for these languages: ${languageNames}
@@ -278,7 +302,7 @@ For each language, provide:
 
 Respond in JSON format:
 {
-  ${batch.map(lang => `"${lang}": "translated and adapted prompt for ${this.languageNames[lang] || lang}"`).join(',\n  ')}
+  ${batch.map((lang) => `"${lang}": "translated and adapted prompt for ${this.languageNames[lang] || lang}"`).join(',\n  ')}
 }
 `;
 
@@ -287,7 +311,8 @@ Respond in JSON format:
           messages: [
             {
               role: 'system',
-              content: 'You are a multilingual AI prompt specialist. Provide culturally appropriate translations that maintain the effectiveness of the original prompt.',
+              content:
+                'You are a multilingual AI prompt specialist. Provide culturally appropriate translations that maintain the effectiveness of the original prompt.',
             },
             {
               role: 'user',
@@ -305,7 +330,9 @@ Respond in JSON format:
         }
       }
 
-      this.logger.log(`Generated multilingual prompts for ${Object.keys(results).length} languages`);
+      this.logger.log(
+        `Generated multilingual prompts for ${Object.keys(results).length} languages`
+      );
       return results;
     } catch (error) {
       this.logger.error('Failed to generate multilingual prompts', error);
@@ -318,7 +345,7 @@ Respond in JSON format:
   }
 
   getSupportedLanguages(): Array<{ code: string; name: string }> {
-    return this.supportedLanguages.map(code => ({
+    return this.supportedLanguages.map((code) => ({
       code,
       name: this.languageNames[code] || code,
     }));
@@ -360,7 +387,8 @@ Respond in JSON format:
         messages: [
           {
             role: 'system',
-            content: 'You are a cultural communication expert. Provide practical guidelines for AI interactions across different cultures.',
+            content:
+              'You are a cultural communication expert. Provide practical guidelines for AI interactions across different cultures.',
           },
           {
             role: 'user',
@@ -377,7 +405,7 @@ Respond in JSON format:
       }
 
       const result = JSON.parse(content);
-      
+
       this.logger.log(`Retrieved cultural guidelines for ${languageName}`);
       return result;
     } catch (error) {

@@ -79,14 +79,14 @@ export class SmsDeliveryProvider {
     const maxLength = 1600; // SMS limit
     const prefix = `[SynapseAI] ${title}\n\n`;
     const suffix = '\n\nReply STOP to unsubscribe.';
-    
+
     const availableLength = maxLength - prefix.length - suffix.length;
     let formattedMessage = message;
-    
+
     if (formattedMessage.length > availableLength) {
-      formattedMessage = formattedMessage.substring(0, availableLength - 3) + '...';
+      formattedMessage = `${formattedMessage.substring(0, availableLength - 3)}...`;
     }
-    
+
     return `${prefix}${formattedMessage}${suffix}`;
   }
 
@@ -131,37 +131,37 @@ export class SmsDeliveryProvider {
 
   async sendBatchSms(deliveries: NotificationDelivery[]): Promise<any[]> {
     const results = [];
-    
+
     // Process SMS deliveries with rate limiting
     for (let i = 0; i < deliveries.length; i++) {
       try {
         const result = await this.sendSms(deliveries[i]);
         results.push({ deliveryId: deliveries[i].id, success: true, result });
-        
+
         // Rate limiting: wait 100ms between SMS sends to avoid hitting Twilio limits
         if (i < deliveries.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       } catch (error) {
-        results.push({ 
-          deliveryId: deliveries[i].id, 
-          success: false, 
-          error: error.message 
+        results.push({
+          deliveryId: deliveries[i].id,
+          success: false,
+          error: error.message,
         });
       }
     }
-    
+
     return results;
   }
 
   async handleStatusCallback(payload: any): Promise<void> {
     try {
       this.logger.debug('Received SMS status callback:', payload);
-      
+
       // Here you would typically update the delivery status in the database
       // based on the callback payload from Twilio
       const { MessageSid, MessageStatus, ErrorCode, ErrorMessage } = payload;
-      
+
       // Emit event for status update
       // This would be handled by the notification delivery service
     } catch (error) {

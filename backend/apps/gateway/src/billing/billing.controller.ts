@@ -12,12 +12,7 @@ import {
   HttpStatus,
   HttpException,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
@@ -39,9 +34,7 @@ export class BillingController {
   })
   async getUsageMetrics(@Request() req: any) {
     try {
-      const usage = await this.billingService.getUsageMetrics(
-        req.user.organizationId,
-      );
+      const usage = await this.billingService.getUsageMetrics(req.user.organizationId);
       return {
         success: true,
         data: usage,
@@ -53,7 +46,7 @@ export class BillingController {
           success: false,
           message: error.message,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -67,9 +60,7 @@ export class BillingController {
   })
   async getBillingStats(@Request() req: any) {
     try {
-      const stats = await this.billingService.getBillingStats(
-        req.user.organizationId,
-      );
+      const stats = await this.billingService.getBillingStats(req.user.organizationId);
       return {
         success: true,
         data: stats,
@@ -81,7 +72,7 @@ export class BillingController {
           success: false,
           message: error.message,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }
@@ -95,13 +86,13 @@ export class BillingController {
   })
   async createSubscription(
     @Body() body: { planType: string; paymentMethodId: string },
-    @Request() req: any,
+    @Request() req: any
   ) {
     try {
       const subscription = await this.billingService.createSubscription(
         req.user.organizationId,
         body.planType,
-        body.paymentMethodId,
+        body.paymentMethodId
       );
       return {
         success: true,
@@ -114,7 +105,7 @@ export class BillingController {
           success: false,
           message: error.message,
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -126,14 +117,11 @@ export class BillingController {
     status: 200,
     description: 'Subscription updated successfully',
   })
-  async updateSubscription(
-    @Body() body: { planType: string },
-    @Request() req: any,
-  ) {
+  async updateSubscription(@Body() body: { planType: string }, @Request() req: any) {
     try {
       const subscription = await this.billingService.updateSubscription(
         req.user.organizationId,
-        body.planType,
+        body.planType
       );
       return {
         success: true,
@@ -146,7 +134,7 @@ export class BillingController {
           success: false,
           message: error.message,
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -160,9 +148,7 @@ export class BillingController {
   })
   async cancelSubscription(@Request() req: any) {
     try {
-      const subscription = await this.billingService.cancelSubscription(
-        req.user.organizationId,
-      );
+      const subscription = await this.billingService.cancelSubscription(req.user.organizationId);
       return {
         success: true,
         data: subscription,
@@ -174,7 +160,7 @@ export class BillingController {
           success: false,
           message: error.message,
         },
-        HttpStatus.BAD_REQUEST,
+        HttpStatus.BAD_REQUEST
       );
     }
   }
@@ -184,9 +170,7 @@ export class BillingController {
   @ApiResponse({ status: 200, description: 'Invoices retrieved successfully' })
   async getInvoices(@Request() req: any) {
     try {
-      const invoices = await this.billingService.getInvoices(
-        req.user.organizationId,
-      );
+      const invoices = await this.billingService.getInvoices(req.user.organizationId);
       return {
         success: true,
         data: invoices,
@@ -198,7 +182,7 @@ export class BillingController {
           success: false,
           message: error.message,
         },
-        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
   }

@@ -61,23 +61,22 @@ export class KnowledgeAnalyticsService {
     @InjectRepository(KnowledgeSearchFeedback)
     private readonly feedbackRepository: Repository<KnowledgeSearchFeedback>,
     @InjectRepository(KnowledgeAnalytics)
-    private readonly analyticsRepository: Repository<KnowledgeAnalytics>,
+    private readonly analyticsRepository: Repository<KnowledgeAnalytics>
   ) {}
 
   async generateReport(
     organizationId: string,
     startDate: Date,
-    endDate: Date,
+    endDate: Date
   ): Promise<AnalyticsReport> {
     this.logger.log(`Generating analytics report for org ${organizationId}`);
 
-    const [documentStats, searchStats, usageStats, performanceStats] =
-      await Promise.all([
-        this.getDocumentStats(organizationId, startDate, endDate),
-        this.getSearchStats(organizationId, startDate, endDate),
-        this.getUsageStats(organizationId, startDate, endDate),
-        this.getPerformanceStats(organizationId, startDate, endDate),
-      ]);
+    const [documentStats, searchStats, usageStats, performanceStats] = await Promise.all([
+      this.getDocumentStats(organizationId, startDate, endDate),
+      this.getSearchStats(organizationId, startDate, endDate),
+      this.getUsageStats(organizationId, startDate, endDate),
+      this.getPerformanceStats(organizationId, startDate, endDate),
+    ]);
 
     return {
       period: { start: startDate, end: endDate },
@@ -88,11 +87,7 @@ export class KnowledgeAnalyticsService {
     };
   }
 
-  private async getDocumentStats(
-    organizationId: string,
-    startDate: Date,
-    endDate: Date,
-  ) {
+  private async getDocumentStats(organizationId: string, startDate: Date, endDate: Date) {
     const documents = await this.documentRepository
       .createQueryBuilder('doc')
       .select([
@@ -135,7 +130,7 @@ export class KnowledgeAnalyticsService {
           accessCount: doc.accessCount,
           averageRelevance: parseFloat(avgRelevance?.avgRelevance || '0'),
         };
-      }),
+      })
     );
 
     return {
@@ -147,11 +142,7 @@ export class KnowledgeAnalyticsService {
     };
   }
 
-  private async getSearchStats(
-    organizationId: string,
-    startDate: Date,
-    endDate: Date,
-  ) {
+  private async getSearchStats(organizationId: string, startDate: Date, endDate: Date) {
     const searches = await this.searchRepository
       .createQueryBuilder('search')
       .select([
@@ -168,11 +159,7 @@ export class KnowledgeAnalyticsService {
 
     const topQueries = await this.searchRepository
       .createQueryBuilder('search')
-      .select([
-        'search.query',
-        'COUNT(*) as count',
-        'AVG(search.averageScore) as avg_score',
-      ])
+      .select(['search.query', 'COUNT(*) as count', 'AVG(search.averageScore) as avg_score'])
       .where('search.organizationId = :organizationId', { organizationId })
       .andWhere('search.createdAt BETWEEN :startDate AND :endDate', {
         startDate,
@@ -195,11 +182,7 @@ export class KnowledgeAnalyticsService {
     };
   }
 
-  private async getUsageStats(
-    organizationId: string,
-    startDate: Date,
-    endDate: Date,
-  ) {
+  private async getUsageStats(organizationId: string, startDate: Date, endDate: Date) {
     const usage = await this.searchRepository
       .createQueryBuilder('search')
       .select([
@@ -216,10 +199,7 @@ export class KnowledgeAnalyticsService {
     // Get peak usage hours
     const hourlyUsage = await this.searchRepository
       .createQueryBuilder('search')
-      .select([
-        'EXTRACT(HOUR FROM search.createdAt) as hour',
-        'COUNT(*) as count',
-      ])
+      .select(['EXTRACT(HOUR FROM search.createdAt) as hour', 'COUNT(*) as count'])
       .where('search.organizationId = :organizationId', { organizationId })
       .andWhere('search.createdAt BETWEEN :startDate AND :endDate', {
         startDate,
@@ -241,11 +221,7 @@ export class KnowledgeAnalyticsService {
     };
   }
 
-  private async getPerformanceStats(
-    organizationId: string,
-    startDate: Date,
-    endDate: Date,
-  ) {
+  private async getPerformanceStats(organizationId: string, startDate: Date, endDate: Date) {
     const relevanceStats = await this.feedbackRepository
       .createQueryBuilder('feedback')
       .select('AVG(feedback.relevanceScore)', 'avgRelevance')
@@ -289,8 +265,7 @@ export class KnowledgeAnalyticsService {
 
     return {
       averageRelevanceScore: parseFloat(relevanceStats?.avgRelevance || '0'),
-      userSatisfactionRate:
-        totalFeedback > 0 ? helpfulCount / totalFeedback : 0,
+      userSatisfactionRate: totalFeedback > 0 ? helpfulCount / totalFeedback : 0,
       documentUtilizationRate: totalDocs > 0 ? accessedDocs / totalDocs : 0,
     };
   }
@@ -354,28 +329,20 @@ export class KnowledgeAnalyticsService {
         await this.generateDailyAnalyticsForOrg(org.organizationId, yesterday);
       }
 
-      this.logger.log(
-        `Generated daily analytics for ${activeOrgs.length} organizations`,
-      );
+      this.logger.log(`Generated daily analytics for ${activeOrgs.length} organizations`);
     } catch (error) {
       this.logger.error('Failed to generate daily analytics', error);
     }
   }
 
-  private async generateDailyAnalyticsForOrg(
-    organizationId: string,
-    date: Date,
-  ): Promise<void> {
+  private async generateDailyAnalyticsForOrg(organizationId: string, date: Date): Promise<void> {
     const endDate = new Date(date);
     endDate.setDate(endDate.getDate() + 1);
 
     const [searchStats, documentStats, userStats] = await Promise.all([
       this.searchRepository
         .createQueryBuilder('search')
-        .select([
-          'COUNT(*) as search_count',
-          'AVG(execution_time_ms) as avg_latency',
-        ])
+        .select(['COUNT(*) as search_count', 'AVG(execution_time_ms) as avg_latency'])
         .where('organizationId = :organizationId', { organizationId })
         .andWhere('createdAt BETWEEN :start AND :end', {
           start: date,
@@ -433,7 +400,7 @@ export class KnowledgeAnalyticsService {
 
   async getTopPerformingDocuments(
     organizationId: string,
-    limit: number = 10,
+    limit: number = 10
   ): Promise<
     Array<{
       id: string;
@@ -467,7 +434,7 @@ export class KnowledgeAnalyticsService {
           averageRelevance: parseFloat(avgRelevance?.avgRelevance || '0'),
           lastAccessed: doc.lastAccessedAt || doc.createdAt,
         };
-      }),
+      })
     );
 
     return documentsWithRelevance;
@@ -475,7 +442,7 @@ export class KnowledgeAnalyticsService {
 
   async getSearchTrends(
     organizationId: string,
-    days: number = 30,
+    days: number = 30
   ): Promise<
     Array<{
       date: string;
@@ -508,8 +475,7 @@ export class KnowledgeAnalyticsService {
     return trends.map((trend) => ({
       date: trend.date,
       searchCount: parseInt(trend.search_count),
-      successRate:
-        parseInt(trend.successful_searches) / parseInt(trend.search_count),
+      successRate: parseInt(trend.successful_searches) / parseInt(trend.search_count),
       averageLatency: parseFloat(trend.avg_latency || '0'),
     }));
   }

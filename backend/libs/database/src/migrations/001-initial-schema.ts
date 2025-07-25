@@ -605,47 +605,77 @@ export class InitialSchema1700000001 implements MigrationInterface {
     // Organizations indexes
     await queryRunner.query(`CREATE INDEX "idx_organizations_slug" ON "organizations" ("slug")`);
     await queryRunner.query(`CREATE INDEX "idx_organizations_plan" ON "organizations" ("plan")`);
-    await queryRunner.query(`CREATE INDEX "idx_organizations_active" ON "organizations" ("isActive")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_organizations_active" ON "organizations" ("isActive")`
+    );
 
     // Users indexes
-    await queryRunner.query(`CREATE INDEX "idx_users_org_email" ON "users" ("organizationId", "email")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_users_org_email" ON "users" ("organizationId", "email")`
+    );
     await queryRunner.query(`CREATE INDEX "idx_users_role" ON "users" ("role")`);
     await queryRunner.query(`CREATE INDEX "idx_users_active" ON "users" ("isActive")`);
     await queryRunner.query(`CREATE INDEX "idx_users_last_login" ON "users" ("lastLoginAt")`);
 
     // Agents indexes
-    await queryRunner.query(`CREATE INDEX "idx_agents_org_name" ON "agents" ("organizationId", "name")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_agents_org_name" ON "agents" ("organizationId", "name")`
+    );
     await queryRunner.query(`CREATE INDEX "idx_agents_user" ON "agents" ("userId")`);
     await queryRunner.query(`CREATE INDEX "idx_agents_active" ON "agents" ("isActive")`);
     await queryRunner.query(`CREATE INDEX "idx_agents_public" ON "agents" ("isPublic")`);
 
     // Tools indexes
-    await queryRunner.query(`CREATE INDEX "idx_tools_org_name" ON "tools" ("organizationId", "name")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_tools_org_name" ON "tools" ("organizationId", "name")`
+    );
     await queryRunner.query(`CREATE INDEX "idx_tools_user" ON "tools" ("userId")`);
     await queryRunner.query(`CREATE INDEX "idx_tools_type" ON "tools" ("type")`);
     await queryRunner.query(`CREATE INDEX "idx_tools_active" ON "tools" ("isActive")`);
 
     // Workflows indexes
-    await queryRunner.query(`CREATE INDEX "idx_workflows_org_name" ON "workflows" ("organizationId", "name")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_workflows_org_name" ON "workflows" ("organizationId", "name")`
+    );
     await queryRunner.query(`CREATE INDEX "idx_workflows_user" ON "workflows" ("userId")`);
     await queryRunner.query(`CREATE INDEX "idx_workflows_status" ON "workflows" ("status")`);
     await queryRunner.query(`CREATE INDEX "idx_workflows_active" ON "workflows" ("isActive")`);
 
     // Execution indexes for analytics
-    await queryRunner.query(`CREATE INDEX "idx_agent_executions_org_created" ON "agent_executions" ("organizationId", "createdAt" DESC)`);
-    await queryRunner.query(`CREATE INDEX "idx_agent_executions_agent_status" ON "agent_executions" ("agentId", "status")`);
-    await queryRunner.query(`CREATE INDEX "idx_agent_executions_session" ON "agent_executions" ("sessionId")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_agent_executions_org_created" ON "agent_executions" ("organizationId", "createdAt" DESC)`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_agent_executions_agent_status" ON "agent_executions" ("agentId", "status")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_agent_executions_session" ON "agent_executions" ("sessionId")`
+    );
 
-    await queryRunner.query(`CREATE INDEX "idx_tool_executions_org_created" ON "tool_executions" ("organizationId", "createdAt" DESC)`);
-    await queryRunner.query(`CREATE INDEX "idx_tool_executions_tool_status" ON "tool_executions" ("toolId", "status")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_tool_executions_org_created" ON "tool_executions" ("organizationId", "createdAt" DESC)`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_tool_executions_tool_status" ON "tool_executions" ("toolId", "status")`
+    );
 
-    await queryRunner.query(`CREATE INDEX "idx_workflow_executions_org_created" ON "workflow_executions" ("organizationId", "createdAt" DESC)`);
-    await queryRunner.query(`CREATE INDEX "idx_workflow_executions_workflow_status" ON "workflow_executions" ("workflowId", "status")`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_workflow_executions_org_created" ON "workflow_executions" ("organizationId", "createdAt" DESC)`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_workflow_executions_workflow_status" ON "workflow_executions" ("workflowId", "status")`
+    );
 
     // Full-text search indexes
-    await queryRunner.query(`CREATE INDEX "idx_agents_search" ON "agents" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`);
-    await queryRunner.query(`CREATE INDEX "idx_tools_search" ON "tools" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`);
-    await queryRunner.query(`CREATE INDEX "idx_workflows_search" ON "workflows" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_agents_search" ON "agents" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_tools_search" ON "tools" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_workflows_search" ON "workflows" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`
+    );
 
     // Session indexes
     await queryRunner.query(`CREATE INDEX "idx_sessions_user_id" ON "sessions" ("userId")`);
@@ -653,22 +683,44 @@ export class InitialSchema1700000001 implements MigrationInterface {
     await queryRunner.query(`CREATE INDEX "idx_sessions_token" ON "sessions" ("sessionToken")`);
 
     // Notification indexes
-    await queryRunner.query(`CREATE INDEX "idx_notifications_user_created" ON "notifications" ("userId", "createdAt" DESC)`);
-    await queryRunner.query(`CREATE INDEX "idx_notifications_read_status" ON "notifications" ("isRead", "createdAt" DESC)`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_notifications_user_created" ON "notifications" ("userId", "createdAt" DESC)`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_notifications_read_status" ON "notifications" ("isRead", "createdAt" DESC)`
+    );
 
     // Analytics indexes
-    await queryRunner.query(`CREATE INDEX "idx_widget_analytics_widget_timestamp" ON "widget_analytics" ("widgetId", "timestamp" DESC)`);
-    await queryRunner.query(`CREATE INDEX "idx_widget_analytics_event_timestamp" ON "widget_analytics" ("event", "timestamp" DESC)`);
+    await queryRunner.query(
+      `CREATE INDEX "idx_widget_analytics_widget_timestamp" ON "widget_analytics" ("widgetId", "timestamp" DESC)`
+    );
+    await queryRunner.query(
+      `CREATE INDEX "idx_widget_analytics_event_timestamp" ON "widget_analytics" ("event", "timestamp" DESC)`
+    );
   }
 
   private async enableRLS(queryRunner: QueryRunner): Promise<void> {
     // Enable RLS on all tenant-scoped tables
     const tables = [
-      'organizations', 'users', 'agents', 'tools', 'workflows', 'widgets',
-      'agent_executions', 'tool_executions', 'workflow_executions',
-      'sessions', 'notifications', 'hitl_requests', 'prompt_templates',
-      'knowledge_documents', 'widget_analytics', 'testing_sandboxes',
-      'test_scenarios', 'test_executions', 'subscriptions'
+      'organizations',
+      'users',
+      'agents',
+      'tools',
+      'workflows',
+      'widgets',
+      'agent_executions',
+      'tool_executions',
+      'workflow_executions',
+      'sessions',
+      'notifications',
+      'hitl_requests',
+      'prompt_templates',
+      'knowledge_documents',
+      'widget_analytics',
+      'testing_sandboxes',
+      'test_scenarios',
+      'test_executions',
+      'subscriptions',
     ];
 
     for (const table of tables) {

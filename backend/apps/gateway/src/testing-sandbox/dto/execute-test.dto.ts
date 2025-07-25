@@ -1,11 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsObject,
-  IsEnum,
-  IsBoolean,
-  IsNumber,
-} from 'class-validator';
+import { IsString, IsOptional, IsObject, IsEnum, IsBoolean, IsNumber } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ExecuteTestDto {

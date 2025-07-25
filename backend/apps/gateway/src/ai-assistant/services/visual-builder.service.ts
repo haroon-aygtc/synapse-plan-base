@@ -68,7 +68,7 @@ interface TemplateResult {
 export class VisualBuilderService {
   private readonly logger = new Logger(VisualBuilderService.name);
   private readonly openai: OpenAI;
-  
+
   // In-memory storage for collaborative editing (in production, use Redis or similar)
   private readonly canvasStates: Map<string, VisualBuilderCanvas> = new Map();
   private readonly activeEditors: Map<string, Set<string>> = new Map();
@@ -82,7 +82,7 @@ export class VisualBuilderService {
   async createVisualBuilder(
     dto: CreateVisualBuilderDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<{
     canvas: VisualBuilderCanvas;
     suggestions: ComponentSuggestion[];
@@ -105,7 +105,7 @@ export class VisualBuilderService {
       });
 
       this.logger.log(`Created visual builder with ${suggestions.length} suggestions`);
-      
+
       return {
         canvas: dto.canvas,
         suggestions,
@@ -117,9 +117,7 @@ export class VisualBuilderService {
     }
   }
 
-  async generateComponentSuggestions(
-    dto: ComponentSuggestionDto,
-  ): Promise<ComponentSuggestion[]> {
+  async generateComponentSuggestions(dto: ComponentSuggestionDto): Promise<ComponentSuggestion[]> {
     this.logger.log('Generating intelligent component suggestions');
 
     try {
@@ -167,7 +165,8 @@ Consider:
         messages: [
           {
             role: 'system',
-            content: 'You are an expert visual workflow designer. Provide intelligent, contextual component suggestions in valid JSON format.',
+            content:
+              'You are an expert visual workflow designer. Provide intelligent, contextual component suggestions in valid JSON format.',
           },
           {
             role: 'user',
@@ -184,7 +183,7 @@ Consider:
       }
 
       const result = JSON.parse(content);
-      
+
       this.logger.log(`Generated ${result.suggestions?.length || 0} component suggestions`);
       return result.suggestions || [];
     } catch (error) {
@@ -196,7 +195,7 @@ Consider:
   async generatePreview(
     dto: PreviewGenerationDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<PreviewResult> {
     this.logger.log(`Generating preview for ${dto.previewType} device`);
 
@@ -208,7 +207,7 @@ Consider:
       const previewData = await this.generatePreviewData(dto.canvas, dto.testData);
 
       // Run responsive tests if requested
-      const responsiveTests = dto.includeResponsiveTesting 
+      const responsiveTests = dto.includeResponsiveTesting
         ? await this.runResponsiveTests(dto.canvas, dto.previewType)
         : [];
 
@@ -219,7 +218,7 @@ Consider:
       const previewUrl = `https://preview.synapseai.com/canvas/${dto.canvas.id}?device=${dto.previewType}`;
 
       this.logger.log(`Generated preview for canvas ${dto.canvas.id}`);
-      
+
       return {
         previewUrl,
         previewData,
@@ -236,7 +235,7 @@ Consider:
   async generateTemplate(
     dto: TemplateGenerationDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<TemplateResult> {
     this.logger.log(`Generating template for ${dto.category} - ${dto.useCase}`);
 
@@ -295,7 +294,8 @@ Make the template production-ready and optimized for the specified use case.
         messages: [
           {
             role: 'system',
-            content: 'You are an expert template generator for visual workflow builders. Create comprehensive, production-ready templates in valid JSON format.',
+            content:
+              'You are an expert template generator for visual workflow builders. Create comprehensive, production-ready templates in valid JSON format.',
           },
           {
             role: 'user',
@@ -312,8 +312,10 @@ Make the template production-ready and optimized for the specified use case.
       }
 
       const result = JSON.parse(content);
-      
-      this.logger.log(`Generated template with ${result.canvas?.components?.length || 0} components`);
+
+      this.logger.log(
+        `Generated template with ${result.canvas?.components?.length || 0} components`
+      );
       return result;
     } catch (error) {
       this.logger.error('Failed to generate template', error);
@@ -321,9 +323,7 @@ Make the template production-ready and optimized for the specified use case.
     }
   }
 
-  async validateComponent(
-    dto: ComponentValidationDto,
-  ): Promise<{
+  async validateComponent(dto: ComponentValidationDto): Promise<{
     isValid: boolean;
     validationResults: ValidationResult[];
     suggestions: string[];
@@ -362,10 +362,10 @@ Make the template production-ready and optimized for the specified use case.
       // Compatibility check
       await this.checkComponentCompatibility(dto.component, dto.canvas, compatible, incompatible);
 
-      const isValid = validationResults.filter(r => r.status === 'error').length === 0;
+      const isValid = validationResults.filter((r) => r.status === 'error').length === 0;
 
       this.logger.log(`Component validation completed: ${isValid ? 'valid' : 'invalid'}`);
-      
+
       return {
         isValid,
         validationResults,
@@ -381,7 +381,7 @@ Make the template production-ready and optimized for the specified use case.
   async handleCollaborativeEdit(
     dto: CollaborativeEditingDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<{
     success: boolean;
     updatedCanvas?: VisualBuilderCanvas;
@@ -404,7 +404,7 @@ Make the template production-ready and optimized for the specified use case.
 
       // Apply the edit operation
       const updatedCanvas = await this.applyEditOperation(canvas, dto.operation);
-      
+
       // Update canvas state
       this.canvasStates.set(dto.canvasId, updatedCanvas);
 
@@ -414,7 +414,7 @@ Make the template production-ready and optimized for the specified use case.
       const activeEditors = Array.from(this.activeEditors.get(dto.canvasId) || []);
 
       this.logger.log(`Collaborative edit applied successfully for canvas ${dto.canvasId}`);
-      
+
       return {
         success: true,
         updatedCanvas,
@@ -455,8 +455,8 @@ Make the template production-ready and optimized for the specified use case.
 
     // Validate connections
     for (const connection of canvas.connections) {
-      const sourceExists = canvas.components.some(c => c.id === connection.sourceId);
-      const targetExists = canvas.components.some(c => c.id === connection.targetId);
+      const sourceExists = canvas.components.some((c) => c.id === connection.sourceId);
+      const targetExists = canvas.components.some((c) => c.id === connection.targetId);
 
       if (!sourceExists) {
         results.push({
@@ -478,11 +478,14 @@ Make the template production-ready and optimized for the specified use case.
     return results;
   }
 
-  private async generatePreviewData(canvas: VisualBuilderCanvas, testData?: Record<string, any>): Promise<any> {
+  private async generatePreviewData(
+    canvas: VisualBuilderCanvas,
+    testData?: Record<string, any>
+  ): Promise<any> {
     // Generate preview data based on canvas configuration
     const previewData = {
       canvasId: canvas.id,
-      components: canvas.components.map(component => ({
+      components: canvas.components.map((component) => ({
         id: component.id,
         name: component.name,
         type: component.type,
@@ -496,7 +499,10 @@ Make the template production-ready and optimized for the specified use case.
     return previewData;
   }
 
-  private async runResponsiveTests(canvas: VisualBuilderCanvas, deviceType: string): Promise<ResponsiveTestResult[]> {
+  private async runResponsiveTests(
+    canvas: VisualBuilderCanvas,
+    deviceType: string
+  ): Promise<ResponsiveTestResult[]> {
     const tests: ResponsiveTestResult[] = [];
 
     const deviceConfigs = {
@@ -532,9 +538,9 @@ Make the template production-ready and optimized for the specified use case.
   private calculatePerformanceMetrics(canvas: VisualBuilderCanvas): PerformanceMetrics {
     const componentCount = canvas.components.length;
     const connectionCount = canvas.connections.length;
-    
+
     // Simplified performance calculation
-    const complexity = componentCount + (connectionCount * 0.5);
+    const complexity = componentCount + connectionCount * 0.5;
     const estimatedLoadTime = Math.max(100, complexity * 10); // ms
     const estimatedRenderTime = Math.max(50, complexity * 5); // ms
     const estimatedMemoryUsage = Math.max(1, complexity * 0.1); // MB
@@ -550,7 +556,7 @@ Make the template production-ready and optimized for the specified use case.
   private async validateComponentByType(
     component: ComponentConfiguration,
     validationResults: ValidationResult[],
-    suggestions: string[],
+    suggestions: string[]
   ): Promise<void> {
     switch (component.type) {
       case ComponentType.INPUT:
@@ -596,14 +602,14 @@ Make the template production-ready and optimized for the specified use case.
     component: ComponentConfiguration,
     canvas: VisualBuilderCanvas,
     compatible: string[],
-    incompatible: string[],
+    incompatible: string[]
   ): Promise<void> {
     // Check compatibility with existing components
     for (const existingComponent of canvas.components) {
       if (existingComponent.id === component.id) continue;
 
       const isCompatible = this.areComponentsCompatible(component.type, existingComponent.type);
-      
+
       if (isCompatible) {
         compatible.push(existingComponent.name);
       } else {
@@ -615,20 +621,37 @@ Make the template production-ready and optimized for the specified use case.
   private areComponentsCompatible(type1: ComponentType, type2: ComponentType): boolean {
     // Define compatibility rules
     const compatibilityMatrix: Record<ComponentType, ComponentType[]> = {
-      [ComponentType.INPUT]: [ComponentType.PROCESSOR, ComponentType.VALIDATION, ComponentType.TRANSFORM],
+      [ComponentType.INPUT]: [
+        ComponentType.PROCESSOR,
+        ComponentType.VALIDATION,
+        ComponentType.TRANSFORM,
+      ],
       [ComponentType.OUTPUT]: [ComponentType.PROCESSOR, ComponentType.TRANSFORM],
-      [ComponentType.PROCESSOR]: [ComponentType.INPUT, ComponentType.OUTPUT, ComponentType.CONDITION, ComponentType.API_CALL],
+      [ComponentType.PROCESSOR]: [
+        ComponentType.INPUT,
+        ComponentType.OUTPUT,
+        ComponentType.CONDITION,
+        ComponentType.API_CALL,
+      ],
       [ComponentType.CONDITION]: [ComponentType.PROCESSOR, ComponentType.LOOP],
       [ComponentType.LOOP]: [ComponentType.PROCESSOR, ComponentType.CONDITION],
       [ComponentType.API_CALL]: [ComponentType.PROCESSOR, ComponentType.TRANSFORM],
-      [ComponentType.TRANSFORM]: [ComponentType.INPUT, ComponentType.OUTPUT, ComponentType.PROCESSOR, ComponentType.API_CALL],
+      [ComponentType.TRANSFORM]: [
+        ComponentType.INPUT,
+        ComponentType.OUTPUT,
+        ComponentType.PROCESSOR,
+        ComponentType.API_CALL,
+      ],
       [ComponentType.VALIDATION]: [ComponentType.INPUT, ComponentType.PROCESSOR],
     };
 
     return compatibilityMatrix[type1]?.includes(type2) || false;
   }
 
-  private async applyEditOperation(canvas: VisualBuilderCanvas, operation: any): Promise<VisualBuilderCanvas> {
+  private async applyEditOperation(
+    canvas: VisualBuilderCanvas,
+    operation: any
+  ): Promise<VisualBuilderCanvas> {
     const updatedCanvas = { ...canvas };
 
     switch (operation.type) {
@@ -640,25 +663,31 @@ Make the template production-ready and optimized for the specified use case.
 
       case 'update':
         if (operation.componentId && operation.data) {
-          const index = updatedCanvas.components.findIndex(c => c.id === operation.componentId);
+          const index = updatedCanvas.components.findIndex((c) => c.id === operation.componentId);
           if (index !== -1) {
-            updatedCanvas.components[index] = { ...updatedCanvas.components[index], ...operation.data };
+            updatedCanvas.components[index] = {
+              ...updatedCanvas.components[index],
+              ...operation.data,
+            };
           }
         }
         break;
 
       case 'delete':
         if (operation.componentId) {
-          updatedCanvas.components = updatedCanvas.components.filter(c => c.id !== operation.componentId);
+          updatedCanvas.components = updatedCanvas.components.filter(
+            (c) => c.id !== operation.componentId
+          );
           updatedCanvas.connections = updatedCanvas.connections.filter(
-            conn => conn.sourceId !== operation.componentId && conn.targetId !== operation.componentId
+            (conn) =>
+              conn.sourceId !== operation.componentId && conn.targetId !== operation.componentId
           );
         }
         break;
 
       case 'move':
         if (operation.componentId && operation.position) {
-          const component = updatedCanvas.components.find(c => c.id === operation.componentId);
+          const component = updatedCanvas.components.find((c) => c.id === operation.componentId);
           if (component) {
             component.position = operation.position;
           }
@@ -681,7 +710,7 @@ Make the template production-ready and optimized for the specified use case.
     // Simplified conflict detection
     // In production, implement more sophisticated conflict resolution
     const activeEditorCount = this.activeEditors.get(canvasId)?.size || 0;
-    
+
     if (activeEditorCount > 1 && operation.type === 'update') {
       conflicts.push('Multiple users are editing the same canvas');
     }

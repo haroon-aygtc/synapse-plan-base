@@ -19,19 +19,19 @@ export enum AnalyticsGroupBy {
 }
 
 export class GetAnalyticsDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Start date for analytics query',
     required: false,
-    example: '2024-01-01T00:00:00Z'
+    example: '2024-01-01T00:00:00Z',
   })
   @IsOptional()
   @IsDateString()
   startDate?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'End date for analytics query',
     required: false,
-    example: '2024-01-31T23:59:59Z'
+    example: '2024-01-31T23:59:59Z',
   })
   @IsOptional()
   @IsDateString()
@@ -55,54 +55,54 @@ export class GetAnalyticsDto {
   @IsEnum(AnalyticsGroupBy)
   groupBy?: AnalyticsGroupBy;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filter by specific event types',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   eventTypes?: string[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filter by device types',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   deviceTypes?: string[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filter by countries',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   countries?: string[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Filter by page URLs',
     required: false,
-    type: [String]
+    type: [String],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => Array.isArray(value) ? value : [value])
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
   pageUrls?: string[];
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Include real-time data',
     required: false,
-    default: false
+    default: false,
   })
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)

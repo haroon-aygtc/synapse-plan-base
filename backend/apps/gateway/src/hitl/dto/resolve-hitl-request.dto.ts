@@ -1,10 +1,4 @@
-import {
-  IsBoolean,
-  IsString,
-  IsOptional,
-  IsArray,
-  IsObject,
-} from 'class-validator';
+import { IsBoolean, IsString, IsOptional, IsArray, IsObject } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ResolveHITLRequestDto {

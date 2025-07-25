@@ -63,18 +63,18 @@ export class WidgetRuntimeService {
     @InjectQueue('widget-runtime')
     private runtimeQueue: Queue,
     private websocketService: WebSocketService,
-    private sessionService: SessionService,
+    private sessionService: SessionService
   ) {
     this.initializeRuntime();
   }
 
   private async initializeRuntime(): Promise<void> {
     this.logger.log('Initializing Widget Runtime Engine...');
-    
+
     // Set up cleanup intervals
     setInterval(() => this.cleanupInactiveConnections(), 60000); // Every minute
     setInterval(() => this.cleanupExpiredSessions(), 300000); // Every 5 minutes
-    
+
     this.logger.log('Widget Runtime Engine initialized successfully');
   }
 
@@ -85,7 +85,7 @@ export class WidgetRuntimeService {
     widgetId: string,
     parentOrigin: string,
     sessionId: string,
-    userId?: string,
+    userId?: string
   ): Promise<WidgetConnection> {
     this.logger.debug(`Establishing connection for widget ${widgetId} from origin ${parentOrigin}`);
 
@@ -161,7 +161,7 @@ export class WidgetRuntimeService {
   async executeWidget(
     widgetId: string,
     input: WidgetExecutionInput,
-    context: WidgetExecutionContext,
+    context: WidgetExecutionContext
   ): Promise<WidgetExecutionOutput> {
     this.logger.debug(`Executing widget ${widgetId}`);
 
@@ -224,8 +224,9 @@ export class WidgetRuntimeService {
       await this.widgetExecutionRepository.save(savedExecution);
 
       // Update connection activity
-      const connection = Array.from(this.activeConnections.values())
-        .find(conn => conn.sessionId === context.sessionId);
+      const connection = Array.from(this.activeConnections.values()).find(
+        (conn) => conn.sessionId === context.sessionId
+      );
       if (connection) {
         connection.lastActivity = new Date();
       }
@@ -331,8 +332,9 @@ export class WidgetRuntimeService {
    * Get active connections for a widget
    */
   getActiveConnections(widgetId: string): WidgetConnection[] {
-    return Array.from(this.activeConnections.values())
-      .filter(conn => conn.widgetId === widgetId && conn.isActive);
+    return Array.from(this.activeConnections.values()).filter(
+      (conn) => conn.widgetId === widgetId && conn.isActive
+    );
   }
 
   /**
@@ -345,10 +347,7 @@ export class WidgetRuntimeService {
   /**
    * Update connection metadata
    */
-  updateConnectionMetadata(
-    connectionId: string,
-    metadata: Partial<Record<string, any>>,
-  ): void {
+  updateConnectionMetadata(connectionId: string, metadata: Partial<Record<string, any>>): void {
     const connection = this.activeConnections.get(connectionId);
     if (connection) {
       connection.metadata = { ...connection.metadata, ...metadata };
@@ -359,26 +358,19 @@ export class WidgetRuntimeService {
   /**
    * Handle real-time communication between widget and parent
    */
-  async sendMessageToParent(
-    connectionId: string,
-    message: any,
-  ): Promise<void> {
+  async sendMessageToParent(connectionId: string, message: any): Promise<void> {
     const connection = this.activeConnections.get(connectionId);
-    if (!connection || !connection.isActive) {
+    if (!connection?.isActive) {
       throw new Error('Connection not found or inactive');
     }
 
     // Send message through WebSocket
-    this.websocketService.broadcastToUser(
-      connection.userId || '',
-      'widget:message',
-      {
-        connectionId,
-        widgetId: connection.widgetId,
-        message,
-        timestamp: new Date(),
-      }
-    );
+    this.websocketService.broadcastToUser(connection.userId || '', 'widget:message', {
+      connectionId,
+      widgetId: connection.widgetId,
+      message,
+      timestamp: new Date(),
+    });
 
     connection.lastActivity = new Date();
   }
@@ -386,12 +378,9 @@ export class WidgetRuntimeService {
   /**
    * Handle message from parent to widget
    */
-  async handleParentMessage(
-    connectionId: string,
-    message: any,
-  ): Promise<void> {
+  async handleParentMessage(connectionId: string, message: any): Promise<void> {
     const connection = this.activeConnections.get(connectionId);
-    if (!connection || !connection.isActive) {
+    if (!connection?.isActive) {
       throw new Error('Connection not found or inactive');
     }
 
@@ -418,11 +407,11 @@ export class WidgetRuntimeService {
   private async executeInSandbox(
     widget: Widget,
     input: WidgetExecutionInput,
-    context: WidgetExecutionContext,
+    context: WidgetExecutionContext
   ): Promise<WidgetExecutionOutput> {
     // Create isolated sandbox environment
     const sandbox = await this.createSandbox(widget, context);
-    
+
     try {
       // Set resource limits for sandbox
       const resourceLimits = {
@@ -435,8 +424,11 @@ export class WidgetRuntimeService {
       const startTime = Date.now();
       const result = await Promise.race([
         sandbox.execute(input, resourceLimits),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Sandbox execution timeout')), resourceLimits.maxExecutionTime)
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Sandbox execution timeout')),
+            resourceLimits.maxExecutionTime
+          )
         ),
       ]);
 
@@ -454,12 +446,12 @@ export class WidgetRuntimeService {
       };
     } catch (error) {
       this.logger.error(`Sandbox execution failed for widget ${widget.id}:`, error);
-      
+
       // Attempt recovery if possible
       if (error.message.includes('memory') || error.message.includes('timeout')) {
         throw new Error(`Resource limit exceeded: ${error.message}`);
       }
-      
+
       throw error;
     } finally {
       // Clean up sandbox
@@ -470,7 +462,7 @@ export class WidgetRuntimeService {
   private async executeDirectly(
     widget: Widget,
     input: WidgetExecutionInput,
-    context: WidgetExecutionContext,
+    context: WidgetExecutionContext
   ): Promise<WidgetExecutionOutput> {
     // Execute widget directly based on type
     switch (widget.type) {
@@ -485,10 +477,7 @@ export class WidgetRuntimeService {
     }
   }
 
-  private async createSandbox(
-    widget: Widget,
-    context: WidgetExecutionContext,
-  ): Promise<any> {
+  private async createSandbox(widget: Widget, context: WidgetExecutionContext): Promise<any> {
     // Create isolated execution environment
     const sandbox = {
       id: `sandbox_${widget.id}_${Date.now()}`,
@@ -513,7 +502,7 @@ export class WidgetRuntimeService {
   private async executeAgent(
     agentId: string,
     input: WidgetExecutionInput,
-    context: WidgetExecutionContext,
+    context: WidgetExecutionContext
   ): Promise<WidgetExecutionOutput> {
     // Queue agent execution
     const job = await this.runtimeQueue.add('execute-agent', {
@@ -533,7 +522,7 @@ export class WidgetRuntimeService {
   private async executeTool(
     toolId: string,
     input: WidgetExecutionInput,
-    context: WidgetExecutionContext,
+    context: WidgetExecutionContext
   ): Promise<WidgetExecutionOutput> {
     // Queue tool execution
     const job = await this.runtimeQueue.add('execute-tool', {
@@ -552,7 +541,7 @@ export class WidgetRuntimeService {
   private async executeWorkflow(
     workflowId: string,
     input: WidgetExecutionInput,
-    context: WidgetExecutionContext,
+    context: WidgetExecutionContext
   ): Promise<WidgetExecutionOutput> {
     // Queue workflow execution
     const job = await this.runtimeQueue.add('execute-workflow', {
@@ -568,9 +557,7 @@ export class WidgetRuntimeService {
     };
   }
 
-  private async setupRealTimeCommunication(
-    connection: WidgetConnection,
-  ): Promise<void> {
+  private async setupRealTimeCommunication(connection: WidgetConnection): Promise<void> {
     // Set up WebSocket communication channel
     this.websocketService.broadcastToRoom(
       `widget_${connection.widgetId}`,
@@ -602,28 +589,19 @@ export class WidgetRuntimeService {
     }
   }
 
-  private async handleConfigUpdate(
-    connection: WidgetConnection,
-    configData: any,
-  ): Promise<void> {
+  private async handleConfigUpdate(connection: WidgetConnection, configData: any): Promise<void> {
     // Handle configuration updates from parent
     this.logger.debug(`Handling config update for connection: ${connection.id}`);
     // Implementation would update widget configuration
   }
 
-  private async handleThemeChange(
-    connection: WidgetConnection,
-    themeData: any,
-  ): Promise<void> {
+  private async handleThemeChange(connection: WidgetConnection, themeData: any): Promise<void> {
     // Handle theme changes from parent
     this.logger.debug(`Handling theme change for connection: ${connection.id}`);
     // Implementation would update widget theme
   }
 
-  private async handleResize(
-    connection: WidgetConnection,
-    resizeData: any,
-  ): Promise<void> {
+  private async handleResize(connection: WidgetConnection, resizeData: any): Promise<void> {
     // Handle resize events from parent
     this.logger.debug(`Handling resize for connection: ${connection.id}`);
     // Implementation would handle widget resizing
@@ -648,8 +626,9 @@ export class WidgetRuntimeService {
       .getMany();
 
     for (const session of expiredSessions) {
-      const connections = Array.from(this.activeConnections.values())
-        .filter(conn => conn.sessionId === session.id);
+      const connections = Array.from(this.activeConnections.values()).filter(
+        (conn) => conn.sessionId === session.id
+      );
 
       for (const connection of connections) {
         await this.cleanupConnection(connection.id);
@@ -658,11 +637,7 @@ export class WidgetRuntimeService {
   }
 
   private emitLifecycleEvent(event: WidgetLifecycleEvent): void {
-    this.websocketService.broadcastToRoom(
-      `widget_${event.widgetId}`,
-      'widget:lifecycle',
-      event
-    );
+    this.websocketService.broadcastToRoom(`widget_${event.widgetId}`, 'widget:lifecycle', event);
     this.logger.debug(`Lifecycle event emitted: ${event.type} for widget ${event.widgetId}`);
   }
 }

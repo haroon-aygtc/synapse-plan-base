@@ -12,12 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import {
-  Agent,
-  AgentExecution,
-  AgentTestResult,
-  PromptTemplate,
-} from '@database/entities';
+import { Agent, AgentExecution, AgentTestResult, PromptTemplate } from '@database/entities';
 import { AgentRepository } from '@database/repositories/agent.repository';
 import { SessionService } from '../session/session.service';
 import { WebSocketService } from '../websocket/websocket.service';
@@ -94,7 +89,7 @@ export class AgentService {
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    private readonly agentExecutionEngine: AgentExecutionEngine,
+    private readonly agentExecutionEngine: AgentExecutionEngine
   ) {
     this.openai = new OpenAI({
       apiKey: this.configService.get<string>('OPENAI_API_KEY'),
@@ -104,7 +99,7 @@ export class AgentService {
   async create(
     createAgentDto: CreateAgentDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<Agent> {
     // Validate prompt template if provided
     if (createAgentDto.promptTemplateId) {
@@ -149,18 +144,12 @@ export class AgentService {
     });
 
     // Send real-time update
-    await this.websocketService.broadcastToOrganization(
-      organizationId,
-      'agent_created',
-      {
-        agent: savedAgent,
-        userId,
-      },
-    );
+    await this.websocketService.broadcastToOrganization(organizationId, 'agent_created', {
+      agent: savedAgent,
+      userId,
+    });
 
-    this.logger.log(
-      `Agent created: ${savedAgent.id} by user ${userId} in org ${organizationId}`,
-    );
+    this.logger.log(`Agent created: ${savedAgent.id} by user ${userId} in org ${organizationId}`);
 
     return savedAgent;
   }
@@ -175,7 +164,7 @@ export class AgentService {
       search?: string;
       category?: string;
       model?: string;
-    },
+    }
   ): Promise<Agent[]> {
     if (options?.search) {
       return this.agentRepository.searchAgents(
@@ -190,7 +179,7 @@ export class AgentService {
         {
           limit: options.limit,
           offset: options.offset,
-        },
+        }
       );
     }
 
@@ -215,7 +204,7 @@ export class AgentService {
     options?: {
       includeExecutions?: boolean;
       includeTestResults?: boolean;
-    },
+    }
   ): Promise<Agent> {
     // Try cache first
     const cacheKey = `${this.cachePrefix}${id}`;
@@ -223,28 +212,22 @@ export class AgentService {
 
     if (!agent) {
       let foundAgent: Agent | null = null;
-      
+
       if (options?.includeExecutions) {
-        foundAgent = await this.agentRepository.findWithExecutions(
-          id,
-          organizationId,
-        );
+        foundAgent = await this.agentRepository.findWithExecutions(id, organizationId);
       } else if (options?.includeTestResults) {
-        foundAgent = await this.agentRepository.findWithTestResults(
-          id,
-          organizationId,
-        );
+        foundAgent = await this.agentRepository.findWithTestResults(id, organizationId);
       } else {
         foundAgent = await this.agentRepository.findOne({
           where: { id, organizationId },
           relations: ['promptTemplate', 'user'],
         });
       }
-      
+
       if (!foundAgent) {
         throw new NotFoundException('Agent not found');
       }
-      
+
       agent = foundAgent;
       await this.cacheAgent(agent);
     }
@@ -256,7 +239,7 @@ export class AgentService {
     id: string,
     updateAgentDto: UpdateAgentDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<Agent> {
     const agent = await this.findOne(id, organizationId);
 
@@ -299,26 +282,18 @@ export class AgentService {
     });
 
     // Send real-time update
-    await this.websocketService.broadcastToOrganization(
-      organizationId,
-      'agent_updated',
-      {
-        agent: updatedAgent,
-        changes: updateAgentDto,
-        userId,
-      },
-    );
+    await this.websocketService.broadcastToOrganization(organizationId, 'agent_updated', {
+      agent: updatedAgent,
+      changes: updateAgentDto,
+      userId,
+    });
 
     this.logger.log(`Agent updated: ${updatedAgent.id} by user ${userId}`);
 
     return updatedAgent;
   }
 
-  async remove(
-    id: string,
-    userId: string,
-    organizationId: string,
-  ): Promise<void> {
+  async remove(id: string, userId: string, organizationId: string): Promise<void> {
     const agent = await this.findOne(id, organizationId);
 
     // Check ownership or admin permissions
@@ -343,14 +318,10 @@ export class AgentService {
     });
 
     // Send real-time update
-    await this.websocketService.broadcastToOrganization(
-      organizationId,
-      'agent_deleted',
-      {
-        agentId: id,
-        userId,
-      },
-    );
+    await this.websocketService.broadcastToOrganization(organizationId, 'agent_deleted', {
+      agentId: id,
+      userId,
+    });
 
     this.logger.log(`Agent deleted: ${id} by user ${userId}`);
   }
@@ -359,7 +330,7 @@ export class AgentService {
     id: string,
     executeDto: ExecuteAgentDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<AgentExecutionResult> {
     const agent = await this.findOne(id, organizationId);
 
@@ -379,7 +350,7 @@ export class AgentService {
         includeKnowledgeSearch: executeDto.includeKnowledgeSearch,
       },
       userId,
-      organizationId,
+      organizationId
     );
 
     // Update agent performance metrics
@@ -397,7 +368,7 @@ export class AgentService {
     id: string,
     testDto: TestAgentDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<AgentTestResultDto> {
     const agent = await this.findOne(id, organizationId);
     const testId = uuidv4();
@@ -429,7 +400,7 @@ export class AgentService {
           metadata: { testId, testType: testDto.testType },
         },
         userId,
-        organizationId,
+        organizationId
       );
 
       const executionTime = Date.now() - startTime;
@@ -444,14 +415,11 @@ export class AgentService {
       if (testDto.expectedOutput) {
         // Simple string comparison for now
         // In a real implementation, you'd use more sophisticated comparison
-        const expectedStr = JSON.stringify(
-          testDto.expectedOutput,
-        ).toLowerCase();
+        const expectedStr = JSON.stringify(testDto.expectedOutput).toLowerCase();
         const actualStr = executionResult.output.toLowerCase();
 
         if (testDto.testType === TestType.UNIT) {
-          passed =
-            actualStr.includes(expectedStr) || expectedStr.includes(actualStr);
+          passed = actualStr.includes(expectedStr) || expectedStr.includes(actualStr);
           accuracy = passed ? 1.0 : 0.0;
         } else {
           // Use AI to evaluate the response quality
@@ -459,7 +427,7 @@ export class AgentService {
             testDto.testInput,
             testDto.expectedOutput,
             executionResult.output,
-            testDto.testType,
+            testDto.testType
           );
 
           passed = evaluation.passed;
@@ -506,7 +474,7 @@ export class AgentService {
       };
 
       this.logger.log(
-        `Agent test completed: ${testId} for agent ${id} - ${passed ? 'PASSED' : 'FAILED'}`,
+        `Agent test completed: ${testId} for agent ${id} - ${passed ? 'PASSED' : 'FAILED'}`
       );
 
       return result;
@@ -542,7 +510,7 @@ export class AgentService {
     id: string,
     batchTestDto: BatchTestAgentDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<AgentTestResultDto[]> {
     const maxConcurrency = batchTestDto.maxConcurrency || 5;
     const results: AgentTestResultDto[] = [];
@@ -552,7 +520,7 @@ export class AgentService {
       const batch = batchTestDto.testCases.slice(i, i + maxConcurrency);
 
       const batchPromises = batch.map((testCase) =>
-        this.test(id, testCase, userId, organizationId),
+        this.test(id, testCase, userId, organizationId)
       );
 
       const batchResults = await Promise.all(batchPromises);
@@ -560,7 +528,7 @@ export class AgentService {
     }
 
     this.logger.log(
-      `Batch test completed for agent ${id}: ${results.filter((r) => r.passed).length}/${results.length} passed`,
+      `Batch test completed for agent ${id}: ${results.filter((r) => r.passed).length}/${results.length} passed`
     );
 
     return results;
@@ -568,7 +536,7 @@ export class AgentService {
 
   async getStatistics(
     organizationId: string,
-    timeRange?: { from: Date; to: Date },
+    timeRange?: { from: Date; to: Date }
   ): Promise<{
     totalAgents: number;
     activeAgents: number;
@@ -589,24 +557,19 @@ export class AgentService {
     newVersion: string,
     changes: Record<string, any>,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<Agent> {
     const agent = await this.findOne(id, organizationId);
 
     // Check ownership
     if (agent.userId !== userId) {
-      throw new ForbiddenException(
-        'Not authorized to create version of this agent',
-      );
+      throw new ForbiddenException('Not authorized to create version of this agent');
     }
 
     return this.agentRepository.createVersion(id, newVersion, changes);
   }
 
-  async getVersionHistory(
-    id: string,
-    organizationId: string,
-  ): Promise<Agent[]> {
+  async getVersionHistory(id: string, organizationId: string): Promise<Agent[]> {
     return this.agentRepository.getVersionHistory(id, organizationId);
   }
 
@@ -638,7 +601,7 @@ export class AgentService {
       tokensUsed?: number;
       cost?: number;
       error?: string;
-    },
+    }
   ): Promise<void> {
     const agent = await this.agentRepository.findOne({
       where: { id: agentId },
@@ -656,9 +619,7 @@ export class AgentService {
 
     const totalExecutions = currentMetrics.totalExecutions + 1;
     const successCount = execution.success
-      ? Math.round(
-          currentMetrics.successRate * currentMetrics.totalExecutions,
-        ) + 1
+      ? Math.round(currentMetrics.successRate * currentMetrics.totalExecutions) + 1
       : Math.round(currentMetrics.successRate * currentMetrics.totalExecutions);
 
     const newMetrics = {
@@ -686,7 +647,7 @@ export class AgentService {
     input: Record<string, any>,
     expectedOutput: Record<string, any>,
     actualOutput: string,
-    testType: TestType,
+    testType: TestType
   ): Promise<{
     passed: boolean;
     score: number;

@@ -12,21 +12,12 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { UserRole } from '@shared/interfaces';
-import {
-  SessionService,
-  CreateSessionDto,
-  UpdateSessionDto,
-} from './session.service';
+import { SessionService, CreateSessionDto, UpdateSessionDto } from './session.service';
 
 @ApiTags('Sessions')
 @Controller('sessions')
@@ -40,10 +31,7 @@ export class SessionController {
   @ApiResponse({ status: 201, description: 'Session created successfully' })
   @ApiResponse({ status: 400, description: 'Invalid session data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async createSession(
-    @Body() createDto: CreateSessionDto,
-    @Request() req: any,
-  ) {
+  async createSession(@Body() createDto: CreateSessionDto, @Request() req: any) {
     // Ensure user can only create sessions for themselves unless admin
     if (
       createDto.userId !== req.user.sub &&
@@ -81,7 +69,7 @@ export class SessionController {
   @ApiResponse({ status: 404, description: 'Session not found' })
   async updateSession(
     @Param('sessionToken') sessionToken: string,
-    @Body() updateDto: UpdateSessionDto,
+    @Body() updateDto: UpdateSessionDto
   ) {
     return await this.sessionService.updateSession(sessionToken, updateDto);
   }
@@ -90,10 +78,7 @@ export class SessionController {
   @ApiOperation({ summary: 'Extend session expiration' })
   @ApiResponse({ status: 200, description: 'Session extended successfully' })
   @ApiResponse({ status: 404, description: 'Session not found' })
-  async extendSession(
-    @Param('sessionToken') sessionToken: string,
-    @Body() body: { ttl?: number },
-  ) {
+  async extendSession(@Param('sessionToken') sessionToken: string, @Body() body: { ttl?: number }) {
     return await this.sessionService.extendSession(sessionToken, body.ttl);
   }
 
@@ -132,12 +117,12 @@ export class SessionController {
     body: {
       moduleType: 'agent' | 'tool' | 'workflow' | 'knowledge' | 'hitl';
       contextUpdate: Record<string, any>;
-    },
+    }
   ) {
     await this.sessionService.propagateContextUpdate(
       sessionToken,
       body.moduleType,
-      body.contextUpdate,
+      body.contextUpdate
     );
     return { success: true };
   }
@@ -158,7 +143,7 @@ export class SessionController {
   async getSessionAnalytics(
     @Param('organizationId') organizationId: string,
     @Query('from') from?: string,
-    @Query('to') to?: string,
+    @Query('to') to?: string
   ) {
     const timeRange =
       from && to
@@ -168,9 +153,6 @@ export class SessionController {
           }
         : undefined;
 
-    return await this.sessionService.getSessionAnalytics(
-      organizationId,
-      timeRange,
-    );
+    return await this.sessionService.getSessionAnalytics(organizationId, timeRange);
   }
 }

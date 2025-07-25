@@ -1,4 +1,3 @@
-
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -65,14 +64,14 @@ export class AgentExecutionEngine {
     private readonly aiProviderService: AIProviderService,
     private readonly providerAdapter: ProviderAdapterService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly hitlService: HITLService,
+    private readonly hitlService: HITLService
   ) {}
 
   async executeAgent(
     agent: Agent,
     options: AgentExecutionOptions,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<AgentExecutionResult> {
     const executionId = uuidv4();
     const startTime = Date.now();
@@ -103,23 +102,17 @@ export class AgentExecutionEngine {
     });
 
     // Send real-time update
-    await this.websocketService.broadcastToOrganization(
-      organizationId,
-      'agent_execution_started',
-      {
-        executionId,
-        agentId: agent.id,
-        status: ExecutionStatus.RUNNING,
-      },
-    );
+    await this.websocketService.broadcastToOrganization(organizationId, 'agent_execution_started', {
+      executionId,
+      agentId: agent.id,
+      status: ExecutionStatus.RUNNING,
+    });
 
     try {
       // Get session context if sessionId provided
       let sessionContext: any = null;
       if (options.sessionId) {
-        sessionContext = await this.sessionService.getSessionContext(
-          options.sessionId,
-        );
+        sessionContext = await this.sessionService.getSessionContext(options.sessionId);
       }
 
       // Prepare conversation context
@@ -151,11 +144,7 @@ export class AgentExecutionEngine {
         executionTime: number;
       }> = [];
 
-      if (
-        agent.tools &&
-        agent.tools.length > 0 &&
-        options.includeToolCalls !== false
-      ) {
+      if (agent.tools && agent.tools.length > 0 && options.includeToolCalls !== false) {
         for (const toolId of agent.tools) {
           try {
             const tool = await this.toolService.findOne(toolId);
@@ -216,7 +205,7 @@ export class AgentExecutionEngine {
               content: `Relevant knowledge:\n${searchResults.results
                 .map(
                   (r: { content: string; source: string }) =>
-                    `${r.content}\nSource: ${r.source}\n---`,
+                    `${r.content}\nSource: ${r.source}\n---`
                 )
                 .join('\n')}`,
             });
@@ -224,7 +213,7 @@ export class AgentExecutionEngine {
         } catch (error) {
           this.logger.error(
             `Knowledge search failed for agent ${agent.id}`,
-            error instanceof Error ? error.stack : error,
+            error instanceof Error ? error.stack : error
           );
         }
       }
@@ -247,7 +236,7 @@ export class AgentExecutionEngine {
             },
           },
           userId,
-          organizationId,
+          organizationId
         );
 
         // Pause execution until approval
@@ -278,7 +267,7 @@ export class AgentExecutionEngine {
           organizationId,
           estimatedCost: 0.01, // Rough estimate
           maxResponseTime: 30000,
-        },
+        }
       );
 
       // Execute with selected provider and streaming support
@@ -296,20 +285,20 @@ export class AgentExecutionEngine {
           streamResponse: options.streamResponse,
           onChunk: options.streamResponse
             ? (chunk: string): void => {
-              // Stream text chunks via WebSocket
-              this.websocketService.streamTextChunk(
-                executionId,
-                uuidv4(),
-                chunk,
-                false,
-                1, // Approximate token count per chunk
-                {
-                  agentId: agent.id,
-                  providerId: selectedProvider.id,
-                  model: agent.model,
-                },
-              );
-            }
+                // Stream text chunks via WebSocket
+                this.websocketService.streamTextChunk(
+                  executionId,
+                  uuidv4(),
+                  chunk,
+                  false,
+                  1, // Approximate token count per chunk
+                  {
+                    agentId: agent.id,
+                    providerId: selectedProvider.id,
+                    model: agent.model,
+                  }
+                );
+              }
             : undefined,
           onComplete: (response: any): void => {
             // Emit completion event
@@ -323,7 +312,7 @@ export class AgentExecutionEngine {
                 executionTime: Date.now() - startTime,
               },
               organizationId,
-              options.sessionId,
+              options.sessionId
             );
           },
           onError: (error: Error): void => {
@@ -337,10 +326,10 @@ export class AgentExecutionEngine {
                 executionTime: Date.now() - startTime,
               },
               organizationId,
-              options.sessionId,
+              options.sessionId
             );
           },
-        },
+        }
       );
 
       // Emit provider selected event
@@ -354,7 +343,7 @@ export class AgentExecutionEngine {
           estimatedCost: 0.01,
         },
         organizationId,
-        options.sessionId,
+        options.sessionId
       );
 
       let finalOutput: string = providerResponse.content;
@@ -362,7 +351,11 @@ export class AgentExecutionEngine {
       const cost: number = providerResponse.cost;
 
       // Handle tool calls if present in response
-      if (providerResponse.toolCalls && Array.isArray(providerResponse.toolCalls) && providerResponse.toolCalls.length > 0) {
+      if (
+        providerResponse.toolCalls &&
+        Array.isArray(providerResponse.toolCalls) &&
+        providerResponse.toolCalls.length > 0
+      ) {
         for (const toolCall of providerResponse.toolCalls) {
           const toolStartTime: number = Date.now();
 
@@ -386,7 +379,7 @@ export class AgentExecutionEngine {
               },
               userId,
               organizationId,
-              options.sessionId,
+              options.sessionId
             );
 
             toolCalls.push({
@@ -404,10 +397,11 @@ export class AgentExecutionEngine {
               timestamp: new Date(),
             });
           } catch (toolError) {
-            const errorMessage: string = toolError instanceof Error ? toolError.message : 'Unknown error';
+            const errorMessage: string =
+              toolError instanceof Error ? toolError.message : 'Unknown error';
             this.logger.error(
               `Tool execution failed: ${toolCall.function.name}`,
-              toolError instanceof Error ? toolError.stack : toolError,
+              toolError instanceof Error ? toolError.stack : toolError
             );
 
             toolCalls.push({
@@ -432,8 +426,7 @@ export class AgentExecutionEngine {
             },
             ...toolCalls.map((toolCall, index) => ({
               role: 'tool' as const,
-              tool_call_id:
-                providerResponse.toolCalls?.[index]?.id ?? `tool_${index}`,
+              tool_call_id: providerResponse.toolCalls?.[index]?.id ?? `tool_${index}`,
               content: JSON.stringify(toolCall.output),
             })),
           ];
@@ -446,7 +439,7 @@ export class AgentExecutionEngine {
               model: agent.model,
               temperature: agent.temperature,
               maxTokens: agent.maxTokens,
-            },
+            }
           );
 
           finalOutput = finalResponse.content ?? finalOutput;
@@ -467,8 +460,7 @@ export class AgentExecutionEngine {
         providerId: selectedProvider.id,
         providerType: selectedProvider.type,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-        knowledgeSearches:
-          knowledgeSearches.length > 0 ? knowledgeSearches : undefined,
+        knowledgeSearches: knowledgeSearches.length > 0 ? knowledgeSearches : undefined,
       };
 
       await this.agentExecutionRepository.save(execution);
@@ -485,7 +477,7 @@ export class AgentExecutionEngine {
         cost,
         executionTime,
         organizationId,
-        userId,
+        userId
       );
 
       // Update session context if sessionId provided
@@ -505,10 +497,7 @@ export class AgentExecutionEngine {
                 timestamp: new Date(),
               },
             ].slice(-20), // Keep last 20 messages
-            toolCalls: [
-              ...(sessionContext.agentContext?.toolCalls ?? []),
-              ...toolCalls,
-            ].slice(-10),
+            toolCalls: [...(sessionContext.agentContext?.toolCalls ?? []), ...toolCalls].slice(-10),
           },
           agentId: agent.id,
         });
@@ -537,7 +526,7 @@ export class AgentExecutionEngine {
           status: ExecutionStatus.COMPLETED,
           output: finalOutput,
           executionTime,
-        },
+        }
       );
 
       const result: AgentExecutionResult = {
@@ -548,13 +537,12 @@ export class AgentExecutionEngine {
         cost,
         executionTimeMs: executionTime,
         toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-        knowledgeSearches:
-          knowledgeSearches.length > 0 ? knowledgeSearches : undefined,
+        knowledgeSearches: knowledgeSearches.length > 0 ? knowledgeSearches : undefined,
         metadata: execution.metadata,
       };
 
       this.logger.log(
-        `Agent execution completed: ${executionId} for agent ${agent.id} (${executionTime}ms)`,
+        `Agent execution completed: ${executionId} for agent ${agent.id} (${executionTime}ms)`
       );
 
       return result;
@@ -589,13 +577,10 @@ export class AgentExecutionEngine {
           agentId: agent.id,
           status: ExecutionStatus.FAILED,
           error: errorMessage,
-        },
+        }
       );
 
-      this.logger.error(
-        `Agent execution failed: ${executionId} for agent ${agent.id}`,
-        error,
-      );
+      this.logger.error(`Agent execution failed: ${executionId} for agent ${agent.id}`, error);
 
       throw error;
     }

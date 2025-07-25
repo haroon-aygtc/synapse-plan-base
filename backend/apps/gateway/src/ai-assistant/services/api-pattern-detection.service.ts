@@ -101,7 +101,7 @@ export class APIPatternDetectionService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly httpService: HttpService,
+    private readonly httpService: HttpService
   ) {
     this.openai = new OpenAI({
       apiKey: this.configService.get<string>('OPENAI_API_KEY'),
@@ -111,18 +111,13 @@ export class APIPatternDetectionService {
   async analyzeAPIEndpoint(
     dto: APIEndpointAnalysisDto,
     userId: string,
-    organizationId: string,
+    organizationId: string
   ): Promise<APIAnalysisResult> {
     this.logger.log(`Analyzing API endpoint: ${dto.endpoint}`);
 
     try {
       // Perform comprehensive API analysis
-      const [
-        authAnalysis,
-        schemaAnalysis,
-        errorPatterns,
-        rateLimitInfo,
-      ] = await Promise.all([
+      const [authAnalysis, schemaAnalysis, errorPatterns, rateLimitInfo] = await Promise.all([
         this.detectAuthentication({
           endpoint: dto.endpoint,
           headers: dto.headers || {},
@@ -248,7 +243,8 @@ Make the schema comprehensive and production-ready.
         messages: [
           {
             role: 'system',
-            content: 'You are an expert API schema generator. Create comprehensive, accurate schemas in valid JSON format.',
+            content:
+              'You are an expert API schema generator. Create comprehensive, accurate schemas in valid JSON format.',
           },
           {
             role: 'user',
@@ -265,7 +261,7 @@ Make the schema comprehensive and production-ready.
       }
 
       const schema = JSON.parse(content);
-      
+
       this.logger.log(`Generated schema with ${schema.parameters?.length || 0} parameters`);
       return schema;
     } catch (error) {
@@ -311,7 +307,8 @@ Provide accurate authentication detection based on common API patterns.
         messages: [
           {
             role: 'system',
-            content: 'You are an expert API authentication analyzer. Detect authentication methods accurately based on headers and patterns.',
+            content:
+              'You are an expert API authentication analyzer. Detect authentication methods accurately based on headers and patterns.',
           },
           {
             role: 'user',
@@ -328,7 +325,7 @@ Provide accurate authentication detection based on common API patterns.
       }
 
       const authAnalysis = JSON.parse(content);
-      
+
       this.logger.log(`Detected authentication type: ${authAnalysis.type}`);
       return authAnalysis;
     } catch (error) {
@@ -377,7 +374,8 @@ Make mappings intuitive and user-friendly while maintaining API compatibility.
         messages: [
           {
             role: 'system',
-            content: 'You are an expert API parameter mapping specialist. Create intuitive, user-friendly parameter mappings.',
+            content:
+              'You are an expert API parameter mapping specialist. Create intuitive, user-friendly parameter mappings.',
           },
           {
             role: 'user',
@@ -394,7 +392,7 @@ Make mappings intuitive and user-friendly while maintaining API compatibility.
       }
 
       const result = JSON.parse(content);
-      
+
       this.logger.log(`Generated ${result.mappings?.length || 0} parameter mappings`);
       return result.mappings || [];
     } catch (error) {
@@ -437,7 +435,8 @@ Include common HTTP error patterns and API-specific error handling strategies.
         messages: [
           {
             role: 'system',
-            content: 'You are an expert API error pattern analyzer. Identify error patterns and provide handling strategies.',
+            content:
+              'You are an expert API error pattern analyzer. Identify error patterns and provide handling strategies.',
           },
           {
             role: 'user',
@@ -454,7 +453,7 @@ Include common HTTP error patterns and API-specific error handling strategies.
       }
 
       const result = JSON.parse(content);
-      
+
       this.logger.log(`Analyzed ${result.patterns?.length || 0} error patterns`);
       return result.patterns || [];
     } catch (error) {
@@ -502,7 +501,7 @@ Include common HTTP error patterns and API-specific error handling strategies.
       this.generateTestRecommendations(response, recommendations);
 
       this.logger.log(`API test completed successfully for ${dto.endpoint}`);
-      
+
       return {
         success: true,
         statusCode: response.status,
@@ -514,11 +513,11 @@ Include common HTTP error patterns and API-specific error handling strategies.
       };
     } catch (error: any) {
       const responseTime = Date.now() - startTime;
-      
+
       if (error.response) {
         // API returned an error response
         errors.push(`API returned ${error.response.status}: ${error.response.statusText}`);
-        
+
         return {
           success: false,
           statusCode: error.response.status,
@@ -531,7 +530,7 @@ Include common HTTP error patterns and API-specific error handling strategies.
       } else {
         // Network or other error
         errors.push(`Network error: ${error.message}`);
-        
+
         return {
           success: false,
           responseTime,
@@ -597,7 +596,7 @@ Include common HTTP error patterns and API-specific error handling strategies.
       }
 
       // Validate authentication
-      if (!dto.apiConfiguration.authentication || !dto.apiConfiguration.authentication.type) {
+      if (!dto.apiConfiguration.authentication?.type) {
         validationResults.push({
           field: 'authentication',
           status: 'warning',
@@ -630,12 +629,17 @@ Include common HTTP error patterns and API-specific error handling strategies.
       }
 
       // Generate recommendations
-      const recommendations = this.generateConfigurationRecommendations(dto.apiConfiguration, validationResults);
+      const recommendations = this.generateConfigurationRecommendations(
+        dto.apiConfiguration,
+        validationResults
+      );
 
-      const isValid = validationResults.filter(r => r.status === 'error').length === 0;
+      const isValid = validationResults.filter((r) => r.status === 'error').length === 0;
 
-      this.logger.log(`API configuration validation completed: ${isValid ? 'valid' : 'invalid'}, score: ${score}`);
-      
+      this.logger.log(
+        `API configuration validation completed: ${isValid ? 'valid' : 'invalid'}, score: ${score}`
+      );
+
       return {
         isValid,
         validationResults,
@@ -648,13 +652,20 @@ Include common HTTP error patterns and API-specific error handling strategies.
     }
   }
 
-  private async detectRateLimit(endpoint: string, headers: Record<string, string>): Promise<RateLimitInfo> {
+  private async detectRateLimit(
+    endpoint: string,
+    headers: Record<string, string>
+  ): Promise<RateLimitInfo> {
     // Simplified rate limit detection
     const rateLimitHeaders = ['x-ratelimit-limit', 'x-rate-limit-limit', 'ratelimit-limit'];
-    const rateLimitWindowHeaders = ['x-ratelimit-window', 'x-rate-limit-window', 'ratelimit-window'];
+    const rateLimitWindowHeaders = [
+      'x-ratelimit-window',
+      'x-rate-limit-window',
+      'ratelimit-window',
+    ];
 
-    const detected = Object.keys(headers).some(header => 
-      rateLimitHeaders.some(rlHeader => header.toLowerCase().includes(rlHeader.toLowerCase()))
+    const detected = Object.keys(headers).some((header) =>
+      rateLimitHeaders.some((rlHeader) => header.toLowerCase().includes(rlHeader.toLowerCase()))
     );
 
     return {
@@ -703,10 +714,12 @@ Include common HTTP error patterns and API-specific error handling strategies.
       case AuthenticationType.API_KEY:
         if (authentication.credentials.location === 'header') {
           requestConfig.headers = requestConfig.headers || {};
-          requestConfig.headers[authentication.credentials.headerName] = authentication.credentials.apiKey;
+          requestConfig.headers[authentication.credentials.headerName] =
+            authentication.credentials.apiKey;
         } else if (authentication.credentials.location === 'query') {
           requestConfig.params = requestConfig.params || {};
-          requestConfig.params[authentication.credentials.paramName] = authentication.credentials.apiKey;
+          requestConfig.params[authentication.credentials.paramName] =
+            authentication.credentials.apiKey;
         }
         break;
 
@@ -728,7 +741,11 @@ Include common HTTP error patterns and API-specific error handling strategies.
     }
   }
 
-  private addParameters(requestConfig: any, parameters: Record<string, any>, method: HttpMethod): void {
+  private addParameters(
+    requestConfig: any,
+    parameters: Record<string, any>,
+    method: HttpMethod
+  ): void {
     if (method === HttpMethod.GET || method === HttpMethod.DELETE) {
       requestConfig.params = parameters;
     } else {
@@ -750,10 +767,12 @@ Include common HTTP error patterns and API-specific error handling strategies.
   private generateTestRecommendations(response: any, recommendations: string[]): void {
     // Generate recommendations based on response
     if (response.status >= 200 && response.status < 300) {
-      recommendations.push('API call successful - consider implementing caching for better performance');
+      recommendations.push(
+        'API call successful - consider implementing caching for better performance'
+      );
     }
 
-    if (response.headers && response.headers['content-type']?.includes('application/json')) {
+    if (response.headers?.['content-type']?.includes('application/json')) {
       recommendations.push('JSON response detected - ensure proper JSON parsing in implementation');
     }
   }
@@ -770,8 +789,8 @@ Include common HTTP error patterns and API-specific error handling strategies.
   private generateConfigurationRecommendations(config: any, validationResults: any[]): string[] {
     const recommendations: string[] = [];
 
-    const errorCount = validationResults.filter(r => r.status === 'error').length;
-    const warningCount = validationResults.filter(r => r.status === 'warning').length;
+    const errorCount = validationResults.filter((r) => r.status === 'error').length;
+    const warningCount = validationResults.filter((r) => r.status === 'warning').length;
 
     if (errorCount > 0) {
       recommendations.push('Fix all error-level issues before deploying to production');

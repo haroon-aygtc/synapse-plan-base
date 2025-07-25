@@ -44,10 +44,6 @@ import { ConfigModule } from '@nestjs/config';
     WebhookDeliveryProvider,
     PushDeliveryProvider,
   ],
-  exports: [
-    NotificationService,
-    NotificationDeliveryService,
-    NotificationSchedulerService,
-  ],
+  exports: [NotificationService, NotificationDeliveryService, NotificationSchedulerService],
 })
 export class NotificationModule {}

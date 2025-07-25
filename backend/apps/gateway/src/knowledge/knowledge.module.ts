@@ -9,6 +9,7 @@ import {
   KnowledgeSearch,
   KnowledgeSearchFeedback,
   KnowledgeAnalytics,
+  Organization,
 } from '@database/entities';
 import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeService } from './knowledge.service';
@@ -29,6 +30,7 @@ import { WebsocketModule } from '../websocket/websocket.module';
       KnowledgeSearch,
       KnowledgeSearchFeedback,
       KnowledgeAnalytics,
+      Organization,
     ]),
     BullModule.registerQueue({
       name: 'document-processing',

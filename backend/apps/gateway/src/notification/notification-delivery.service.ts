@@ -26,14 +26,12 @@ export class NotificationDeliveryService {
     private readonly emailProvider: EmailDeliveryProvider,
     private readonly smsProvider: SmsDeliveryProvider,
     private readonly webhookProvider: WebhookDeliveryProvider,
-    private readonly pushProvider: PushDeliveryProvider,
+    private readonly pushProvider: PushDeliveryProvider
   ) {}
 
   async processNotification(notification: Notification): Promise<void> {
     try {
-      this.logger.debug(
-        `Processing notification ${notification.id} of type ${notification.type}`,
-      );
+      this.logger.debug(`Processing notification ${notification.id} of type ${notification.type}`);
 
       // Update notification status
       notification.status = ExecutionStatus.RUNNING;
@@ -43,16 +41,12 @@ export class NotificationDeliveryService {
       const deliveries = await this.createDeliveryRecords(notification);
 
       // Process each delivery
-      const deliveryPromises = deliveries.map((delivery) =>
-        this.processDelivery(delivery),
-      );
+      const deliveryPromises = deliveries.map((delivery) => this.processDelivery(delivery));
 
       const results = await Promise.allSettled(deliveryPromises);
 
       // Check overall notification status
-      const hasSuccessfulDelivery = results.some(
-        (result) => result.status === 'fulfilled',
-      );
+      const hasSuccessfulDelivery = results.some((result) => result.status === 'fulfilled');
       const allFailed = results.every((result) => result.status === 'rejected');
 
       if (hasSuccessfulDelivery) {
@@ -86,7 +80,7 @@ export class NotificationDeliveryService {
     } catch (error) {
       this.logger.error(
         `Failed to process notification ${notification.id}: ${error.message}`,
-        error.stack,
+        error.stack
       );
 
       notification.markAsFailed(error.message);
@@ -109,9 +103,7 @@ export class NotificationDeliveryService {
     }
   }
 
-  private async createDeliveryRecords(
-    notification: Notification,
-  ): Promise<NotificationDelivery[]> {
+  private async createDeliveryRecords(notification: Notification): Promise<NotificationDelivery[]> {
     const deliveries: NotificationDelivery[] = [];
 
     switch (notification.type) {
@@ -259,7 +251,7 @@ export class NotificationDeliveryService {
       delivery.markAsDelivered(result);
 
       this.logger.debug(
-        `Successfully delivered notification ${delivery.notificationId} via ${delivery.type}`,
+        `Successfully delivered notification ${delivery.notificationId} via ${delivery.type}`
       );
     } catch (error) {
       delivery.responseTime = Date.now() - startTime;
@@ -267,13 +259,13 @@ export class NotificationDeliveryService {
 
       this.logger.error(
         `Failed to deliver notification ${delivery.notificationId} via ${delivery.type}: ${error.message}`,
-        error.stack,
+        error.stack
       );
 
       // Schedule retry if possible
       if (delivery.canRetry()) {
         this.logger.debug(
-          `Scheduling retry ${delivery.retryCount}/${delivery.maxRetries} for delivery ${delivery.id}`,
+          `Scheduling retry ${delivery.retryCount}/${delivery.maxRetries} for delivery ${delivery.id}`
         );
       }
     } finally {
