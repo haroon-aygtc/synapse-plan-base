@@ -155,12 +155,12 @@ export class WorkflowExecutionEngine {
     private readonly hitlService: HITLService,
   ) {}
 
-  async execute(
+  async executeWorkflow(
     workflowId: string,
     executeDto: ExecuteWorkflowDto,
     userId?: string,
     organizationId?: string,
-  ): Promise<WorkflowExecutionResult> {
+  ): Promise<any> {
     const workflow = await this.workflowRepository.findOne({
       where: { id: workflowId },
     });
@@ -357,55 +357,56 @@ export class WorkflowExecutionEngine {
         performanceMetrics: result.performanceMetrics,
         analyticsData: result.analyticsData,
       };
-    } catch (error) {
+    } catch (error: any) {
       const executionTime = Date.now() - startTime;
 
       // Update execution record with error
       execution.status = ExecutionStatus.FAILED;
-      execution.error = error.message;
+      execution.error = error.message || 'Unknown error';
       execution.executionTimeMs = executionTime;
       execution.completedAt = new Date();
       execution.errorDetails = {
         stepId: context.currentStep,
-        errorType: error.constructor.name,
+        errorType: error.constructor?.name || 'Error',
         errorCode: 'WORKFLOW_EXECUTION_FAILED',
-        stackTrace: error.stack,
+        stackTrace: error.stack || '',
         recoveryAttempts: context.retryCount,
         lastRecoveryAt: new Date(),
-        isRecoverable: this.isRecoverableError(error),
+        isRecoverable: this.isRecoverableError(error instanceof Error ? error : new Error(error.message || 'Unknown error')),
       };
 
       await this.workflowExecutionRepository.save(execution);
-      this.activeExecutions.delete(executionId);
 
       // Emit execution failed event
       this.eventEmitter.emit('workflow.execution.failed', {
-        executionId,
         workflowId,
+        executionId,
         userId: context.userId,
         organizationId: context.organizationId,
-        error: error.message,
+        error: error.message || 'Unknown error',
         executionTime,
         timestamp: new Date(),
       });
 
-      // Send real-time update
-      await this.websocketService.sendWorkflowExecutionUpdate(
+      // Notify via WebSocket
+      await this.websocketService.broadcastToOrganization(
         context.organizationId,
+        'workflow:execution:failed',
         {
-          executionId,
           workflowId,
           status: ExecutionStatus.FAILED,
-          error: error.message,
+          error: error.message || 'Unknown error',
           progress:
             (context.completedSteps.length / workflow.definition.nodes.length) *
             100,
+          executionId,
+          timestamp: new Date(),
         },
       );
 
       this.logger.error(
-        `Workflow execution failed: ${executionId} - ${error.message}`,
-        error.stack,
+        `Workflow execution failed: ${executionId} - ${error.message || 'Unknown error'}`,
+        error.stack || '',
       );
 
       throw error;
@@ -572,12 +573,7 @@ export class WorkflowExecutionEngine {
     workflow: Workflow,
     context: WorkflowExecutionContext,
     currentStepId: string,
-  ): Promise<{
-    output: Record<string, any>;
-    cost: number;
-    performanceMetrics: any;
-    analyticsData: any;
-  }> {
+  ): Promise<any> {
     const nodes = workflow.definition.nodes as WorkflowStep[];
     const edges = workflow.definition.edges as WorkflowEdge[];
     let totalCost = 0;
@@ -594,8 +590,9 @@ export class WorkflowExecutionEngine {
       result: boolean;
       evaluationTime: number;
     }> = [];
+    let isCompleted = false;
 
-    while (currentStepId) {
+    while (currentStepId && !isCompleted) {
       const currentNode = nodes.find((node) => node.id === currentStepId);
       if (!currentNode) {
         throw new Error(`Step ${currentStepId} not found in workflow`);
@@ -645,6 +642,7 @@ export class WorkflowExecutionEngine {
         // Handle different step types
         if (currentNode.type === 'end') {
           // Workflow completed
+          isCompleted = true;
           return {
             output: stepResult.output || context.variables,
             cost: totalCost,
@@ -690,37 +688,38 @@ export class WorkflowExecutionEngine {
             stepResult,
           },
         );
-      } catch (error) {
+      } catch (error: any) {
         context.failedSteps.push(currentStepId);
 
-        // Handle error based on workflow settings
-        const errorHandling =
-          workflow.definition.settings?.errorHandling || 'stop';
-
-        if (
-          errorHandling === 'retry' &&
-          context.retryCount <
-            (workflow.definition.settings?.retryAttempts || 3)
-        ) {
+        // Handle error based on step's error handling configuration
+        const errorHandling = currentNode.data?.errorHandling || 'fail';
+        if (errorHandling === 'retry' && context.retryCount < maxRetries) {
           context.retryCount++;
           this.logger.warn(
-            `Retrying step ${currentStepId} (attempt ${context.retryCount}): ${error.message}`,
+            `Retrying step ${currentStepId} (attempt ${context.retryCount}): ${error.message || 'Unknown error'}`,
           );
           continue; // Retry the same step
         } else if (errorHandling === 'continue') {
           this.logger.warn(
-            `Continuing after error in step ${currentStepId}: ${error.message}`,
+            `Continuing after error in step ${currentStepId}: ${error.message || 'Unknown error'}`,
           );
           // Find next step and continue
-          currentStepId = await this.findNextStep(
+          const nextStepId = await this.findNextStep(
             currentNode,
             edges,
             context,
-            decisionPoints,
+            'error',
           );
-          continue;
+          
+          if (nextStepId) {
+            currentStepId = nextStepId;
+            continue;
+          } else {
+            // No error path defined, treat as failure
+            throw error;
+          }
         } else {
-          // Stop execution
+          // Fail the workflow
           throw error;
         }
       }
@@ -733,12 +732,7 @@ export class WorkflowExecutionEngine {
     step: WorkflowStep,
     context: WorkflowExecutionContext,
     workflow: Workflow,
-  ): Promise<{
-    output?: any;
-    cost?: number;
-    executionTime?: number;
-    metadata?: Record<string, any>;
-  }> {
+  ): Promise<any> {
     const stepStartTime = Date.now();
 
     switch (step.type) {
@@ -779,12 +773,7 @@ export class WorkflowExecutionEngine {
   private async executeAgentStep(
     step: WorkflowStep,
     context: WorkflowExecutionContext,
-  ): Promise<{
-    output: any;
-    cost: number;
-    executionTime: number;
-    metadata: Record<string, any>;
-  }> {
+  ): Promise<any> {
     const agentId = step.data.agentId;
     if (!agentId) {
       throw new Error(`Agent ID not specified for step ${step.id}`);
@@ -856,7 +845,7 @@ export class WorkflowExecutionEngine {
           knowledgeSearches: agentResult.knowledgeSearches,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       const executionTime = Date.now() - startTime;
 
       // Store failed agent execution
@@ -871,7 +860,7 @@ export class WorkflowExecutionEngine {
       });
 
       throw new Error(
-        `Agent execution failed in step ${step.id}: ${error.message}`,
+        `Agent execution failed in step ${step.id}: ${error.message || 'Unknown error'}`,
       );
     }
   }
@@ -879,12 +868,7 @@ export class WorkflowExecutionEngine {
   private async executeToolStep(
     step: WorkflowStep,
     context: WorkflowExecutionContext,
-  ): Promise<{
-    output: any;
-    cost: number;
-    executionTime: number;
-    metadata: Record<string, any>;
-  }> {
+  ): Promise<any> {
     const toolId = step.data.toolId;
     if (!toolId) {
       throw new Error(`Tool ID not specified for step ${step.id}`);
@@ -945,7 +929,7 @@ export class WorkflowExecutionEngine {
           parameters: toolParameters,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       const executionTime = Date.now() - startTime;
 
       // Store failed tool execution
@@ -959,7 +943,7 @@ export class WorkflowExecutionEngine {
       });
 
       throw new Error(
-        `Tool execution failed in step ${step.id}: ${error.message}`,
+        `Tool execution failed in step ${step.id}: ${error.message || 'Unknown error'}`,
       );
     }
   }
@@ -967,12 +951,7 @@ export class WorkflowExecutionEngine {
   private async executeConditionStep(
     step: WorkflowStep,
     context: WorkflowExecutionContext,
-  ): Promise<{
-    output: any;
-    cost: number;
-    executionTime: number;
-    metadata: Record<string, any>;
-  }> {
+  ): Promise<any> {
     const startTime = Date.now();
     const condition = step.data.condition;
 
@@ -1006,12 +985,7 @@ export class WorkflowExecutionEngine {
     step: WorkflowStep,
     context: WorkflowExecutionContext,
     workflow: Workflow,
-  ): Promise<{
-    output: any;
-    cost: number;
-    executionTime: number;
-    metadata: Record<string, any>;
-  }> {
+  ): Promise<any> {
     const startTime = Date.now();
     const loopConfig = step.data.loop;
 
@@ -1093,12 +1067,7 @@ export class WorkflowExecutionEngine {
   private async executeHitlStep(
     step: WorkflowStep,
     context: WorkflowExecutionContext,
-  ): Promise<{
-    output: any;
-    cost: number;
-    executionTime: number;
-    metadata: Record<string, any>;
-  }> {
+  ): Promise<any> {
     const startTime = Date.now();
     const hitlConfig = step.data.hitl;
 
@@ -1201,7 +1170,7 @@ export class WorkflowExecutionEngine {
           approvalTime: executionTime,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       const executionTime = Date.now() - startTime;
 
       // Update HITL request status in context
@@ -1218,7 +1187,7 @@ export class WorkflowExecutionEngine {
           hitlRequestId: hitlRequest.id,
           status: 'failed',
           requestType: hitlConfig.type,
-          error: error.message,
+          error: error.message || 'Unknown error',
         },
         cost: 0,
         executionTime,
@@ -1227,7 +1196,7 @@ export class WorkflowExecutionEngine {
           requestType: hitlConfig.type,
           stepId: step.id,
           approved: false,
-          error: error.message,
+          error: error.message || 'Unknown error',
         },
       };
     }
@@ -1284,6 +1253,156 @@ export class WorkflowExecutionEngine {
     }
 
     throw new Error(`No valid path found from step ${currentNode.id}`);
+  }
+
+  private async createHITLRequest(
+    step: WorkflowStep,
+    context: WorkflowExecutionContext,
+    hitlConfig: any,
+  ): Promise<any> {
+    try {
+      const hitlRequest = await this.hitlService.createRequest(
+        {
+          title: hitlConfig.title || `Workflow Step Approval Required`,
+          description:
+            hitlConfig.description ||
+            `Please review and approve workflow step: ${step.id}`,
+          type: hitlConfig.type || HITLRequestType.APPROVAL,
+          priority: hitlConfig.priority || HITLRequestPriority.MEDIUM,
+          sourceType: 'workflow',
+          sourceId: context.workflowId,
+          executionId: context.executionId,
+          executionContext: {
+            stepId: step.id,
+            variables: context.variables,
+            stepResults: context.stepResults,
+            currentStep: step.id,
+          },
+          assigneeId: hitlConfig.assigneeId,
+          assigneeRoles: hitlConfig.assigneeRoles,
+          assigneeUsers: hitlConfig.assigneeUsers,
+          timeoutMs: hitlConfig.timeout || 86400000,
+          allowDiscussion: hitlConfig.allowDiscussion || false,
+          requireExpertConsultation:
+            hitlConfig.requireExpertConsultation || false,
+          expertConsultants: hitlConfig.expertConsultants,
+          escalationRules: hitlConfig.escalationRules,
+        },
+        'system', // System user for workflow-generated requests
+        context.organizationId,
+      );
+
+      // Update context with HITL request info
+      context.hitlRequests.push({
+        requestId: hitlRequest.id,
+        stepId: step.id,
+        requestType: hitlConfig.type || 'approval',
+        status: 'pending',
+        requestedAt: new Date(),
+      });
+
+      // Pause workflow execution and wait for approval
+      await this.pause(context.executionId);
+
+      // Set up event listener for HITL resolution
+      const approvalPromise = this.waitForHITLApproval(
+        hitlRequest.id,
+        hitlConfig.timeout || 86400000,
+      );
+
+      try {
+        const approval = await approvalPromise;
+
+        // Update HITL request status in context
+        const hitlRequestIndex = context.hitlRequests.findIndex(
+          (r) => r.requestId === hitlRequest.id,
+        );
+        if (hitlRequestIndex !== -1) {
+          context.hitlRequests[hitlRequestIndex].status = approval.approved
+            ? 'approved'
+            : 'rejected';
+          context.hitlRequests[hitlRequestIndex].resolvedAt = new Date();
+          context.hitlRequests[hitlRequestIndex].resolvedBy = approval.resolvedBy;
+          context.hitlRequests[hitlRequestIndex].resolution = approval;
+        }
+
+        // Resume workflow execution
+        await this.resume(context.executionId);
+
+        const executionTime = Date.now() - startTime;
+
+        if (!approval.approved) {
+          throw new Error(
+            `HITL request rejected: ${approval.reason || 'No reason provided'}`,
+          );
+        }
+
+        return {
+          output: {
+            hitlRequestId: hitlRequest.id,
+            status: 'approved',
+            requestType: hitlConfig.type,
+            approvalData: approval,
+          },
+          cost: 0,
+          executionTime,
+          metadata: {
+            requestId: hitlRequest.id,
+            requestType: hitlConfig.type,
+            stepId: step.id,
+            approved: true,
+            resolvedBy: approval.resolvedBy,
+            approvalTime: executionTime,
+          },
+        };
+      } catch (error: any) {
+        const executionTime = Date.now() - startTime;
+
+        // Update HITL request status in context
+        const hitlRequestIndex = context.hitlRequests.findIndex(
+          (r) => r.requestId === hitlRequest.id,
+        );
+        if (hitlRequestIndex !== -1) {
+          context.hitlRequests[hitlRequestIndex].status = 'expired';
+          context.hitlRequests[hitlRequestIndex].resolvedAt = new Date();
+        }
+
+        return {
+          output: {
+            hitlRequestId: hitlRequest.id,
+            status: 'failed',
+            requestType: hitlConfig.type,
+            error: error.message || 'Unknown error',
+          },
+          cost: 0,
+          executionTime,
+          metadata: {
+            requestId: hitlRequest.id,
+            requestType: hitlConfig.type,
+            stepId: step.id,
+            approved: false,
+            error: error.message || 'Unknown error',
+          },
+        };
+      }
+    } catch (error: any) {
+      return {
+        status: 'failed',
+        requestId: null,
+        requestData: {
+          status: 'failed',
+          requestType: hitlConfig.type,
+          error: error.message || 'Unknown error',
+        },
+        cost: 0,
+        executionTime,
+        metadata: {
+          stepId: step.id,
+          approved: false,
+          error: error.message || 'Unknown error',
+        },
+      };
+    }
   }
 
   private evaluateCondition(

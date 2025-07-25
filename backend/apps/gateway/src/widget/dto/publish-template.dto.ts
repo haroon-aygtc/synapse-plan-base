@@ -1,4 +1,4 @@
-import { IsString, IsArray, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsArray, IsOptional, IsBoolean, IsUrl } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class PublishTemplateDto {
@@ -35,4 +35,20 @@ export class PublishTemplateDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @ApiProperty({
+    description: 'Preview image URL for the template',
+    required: false,
+  })
+  @IsOptional()
+  @IsUrl()
+  previewImage?: string;
+
+  @ApiProperty({
+    description: 'Demo URL for the template',
+    required: false,
+  })
+  @IsOptional()
+  @IsUrl()
+  demoUrl?: string;
 }

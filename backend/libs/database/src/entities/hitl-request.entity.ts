@@ -289,7 +289,16 @@ export class HITLRequest extends BaseEntity {
   updatePerformanceMetrics(
     metrics: Partial<HITLRequest['performanceMetrics']>,
   ): void {
+    const defaultMetrics = {
+      responseTimeMs: 0,
+      decisionTimeMs: 0,
+      escalationCount: 0,
+      discussionMessages: 0,
+      expertsConsulted: 0,
+    };
+    
     this.performanceMetrics = {
+      ...defaultMetrics,
       ...this.performanceMetrics,
       ...metrics,
     };

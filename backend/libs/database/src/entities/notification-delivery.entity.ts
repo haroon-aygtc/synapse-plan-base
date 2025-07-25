@@ -139,28 +139,15 @@ export class NotificationDelivery extends BaseEntity {
     }
   }
 
-  markAsFailed(
-    error: string,
-    errorCode?: string,
-    providerResponse?: any,
-  ): void {
-    this.status = ExecutionStatus.FAILED;
+  markAsFailed(error: string, errorCode?: string, providerResponse?: any): void {
+    this.status = 'failed';
     this.failedAt = new Date();
     this.errorMessage = error;
-    this.errorCode = errorCode;
+    this.errorCode = errorCode || 'DELIVERY_FAILED';
     this.retryCount++;
 
     if (providerResponse) {
       this.providerResponse = providerResponse;
-    }
-
-    // Calculate next retry time with exponential backoff
-    if (this.canRetry()) {
-      const baseDelay = 60000; // 1 minute
-      const backoffMultiplier = 2;
-      const delay =
-        baseDelay * Math.pow(backoffMultiplier, this.retryCount - 1);
-      this.nextRetryAt = new Date(Date.now() + delay);
     }
   }
 

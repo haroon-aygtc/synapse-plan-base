@@ -91,8 +91,8 @@ export class WorkflowService {
     await this.workflowRepository.remove(workflow);
   }
 
-  async test(id: string, testWorkflowDto: TestWorkflowDto) {
-    const workflow = await this.findOne(id);
+  async testWorkflow(testWorkflowDto: TestWorkflowDto): Promise<any> {
+    const workflow = await this.findOne(testWorkflowDto.workflowId);
     const startTime = Date.now();
 
     try {
@@ -114,42 +114,25 @@ export class WorkflowService {
         mockResponses: testWorkflowDto.mockResponses || {},
       };
 
-      // Simulate step execution with mock responses
-      const nodes = workflow.definition.nodes || [];
-      const completedSteps: string[] = [];
-      let currentOutput = testWorkflowDto.input;
-
-      for (const node of nodes) {
-        if (node.type === 'start') {
-          completedSteps.push(node.id);
-          continue;
-        }
-
-        if (node.type === 'end') {
-          completedSteps.push(node.id);
-          break;
-        }
-
-        // Simulate step execution
+      // Mock execution of each step
+      for (const node of workflow.definition.nodes) {
         const mockKey = `${node.type}_${node.id}`;
         if (testContext.mockResponses[mockKey]) {
-          testContext.stepResults[node.id] = testContext.mockResponses[mockKey];
+          testContext.stepResults[node.id as string] = testContext.mockResponses[mockKey];
           currentOutput = testContext.mockResponses[mockKey];
         } else {
           // Default mock response based on step type
           const mockResponse = this.generateMockResponse(node.type, node.data);
-          testContext.stepResults[node.id] = mockResponse;
+          testContext.stepResults[node.id as string] = mockResponse;
           currentOutput = mockResponse;
         }
-
-        completedSteps.push(node.id);
       }
 
       const executionTime = Date.now() - startTime;
 
       const result = {
         id: `test_${Date.now()}`,
-        workflowId: id,
+        workflowId: testWorkflowDto.workflowId,
         status: ExecutionStatus.COMPLETED,
         input: testWorkflowDto.input,
         output: currentOutput,
@@ -164,20 +147,21 @@ export class WorkflowService {
       };
 
       return result;
-    } catch (error) {
+    } catch (error: any) {
+      // Record execution failure
       const executionTime = Date.now() - startTime;
-
-      return {
-        id: `test_${Date.now()}`,
-        workflowId: id,
+      const result = {
+        workflowId: testWorkflowDto.workflowId,
         status: ExecutionStatus.FAILED,
         input: testWorkflowDto.input,
-        error: error.message,
+        error: error.message || 'Unknown error',
         executionTime,
         testMode: true,
         createdAt: new Date(),
         completedAt: new Date(),
       };
+
+      return result;
     }
   }
 
@@ -470,5 +454,32 @@ export class WorkflowService {
       cost: 0.003,
       executionTime: 800,
     };
+  }
+
+  async executeWorkflow(
+    params: {
+      workflowId: string;
+      input: any;
+      sessionId: string;
+      context?: any;
+      metadata?: any;
+      timeout?: number;
+    },
+    userId: string,
+    organizationId: string,
+  ): Promise<any> {
+    // This is a wrapper around the workflow execution engine
+    return this.workflowExecutionEngine.executeWorkflow(
+      params.workflowId,
+      params.input,
+      {
+        sessionId: params.sessionId,
+        userId,
+        organizationId,
+        context: params.context || {},
+        metadata: params.metadata || {},
+      },
+      params.timeout || 30000
+    );
   }
 }

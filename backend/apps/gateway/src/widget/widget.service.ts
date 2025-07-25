@@ -47,6 +47,7 @@ import { WebSocketService } from '../websocket/websocket.service';
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
+import '../websocket/websocket-extension';
 
 @Injectable()
 export class WidgetService {
@@ -503,7 +504,7 @@ export class WidgetService {
     }
 
     widget.isDeployed = false;
-    widget.deploymentInfo = null;
+    widget.deploymentInfo = undefined;
     widget.updatedAt = new Date();
 
     await this.widgetRepository.save(widget);
@@ -805,7 +806,7 @@ export class WidgetService {
     }
 
     // Add sorting with enhanced options
-    const validSortFields = {
+    const validSortFields: Record<string, string> = {
       name: 'widget.name',
       templateRating: 'widget.templateRating',
       templateDownloads: 'widget.templateDownloads',
@@ -947,6 +948,7 @@ export class WidgetService {
     widgetData: {
       name: string;
       sourceId: string;
+      description?: string;
       configuration?: any;
       userId: string;
       organizationId: string;
@@ -1155,7 +1157,7 @@ export class WidgetService {
     widget.templateDownloads = 0;
     widget.templateFeatured = false;
     widget.templatePreviewImage = previewImage;
-    widget.templateDemoUrl = templateData.demoUrl;
+    widget.templateDemoUrl = templateData.demoUrl || null;
     widget.updatedAt = new Date();
 
     // Update name and description for template
@@ -1278,7 +1280,7 @@ export class WidgetService {
     }
 
     // Create execution record with enhanced context
-    const execution = this.widgetExecutionRepository.create({
+    const execution = await this.widgetExecutionRepository.create({
       widgetId: id,
       sessionId: executionData.sessionId,
       userId,
@@ -1434,13 +1436,13 @@ export class WidgetService {
           apiCalls: result.apiCalls || 1,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       const executionTime = Date.now() - startTime;
 
       // Update execution with error
-      savedExecution.markAsFailed(error.message, {
-        error: error.stack,
-        errorType: error.constructor.name,
+      savedExecution.markAsFailed(error.message || 'Unknown error', {
+        error: error.stack || '',
+        errorType: error.constructor?.name || 'Error',
         executionTime,
       });
       await this.widgetExecutionRepository.save(savedExecution);
@@ -1449,8 +1451,8 @@ export class WidgetService {
       await this.trackAnalytics(widget.id, 'error', {
         ...executionData.context,
         executionId: savedExecution.id,
-        errorMessage: error.message,
-        errorType: error.constructor.name,
+        errorMessage: error.message || 'Unknown error',
+        errorType: error.constructor?.name || 'Error',
         executionTime,
       });
 
@@ -1461,13 +1463,13 @@ export class WidgetService {
         {
           widgetId: widget.id,
           executionId: savedExecution.id,
-          error: error.message,
+          error: error.message || 'Unknown error',
           timestamp: new Date(),
         },
       );
 
       this.logger.error(
-        `Widget execution failed: ${savedExecution.id} - ${error.message}`,
+        `Widget execution failed: ${savedExecution.id} - ${error.message || 'Unknown error'}`,
       );
       throw error;
     }
@@ -1984,6 +1986,7 @@ export class WidgetComponent {
       },
       context.userId,
       context.organizationId,
+      context.sessionId,
     );
   }
 
@@ -2007,7 +2010,7 @@ export class WidgetComponent {
 
   private async executeWorkflow(workflowId: string, input: any, context: any) {
     // Execute workflow using real workflow service with production logic
-    return await this.workflowService.execute(
+    return await this.workflowService.executeWorkflow(
       {
         workflowId,
         input,
@@ -2111,10 +2114,10 @@ export class WidgetComponent {
           delay: 1000, // 1 second delay for batching
         },
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
-        `Failed to track analytics: ${error.message}`,
-        error.stack,
+        `Failed to track analytics: ${error.message || 'Unknown error'}`,
+        error.stack || '',
       );
       // Don't throw error to avoid breaking widget execution
     }
@@ -2152,7 +2155,7 @@ export class WidgetComponent {
     ).length;
 
     const totalDuration = analytics.reduce((sum, a) => {
-      return sum + (a.sessionDuration || 0);
+      return sum + (a.durationMs || 0);
     }, 0);
 
     const averageSessionDuration =
@@ -2321,9 +2324,9 @@ export class WidgetComponent {
 
       // For now, return default preview
       return this.generateDefaultPreviewImage(widget.type);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
-        `Failed to generate template preview for widget ${widget.id}: ${error.message}`,
+        `Failed to generate template preview for widget ${widget.id}: ${error.message || 'Unknown error'}`,
       );
       return this.generateDefaultPreviewImage(widget.type);
     }
@@ -2360,9 +2363,9 @@ export class WidgetComponent {
         derivedWidgets,
         lastUsed: new Date(),
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
-        `Failed to get template statistics for ${templateId}: ${error.message}`,
+        `Failed to get template statistics for ${templateId}: ${error.message || 'Unknown error'}`,
       );
       return {
         uniqueUsers: 0,
@@ -2405,9 +2408,9 @@ export class WidgetComponent {
 
       const analytics = this.widgetAnalyticsRepository.create(analyticsData);
       await this.widgetAnalyticsRepository.save(analytics);
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
-        `Failed to track template usage for ${templateId}: ${error.message}`,
+        `Failed to track template usage for ${templateId}: ${error.message || 'Unknown error'}`,
       );
       // Don't throw error to avoid breaking widget creation
     }
@@ -2435,9 +2438,9 @@ export class WidgetComponent {
         featuredTemplates,
         3600000, // 1 hour
       );
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
-        `Failed to update featured templates cache: ${error.message}`,
+        `Failed to update featured templates cache: ${error.message || 'Unknown error'}`,
       );
     }
   }
@@ -2492,9 +2495,9 @@ export class WidgetComponent {
       });
 
       return counts;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(
-        `Failed to get template category counts: ${error.message}`,
+        `Failed to get template category counts: ${error.message || 'Unknown error'}`,
       );
       return {};
     }
