@@ -375,39 +375,100 @@ export class WorkflowService {
   }
 
   private generateMockResponse(stepType: string, stepData: any): any {
+    // Generate realistic mock responses for testing purposes only
+    const timestamp = new Date();
+
     switch (stepType) {
       case 'agent':
         return {
-          output: `Mock agent response for ${stepData.agentId || 'unknown agent'}`,
-          cost: 0.01,
-          tokensUsed: 100,
-          executionTime: 1000,
+          output: `Test agent response for ${stepData.agentId || 'unknown agent'} at ${timestamp.toISOString()}`,
+          cost: Math.random() * 0.02 + 0.005, // Random cost between 0.005-0.025
+          tokensUsed: Math.floor(Math.random() * 200) + 50, // Random tokens 50-250
+          executionTime: Math.floor(Math.random() * 2000) + 500, // Random time 500-2500ms
+          provider: 'test-provider',
+          model: 'test-model',
+          cached: false,
         };
       case 'tool':
         return {
           result: {
             success: true,
-            data: `Mock tool result for ${stepData.toolId || 'unknown tool'}`,
+            data: `Test tool result for ${stepData.toolId || 'unknown tool'} at ${timestamp.toISOString()}`,
+            metadata: {
+              toolId: stepData.toolId,
+              executedAt: timestamp,
+            },
           },
-          cost: 0.001,
-          executionTime: 500,
+          cost: Math.random() * 0.005 + 0.001, // Random cost between 0.001-0.006
+          executionTime: Math.floor(Math.random() * 1000) + 200, // Random time 200-1200ms
         };
       case 'condition':
         return {
-          conditionResult: true,
-          executionTime: 10,
+          conditionResult: Math.random() > 0.3, // 70% chance of true
+          evaluatedAt: timestamp,
+          executionTime: Math.floor(Math.random() * 50) + 5, // Random time 5-55ms
         };
       case 'hitl':
         return {
-          approved: true,
+          approved: Math.random() > 0.2, // 80% chance of approval
           approvedBy: 'test-user',
-          executionTime: 100,
+          approvedAt: timestamp,
+          executionTime: Math.floor(Math.random() * 500) + 50, // Random time 50-550ms
         };
       default:
         return {
-          output: `Mock response for ${stepType}`,
-          executionTime: 100,
+          output: `Test response for ${stepType} at ${timestamp.toISOString()}`,
+          executionTime: Math.floor(Math.random() * 200) + 50, // Random time 50-250ms
+          metadata: {
+            stepType,
+            executedAt: timestamp,
+          },
         };
     }
+  }
+
+  private async executeAgentStep(
+    agentId: string,
+    input: any,
+    testData: any,
+  ): Promise<any> {
+    // This would execute a real agent in production
+    // For now, return enhanced mock response
+    return {
+      output: `Real agent execution would happen here for agent ${agentId}`,
+      cost: 0.015,
+      tokensUsed: 150,
+      executionTime: 1200,
+      provider: 'openai',
+      model: 'gpt-4',
+      cached: false,
+      metadata: {
+        agentId,
+        input,
+        testMode: true,
+      },
+    };
+  }
+
+  private async executeToolStep(
+    toolId: string,
+    input: any,
+    testData: any,
+  ): Promise<any> {
+    // This would execute a real tool in production
+    // For now, return enhanced mock response
+    return {
+      result: {
+        success: true,
+        data: `Real tool execution would happen here for tool ${toolId}`,
+        metadata: {
+          toolId,
+          input,
+          testMode: true,
+        },
+      },
+      cost: 0.003,
+      executionTime: 800,
+    };
   }
 }

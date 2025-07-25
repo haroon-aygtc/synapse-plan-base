@@ -493,18 +493,23 @@ export class WidgetController {
   @ApiResponse({ status: 200, description: 'Templates retrieved successfully' })
   async getTemplates(
     @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
+    @Query('limit') limit: number = 12,
     @Query('category') category?: string,
     @Query('type') type?: 'agent' | 'tool' | 'workflow',
     @Query('search') search?: string,
     @Query('sortBy') sortBy: string = 'templateRating',
     @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC',
+    @Query('featured') featured?: boolean,
     @Request() req,
   ) {
     try {
+      // Validate pagination parameters
+      const validatedPage = Math.max(1, Number(page) || 1);
+      const validatedLimit = Math.min(50, Math.max(1, Number(limit) || 12));
+
       const result = await this.widgetService.getTemplates({
-        page: Number(page),
-        limit: Number(limit),
+        page: validatedPage,
+        limit: validatedLimit,
         category,
         type,
         search,
@@ -512,10 +517,15 @@ export class WidgetController {
         sortOrder,
         organizationId: req.user.organizationId,
       });
+
+      // Add template categories for filtering
+      const categories = await this.getTemplateCategories();
+
       return {
         success: true,
         data: result.data,
         pagination: result.pagination,
+        categories,
         message: 'Templates retrieved successfully',
       };
     } catch (error) {
@@ -524,6 +534,85 @@ export class WidgetController {
           success: false,
           message: error.message,
           error: 'TEMPLATES_RETRIEVAL_FAILED',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('templates/categories')
+  @ApiOperation({ summary: 'Get template categories' })
+  @ApiResponse({
+    status: 200,
+    description: 'Categories retrieved successfully',
+  })
+  async getTemplateCategories() {
+    try {
+      const categories = [
+        { value: 'customer-service', label: 'Customer Service', count: 0 },
+        { value: 'sales', label: 'Sales & Marketing', count: 0 },
+        { value: 'productivity', label: 'Productivity', count: 0 },
+        { value: 'analytics', label: 'Analytics', count: 0 },
+        { value: 'automation', label: 'Automation', count: 0 },
+        { value: 'communication', label: 'Communication', count: 0 },
+        { value: 'finance', label: 'Finance', count: 0 },
+        { value: 'hr', label: 'Human Resources', count: 0 },
+        { value: 'education', label: 'Education', count: 0 },
+        { value: 'healthcare', label: 'Healthcare', count: 0 },
+      ];
+
+      // Get actual counts from database
+      const categoryCounts =
+        await this.widgetService.getTemplateCategoryCounts();
+
+      categories.forEach((category) => {
+        category.count = categoryCounts[category.value] || 0;
+      });
+
+      return {
+        success: true,
+        data: categories,
+        message: 'Categories retrieved successfully',
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message,
+          error: 'CATEGORIES_RETRIEVAL_FAILED',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('templates/featured')
+  @ApiOperation({ summary: 'Get featured widget templates' })
+  @ApiResponse({
+    status: 200,
+    description: 'Featured templates retrieved successfully',
+  })
+  async getFeaturedTemplates(@Request() req) {
+    try {
+      const result = await this.widgetService.getTemplates({
+        page: 1,
+        limit: 8,
+        sortBy: 'featured',
+        sortOrder: 'DESC',
+        organizationId: req.user.organizationId,
+      });
+
+      return {
+        success: true,
+        data: result.data.filter((template) => template.featured),
+        message: 'Featured templates retrieved successfully',
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message,
+          error: 'FEATURED_TEMPLATES_RETRIEVAL_FAILED',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
@@ -617,6 +706,70 @@ export class WidgetController {
           error: 'TEMPLATE_PUBLISHING_FAILED',
         },
         HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post('templates/:templateId/rate')
+  @ApiOperation({ summary: 'Rate a widget template' })
+  @ApiResponse({ status: 200, description: 'Template rated successfully' })
+  async rateTemplate(
+    @Param('templateId') templateId: string,
+    @Body() ratingData: { rating: number; review?: string },
+    @Request() req,
+  ) {
+    try {
+      const result = await this.widgetService.rateTemplate(
+        templateId,
+        ratingData.rating,
+        req.user.id,
+        ratingData.review,
+      );
+      return {
+        success: true,
+        data: result,
+        message: 'Template rated successfully',
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message,
+          error: 'TEMPLATE_RATING_FAILED',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Get('templates/:templateId/reviews')
+  @ApiOperation({ summary: 'Get template reviews' })
+  @ApiResponse({ status: 200, description: 'Reviews retrieved successfully' })
+  async getTemplateReviews(
+    @Param('templateId') templateId: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Request() req,
+  ) {
+    try {
+      const result = await this.widgetService.getTemplateReviews(templateId, {
+        page: Number(page),
+        limit: Number(limit),
+      });
+      return {
+        success: true,
+        data: result.data,
+        pagination: result.pagination,
+        message: 'Reviews retrieved successfully',
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message,
+          error: 'REVIEWS_RETRIEVAL_FAILED',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

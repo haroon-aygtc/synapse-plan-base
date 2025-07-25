@@ -39,7 +39,9 @@ export class AIAssistantService {
     this.logger.log(`Generating agent config for user ${userId}`);
 
     try {
-      const personalityDescription = this.buildPersonalityDescription(dto.personalityTraits);
+      const personalityDescription = this.buildPersonalityDescription(
+        dto.personalityTraits,
+      );
       const requirementsText = dto.requirements?.join(', ') || '';
       const constraintsText = dto.constraints?.join(', ') || '';
 
@@ -79,29 +81,44 @@ Generate a JSON response with the following structure:
 Make the configuration production-ready and optimized for the specified use case.
 `;
 
-      const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert AI agent configuration generator. Always respond with valid JSON.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 2000,
-      });
+      // Use AI Provider Service for real provider selection and execution
+      const selectedProvider = await this.aiProviderService.selectProvider(
+        organizationId,
+        'AGENT_GENERATION' as any,
+        'gpt-4',
+        { userId, organizationId },
+      );
 
-      const content = completion.choices[0]?.message?.content;
+      const completion = await this.aiProviderService.executeCompletion(
+        {
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are an expert AI agent configuration generator. Always respond with valid JSON.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          model: 'gpt-4',
+          temperature: 0.3,
+          maxTokens: 2000,
+          executionType: 'AGENT_GENERATION' as any,
+          resourceId: 'ai-assistant',
+        },
+        organizationId,
+        userId,
+      );
+
+      const content = completion.content;
       if (!content) {
-        throw new Error('No response from AI');
+        throw new Error('No response from AI provider');
       }
 
       const config = JSON.parse(content);
-      
+
       this.logger.log(`Generated config for agent: ${config.name}`);
       return config;
     } catch (error) {
@@ -160,7 +177,8 @@ Provide analysis in the following JSON format:
         messages: [
           {
             role: 'system',
-            content: 'You are an expert AI agent analyzer. Provide thorough, actionable analysis in valid JSON format.',
+            content:
+              'You are an expert AI agent analyzer. Provide thorough, actionable analysis in valid JSON format.',
           },
           {
             role: 'user',
@@ -177,7 +195,7 @@ Provide analysis in the following JSON format:
       }
 
       const analysis = JSON.parse(content);
-      
+
       this.logger.log(`Completed analysis for agent: ${dto.name}`);
       return analysis;
     } catch (error) {
@@ -191,7 +209,9 @@ Provide analysis in the following JSON format:
     userId: string,
     organizationId: string,
   ) {
-    this.logger.log(`Generating prompt suggestions for use case: ${dto.useCase}`);
+    this.logger.log(
+      `Generating prompt suggestions for use case: ${dto.useCase}`,
+    );
 
     try {
       const prompt = `
@@ -226,7 +246,8 @@ Make each prompt unique and optimized for different aspects of the use case.
         messages: [
           {
             role: 'system',
-            content: 'You are an expert prompt engineer. Generate diverse, high-quality prompt suggestions in valid JSON format.',
+            content:
+              'You are an expert prompt engineer. Generate diverse, high-quality prompt suggestions in valid JSON format.',
           },
           {
             role: 'user',
@@ -243,8 +264,10 @@ Make each prompt unique and optimized for different aspects of the use case.
       }
 
       const suggestions = JSON.parse(content);
-      
-      this.logger.log(`Generated ${suggestions.suggestions?.length || 0} prompt suggestions`);
+
+      this.logger.log(
+        `Generated ${suggestions.suggestions?.length || 0} prompt suggestions`,
+      );
       return suggestions;
     } catch (error) {
       this.logger.error('Failed to generate prompt suggestions', error);
@@ -260,8 +283,11 @@ Make each prompt unique and optimized for different aspects of the use case.
     this.logger.log(`Optimizing prompt for use case: ${dto.useCase}`);
 
     try {
-      const issuesText = dto.performanceIssues?.join(', ') || 'General optimization';
-      const metricsText = dto.targetMetrics ? JSON.stringify(dto.targetMetrics) : 'Standard performance targets';
+      const issuesText =
+        dto.performanceIssues?.join(', ') || 'General optimization';
+      const metricsText = dto.targetMetrics
+        ? JSON.stringify(dto.targetMetrics)
+        : 'Standard performance targets';
 
       const prompt = `
 Optimize the following prompt for better performance:
@@ -293,7 +319,8 @@ Provide optimization in the following JSON format:
         messages: [
           {
             role: 'system',
-            content: 'You are an expert prompt optimization specialist. Provide detailed, actionable optimizations in valid JSON format.',
+            content:
+              'You are an expert prompt optimization specialist. Provide detailed, actionable optimizations in valid JSON format.',
           },
           {
             role: 'user',
@@ -310,7 +337,7 @@ Provide optimization in the following JSON format:
       }
 
       const optimization = JSON.parse(content);
-      
+
       this.logger.log(`Completed prompt optimization`);
       return optimization;
     } catch (error) {
@@ -324,7 +351,9 @@ Provide optimization in the following JSON format:
     userId: string,
     organizationId: string,
   ) {
-    this.logger.log(`Generating ${dto.testType} test cases for use case: ${dto.useCase}`);
+    this.logger.log(
+      `Generating ${dto.testType} test cases for use case: ${dto.useCase}`,
+    );
 
     try {
       const count = dto.count || 5;
@@ -367,7 +396,8 @@ Make test cases comprehensive and cover edge cases, typical scenarios, and stres
         messages: [
           {
             role: 'system',
-            content: 'You are an expert test case generator for AI agents. Create comprehensive, realistic test scenarios in valid JSON format.',
+            content:
+              'You are an expert test case generator for AI agents. Create comprehensive, realistic test scenarios in valid JSON format.',
           },
           {
             role: 'user',
@@ -384,8 +414,10 @@ Make test cases comprehensive and cover edge cases, typical scenarios, and stres
       }
 
       const testCases = JSON.parse(content);
-      
-      this.logger.log(`Generated ${testCases.testCases?.length || 0} test cases`);
+
+      this.logger.log(
+        `Generated ${testCases.testCases?.length || 0} test cases`,
+      );
       return testCases;
     } catch (error) {
       this.logger.error('Failed to generate test cases', error);
@@ -441,7 +473,8 @@ Provide explanation in the following JSON format:
         messages: [
           {
             role: 'system',
-            content: 'You are an expert AI agent explainer. Provide clear, comprehensive explanations that both technical and non-technical users can understand.',
+            content:
+              'You are an expert AI agent explainer. Provide clear, comprehensive explanations that both technical and non-technical users can understand.',
           },
           {
             role: 'user',
@@ -458,7 +491,7 @@ Provide explanation in the following JSON format:
       }
 
       const explanation = JSON.parse(content);
-      
+
       this.logger.log(`Generated explanation for agent: ${dto.name}`);
       return explanation;
     } catch (error) {
@@ -510,7 +543,8 @@ Provide the profile in the following JSON format:
         messages: [
           {
             role: 'system',
-            content: 'You are an expert personality analyst for AI agents. Provide detailed, actionable personality profiles in valid JSON format.',
+            content:
+              'You are an expert personality analyst for AI agents. Provide detailed, actionable personality profiles in valid JSON format.',
           },
           {
             role: 'user',
@@ -527,7 +561,7 @@ Provide the profile in the following JSON format:
       }
 
       const profile = JSON.parse(content);
-      
+
       this.logger.log(`Generated personality profile`);
       return profile;
     } catch (error) {
@@ -539,10 +573,16 @@ Provide the profile in the following JSON format:
   private buildPersonalityDescription(traits: Record<string, number>): string {
     return Object.entries(traits)
       .map(([trait, value]) => {
-        const level = value >= 80 ? 'very high' : 
-                     value >= 60 ? 'high' : 
-                     value >= 40 ? 'moderate' : 
-                     value >= 20 ? 'low' : 'very low';
+        const level =
+          value >= 80
+            ? 'very high'
+            : value >= 60
+              ? 'high'
+              : value >= 40
+                ? 'moderate'
+                : value >= 20
+                  ? 'low'
+                  : 'very low';
         return `${trait}: ${level} (${value}%)`;
       })
       .join(', ');

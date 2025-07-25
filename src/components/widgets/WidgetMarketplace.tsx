@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  Search, 
-  Filter, 
-  Star, 
-  Download, 
-  Eye, 
-  Heart, 
+import {
+  Search,
+  Filter,
+  Star,
+  Download,
+  Eye,
+  Heart,
   ExternalLink,
   Zap,
   Bot,
@@ -18,15 +18,34 @@ import {
   TrendingUp,
   Award,
   Clock,
-  Tag
+  Tag,
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -38,14 +57,22 @@ interface WidgetMarketplaceProps {
   showCreateButton?: boolean;
 }
 
-export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }: WidgetMarketplaceProps) {
+export function WidgetMarketplace({
+  onTemplateSelect,
+  showCreateButton = true,
+}: WidgetMarketplaceProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedType, setSelectedType] = useState<'all' | 'agent' | 'tool' | 'workflow'>('all');
-  const [sortBy, setSortBy] = useState<'rating' | 'downloads' | 'recent'>('rating');
-  const [selectedTemplate, setSelectedTemplate] = useState<WidgetTemplate | null>(null);
+  const [selectedType, setSelectedType] = useState<
+    'all' | 'agent' | 'tool' | 'workflow'
+  >('all');
+  const [sortBy, setSortBy] = useState<'rating' | 'downloads' | 'recent'>(
+    'rating',
+  );
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<WidgetTemplate | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const {
@@ -54,7 +81,7 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
     error,
     pagination,
     fetchTemplates,
-    createFromTemplate
+    createFromTemplate,
   } = useWidgetTemplates();
 
   useEffect(() => {
@@ -62,9 +89,13 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
       search: search || undefined,
       category: selectedCategory !== 'all' ? selectedCategory : undefined,
       type: selectedType !== 'all' ? selectedType : undefined,
-      sortBy: sortBy === 'rating' ? 'templateRating' : 
-             sortBy === 'downloads' ? 'templateDownloads' : 'createdAt',
-      sortOrder: sortBy === 'recent' ? 'DESC' : 'DESC'
+      sortBy:
+        sortBy === 'rating'
+          ? 'templateRating'
+          : sortBy === 'downloads'
+            ? 'templateDownloads'
+            : 'createdAt',
+      sortOrder: sortBy === 'recent' ? 'DESC' : 'DESC',
     });
   }, [search, selectedCategory, selectedType, sortBy]);
 
@@ -75,7 +106,7 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
     { value: 'productivity', label: 'Productivity', icon: Zap },
     { value: 'analytics', label: 'Analytics', icon: Award },
     { value: 'automation', label: 'Automation', icon: GitBranch },
-    { value: 'communication', label: 'Communication', icon: Users }
+    { value: 'communication', label: 'Communication', icon: Users },
   ];
 
   const handleTemplateSelect = async (template: WidgetTemplate) => {
@@ -96,16 +127,30 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
   const handleCreateFromTemplate = async (template: WidgetTemplate) => {
     try {
       // This would typically open a dialog to get widget name and source
-      const widgetName = prompt(`Enter name for your widget based on "${template.name}":`);
+      const widgetName = prompt(
+        `Enter name for your widget based on "${template.name}":`,
+      );
       if (!widgetName) return;
 
-      // For demo purposes, we'll use a placeholder sourceId
-      const sourceId = 'placeholder-source-id';
-      
+      // Get available sources based on template type
+      const availableSources = await getAvailableSources(template.type);
+
+      if (availableSources.length === 0) {
+        toast({
+          title: 'No Sources Available',
+          description: `You need to create a ${template.type} first before using this template.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Use the first available source or let user select
+      const sourceId = availableSources[0].id;
+
       const widget = await createFromTemplate(template.id, {
         name: widgetName,
         sourceId,
-        configuration: template.configuration
+        configuration: template.configuration,
       });
 
       toast({
@@ -115,29 +160,50 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
 
       router.push(`/widgets/${widget.id}/edit`);
     } catch (error) {
+      console.error('Error creating widget from template:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create widget from template.',
+        description: error.message || 'Failed to create widget from template.',
         variant: 'destructive',
       });
     }
   };
 
+  const getAvailableSources = async (type: 'agent' | 'tool' | 'workflow') => {
+    try {
+      // This would call the appropriate API based on type
+      const response = await fetch(`/api/${type}s?limit=100&isActive=true`);
+      const data = await response.json();
+      return data.success ? data.data : [];
+    } catch (error) {
+      console.error(`Error fetching ${type}s:`, error);
+      return [];
+    }
+  };
+
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'agent': return Bot;
-      case 'tool': return Wrench;
-      case 'workflow': return GitBranch;
-      default: return Zap;
+      case 'agent':
+        return Bot;
+      case 'tool':
+        return Wrench;
+      case 'workflow':
+        return GitBranch;
+      default:
+        return Zap;
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'agent': return 'bg-blue-100 text-blue-800';
-      case 'tool': return 'bg-green-100 text-green-800';
-      case 'workflow': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'agent':
+        return 'bg-blue-100 text-blue-800';
+      case 'tool':
+        return 'bg-green-100 text-green-800';
+      case 'workflow':
+        return 'bg-purple-100 text-purple-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -146,8 +212,8 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
       <Star
         key={i}
         className={`h-4 w-4 ${
-          i < Math.floor(rating) 
-            ? 'text-yellow-400 fill-current' 
+          i < Math.floor(rating)
+            ? 'text-yellow-400 fill-current'
             : 'text-gray-300'
         }`}
       />
@@ -157,7 +223,9 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
   if (error) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Templates</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          Error Loading Templates
+        </h2>
         <p className="text-gray-600 mb-4">{error}</p>
         <Button onClick={() => fetchTemplates()}>Try Again</Button>
       </div>
@@ -169,7 +237,9 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Widget Marketplace</h2>
+          <h2 className="text-2xl font-bold text-gray-900">
+            Widget Marketplace
+          </h2>
           <p className="text-gray-600">
             Discover and deploy pre-built widget templates
           </p>
@@ -207,7 +277,10 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
             ))}
           </SelectContent>
         </Select>
-        <Select value={selectedType} onValueChange={(value: any) => setSelectedType(value)}>
+        <Select
+          value={selectedType}
+          onValueChange={(value: any) => setSelectedType(value)}
+        >
           <SelectTrigger className="w-32">
             <SelectValue placeholder="Type" />
           </SelectTrigger>
@@ -240,7 +313,9 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
           <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
             <Search className="h-8 w-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No templates found</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No templates found
+          </h3>
           <p className="text-gray-600 mb-4">
             Try adjusting your search or filter criteria.
           </p>
@@ -249,9 +324,12 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {templates.map((template) => {
             const TypeIcon = getTypeIcon(template.type);
-            
+
             return (
-              <Card key={template.id} className="hover:shadow-lg transition-shadow group">
+              <Card
+                key={template.id}
+                className="hover:shadow-lg transition-shadow group"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -264,14 +342,16 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
                           {template.category}
                         </Badge>
                       </div>
-                      <CardTitle className="text-lg mb-1">{template.name}</CardTitle>
+                      <CardTitle className="text-lg mb-1">
+                        {template.name}
+                      </CardTitle>
                       <CardDescription className="line-clamp-2">
                         {template.description}
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                
+
                 <CardContent className="space-y-4">
                   {/* Preview Image */}
                   {template.preview?.image && (
@@ -288,7 +368,9 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
                   <div className="flex items-center justify-between text-sm text-gray-600">
                     <div className="flex items-center gap-1">
                       {renderStars(template.rating)}
-                      <span className="ml-1">({template.rating.toFixed(1)})</span>
+                      <span className="ml-1">
+                        ({template.rating.toFixed(1)})
+                      </span>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1">
@@ -306,7 +388,11 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
                   {template.tags && template.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {template.tags.slice(0, 3).map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="text-xs"
+                        >
                           <Tag className="h-3 w-3 mr-1" />
                           {tag}
                         </Badge>
@@ -393,14 +479,16 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  {React.createElement(getTypeIcon(selectedTemplate.type), { className: "h-5 w-5" })}
+                  {React.createElement(getTypeIcon(selectedTemplate.type), {
+                    className: 'h-5 w-5',
+                  })}
                   {selectedTemplate.name}
                 </DialogTitle>
                 <DialogDescription>
                   {selectedTemplate.description}
                 </DialogDescription>
               </DialogHeader>
-              
+
               <div className="space-y-6">
                 {/* Preview Image/Demo */}
                 {selectedTemplate.preview?.image && (
@@ -437,7 +525,9 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Downloads:</span>
-                        <span>{selectedTemplate.downloads.toLocaleString()}</span>
+                        <span>
+                          {selectedTemplate.downloads.toLocaleString()}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -452,9 +542,14 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <div className="font-medium">{selectedTemplate.createdBy.name}</div>
+                        <div className="font-medium">
+                          {selectedTemplate.createdBy.name}
+                        </div>
                         <div className="text-sm text-gray-600">
-                          Created {new Date(selectedTemplate.createdAt).toLocaleDateString()}
+                          Created{' '}
+                          {new Date(
+                            selectedTemplate.createdAt,
+                          ).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
@@ -479,7 +574,11 @@ export function WidgetMarketplace({ onTemplateSelect, showCreateButton = true }:
                 <div className="flex gap-3 pt-4 border-t">
                   {selectedTemplate.preview?.demoUrl && (
                     <Button variant="outline" asChild>
-                      <a href={selectedTemplate.preview.demoUrl} target="_blank" rel="noopener noreferrer">
+                      <a
+                        href={selectedTemplate.preview.demoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         <ExternalLink className="h-4 w-4 mr-2" />
                         View Demo
                       </a>

@@ -199,6 +199,19 @@ export class Widget extends BaseEntity {
   @Index()
   isPublicTemplate: boolean;
 
+  @Column({ name: 'template_preview_image', type: 'text', nullable: true })
+  templatePreviewImage?: string;
+
+  @Column({ name: 'template_demo_url', type: 'text', nullable: true })
+  templateDemoUrl?: string;
+
+  @Column({ name: 'template_rating_count', default: 0 })
+  templateRatingCount: number;
+
+  @Column({ name: 'template_featured', default: false })
+  @Index()
+  templateFeatured: boolean;
+
   @Column({ name: 'version', default: '1.0.0' })
   version: string;
 

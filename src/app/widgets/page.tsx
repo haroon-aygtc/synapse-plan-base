@@ -41,6 +41,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useWidgets } from '@/hooks/useWidgets';
 import { Widget } from '@/lib/sdk/types';
+import { WidgetMarketplace } from '@/components/widgets/WidgetMarketplace';
 
 export default function WidgetsPage() {
   const router = useRouter();
@@ -273,53 +274,26 @@ export default function WidgetsPage() {
           </div>
         </div>
 
-        {/* Widget Templates Section */}
+        {/* Widget Marketplace Section */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Widget Templates
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {[
-              {
-                name: 'Chat Assistant',
-                type: 'agent',
-                description: 'Interactive chat widget for customer support',
-              },
-              {
-                name: 'Data Processor',
-                type: 'tool',
-                description: 'Process and transform data in real-time',
-              },
-              {
-                name: 'Approval Flow',
-                type: 'workflow',
-                description: 'Multi-step approval workflow widget',
-              },
-              {
-                name: 'Analytics Dashboard',
-                type: 'agent',
-                description: 'Real-time analytics and insights',
-              },
-            ].map((template, index) => (
-              <Card
-                key={index}
-                className="cursor-pointer hover:shadow-md transition-shadow border-dashed"
-              >
-                <CardContent className="p-4 text-center">
-                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                    <Plus className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <h3 className="font-medium text-sm mb-1">{template.name}</h3>
-                  <p className="text-xs text-gray-500 mb-2">
-                    {template.description}
-                  </p>
-                  <Badge className={getTypeColor(template.type)} size="sm">
-                    {template.type}
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">
+              Widget Marketplace
+            </h2>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/widgets/marketplace')}
+            >
+              Browse All Templates
+            </Button>
           </div>
+          <WidgetMarketplace
+            showCreateButton={false}
+            onTemplateSelect={(template) => {
+              // Handle template selection for quick widget creation
+              router.push(`/widgets/create?template=${template.id}`);
+            }}
+          />
         </div>
 
         {/* Widgets Grid */}

@@ -58,13 +58,25 @@ export class KnowledgeService {
     createDocumentDto: CreateDocumentDto,
     context: SecurityContext,
   ) {
-    // Check organization quota
-    const quotaCheck = await this.securityService.checkOrganizationQuota(
-      context.organizationId,
-      'upload',
-    );
-    if (!quotaCheck.allowed) {
-      throw new ForbiddenException('Organization upload quota exceeded');
+    // Check organization quota with real database validation
+    const organization = await this.organizationRepository.findOne({
+      where: { id: context.organizationId },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    // Check actual document count against organization limits
+    const currentDocumentCount = await this.documentRepository.count({
+      where: { organizationId: context.organizationId },
+    });
+
+    const maxDocuments = organization.settings?.maxDocuments || 10000;
+    if (currentDocumentCount >= maxDocuments) {
+      throw new ForbiddenException(
+        `Organization has reached maximum limit of ${maxDocuments} documents`,
+      );
     }
 
     // Generate content hash for deduplication

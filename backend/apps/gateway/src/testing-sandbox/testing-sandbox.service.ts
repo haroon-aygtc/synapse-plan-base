@@ -595,16 +595,27 @@ export class TestingSandboxService {
     );
 
     try {
-      // Execute agent using real agent service
+      // Execute agent using real agent service with production logic
       const result = await this.agentService.execute(
-        agentId,
         {
+          agentId,
           input,
           sessionId: sessionToken,
-          context: executeTestDto.testData.context || {},
-          metadata: { sandboxRun: runId, testMode: true },
+          context: {
+            ...executeTestDto.testData.context,
+            sandboxMode: true,
+            testExecution: true,
+          },
+          metadata: {
+            sandboxRun: runId,
+            testMode: true,
+            executionId: runId,
+            userId,
+            organizationId,
+          },
           includeToolCalls: true,
           includeKnowledgeSearch: true,
+          timeout: executeTestDto.timeout || 30000,
         },
         userId,
         organizationId,
@@ -687,7 +698,7 @@ export class TestingSandboxService {
     );
 
     try {
-      // Execute tool using real tool service
+      // Execute tool using real tool service with production logic
       const result = await this.toolService.execute(
         toolId,
         {
@@ -696,6 +707,7 @@ export class TestingSandboxService {
           callerType: 'sandbox',
           callerId: runId,
           timeout: executeTestDto.timeout || 30000,
+          toolCallId: runId,
         },
         userId,
         organizationId,
@@ -773,15 +785,30 @@ export class TestingSandboxService {
     );
 
     try {
-      // Execute workflow using real workflow service
-      const result = await this.workflowService.test(workflowId, {
-        input,
-        variables: executeTestDto.testData.variables || {},
-        mockResponses: executeTestDto.testData.mockResponses || {},
-        testName: executeTestDto.testName,
-        expectedOutput: executeTestDto.testData.expectedOutput,
-        metadata: { sandboxRun: runId, testMode: true },
-      });
+      // Execute workflow using real workflow service with production logic
+      const result = await this.workflowService.execute(
+        {
+          workflowId,
+          input,
+          variables: executeTestDto.testData.variables || {},
+          sessionId: sessionToken,
+          context: {
+            sandboxMode: true,
+            testExecution: true,
+            testName: executeTestDto.testName,
+          },
+          metadata: {
+            sandboxRun: runId,
+            testMode: true,
+            executionId: runId,
+            userId,
+            organizationId,
+          },
+          timeout: executeTestDto.timeout || 30000,
+        },
+        userId,
+        organizationId,
+      );
 
       // Emit completion event
       await this.emitSandboxEvent(

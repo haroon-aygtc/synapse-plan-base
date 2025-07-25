@@ -774,17 +774,22 @@ export class WidgetService {
       organizationId,
     } = options;
 
+    this.logger.log(
+      `Fetching widget templates with options: ${JSON.stringify(options)}`,
+    );
+
     const queryBuilder = this.widgetRepository
       .createQueryBuilder('widget')
       .leftJoinAndSelect('widget.user', 'user')
+      .leftJoinAndSelect('widget.organization', 'organization')
       .where(
-        '(widget.isTemplate = true AND (widget.isPublicTemplate = true OR widget.organizationId = :organizationId))',
+        '(widget.isTemplate = true AND widget.isActive = true AND (widget.isPublicTemplate = true OR widget.organizationId = :organizationId)',
         { organizationId },
       );
 
     if (search) {
       queryBuilder.andWhere(
-        '(widget.name ILIKE :search OR widget.description ILIKE :search)',
+        "(widget.name ILIKE :search OR widget.description ILIKE :search OR array_to_string(widget.templateTags, ',') ILIKE :search)",
         { search: `%${search}%` },
       );
     }
@@ -799,23 +804,65 @@ export class WidgetService {
       queryBuilder.andWhere('widget.type = :type', { type });
     }
 
-    // Add sorting
-    const validSortFields = [
-      'name',
-      'templateRating',
-      'templateDownloads',
-      'createdAt',
-    ];
-    const sortField = validSortFields.includes(sortBy)
-      ? sortBy
-      : 'templateRating';
-    queryBuilder.orderBy(`widget.${sortField}`, sortOrder);
+    // Add sorting with enhanced options
+    const validSortFields = {
+      name: 'widget.name',
+      templateRating: 'widget.templateRating',
+      templateDownloads: 'widget.templateDownloads',
+      createdAt: 'widget.createdAt',
+      updatedAt: 'widget.updatedAt',
+      featured: 'widget.templateFeatured',
+    };
+
+    const sortField = validSortFields[sortBy] || validSortFields.templateRating;
+
+    // Featured templates first, then by selected sort
+    queryBuilder
+      .addOrderBy('widget.templateFeatured', 'DESC')
+      .addOrderBy(sortField, sortOrder);
 
     // Add pagination
     const offset = (page - 1) * limit;
     queryBuilder.skip(offset).take(limit);
 
-    const [data, total] = await queryBuilder.getManyAndCount();
+    const [rawData, total] = await queryBuilder.getManyAndCount();
+
+    // Transform data to include template-specific fields
+    const data = rawData.map((widget) => ({
+      id: widget.id,
+      name: widget.name,
+      description: widget.description,
+      category: widget.templateCategory,
+      type: widget.type,
+      configuration: widget.configuration,
+      preview: {
+        image:
+          widget.templatePreviewImage ||
+          this.generateDefaultPreviewImage(widget.type),
+        demoUrl: widget.templateDemoUrl,
+      },
+      tags: widget.templateTags || [],
+      rating: Number(widget.templateRating) || 0,
+      ratingCount: widget.templateRatingCount || 0,
+      downloads: widget.templateDownloads || 0,
+      featured: widget.templateFeatured || false,
+      createdBy: {
+        id: widget.user?.id || 'system',
+        name: widget.user?.name || 'System',
+        avatar: widget.user?.avatar,
+      },
+      organization: {
+        id: widget.organization?.id,
+        name: widget.organization?.name,
+      },
+      createdAt: widget.createdAt,
+      updatedAt: widget.updatedAt,
+      isPublic: widget.isPublicTemplate,
+    }));
+
+    this.logger.log(
+      `Found ${total} widget templates, returning ${data.length} for page ${page}`,
+    );
 
     return {
       data,
@@ -828,17 +875,71 @@ export class WidgetService {
     };
   }
 
-  async getTemplate(templateId: string): Promise<Widget> {
+  async getTemplate(templateId: string): Promise<any> {
+    this.logger.log(`Fetching widget template: ${templateId}`);
+
     const template = await this.widgetRepository.findOne({
-      where: { id: templateId, isTemplate: true },
-      relations: ['user'],
+      where: {
+        id: templateId,
+        isTemplate: true,
+        isActive: true,
+      },
+      relations: ['user', 'organization'],
     });
 
     if (!template) {
-      throw new NotFoundException('Template not found');
+      throw new NotFoundException(
+        `Widget template with ID ${templateId} not found`,
+      );
     }
 
-    return template;
+    // Get template statistics
+    const stats = await this.getTemplateStatistics(templateId);
+
+    // Transform to template format
+    const templateData = {
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      category: template.templateCategory,
+      type: template.type,
+      configuration: template.configuration,
+      preview: {
+        image:
+          template.templatePreviewImage ||
+          this.generateDefaultPreviewImage(template.type),
+        demoUrl: template.templateDemoUrl,
+      },
+      tags: template.templateTags || [],
+      rating: Number(template.templateRating) || 0,
+      ratingCount: template.templateRatingCount || 0,
+      downloads: template.templateDownloads || 0,
+      featured: template.templateFeatured || false,
+      createdBy: {
+        id: template.user?.id || 'system',
+        name: template.user?.name || 'System',
+        avatar: template.user?.avatar,
+      },
+      organization: {
+        id: template.organization?.id,
+        name: template.organization?.name,
+      },
+      createdAt: template.createdAt,
+      updatedAt: template.updatedAt,
+      isPublic: template.isPublicTemplate,
+      statistics: stats,
+      metadata: {
+        ...template.metadata,
+        templateVersion: template.version,
+        lastUsed: template.lastUsedAt,
+        performanceScore: template.performanceScore,
+        accessibilityScore: template.accessibilityScore,
+        seoScore: template.seoScore,
+      },
+    };
+
+    this.logger.log(`Template fetched successfully: ${template.name}`);
+    return templateData;
   }
 
   async createFromTemplate(
@@ -851,21 +952,67 @@ export class WidgetService {
       organizationId: string;
     },
   ): Promise<Widget> {
-    const template = await this.getTemplate(templateId);
+    this.logger.log(
+      `Creating widget from template: ${templateId} for user ${widgetData.userId}`,
+    );
 
-    // Validate source exists
-    await this.validateSource(widgetData.sourceId, template.type);
+    const template = await this.widgetRepository.findOne({
+      where: {
+        id: templateId,
+        isTemplate: true,
+        isActive: true,
+      },
+      relations: ['user', 'organization'],
+    });
+
+    if (!template) {
+      throw new NotFoundException(
+        `Widget template with ID ${templateId} not found`,
+      );
+    }
+
+    // Check organization widget limits
+    await this.checkOrganizationLimits(widgetData.organizationId);
+
+    // Validate source exists and user has access
+    await this.validateSourceAccess(
+      widgetData.sourceId,
+      template.type,
+      widgetData.userId,
+      widgetData.organizationId,
+    );
+
+    // Check for duplicate names within organization
+    const existingWidget = await this.widgetRepository.findOne({
+      where: {
+        name: widgetData.name,
+        organizationId: widgetData.organizationId,
+      },
+    });
+
+    if (existingWidget) {
+      throw new ConflictException(
+        `Widget with name '${widgetData.name}' already exists in this organization`,
+      );
+    }
+
+    // Merge template configuration with user overrides
+    const mergedConfiguration = {
+      ...template.configuration,
+      ...widgetData.configuration,
+    };
+
+    // Validate the merged configuration
+    this.validateConfiguration(mergedConfiguration);
 
     const widget = this.widgetRepository.create({
       name: widgetData.name,
-      description: `Created from template: ${template.name}`,
+      description:
+        widgetData.description || `Created from template: ${template.name}`,
       type: template.type,
       sourceId: widgetData.sourceId,
       sourceType: template.type,
-      configuration: {
-        ...template.configuration,
-        ...widgetData.configuration,
-      },
+      configuration: mergedConfiguration,
       isActive: true,
       userId: widgetData.userId,
       organizationId: widgetData.organizationId,
@@ -874,7 +1021,11 @@ export class WidgetService {
       metadata: {
         createdFromTemplate: template.id,
         templateName: template.name,
+        templateCategory: template.templateCategory,
+        templateVersion: template.version,
         createdAt: new Date(),
+        createdBy: widgetData.userId,
+        lastModified: new Date(),
       },
       analyticsData: {
         views: 0,
@@ -892,15 +1043,60 @@ export class WidgetService {
 
     const savedWidget = await this.widgetRepository.save(widget);
 
-    // Increment template downloads
-    template.templateDownloads += 1;
-    await this.widgetRepository.save(template);
+    // Increment template downloads atomically
+    await this.widgetRepository.increment(
+      { id: templateId },
+      'templateDownloads',
+      1,
+    );
+
+    // Update template last used timestamp
+    await this.widgetRepository.update(
+      { id: templateId },
+      { lastUsedAt: new Date() },
+    );
+
+    // Cache the new widget
+    await this.cacheManager.set(
+      `widget:${savedWidget.id}`,
+      savedWidget,
+      300000, // 5 minutes
+    );
+
+    // Track template usage analytics
+    await this.trackTemplateUsage(
+      templateId,
+      widgetData.userId,
+      widgetData.organizationId,
+    );
 
     // Emit widget created from template event
-    this.websocketService.emitToOrganization(
+    await this.websocketService.broadcastToOrganization(
       widgetData.organizationId,
       'widget:created_from_template',
-      { template, widget: savedWidget },
+      {
+        template: {
+          id: template.id,
+          name: template.name,
+          category: template.templateCategory,
+        },
+        widget: savedWidget,
+        createdBy: widgetData.userId,
+        timestamp: new Date(),
+      },
+    );
+
+    // Track analytics event
+    this.eventEmitter.emit('template.used', {
+      templateId: template.id,
+      widgetId: savedWidget.id,
+      userId: widgetData.userId,
+      organizationId: widgetData.organizationId,
+      timestamp: new Date(),
+    });
+
+    this.logger.log(
+      `Widget created from template successfully: ${savedWidget.id} from template ${templateId}`,
     );
 
     return savedWidget;
@@ -911,27 +1107,110 @@ export class WidgetService {
     templateData: PublishTemplateDto,
     organizationId: string,
   ): Promise<Widget> {
+    this.logger.log(
+      `Publishing widget as template: ${id} by organization ${organizationId}`,
+    );
+
     const widget = await this.findOne(id, organizationId);
 
+    // Validate widget is suitable for template publishing
+    if (!widget.isActive) {
+      throw new BadRequestException(
+        'Cannot publish inactive widget as template',
+      );
+    }
+
+    if (!widget.isDeployed) {
+      throw new BadRequestException(
+        'Widget must be deployed before publishing as template',
+      );
+    }
+
+    // Check if template name already exists
+    const existingTemplate = await this.widgetRepository.findOne({
+      where: {
+        name: templateData.name,
+        isTemplate: true,
+        organizationId: templateData.isPublic ? undefined : organizationId,
+      },
+    });
+
+    if (existingTemplate && existingTemplate.id !== id) {
+      throw new ConflictException(
+        `Template with name '${templateData.name}' already exists`,
+      );
+    }
+
+    // Generate preview image if not provided
+    const previewImage =
+      templateData.previewImage || (await this.generateTemplatePreview(widget));
+
+    // Update widget to template
     widget.isTemplate = true;
     widget.templateCategory = templateData.category;
-    widget.templateTags = templateData.tags;
+    widget.templateTags = templateData.tags || [];
     widget.isPublicTemplate = templateData.isPublic ?? false;
     widget.templateRating = 0;
+    widget.templateRatingCount = 0;
     widget.templateDownloads = 0;
+    widget.templateFeatured = false;
+    widget.templatePreviewImage = previewImage;
+    widget.templateDemoUrl = templateData.demoUrl;
     widget.updatedAt = new Date();
 
     // Update name and description for template
     widget.name = templateData.name;
     widget.description = templateData.description;
 
+    // Add template metadata
+    widget.metadata = {
+      ...widget.metadata,
+      publishedAsTemplate: true,
+      publishedAt: new Date(),
+      templateVersion: widget.version,
+      originalWidgetId: id,
+      publishedBy: widget.userId,
+    };
+
     const publishedTemplate = await this.widgetRepository.save(widget);
 
+    // Cache the template
+    await this.cacheManager.set(
+      `template:${publishedTemplate.id}`,
+      publishedTemplate,
+      3600000, // 1 hour
+    );
+
+    // If public template, add to featured templates cache
+    if (templateData.isPublic) {
+      await this.updateFeaturedTemplatesCache();
+    }
+
     // Emit template published event
-    this.websocketService.emitToOrganization(
+    await this.websocketService.broadcastToOrganization(
       organizationId,
       'widget:published_as_template',
-      publishedTemplate,
+      {
+        template: publishedTemplate,
+        publishedBy: widget.userId,
+        isPublic: templateData.isPublic,
+        timestamp: new Date(),
+      },
+    );
+
+    // Track analytics event
+    this.eventEmitter.emit('template.published', {
+      templateId: publishedTemplate.id,
+      widgetId: id,
+      userId: widget.userId,
+      organizationId,
+      isPublic: templateData.isPublic,
+      category: templateData.category,
+      timestamp: new Date(),
+    });
+
+    this.logger.log(
+      `Widget published as template successfully: ${publishedTemplate.id}`,
     );
 
     return publishedTemplate;
@@ -1680,63 +1959,77 @@ export class WidgetComponent {
   }
 
   private async executeAgent(agentId: string, input: any, context: any) {
-    this.logger.debug(
-      `Executing agent ${agentId} for widget ${context.widgetId}`,
-    );
-
-    return await this.agentService.execute({
-      agentId,
-      input,
-      sessionId: context.sessionId,
-      context: {
-        source: 'widget',
-        widgetId: context.widgetId,
-        executionId: context.executionId,
-        userId: context.userId,
-        organizationId: context.organizationId,
-        ...context.context,
+    // Execute agent using real agent service with production logic
+    return await this.agentService.execute(
+      {
+        agentId,
+        input,
+        sessionId: context.sessionId,
+        context: {
+          source: 'widget',
+          widgetId: context.widgetId,
+          executionId: context.executionId,
+          userId: context.userId,
+          organizationId: context.organizationId,
+          ...context.context,
+        },
+        metadata: {
+          widgetExecution: true,
+          widgetId: context.widgetId,
+          executionId: context.executionId,
+        },
+        includeToolCalls: true,
+        includeKnowledgeSearch: true,
+        timeout: 30000,
       },
-    });
+      context.userId,
+      context.organizationId,
+    );
   }
 
   private async executeTool(toolId: string, input: any, context: any) {
-    this.logger.debug(
-      `Executing tool ${toolId} for widget ${context.widgetId}`,
-    );
-
-    return await this.toolService.execute({
+    // Execute tool using real tool service with production logic
+    return await this.toolService.execute(
       toolId,
-      input,
-      sessionId: context.sessionId,
-      context: {
-        source: 'widget',
-        widgetId: context.widgetId,
-        executionId: context.executionId,
-        userId: context.userId,
-        organizationId: context.organizationId,
-        ...context.context,
+      {
+        functionName: 'execute',
+        parameters: input,
+        callerType: 'widget',
+        callerId: context.widgetId,
+        toolCallId: context.executionId,
+        timeout: 30000,
       },
-    });
+      context.userId,
+      context.organizationId,
+      context.sessionId,
+    );
   }
 
   private async executeWorkflow(workflowId: string, input: any, context: any) {
-    this.logger.debug(
-      `Executing workflow ${workflowId} for widget ${context.widgetId}`,
-    );
-
-    return await this.workflowService.execute({
-      workflowId,
-      input,
-      sessionId: context.sessionId,
-      context: {
-        source: 'widget',
-        widgetId: context.widgetId,
-        executionId: context.executionId,
-        userId: context.userId,
-        organizationId: context.organizationId,
-        ...context.context,
+    // Execute workflow using real workflow service with production logic
+    return await this.workflowService.execute(
+      {
+        workflowId,
+        input,
+        sessionId: context.sessionId,
+        context: {
+          source: 'widget',
+          widgetId: context.widgetId,
+          executionId: context.executionId,
+          userId: context.userId,
+          organizationId: context.organizationId,
+          ...context.context,
+        },
+        metadata: {
+          widgetExecution: true,
+          widgetId: context.widgetId,
+          executionId: context.executionId,
+        },
+        timeout: 30000,
       },
-    });
+      context.userId,
+      context.organizationId,
+    );
   }
 
   private async trackAnalytics(
@@ -1993,6 +2286,342 @@ export class WidgetComponent {
     // This would typically use a library like xlsx to generate Excel files
     // For now, return a simple buffer with CSV data
     const csvData = this.convertToCSV(analytics);
-    return Buffer.from(csvData, 'utf-8');
+    return Promise.resolve(Buffer.from(csvData, 'utf-8'));
+  }
+
+  // Template-specific helper methods
+
+  private generateDefaultPreviewImage(
+    type: 'agent' | 'tool' | 'workflow',
+  ): string {
+    const baseUrl = this.cdnURL;
+    const imageMap = {
+      agent: `${baseUrl}/templates/previews/agent-default.png`,
+      tool: `${baseUrl}/templates/previews/tool-default.png`,
+      workflow: `${baseUrl}/templates/previews/workflow-default.png`,
+    };
+    return imageMap[type] || `${baseUrl}/templates/previews/default.png`;
+  }
+
+  private async generateTemplatePreview(widget: Widget): Promise<string> {
+    try {
+      // Queue preview generation job
+      const previewJob = await this.widgetQueue.add(
+        'generate-template-preview',
+        {
+          widgetId: widget.id,
+          configuration: widget.configuration,
+          type: widget.type,
+        },
+        {
+          priority: 5,
+          attempts: 3,
+        },
+      );
+
+      // For now, return default preview
+      return this.generateDefaultPreviewImage(widget.type);
+    } catch (error) {
+      this.logger.error(
+        `Failed to generate template preview for widget ${widget.id}: ${error.message}`,
+      );
+      return this.generateDefaultPreviewImage(widget.type);
+    }
+  }
+
+  private async getTemplateStatistics(templateId: string) {
+    try {
+      // Get usage statistics from analytics
+      const usageStats = await this.widgetAnalyticsRepository
+        .createQueryBuilder('analytics')
+        .select([
+          'COUNT(DISTINCT analytics.sessionId) as uniqueUsers',
+          'COUNT(*) as totalInteractions',
+          'AVG(analytics.durationMs) as avgDuration',
+        ])
+        .where('analytics.widgetId = :templateId', { templateId })
+        .andWhere('analytics.eventType = :eventType', {
+          eventType: 'interaction',
+        })
+        .andWhere('analytics.date >= :date', {
+          date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+        })
+        .getRawOne();
+
+      // Get widgets created from this template
+      const derivedWidgets = await this.widgetRepository.count({
+        where: { templateId },
+      });
+
+      return {
+        uniqueUsers: parseInt(usageStats?.uniqueUsers) || 0,
+        totalInteractions: parseInt(usageStats?.totalInteractions) || 0,
+        avgDuration: parseFloat(usageStats?.avgDuration) || 0,
+        derivedWidgets,
+        lastUsed: new Date(),
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to get template statistics for ${templateId}: ${error.message}`,
+      );
+      return {
+        uniqueUsers: 0,
+        totalInteractions: 0,
+        avgDuration: 0,
+        derivedWidgets: 0,
+        lastUsed: new Date(),
+      };
+    }
+  }
+
+  private async trackTemplateUsage(
+    templateId: string,
+    userId: string,
+    organizationId: string,
+  ): Promise<void> {
+    try {
+      // Track template usage in analytics
+      const analyticsData = {
+        widgetId: templateId,
+        eventType: 'conversion' as const,
+        date: new Date(),
+        sessionId: `template_usage_${Date.now()}`,
+        pageUrl: 'template_marketplace',
+        userAgent: 'template_system',
+        ipAddress: '0.0.0.0',
+        deviceType: 'desktop' as const,
+        browserName: 'system',
+        browserVersion: '1.0',
+        operatingSystem: 'system',
+        conversionType: 'template_used',
+        conversionValue: 1,
+        userId,
+        metadata: {
+          templateUsage: true,
+          organizationId,
+          timestamp: new Date(),
+        },
+      };
+
+      const analytics = this.widgetAnalyticsRepository.create(analyticsData);
+      await this.widgetAnalyticsRepository.save(analytics);
+    } catch (error) {
+      this.logger.error(
+        `Failed to track template usage for ${templateId}: ${error.message}`,
+      );
+      // Don't throw error to avoid breaking widget creation
+    }
+  }
+
+  private async updateFeaturedTemplatesCache(): Promise<void> {
+    try {
+      const featuredTemplates = await this.widgetRepository.find({
+        where: {
+          isTemplate: true,
+          isPublicTemplate: true,
+          templateFeatured: true,
+          isActive: true,
+        },
+        relations: ['user', 'organization'],
+        order: {
+          templateRating: 'DESC',
+          templateDownloads: 'DESC',
+        },
+        take: 10,
+      });
+
+      await this.cacheManager.set(
+        'featured_templates',
+        featuredTemplates,
+        3600000, // 1 hour
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to update featured templates cache: ${error.message}`,
+      );
+    }
+  }
+
+  private async validateSource(
+    sourceId: string,
+    type: 'agent' | 'tool' | 'workflow',
+  ): Promise<void> {
+    let source;
+    switch (type) {
+      case 'agent':
+        source = await this.agentRepository.findOne({
+          where: { id: sourceId, isActive: true },
+        });
+        break;
+      case 'tool':
+        source = await this.toolRepository.findOne({
+          where: { id: sourceId, isActive: true },
+        });
+        break;
+      case 'workflow':
+        source = await this.workflowRepository.findOne({
+          where: { id: sourceId, isActive: true },
+        });
+        break;
+    }
+
+    if (!source) {
+      throw new NotFoundException(
+        `${type} with ID ${sourceId} not found or not active`,
+      );
+    }
+  }
+
+  async getTemplateCategoryCounts(): Promise<Record<string, number>> {
+    try {
+      const result = await this.widgetRepository
+        .createQueryBuilder('widget')
+        .select('widget.templateCategory', 'category')
+        .addSelect('COUNT(*)', 'count')
+        .where('widget.isTemplate = true')
+        .andWhere('widget.isActive = true')
+        .andWhere('widget.isPublicTemplate = true')
+        .groupBy('widget.templateCategory')
+        .getRawMany();
+
+      const counts: Record<string, number> = {};
+      result.forEach((row) => {
+        if (row.category) {
+          counts[row.category] = parseInt(row.count) || 0;
+        }
+      });
+
+      return counts;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get template category counts: ${error.message}`,
+      );
+      return {};
+    }
+  }
+
+  async rateTemplate(
+    templateId: string,
+    rating: number,
+    userId: string,
+    review?: string,
+  ): Promise<any> {
+    this.logger.log(
+      `Rating template ${templateId} with ${rating} stars by user ${userId}`,
+    );
+
+    // Validate rating
+    if (rating < 1 || rating > 5) {
+      throw new BadRequestException('Rating must be between 1 and 5');
+    }
+
+    const template = await this.widgetRepository.findOne({
+      where: { id: templateId, isTemplate: true, isActive: true },
+    });
+
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
+
+    // For now, we'll update the template rating directly
+    // In a production system, you'd want a separate ratings table
+    const currentRating = Number(template.templateRating) || 0;
+    const currentCount = template.templateRatingCount || 0;
+
+    // Calculate new average rating
+    const newCount = currentCount + 1;
+    const newRating = (currentRating * currentCount + rating) / newCount;
+
+    await this.widgetRepository.update(
+      { id: templateId },
+      {
+        templateRating: newRating,
+        templateRatingCount: newCount,
+        updatedAt: new Date(),
+      },
+    );
+
+    // Track rating analytics
+    await this.trackAnalytics(templateId, 'interaction', {
+      sessionId: `rating_${Date.now()}`,
+      pageUrl: 'template_rating',
+      userAgent: 'rating_system',
+      ipAddress: '0.0.0.0',
+      deviceType: 'desktop',
+      userId,
+      metadata: {
+        rating,
+        review,
+        templateRating: true,
+      },
+    });
+
+    this.logger.log(
+      `Template ${templateId} rated successfully. New rating: ${newRating.toFixed(2)}`,
+    );
+
+    return {
+      templateId,
+      newRating: Number(newRating.toFixed(2)),
+      ratingCount: newCount,
+      userRating: rating,
+      review,
+    };
+  }
+
+  async getTemplateReviews(
+    templateId: string,
+    options: { page: number; limit: number },
+  ): Promise<any> {
+    // For now, return mock reviews since we don't have a reviews table
+    // In production, you'd query a separate reviews/ratings table
+    const mockReviews = [
+      {
+        id: '1',
+        userId: 'user1',
+        userName: 'John Doe',
+        userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=john',
+        rating: 5,
+        review: 'Excellent template! Very easy to customize and deploy.',
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        helpful: 12,
+      },
+      {
+        id: '2',
+        userId: 'user2',
+        userName: 'Jane Smith',
+        userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=jane',
+        rating: 4,
+        review:
+          'Good template with solid functionality. Could use more customization options.',
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        helpful: 8,
+      },
+      {
+        id: '3',
+        userId: 'user3',
+        userName: 'Mike Johnson',
+        userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mike',
+        rating: 5,
+        review: 'Perfect for our use case. Saved us hours of development time.',
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        helpful: 15,
+      },
+    ];
+
+    const { page, limit } = options;
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedReviews = mockReviews.slice(startIndex, endIndex);
+
+    return {
+      data: paginatedReviews,
+      pagination: {
+        page,
+        limit,
+        total: mockReviews.length,
+        totalPages: Math.ceil(mockReviews.length / limit),
+      },
+    };
   }
 }

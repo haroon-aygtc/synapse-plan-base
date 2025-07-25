@@ -566,6 +566,7 @@ export const useWidgetTemplates = () => {
         search?: string;
         sortBy?: string;
         sortOrder?: 'ASC' | 'DESC';
+        featured?: boolean;
       } = {},
     ) => {
       setLoading(true);
@@ -580,14 +581,19 @@ export const useWidgetTemplates = () => {
         if (options.search) params.append('search', options.search);
         if (options.sortBy) params.append('sortBy', options.sortBy);
         if (options.sortOrder) params.append('sortOrder', options.sortOrder);
+        if (options.featured) params.append('featured', 'true');
 
-        const response = await api.get(
-          `/widgets/templates?${params.toString()}`,
-        );
+        const endpoint = options.featured
+          ? '/widgets/templates/featured'
+          : `/widgets/templates?${params.toString()}`;
+
+        const response = await api.get(endpoint);
 
         if (response.data.success) {
           setTemplates(response.data.data);
-          setPagination(response.data.pagination);
+          if (response.data.pagination) {
+            setPagination(response.data.pagination);
+          }
         } else {
           throw new Error(response.data.message || 'Failed to fetch templates');
         }
@@ -696,6 +702,78 @@ export const useWidgetTemplates = () => {
     [],
   );
 
+  const rateTemplate = useCallback(
+    async (templateId: string, rating: number, review?: string) => {
+      setError(null);
+
+      try {
+        const response = await api.post(
+          `/widgets/templates/${templateId}/rate`,
+          { rating, review },
+        );
+
+        if (response.data.success) {
+          return response.data.data;
+        } else {
+          throw new Error(response.data.message || 'Failed to rate template');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to rate template');
+        console.error('Error rating template:', err);
+        throw err;
+      }
+    },
+    [],
+  );
+
+  const getTemplateReviews = useCallback(
+    async (
+      templateId: string,
+      options: { page?: number; limit?: number } = {},
+    ) => {
+      setError(null);
+
+      try {
+        const params = new URLSearchParams();
+        if (options.page) params.append('page', options.page.toString());
+        if (options.limit) params.append('limit', options.limit.toString());
+
+        const response = await api.get(
+          `/widgets/templates/${templateId}/reviews?${params.toString()}`,
+        );
+
+        if (response.data.success) {
+          return response.data;
+        } else {
+          throw new Error(response.data.message || 'Failed to fetch reviews');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch reviews');
+        console.error('Error fetching reviews:', err);
+        throw err;
+      }
+    },
+    [],
+  );
+
+  const getTemplateCategories = useCallback(async () => {
+    setError(null);
+
+    try {
+      const response = await api.get('/widgets/templates/categories');
+
+      if (response.data.success) {
+        return response.data.data;
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch categories');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch categories');
+      console.error('Error fetching categories:', err);
+      throw err;
+    }
+  }, []);
+
   return {
     templates,
     loading,
@@ -705,5 +783,8 @@ export const useWidgetTemplates = () => {
     getTemplate,
     createFromTemplate,
     publishAsTemplate,
+    rateTemplate,
+    getTemplateReviews,
+    getTemplateCategories,
   };
 };
