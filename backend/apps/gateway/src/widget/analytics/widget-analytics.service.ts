@@ -209,8 +209,8 @@ export class WidgetAnalyticsService {
       recentEvents: realtimeAnalytics.slice(0, 20),
     };
   }
-  async g
-etConversionFunnel(
+
+  async getConversionFunnel(
     widgetId: string,
     getConversionFunnelDto: GetConversionFunnelDto,
     organizationId: string,
@@ -739,8 +739,9 @@ etConversionFunnel(
       .getRawMany();
 
     return activeSessions;
-  }  pr
-ivate async calculateFunnelMetrics(
+  }
+
+  private async calculateFunnelMetrics(
     widgetId: string,
     steps: any[],
     startDate: Date,
@@ -750,8 +751,8 @@ ivate async calculateFunnelMetrics(
   ) {
     // Implementation for funnel calculation
     // This is a simplified version - real implementation would be more complex
-    const stepResults = [];
-    let previousStepUsers = new Set();
+    const stepResults: any[] = [];
+    let previousStepUsers = new Set<string>();
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
@@ -1050,13 +1051,13 @@ ivate async calculateFunnelMetrics(
   }
 
   private processHeatmapData(interactions: WidgetAnalytics[]) {
-    const points = [];
-    const densityMap = new Map();
+    const points: any[] = [];
+    const densityMap = new Map<string, number>();
     
     interactions.forEach(interaction => {
       // Extract coordinates from properties if available
-      const x = interaction.properties?.x || Math.random() * 100;
-      const y = interaction.properties?.y || Math.random() * 100;
+      const x = interaction.properties?.x !== undefined ? interaction.properties.x : Math.random() * 100;
+      const y = interaction.properties?.y !== undefined ? interaction.properties.y : Math.random() * 100;
       const key = `${Math.floor(x/10)}-${Math.floor(y/10)}`;
       
       points.push({ x, y, intensity: 1 });

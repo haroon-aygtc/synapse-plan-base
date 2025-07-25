@@ -2,7 +2,7 @@
 import { WebSocketService } from './websocket.service';
 
 // Add this method to the WebSocketService class
-(WebSocketService.prototype as any).emitToOrganization = function (
+WebSocketService.prototype.emitToOrganization = function (
   organizationId: string,
   event: string,
   payload: any,

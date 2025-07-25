@@ -1186,6 +1186,11 @@ export class WebSocketGatewayImpl
         organization_id: organizationId,
         security_level: fullMessage.security_level,
         permissions: fullMessage.permissions,
+      } as APXMessageDto & { 
+        user_id: string; 
+        organization_id: string; 
+        security_level: APXSecurityLevel;
+        permissions: APXPermissionLevel[];
       });
 
       this.logger.debug(

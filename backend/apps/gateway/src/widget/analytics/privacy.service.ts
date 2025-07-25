@@ -147,9 +147,11 @@ export class PrivacyService {
     };
 
     // Merge with organization-specific settings if available
+    const orgPrivacySettings = organization?.privacySettings as PrivacySettings | undefined;
+    
     return {
       ...defaultSettings,
-      ...(organization?.privacySettings || {}),
+      ...(orgPrivacySettings || {}),
     };
   }
 
