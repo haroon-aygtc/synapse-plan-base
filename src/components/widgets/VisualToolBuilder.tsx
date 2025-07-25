@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useRef, useMemo, useEffect, ErrorInfo } from "react";
 import {
   Card,
   CardContent,
@@ -25,6 +25,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   DragDropContext,
   Droppable,
@@ -55,16 +57,82 @@ import {
   Paperclip,
   MoreHorizontal,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { Widget, WidgetConfiguration } from "@/lib/sdk/types";
-import style from "styled-jsx/style";
 
 interface VisualToolBuilderProps {
   widget: Widget;
   onUpdate: (updates: Partial<Widget>) => void;
   onConfigurationUpdate: (configUpdates: Partial<WidgetConfiguration>) => void;
+  className?: string;
+  disabled?: boolean;
+  onError?: (error: Error, context: string) => void;
+}
+
+// Error boundary component
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+}
+
+class VisualToolBuilderErrorBoundary extends React.Component<
+  React.PropsWithChildren<{ onError?: (error: Error, errorInfo: ErrorInfo) => void }>,
+  ErrorBoundaryState
+> {
+  constructor(props: React.PropsWithChildren<{ onError?: (error: Error, errorInfo: ErrorInfo) => void }>) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return {
+      hasError: true,
+      error,
+      errorInfo: null,
+    };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    this.setState({
+      error,
+      errorInfo,
+    });
+    
+    if (this.props.onError) {
+      this.props.onError(error, errorInfo);
+    }
+    
+    console.error('VisualToolBuilder Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Alert variant="destructive" className="m-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Something went wrong</AlertTitle>
+          <AlertDescription>
+            {this.state.error?.message || 'An unexpected error occurred in the Visual Tool Builder.'}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 // Component type definitions
@@ -88,54 +156,72 @@ interface ComponentSize {
 }
 
 interface BaseComponentProperties {
-  [key: string]: unknown;
+  readonly id?: string;
+  readonly className?: string;
+  readonly style?: React.CSSProperties;
+  readonly 'aria-label'?: string;
+  readonly 'data-testid'?: string;
 }
 
 interface HeaderProperties extends BaseComponentProperties {
-  title: string;
-  showLogo: boolean;
-  backgroundColor: string;
-  textColor: string;
+  readonly title: string;
+  readonly showLogo: boolean;
+  readonly backgroundColor: string;
+  readonly textColor: string;
+  readonly logoUrl?: string;
+  readonly subtitle?: string;
 }
 
 interface ChatInputProperties extends BaseComponentProperties {
-  placeholder: string;
-  showSendButton: boolean;
-  enableFileUpload: boolean;
-  enableVoiceInput: boolean;
+  readonly placeholder: string;
+  readonly showSendButton: boolean;
+  readonly enableFileUpload: boolean;
+  readonly enableVoiceInput: boolean;
+  readonly maxLength?: number;
+  readonly disabled?: boolean;
 }
 
 interface MessageBubbleProperties extends BaseComponentProperties {
-  sender: "user" | "assistant";
-  message: string;
-  timestamp: boolean;
-  avatar: boolean;
+  readonly sender: "user" | "assistant";
+  readonly message: string;
+  readonly timestamp: boolean;
+  readonly avatar: boolean;
+  readonly avatarUrl?: string;
+  readonly isTyping?: boolean;
 }
 
 interface ButtonProperties extends BaseComponentProperties {
-  text: string;
-  variant: "primary" | "secondary" | "outline";
-  size: "small" | "medium" | "large";
-  disabled: boolean;
+  readonly text: string;
+  readonly variant: "primary" | "secondary" | "outline" | "ghost" | "destructive";
+  readonly size: "small" | "medium" | "large";
+  readonly disabled: boolean;
+  readonly icon?: string;
+  readonly onClick?: string;
 }
 
 interface ImageProperties extends BaseComponentProperties {
-  src: string;
-  alt: string;
-  rounded: boolean;
+  readonly src: string;
+  readonly alt: string;
+  readonly rounded: boolean;
+  readonly objectFit?: "cover" | "contain" | "fill" | "none" | "scale-down";
+  readonly loading?: "lazy" | "eager";
 }
 
 interface TextProperties extends BaseComponentProperties {
-  content: string;
-  fontSize: number;
-  fontWeight: "normal" | "medium" | "semibold" | "bold";
-  textAlign: "left" | "center" | "right";
+  readonly content: string;
+  readonly fontSize: number;
+  readonly fontWeight: "normal" | "medium" | "semibold" | "bold";
+  readonly textAlign: "left" | "center" | "right" | "justify";
+  readonly color?: string;
+  readonly lineHeight?: number;
 }
 
 interface DividerProperties extends BaseComponentProperties {
-  orientation: "horizontal" | "vertical";
-  thickness: number;
-  color: string;
+  readonly orientation: "horizontal" | "vertical";
+  readonly thickness: number;
+  readonly color: string;
+  readonly style?: "solid" | "dashed" | "dotted";
+  readonly margin?: number;
 }
 
 type ComponentProperties =
@@ -148,23 +234,30 @@ type ComponentProperties =
   | DividerProperties;
 
 interface WidgetComponent {
-  id: string;
-  type: ComponentType;
-  position: ComponentPosition;
-  size: ComponentSize;
-  properties: ComponentProperties;
-  visible: boolean;
-  locked: boolean;
-  zIndex: number;
+  readonly id: string;
+  readonly type: ComponentType;
+  readonly position: ComponentPosition;
+  readonly size: ComponentSize;
+  readonly properties: ComponentProperties;
+  readonly visible: boolean;
+  readonly locked: boolean;
+  readonly zIndex: number;
+  readonly createdAt?: Date;
+  readonly updatedAt?: Date;
+  readonly metadata?: Record<string, unknown>;
 }
 
 interface ComponentLibraryItem {
-  type: ComponentType;
-  name: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-  defaultProps: ComponentProperties;
-  category: "layout" | "input" | "display" | "interaction";
+  readonly type: ComponentType;
+  readonly name: string;
+  readonly icon: React.ComponentType<{ className?: string }>;
+  readonly description: string;
+  readonly defaultProps: ComponentProperties;
+  readonly category: "layout" | "input" | "display" | "interaction";
+  readonly tags?: readonly string[];
+  readonly isDeprecated?: boolean;
+  readonly minSize?: ComponentSize;
+  readonly maxSize?: ComponentSize;
 }
 
 type DeviceType = "desktop" | "mobile" | "tablet";
@@ -274,31 +367,180 @@ const DEVICE_CONFIGS: Record<DeviceType, DeviceDimensions> = {
   desktop: { width: 400, height: 600 },
 };
 
-// Validation functions
-const validateComponentProperties = (type: ComponentType, properties: ComponentProperties): boolean => {
+// Validation functions with comprehensive type checking
+const validateComponentProperties = (type: ComponentType, properties: ComponentProperties): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
   try {
-    switch (type) {
-      case "header":
-        const headerProps = properties as HeaderProperties;
-        return !!(headerProps.title && headerProps.backgroundColor && headerProps.textColor);
-      case "chat-input":
-        const inputProps = properties as ChatInputProperties;
-        return !!(inputProps.placeholder);
-      case "button":
-        const buttonProps = properties as ButtonProperties;
-        return !!(buttonProps.text && buttonProps.variant);
-      case "image":
-        const imageProps = properties as ImageProperties;
-        return !!(imageProps.src && imageProps.alt);
-      case "text":
-        const textProps = properties as TextProperties;
-        return !!(textProps.content);
-      default:
-        return true;
+    if (!properties || typeof properties !== 'object') {
+      errors.push('Properties object is required');
+      return { isValid: false, errors };
     }
-  } catch {
-    return false;
+
+    switch (type) {
+      case "header": {
+        const headerProps = properties as HeaderProperties;
+        if (!headerProps.title || typeof headerProps.title !== 'string' || headerProps.title.trim().length === 0) {
+          errors.push('Header title is required and must be a non-empty string');
+        }
+        if (!headerProps.backgroundColor || typeof headerProps.backgroundColor !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(headerProps.backgroundColor)) {
+          errors.push('Header background color must be a valid hex color');
+        }
+        if (!headerProps.textColor || typeof headerProps.textColor !== 'string' || !/^#[0-9A-Fa-f]{6}$/.test(headerProps.textColor)) {
+          errors.push('Header text color must be a valid hex color');
+        }
+        if (typeof headerProps.showLogo !== 'boolean') {
+          errors.push('Header showLogo must be a boolean');
+        }
+        break;
+      }
+      case "chat-input": {
+        const inputProps = properties as ChatInputProperties;
+        if (!inputProps.placeholder || typeof inputProps.placeholder !== 'string') {
+          errors.push('Chat input placeholder is required and must be a string');
+        }
+        if (typeof inputProps.showSendButton !== 'boolean') {
+          errors.push('Chat input showSendButton must be a boolean');
+        }
+        if (typeof inputProps.enableFileUpload !== 'boolean') {
+          errors.push('Chat input enableFileUpload must be a boolean');
+        }
+        if (typeof inputProps.enableVoiceInput !== 'boolean') {
+          errors.push('Chat input enableVoiceInput must be a boolean');
+        }
+        if (inputProps.maxLength !== undefined && (typeof inputProps.maxLength !== 'number' || inputProps.maxLength < 1)) {
+          errors.push('Chat input maxLength must be a positive number');
+        }
+        break;
+      }
+      case "button": {
+        const buttonProps = properties as ButtonProperties;
+        if (!buttonProps.text || typeof buttonProps.text !== 'string' || buttonProps.text.trim().length === 0) {
+          errors.push('Button text is required and must be a non-empty string');
+        }
+        if (!buttonProps.variant || !['primary', 'secondary', 'outline', 'ghost', 'destructive'].includes(buttonProps.variant)) {
+          errors.push('Button variant must be one of: primary, secondary, outline, ghost, destructive');
+        }
+        if (!buttonProps.size || !['small', 'medium', 'large'].includes(buttonProps.size)) {
+          errors.push('Button size must be one of: small, medium, large');
+        }
+        if (typeof buttonProps.disabled !== 'boolean') {
+          errors.push('Button disabled must be a boolean');
+        }
+        break;
+      }
+      case "image": {
+        const imageProps = properties as ImageProperties;
+        if (!imageProps.src || typeof imageProps.src !== 'string') {
+          errors.push('Image src is required and must be a string');
+        } else {
+          try {
+            new URL(imageProps.src);
+          } catch {
+            errors.push('Image src must be a valid URL');
+          }
+        }
+        if (!imageProps.alt || typeof imageProps.alt !== 'string') {
+          errors.push('Image alt text is required and must be a string');
+        }
+        if (typeof imageProps.rounded !== 'boolean') {
+          errors.push('Image rounded must be a boolean');
+        }
+        if (imageProps.objectFit && !['cover', 'contain', 'fill', 'none', 'scale-down'].includes(imageProps.objectFit)) {
+          errors.push('Image objectFit must be one of: cover, contain, fill, none, scale-down');
+        }
+        break;
+      }
+      case "text": {
+        const textProps = properties as TextProperties;
+        if (!textProps.content || typeof textProps.content !== 'string') {
+          errors.push('Text content is required and must be a string');
+        }
+        if (typeof textProps.fontSize !== 'number' || textProps.fontSize < 8 || textProps.fontSize > 72) {
+          errors.push('Text fontSize must be a number between 8 and 72');
+        }
+        if (!['normal', 'medium', 'semibold', 'bold'].includes(textProps.fontWeight)) {
+          errors.push('Text fontWeight must be one of: normal, medium, semibold, bold');
+        }
+        if (!['left', 'center', 'right', 'justify'].includes(textProps.textAlign)) {
+          errors.push('Text textAlign must be one of: left, center, right, justify');
+        }
+        if (textProps.color && !/^#[0-9A-Fa-f]{6}$/.test(textProps.color)) {
+          errors.push('Text color must be a valid hex color');
+        }
+        break;
+      }
+      case "divider": {
+        const dividerProps = properties as DividerProperties;
+        if (!['horizontal', 'vertical'].includes(dividerProps.orientation)) {
+          errors.push('Divider orientation must be horizontal or vertical');
+        }
+        if (typeof dividerProps.thickness !== 'number' || dividerProps.thickness < 1 || dividerProps.thickness > 10) {
+          errors.push('Divider thickness must be a number between 1 and 10');
+        }
+        if (!dividerProps.color || !/^#[0-9A-Fa-f]{6}$/.test(dividerProps.color)) {
+          errors.push('Divider color must be a valid hex color');
+        }
+        if (dividerProps.style && !['solid', 'dashed', 'dotted'].includes(dividerProps.style)) {
+          errors.push('Divider style must be one of: solid, dashed, dotted');
+        }
+        break;
+      }
+      case "message-bubble": {
+        const bubbleProps = properties as MessageBubbleProperties;
+        if (!['user', 'assistant'].includes(bubbleProps.sender)) {
+          errors.push('Message bubble sender must be user or assistant');
+        }
+        if (!bubbleProps.message || typeof bubbleProps.message !== 'string') {
+          errors.push('Message bubble message is required and must be a string');
+        }
+        if (typeof bubbleProps.timestamp !== 'boolean') {
+          errors.push('Message bubble timestamp must be a boolean');
+        }
+        if (typeof bubbleProps.avatar !== 'boolean') {
+          errors.push('Message bubble avatar must be a boolean');
+        }
+        break;
+      }
+      default:
+        errors.push(`Unknown component type: ${type}`);
+    }
+
+    return { isValid: errors.length === 0, errors };
+  } catch (error) {
+    errors.push(`Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return { isValid: false, errors };
   }
+};
+
+// Component size validation
+const validateComponentSize = (size: ComponentSize): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  if (typeof size.width !== 'number' || size.width < 10 || size.width > 2000) {
+    errors.push('Component width must be between 10 and 2000 pixels');
+  }
+  
+  if (typeof size.height !== 'number' || size.height < 10 || size.height > 2000) {
+    errors.push('Component height must be between 10 and 2000 pixels');
+  }
+  
+  return { isValid: errors.length === 0, errors };
+};
+
+// Component position validation
+const validateComponentPosition = (position: ComponentPosition, canvasDimensions: DeviceDimensions): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  if (typeof position.x !== 'number' || position.x < 0 || position.x > canvasDimensions.width) {
+    errors.push(`Component x position must be between 0 and ${canvasDimensions.width}`);
+  }
+  
+  if (typeof position.y !== 'number' || position.y < 0 || position.y > canvasDimensions.height) {
+    errors.push(`Component y position must be between 0 and ${canvasDimensions.height}`);
+  }
+  
+  return { isValid: errors.length === 0, errors };
 };
 
 // Safe property access helper
@@ -310,52 +552,80 @@ const safeGetNestedProperty = <T,>(obj: unknown, path: string, defaultValue: T):
   }
 };
 
-export function VisualToolBuilder({
+function VisualToolBuilderComponent({
   widget,
   onUpdate,
   onConfigurationUpdate,
+  className,
+  disabled = false,
+  onError,
 }: VisualToolBuilderProps) {
-  // Initialize components with safe property access
+  // Initialize components with safe property access and validation
   const initializeComponents = useCallback((): WidgetComponent[] => {
-    const primaryColor = safeGetNestedProperty(widget, 'configuration.theme.primaryColor', '#3b82f6');
-    const enableFileUpload = safeGetNestedProperty(widget, 'configuration.behavior.enableFileUpload', false);
-    const enableVoiceInput = safeGetNestedProperty(widget, 'configuration.behavior.enableVoiceInput', false);
+    try {
+      const primaryColor = safeGetNestedProperty(widget, 'configuration.theme.primaryColor', '#3b82f6');
+      const enableFileUpload = safeGetNestedProperty(widget, 'configuration.behavior.enableFileUpload', false);
+      const enableVoiceInput = safeGetNestedProperty(widget, 'configuration.behavior.enableVoiceInput', false);
+      const widgetName = widget?.name || "Chat Widget";
 
-    return [
-      {
-        id: "header-1",
-        type: "header",
-        position: { x: 0, y: 0 },
-        size: { width: 400, height: 60 },
-        properties: {
-          title: widget.name || "Chat Widget",
-          showLogo: true,
-          backgroundColor: primaryColor,
-          textColor: "#ffffff",
-        } as HeaderProperties,
-        visible: true,
-        locked: false,
-        zIndex: 1,
-      },
-      {
-        id: "chat-input-1",
-        type: "chat-input",
-        position: { x: 10, y: 540 },
-        size: { width: 380, height: 50 },
-        properties: {
-          placeholder: "Type your message...",
-          showSendButton: true,
-          enableFileUpload,
-          enableVoiceInput,
-        } as ChatInputProperties,
-        visible: true,
-        locked: false,
-        zIndex: 2,
-      },
-    ];
+      const initialComponents: WidgetComponent[] = [
+        {
+          id: "header-1",
+          type: "header",
+          position: { x: 0, y: 0 },
+          size: { width: 400, height: 60 },
+          properties: {
+            title: widgetName,
+            showLogo: true,
+            backgroundColor: primaryColor,
+            textColor: "#ffffff",
+          } as HeaderProperties,
+          visible: true,
+          locked: false,
+          zIndex: 1,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: "chat-input-1",
+          type: "chat-input",
+          position: { x: 10, y: 540 },
+          size: { width: 380, height: 50 },
+          properties: {
+            placeholder: "Type your message...",
+            showSendButton: true,
+            enableFileUpload,
+            enableVoiceInput,
+            maxLength: 1000,
+            disabled: false,
+          } as ChatInputProperties,
+          visible: true,
+          locked: false,
+          zIndex: 2,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ];
+
+      // Validate each component
+      const validatedComponents = initialComponents.filter(component => {
+        const validation = validateComponentProperties(component.type, component.properties);
+        if (!validation.isValid) {
+          console.warn(`Invalid component ${component.id}:`, validation.errors);
+          return false;
+        }
+        return true;
+      });
+
+      return validatedComponents;
+    } catch (error) {
+      console.error('Error initializing components:', error);
+      handleError(error as Error, 'Component initialization');
+      return [];
+    }
   }, [widget]);
 
-  const [components, setComponents] = useState<WidgetComponent[]>(initializeComponents);
+  const [components, setComponents] = useState<WidgetComponent[]>(initializeComponents());
   const [selectedComponent, setSelectedComponent] = useState<string | null>(null);
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("desktop");
   const [showGrid, setShowGrid] = useState(true);
@@ -398,6 +668,8 @@ export function VisualToolBuilder({
   }, []);
 
   const handleDragEnd = useCallback((result: DropResult) => {
+    if (disabled) return;
+    
     try {
       if (!result.destination) return;
 
@@ -413,23 +685,77 @@ export function VisualToolBuilder({
           throw new Error("Invalid component type selected");
         }
 
+        // Generate unique ID with better entropy
+        const timestamp = Date.now();
+        const randomId = Math.random().toString(36).substring(2, 15);
+        const componentId = `${componentType.type}-${timestamp}-${randomId}`;
+
+        // Calculate position with bounds checking
+        const baseX = 50;
+        const baseY = 100 + components.length * 80;
+        const maxX = deviceDimensions.width - 200;
+        const maxY = deviceDimensions.height - 40;
+        
+        const position = {
+          x: snapToGrid 
+            ? Math.round(Math.min(baseX, maxX) / 20) * 20 
+            : Math.min(baseX, maxX),
+          y: snapToGrid 
+            ? Math.round(Math.min(baseY, maxY) / 20) * 20 
+            : Math.min(baseY, maxY)
+        };
+
+        // Determine appropriate size based on component type
+        const getDefaultSize = (type: ComponentType): ComponentSize => {
+          switch (type) {
+            case 'header':
+              return { width: Math.min(400, deviceDimensions.width), height: 60 };
+            case 'chat-input':
+              return { width: Math.min(380, deviceDimensions.width - 20), height: 50 };
+            case 'button':
+              return { width: 120, height: 40 };
+            case 'image':
+              return { width: 200, height: 150 };
+            case 'text':
+              return { width: 200, height: 40 };
+            case 'message-bubble':
+              return { width: 250, height: 80 };
+            case 'divider':
+              return { width: 200, height: 2 };
+            default:
+              return { width: 200, height: 40 };
+          }
+        };
+
         const newComponent: WidgetComponent = {
-          id: `${componentType.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: componentId,
           type: componentType.type,
-          position: {
-            x: snapToGrid ? Math.round(50 / 20) * 20 : 50,
-            y: snapToGrid ? Math.round((100 + components.length * 80) / 20) * 20 : 100 + components.length * 80
-          },
-          size: { width: 200, height: 40 },
+          position,
+          size: getDefaultSize(componentType.type),
           properties: { ...componentType.defaultProps },
           visible: true,
           locked: false,
           zIndex: Math.max(0, ...components.map(c => c.zIndex)) + 1,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         };
 
         // Validate component properties
-        if (!validateComponentProperties(newComponent.type, newComponent.properties)) {
-          throw new Error("Invalid component properties");
+        const validation = validateComponentProperties(newComponent.type, newComponent.properties);
+        if (!validation.isValid) {
+          throw new Error(`Invalid component properties: ${validation.errors.join(', ')}`);
+        }
+
+        // Validate component size
+        const sizeValidation = validateComponentSize(newComponent.size);
+        if (!sizeValidation.isValid) {
+          throw new Error(`Invalid component size: ${sizeValidation.errors.join(', ')}`);
+        }
+
+        // Validate component position
+        const positionValidation = validateComponentPosition(newComponent.position, deviceDimensions);
+        if (!positionValidation.isValid) {
+          throw new Error(`Invalid component position: ${positionValidation.errors.join(', ')}`);
         }
 
         setComponents((prev) => [...prev, newComponent]);
@@ -441,20 +767,31 @@ export function VisualToolBuilder({
         });
       } else if (
         source.droppableId === "canvas" &&
-        destination.droppableId === "canvas"
+        destination.droppableId === "canvas" &&
+        source.index !== destination.index
       ) {
         // Reorder components
         setComponents((prev) => {
           const newComponents = Array.from(prev);
           const [reorderedItem] = newComponents.splice(source.index, 1);
-          newComponents.splice(destination.index, 0, reorderedItem);
+          if (reorderedItem) {
+            newComponents.splice(destination.index, 0, {
+              ...reorderedItem,
+              updatedAt: new Date(),
+            });
+          }
           return newComponents;
+        });
+
+        toast({
+          title: "Component Reordered",
+          description: "Component order has been updated.",
         });
       }
     } catch (error) {
       handleError(error as Error, "Drag and drop operation");
     }
-  }, [components, snapToGrid, handleError]);
+  }, [components, snapToGrid, handleError, disabled, deviceDimensions]);
 
   const handleComponentSelect = useCallback((componentId: string) => {
     try {
@@ -469,15 +806,48 @@ export function VisualToolBuilder({
     componentId: string,
     updates: Partial<WidgetComponent>,
   ) => {
+    if (disabled) return;
+    
     try {
       setComponents((prev) =>
         prev.map((comp) => {
           if (comp.id === componentId) {
-            const updatedComponent = { ...comp, ...updates };
+            const updatedComponent = { 
+              ...comp, 
+              ...updates,
+              updatedAt: new Date(),
+            };
 
             // Validate updated properties if they exist
-            if (updates.properties && !validateComponentProperties(comp.type, updates.properties as ComponentProperties)) {
-              throw new Error("Invalid component properties");
+            if (updates.properties) {
+              const validation = validateComponentProperties(comp.type, updates.properties as ComponentProperties);
+              if (!validation.isValid) {
+                throw new Error(`Invalid component properties: ${validation.errors.join(', ')}`);
+              }
+            }
+
+            // Validate updated size if it exists
+            if (updates.size) {
+              const sizeValidation = validateComponentSize(updates.size);
+              if (!sizeValidation.isValid) {
+                throw new Error(`Invalid component size: ${sizeValidation.errors.join(', ')}`);
+              }
+            }
+
+            // Validate updated position if it exists
+            if (updates.position) {
+              const positionValidation = validateComponentPosition(updates.position, deviceDimensions);
+              if (!positionValidation.isValid) {
+                throw new Error(`Invalid component position: ${positionValidation.errors.join(', ')}`);
+              }
+            }
+
+            // Apply grid snapping if enabled
+            if (updates.position && snapToGrid) {
+              updatedComponent.position = {
+                x: Math.round(updates.position.x / 20) * 20,
+                y: Math.round(updates.position.y / 20) * 20,
+              };
             }
 
             return updatedComponent;
@@ -488,7 +858,7 @@ export function VisualToolBuilder({
     } catch (error) {
       handleError(error as Error, "Component update");
     }
-  }, [handleError]);
+  }, [handleError, disabled, deviceDimensions, snapToGrid]);
 
   const handleComponentDelete = useCallback((componentId: string) => {
     try {
@@ -507,21 +877,51 @@ export function VisualToolBuilder({
   }, [selectedComponent, handleError]);
 
   const handleComponentDuplicate = useCallback((componentId: string) => {
+    if (disabled) return;
+    
     try {
       const component = components.find((comp) => comp.id === componentId);
       if (!component) {
         throw new Error("Component not found");
       }
 
+      // Generate unique ID
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 15);
+      const newComponentId = `${component.type}-${timestamp}-${randomId}`;
+
+      // Calculate new position with bounds checking
+      const offset = 20;
+      const newX = component.position.x + offset;
+      const newY = component.position.y + offset;
+      const maxX = deviceDimensions.width - component.size.width;
+      const maxY = deviceDimensions.height - component.size.height;
+
+      const newPosition = {
+        x: Math.min(newX, maxX),
+        y: Math.min(newY, maxY),
+      };
+
+      // Apply grid snapping if enabled
+      if (snapToGrid) {
+        newPosition.x = Math.round(newPosition.x / 20) * 20;
+        newPosition.y = Math.round(newPosition.y / 20) * 20;
+      }
+
       const newComponent: WidgetComponent = {
         ...component,
-        id: `${component.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        position: {
-          x: snapToGrid ? Math.round((component.position.x + 20) / 20) * 20 : component.position.x + 20,
-          y: snapToGrid ? Math.round((component.position.y + 20) / 20) * 20 : component.position.y + 20,
-        },
+        id: newComponentId,
+        position: newPosition,
         zIndex: Math.max(0, ...components.map((c) => c.zIndex)) + 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
+
+      // Validate the duplicated component
+      const validation = validateComponentProperties(newComponent.type, newComponent.properties);
+      if (!validation.isValid) {
+        throw new Error(`Invalid duplicated component: ${validation.errors.join(', ')}`);
+      }
 
       setComponents((prev) => [...prev, newComponent]);
       setSelectedComponent(newComponent.id);
@@ -533,7 +933,7 @@ export function VisualToolBuilder({
     } catch (error) {
       handleError(error as Error, "Component duplication");
     }
-  }, [components, snapToGrid, handleError]);
+  }, [components, snapToGrid, handleError, disabled, deviceDimensions]);
 
   const renderComponent = useCallback((component: WidgetComponent) => {
     try {
@@ -891,28 +1291,47 @@ export function VisualToolBuilder({
     (comp) => comp.id === selectedComponent,
   );
 
-  // Error boundary component
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className={cn("flex items-center justify-center h-[800px]", className)}>
+        <div className="text-center">
+          <LoadingSpinner size="lg" className="mb-4" />
+          <p className="text-muted-foreground">Loading Visual Tool Builder...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
   if (error) {
     return (
-      <TooltipProvider>
-        <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-center gap-3 mb-4">
-            <AlertTriangle className="h-6 w-6 text-red-600" />
-            <h3 className="text-lg font-semibold text-red-800">Visual Tool Builder Error</h3>
-          </div>
-          <p className="text-red-700 mb-4">{error}</p>
-          <Button onClick={clearError} variant="outline">
-            Try Again
-          </Button>
-        </div>
-      </TooltipProvider>
+      <div className={cn("p-6", className)}>
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Visual Tool Builder Error</AlertTitle>
+          <AlertDescription className="mt-2">
+            {error}
+            <Button
+              onClick={clearError}
+              variant="outline"
+              size="sm"
+              className="mt-3"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[800px]">
+    <div className={cn("w-full", className)} data-testid="visual-tool-builder">
+      <TooltipProvider delayDuration={300}>
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-[800px]" role="application" aria-label="Visual Tool Builder">
         {/* Component Library */}
         <div className="lg:col-span-1">
           <Card className="h-full">
@@ -937,25 +1356,66 @@ export function VisualToolBuilder({
                         key={component.type}
                         draggableId={component.type}
                         index={index}
+                        isDragDisabled={disabled || component.isDeprecated}
                       >
                         {(provided, snapshot) => (
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
-                            className={`p-3 border rounded-lg cursor-move hover:bg-gray-50 ${
-                              snapshot.isDragging ? "shadow-lg" : ""
-                            }`}
+                            className={cn(
+                              "p-3 border rounded-lg transition-all duration-200",
+                              {
+                                "cursor-move hover:bg-gray-50 hover:border-gray-300": !disabled && !component.isDeprecated,
+                                "shadow-lg bg-blue-50 border-blue-200": snapshot.isDragging,
+                                "opacity-50 cursor-not-allowed": disabled || component.isDeprecated,
+                              }
+                            )}
+                            role="button"
+                            tabIndex={disabled || component.isDeprecated ? -1 : 0}
+                            aria-label={`Drag ${component.name} component to canvas`}
+                            aria-disabled={disabled || component.isDeprecated}
+                            data-testid={`component-library-${component.type}`}
+                            onKeyDown={(e) => {
+                              if ((e.key === 'Enter' || e.key === ' ') && !disabled && !component.isDeprecated) {
+                                e.preventDefault();
+                                // Simulate drag and drop for keyboard users
+                                const mockResult: DropResult = {
+                                  draggableId: component.type,
+                                  type: 'DEFAULT',
+                                  source: { droppableId: 'component-library', index },
+                                  destination: { droppableId: 'canvas', index: components.length },
+                                  reason: 'DROP',
+                                  mode: 'FLUID',
+                                  combine: null,
+                                };
+                                handleDragEnd(mockResult);
+                              }
+                            }}
                           >
                             <div className="flex items-center gap-2">
-                              <component.icon className="h-4 w-4" />
-                              <div>
-                                <div className="font-medium text-sm">
+                              <component.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-sm truncate">
                                   {component.name}
+                                  {component.isDeprecated && (
+                                    <Badge variant="destructive" className="ml-2 text-xs">
+                                      Deprecated
+                                    </Badge>
+                                  )}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-xs text-muted-foreground line-clamp-2">
                                   {component.description}
                                 </div>
+                                {component.tags && component.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {component.tags.slice(0, 2).map((tag) => (
+                                      <Badge key={tag} variant="outline" className="text-xs px-1 py-0">
+                                        {tag}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1041,7 +1501,11 @@ export function VisualToolBuilder({
                         ? "radial-gradient(circle, #e5e7eb 1px, transparent 1px)"
                         : "none",
                       backgroundSize: showGrid ? "20px 20px" : "none",
+                      minHeight: deviceDimensions.height,
                     }}
+                    role="main"
+                    aria-label="Canvas for widget components"
+                    data-testid="canvas"
                     onClick={() => setSelectedComponent(null)}
                   >
                     {components.map((component) => renderComponent(component))}
@@ -1268,5 +1732,14 @@ export function VisualToolBuilder({
       </div>
     </DragDropContext>
     </TooltipProvider>
+  );
+}
+
+// Main export with error boundary
+export function VisualToolBuilder(props: VisualToolBuilderProps) {
+  return (
+    <VisualToolBuilderErrorBoundary onError={props.onError}>
+      <VisualToolBuilderComponent {...props} />
+    </VisualToolBuilderErrorBoundary>
   );
 }
