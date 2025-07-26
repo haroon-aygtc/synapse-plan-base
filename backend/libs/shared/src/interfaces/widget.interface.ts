@@ -221,6 +221,7 @@ export interface WidgetAnalytics {
   conversionType?: string;
   errorMessage?: string;
   metadata?: Record<string, any>;
+  properties?: Record<string, any>;
   isUniqueVisitor: boolean;
   isReturningVisitor: boolean;
   isBounce: boolean;

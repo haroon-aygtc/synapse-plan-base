@@ -14,7 +14,7 @@ import {
 import { AgentModule } from '../agent/agent.module';
 import { ToolModule } from '../tool/tool.module';
 import { WorkflowModule } from '../workflow/workflow.module';
-import { WebSocketModule } from '../websocket/websocket.module';
+import { WebsocketModule } from '../websocket/websocket.module';
 import { SessionModule } from '../session/session.module';
 import { AIProviderModule } from '../ai-provider/ai-provider.module';
 import { PromptTemplateModule } from '../prompt-template/prompt-template.module';
@@ -33,7 +33,7 @@ import { PromptTemplateModule } from '../prompt-template/prompt-template.module'
     AgentModule,
     ToolModule,
     WorkflowModule,
-    WebSocketModule,
+    WebsocketModule,
     SessionModule,
     AIProviderModule,
     PromptTemplateModule,

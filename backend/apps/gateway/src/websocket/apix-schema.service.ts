@@ -527,7 +527,7 @@ export class APXSchemaService {
         valid: false,
         errors: {
           error_code: 'VALIDATION_ERROR',
-          error_message: error.message || 'Unknown validation error',
+          error_message: error instanceof Error ? error.message : 'Unknown validation error',
           request_id: message.request_id,
         },
       };
@@ -544,7 +544,7 @@ export class APXSchemaService {
     return sanitized;
   }
 
-  private sanitizeObject(obj: any): void {
+  private sanitizeObject(obj: any): any {
     if (typeof obj === 'string') {
       // Basic XSS prevention - remove script tags and javascript: protocols
       return obj

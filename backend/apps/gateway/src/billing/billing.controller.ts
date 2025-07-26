@@ -18,6 +18,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { UserRole } from '@shared/interfaces';
 import { BillingService } from './billing.service';
+import { getErrorMessage } from '@shared/utils/error-guards';
 
 @ApiTags('billing')
 @ApiBearerAuth()
@@ -44,7 +45,7 @@ export class BillingController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: getErrorMessage(error),
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
@@ -70,7 +71,7 @@ export class BillingController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: getErrorMessage(error),
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
@@ -103,7 +104,7 @@ export class BillingController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: getErrorMessage(error),
         },
         HttpStatus.BAD_REQUEST
       );
@@ -132,7 +133,7 @@ export class BillingController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: getErrorMessage(error),
         },
         HttpStatus.BAD_REQUEST
       );
@@ -158,7 +159,7 @@ export class BillingController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: getErrorMessage(error),
         },
         HttpStatus.BAD_REQUEST
       );
@@ -180,7 +181,7 @@ export class BillingController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: getErrorMessage(error),
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );

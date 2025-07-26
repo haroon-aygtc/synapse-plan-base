@@ -118,3 +118,30 @@ export class BulkUserActionDto {
   @MaxLength(500, { message: 'Reason cannot exceed 500 characters' })
   reason?: string;
 }
+
+export class UpdateUserPermissionsDto {
+  @ApiProperty({
+    description: 'User ID to update permissions for',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @IsString()
+  userId: string;
+
+  @ApiProperty({
+    description: 'New permissions to assign to the user',
+    type: [String],
+    example: ['agent:create', 'tool:read', 'workflow:execute'],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  permissions: string[];
+
+  @ApiPropertyOptional({
+    description: 'Reason for permission update',
+    example: 'Role change from developer to admin',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'Reason cannot exceed 500 characters' })
+  reason?: string;
+}

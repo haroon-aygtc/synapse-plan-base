@@ -26,18 +26,24 @@ export class AIAssistantService {
     @InjectRepository(PromptTemplate)
     private readonly promptTemplateRepository: Repository<PromptTemplate>,
     private readonly configService: ConfigService,
-    private readonly aiProviderService: AIProviderService
+    private readonly aiProviderService: AIProviderService,
   ) {
     this.openai = new OpenAI({
       apiKey: this.configService.get<string>('OPENAI_API_KEY'),
     });
   }
 
-  async generateAgentConfig(dto: GenerateConfigDto, userId: string, organizationId: string) {
+  async generateAgentConfig(
+    dto: GenerateConfigDto,
+    userId: string,
+    organizationId: string,
+  ) {
     this.logger.log(`Generating agent config for user ${userId}`);
 
     try {
-      const personalityDescription = this.buildPersonalityDescription(dto.personalityTraits);
+      const personalityDescription = this.buildPersonalityDescription(
+        dto.personalityTraits,
+      );
       const requirementsText = dto.requirements?.join(', ') || '';
       const constraintsText = dto.constraints?.join(', ') || '';
 
@@ -82,7 +88,7 @@ Make the configuration production-ready and optimized for the specified use case
         organizationId,
         'AGENT_GENERATION' as any,
         'gpt-4',
-        { userId, organizationId }
+        { userId, organizationId },
       );
 
       const completion = await this.aiProviderService.executeCompletion(
@@ -105,12 +111,15 @@ Make the configuration production-ready and optimized for the specified use case
           resourceId: 'ai-assistant',
         },
         organizationId,
-        userId
+        userId,
       );
 
       const content = completion.content;
       if (!content) {
-        throw new Error('No response from AI provider');
+        this.logger.error('Empty response received from AI provider');
+        throw new Error(
+          'No response from AI provider. Please try again later.',
+        );
       }
 
       const config = JSON.parse(content);
@@ -123,7 +132,11 @@ Make the configuration production-ready and optimized for the specified use case
     }
   }
 
-  async analyzeAgent(dto: AnalyzeAgentDto, userId: string, organizationId: string) {
+  async analyzeAgent(
+    dto: AnalyzeAgentDto,
+    userId: string,
+    organizationId: string,
+  ) {
     this.logger.log(`Analyzing agent ${dto.name} for user ${userId}`);
 
     try {
@@ -183,6 +196,7 @@ Provide analysis in the following JSON format:
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
+        this.logger.error('Empty response received from OpenAI');
         throw new Error('No response from AI');
       }
 
@@ -199,9 +213,11 @@ Provide analysis in the following JSON format:
   async generatePromptSuggestions(
     dto: PromptSuggestionsDto,
     userId: string,
-    organizationId: string
+    organizationId: string,
   ) {
-    this.logger.log(`Generating prompt suggestions for use case: ${dto.useCase}`);
+    this.logger.log(
+      `Generating prompt suggestions for use case: ${dto.useCase}`,
+    );
 
     try {
       const prompt = `
@@ -250,12 +266,15 @@ Make each prompt unique and optimized for different aspects of the use case.
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
+        this.logger.error('Empty response received from OpenAI');
         throw new Error('No response from AI');
       }
 
       const suggestions = JSON.parse(content);
 
-      this.logger.log(`Generated ${suggestions.suggestions?.length || 0} prompt suggestions`);
+      this.logger.log(
+        `Generated ${suggestions.suggestions?.length || 0} prompt suggestions`,
+      );
       return suggestions;
     } catch (error) {
       this.logger.error('Failed to generate prompt suggestions', error);
@@ -263,11 +282,16 @@ Make each prompt unique and optimized for different aspects of the use case.
     }
   }
 
-  async optimizePrompt(dto: OptimizePromptDto, userId: string, organizationId: string) {
+  async optimizePrompt(
+    dto: OptimizePromptDto,
+    userId: string,
+    organizationId: string,
+  ) {
     this.logger.log(`Optimizing prompt for use case: ${dto.useCase}`);
 
     try {
-      const issuesText = dto.performanceIssues?.join(', ') || 'General optimization';
+      const issuesText =
+        dto.performanceIssues?.join(', ') || 'General optimization';
       const metricsText = dto.targetMetrics
         ? JSON.stringify(dto.targetMetrics)
         : 'Standard performance targets';
@@ -316,6 +340,7 @@ Provide optimization in the following JSON format:
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
+        this.logger.error('Empty response received from OpenAI');
         throw new Error('No response from AI');
       }
 
@@ -329,8 +354,14 @@ Provide optimization in the following JSON format:
     }
   }
 
-  async generateTestCases(dto: GenerateTestCasesDto, userId: string, organizationId: string) {
-    this.logger.log(`Generating ${dto.testType} test cases for use case: ${dto.useCase}`);
+  async generateTestCases(
+    dto: GenerateTestCasesDto,
+    userId: string,
+    organizationId: string,
+  ) {
+    this.logger.log(
+      `Generating ${dto.testType} test cases for use case: ${dto.useCase}`,
+    );
 
     try {
       const count = dto.count || 5;
@@ -387,12 +418,15 @@ Make test cases comprehensive and cover edge cases, typical scenarios, and stres
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
+        this.logger.error('Empty response received from OpenAI');
         throw new Error('No response from AI');
       }
 
       const testCases = JSON.parse(content);
 
-      this.logger.log(`Generated ${testCases.testCases?.length || 0} test cases`);
+      this.logger.log(
+        `Generated ${testCases.testCases?.length || 0} test cases`,
+      );
       return testCases;
     } catch (error) {
       this.logger.error('Failed to generate test cases', error);
@@ -400,7 +434,11 @@ Make test cases comprehensive and cover edge cases, typical scenarios, and stres
     }
   }
 
-  async explainAgent(dto: ExplainAgentDto, userId: string, organizationId: string) {
+  async explainAgent(
+    dto: ExplainAgentDto,
+    userId: string,
+    organizationId: string,
+  ) {
     this.logger.log(`Explaining agent: ${dto.name}`);
 
     try {
@@ -458,6 +496,7 @@ Provide explanation in the following JSON format:
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
+        this.logger.error('Empty response received from OpenAI');
         throw new Error('No response from AI');
       }
 
@@ -474,7 +513,7 @@ Provide explanation in the following JSON format:
   async generatePersonalityProfile(
     dto: PersonalityProfileDto,
     userId: string,
-    organizationId: string
+    organizationId: string,
   ) {
     this.logger.log(`Generating personality profile for user ${userId}`);
 
@@ -528,6 +567,7 @@ Provide the profile in the following JSON format:
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
+        this.logger.error('Empty response received from OpenAI');
         throw new Error('No response from AI');
       }
 

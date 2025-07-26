@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Notification, NotificationDelivery } from '@database/entities';
-import { NotificationType, ExecutionStatus, EventType, EventTargetType } from '@shared/enums';
+import { AgentEventType, NotificationType, ExecutionStatus, EventTargetType } from '@shared/enums';
 import { EmailDeliveryProvider } from './providers/email-delivery.provider';
 import { SmsDeliveryProvider } from './providers/sms-delivery.provider';
 import { WebhookDeliveryProvider } from './providers/webhook-delivery.provider';
@@ -58,7 +58,7 @@ export class NotificationDeliveryService {
       await this.notificationRepository.save(notification);
 
       // Send real-time update
-      await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
+      await this.webSocketService.publishEvent(AgentEventType.NOTIFICATION_SENT, {
         targetType: EventTargetType.USER,
         targetId: notification.userId,
         data: {
@@ -70,7 +70,7 @@ export class NotificationDeliveryService {
       });
 
       // Emit completion event
-      this.eventEmitter.emit(EventType.NOTIFICATION_SENT, {
+      this.eventEmitter.emit(AgentEventType.NOTIFICATION_SENT, {
         notificationId: notification.id,
         userId: notification.userId,
         organizationId: notification.organizationId,
@@ -78,19 +78,22 @@ export class NotificationDeliveryService {
         deliveryResults: results,
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
       this.logger.error(
-        `Failed to process notification ${notification.id}: ${error.message}`,
-        error.stack
+        `Failed to process notification ${notification.id}: ${errorMessage}`,
+        errorStack
       );
 
-      notification.markAsFailed(error.message);
+      notification.markAsFailed(errorMessage);
       await this.notificationRepository.save(notification);
 
-      this.eventEmitter.emit(EventType.NOTIFICATION_FAILED, {
+      this.eventEmitter.emit(AgentEventType.NOTIFICATION_FAILED, {
         notificationId: notification.id,
         userId: notification.userId,
         organizationId: notification.organizationId,
-        error: error.message,
+        error: errorMessage,
       });
     }
   }
@@ -106,122 +109,139 @@ export class NotificationDeliveryService {
   private async createDeliveryRecords(notification: Notification): Promise<NotificationDelivery[]> {
     const deliveries: NotificationDelivery[] = [];
 
-    switch (notification.type) {
-      case NotificationType.EMAIL:
-        if (notification.deliveryConfig?.email) {
-          const emailDelivery = this.deliveryRepository.create({
-            notificationId: notification.id,
-            type: NotificationType.EMAIL,
-            recipient: notification.deliveryConfig.email.to.join(', '),
-            status: ExecutionStatus.PENDING,
-            deliveryData: {
-              email: {
-                subject: notification.title,
-                toAddresses: notification.deliveryConfig.email.to,
-                ccAddresses: notification.deliveryConfig.email.cc,
-                bccAddresses: notification.deliveryConfig.email.bcc,
-              },
-            },
-          });
-          deliveries.push(emailDelivery);
-        }
-        break;
+    // Create delivery record for the notification type
+    const delivery = this.deliveryRepository.create({
+      notificationId: notification.id,
+      type: notification.type,
+      recipient: notification.userId,
+      status: ExecutionStatus.PENDING,
+      retryCount: 0,
+      maxRetries: notification.maxRetries || 3,
+      deliveryData: this.buildDeliveryData(notification),
+    });
 
-      case NotificationType.SMS:
-        if (notification.deliveryConfig?.sms) {
-          for (const phoneNumber of notification.deliveryConfig.sms.to) {
-            const smsDelivery = this.deliveryRepository.create({
-              notificationId: notification.id,
-              type: NotificationType.SMS,
-              recipient: phoneNumber,
-              status: ExecutionStatus.PENDING,
-              deliveryData: {
-                sms: {
-                  toNumber: phoneNumber,
-                },
-              },
-            });
-            deliveries.push(smsDelivery);
-          }
-        }
-        break;
+    deliveries.push(delivery);
 
-      case NotificationType.WEBHOOK:
-        if (notification.deliveryConfig?.webhook) {
-          const webhookDelivery = this.deliveryRepository.create({
-            notificationId: notification.id,
-            type: NotificationType.WEBHOOK,
-            recipient: notification.deliveryConfig.webhook.url,
-            status: ExecutionStatus.PENDING,
-            deliveryData: {
-              webhook: {
-                url: notification.deliveryConfig.webhook.url,
-                method: notification.deliveryConfig.webhook.method,
-                requestHeaders: notification.deliveryConfig.webhook.headers,
-              },
-            },
-          });
-          deliveries.push(webhookDelivery);
-        }
-        break;
-
-      case NotificationType.PUSH:
-        if (notification.deliveryConfig?.push) {
-          const pushDelivery = this.deliveryRepository.create({
-            notificationId: notification.id,
-            type: NotificationType.PUSH,
-            recipient: notification.deliveryConfig.push.tokens.join(', '),
-            status: ExecutionStatus.PENDING,
-            deliveryData: {
-              push: {
-                deviceTokens: notification.deliveryConfig.push.tokens,
-                badge: notification.deliveryConfig.push.badge,
-                sound: notification.deliveryConfig.push.sound,
-              },
-            },
-          });
-          deliveries.push(pushDelivery);
-        }
-        break;
-
-      case NotificationType.IN_APP:
-        // In-app notifications are delivered via WebSocket
-        await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
-          targetType: EventTargetType.USER,
-          targetId: notification.userId,
-          data: {
-            type: 'new_notification',
-            notification: {
-              id: notification.id,
-              title: notification.title,
-              message: notification.message,
-              priority: notification.priority,
-              createdAt: notification.createdAt,
-              data: notification.data,
+    // If notification has delivery config, create additional delivery records
+    if (notification.deliveryConfig) {
+      if (notification.deliveryConfig.email && notification.type !== NotificationType.EMAIL) {
+        const emailDelivery = this.deliveryRepository.create({
+          notificationId: notification.id,
+          type: NotificationType.EMAIL,
+          recipient: notification.deliveryConfig.email.to.join(','),
+          status: ExecutionStatus.PENDING,
+          retryCount: 0,
+          maxRetries: notification.maxRetries || 3,
+          deliveryData: {
+            email: {
+              toAddresses: notification.deliveryConfig.email.to,
+              ccAddresses: notification.deliveryConfig.email.cc,
+              bccAddresses: notification.deliveryConfig.email.bcc,
             },
           },
         });
+        deliveries.push(emailDelivery);
+      }
 
-        // Create a delivery record for tracking
-        const inAppDelivery = this.deliveryRepository.create({
+      if (notification.deliveryConfig.sms && notification.type !== NotificationType.SMS) {
+        const smsDelivery = this.deliveryRepository.create({
           notificationId: notification.id,
-          type: NotificationType.IN_APP,
-          recipient: notification.userId,
-          status: ExecutionStatus.COMPLETED,
-          deliveredAt: new Date(),
+          type: NotificationType.SMS,
+          recipient: notification.deliveryConfig.sms.to.join(','),
+          status: ExecutionStatus.PENDING,
+          retryCount: 0,
+          maxRetries: notification.maxRetries || 3,
+          deliveryData: {
+            sms: {
+              toNumber: notification.deliveryConfig.sms.to[0], // SMS typically to one number
+            },
+          },
         });
-        deliveries.push(inAppDelivery);
-        break;
+        deliveries.push(smsDelivery);
+      }
+
+      if (notification.deliveryConfig.webhook && notification.type !== NotificationType.WEBHOOK) {
+        const webhookDelivery = this.deliveryRepository.create({
+          notificationId: notification.id,
+          type: NotificationType.WEBHOOK,
+          recipient: notification.deliveryConfig.webhook.url,
+          status: ExecutionStatus.PENDING,
+          retryCount: 0,
+          maxRetries: notification.maxRetries || 3,
+          deliveryData: {
+            webhook: {
+              url: notification.deliveryConfig.webhook.url,
+              method: notification.deliveryConfig.webhook.method,
+              requestHeaders: notification.deliveryConfig.webhook.headers,
+            },
+          },
+        });
+        deliveries.push(webhookDelivery);
+      }
+
+      if (notification.deliveryConfig.push && notification.type !== NotificationType.PUSH) {
+        const pushDelivery = this.deliveryRepository.create({
+          notificationId: notification.id,
+          type: NotificationType.PUSH,
+          recipient: notification.deliveryConfig.push.tokens.join(','),
+          status: ExecutionStatus.PENDING,
+          retryCount: 0,
+          maxRetries: notification.maxRetries || 3,
+          deliveryData: {
+            push: {
+              deviceTokens: notification.deliveryConfig.push.tokens,
+              badge: notification.deliveryConfig.push.badge,
+              sound: notification.deliveryConfig.push.sound,
+            },
+          },
+        });
+        deliveries.push(pushDelivery);
+      }
     }
 
     return this.deliveryRepository.save(deliveries);
   }
 
-  private async processDelivery(delivery: NotificationDelivery): Promise<void> {
+  private buildDeliveryData(notification: Notification): any {
+    switch (notification.type) {
+      case NotificationType.EMAIL:
+        return {
+          email: {
+            subject: notification.title,
+            toAddresses: notification.deliveryConfig?.email?.to || [notification.userId],
+          },
+        };
+      case NotificationType.SMS:
+        return {
+          sms: {
+            toNumber: notification.deliveryConfig?.sms?.to?.[0] || notification.userId,
+          },
+        };
+      case NotificationType.WEBHOOK:
+        return {
+          webhook: {
+            url: notification.deliveryConfig?.webhook?.url || '',
+            method: notification.deliveryConfig?.webhook?.method || 'POST',
+          },
+        };
+      case NotificationType.PUSH:
+        return {
+          push: {
+            deviceTokens: notification.deliveryConfig?.push?.tokens || [],
+          },
+        };
+      case NotificationType.IN_APP:
+        return {};
+      default:
+        return {};
+    }
+  }
+
+  async processDelivery(delivery: NotificationDelivery): Promise<void> {
     const startTime = Date.now();
 
     try {
-      delivery.markAsSent();
+      delivery.status = ExecutionStatus.RUNNING;
       await this.deliveryRepository.save(delivery);
 
       let result: any;
@@ -240,36 +260,54 @@ export class NotificationDeliveryService {
           result = await this.pushProvider.sendPush(delivery);
           break;
         case NotificationType.IN_APP:
-          // Already handled in createDeliveryRecords
+          // In-app notifications are delivered via WebSocket
+          await this.webSocketService.publishEvent(AgentEventType.NOTIFICATION_SENT, {
+            targetType: EventTargetType.USER,
+            targetId: delivery.recipient,
+            data: {
+              type: 'in_app_notification',
+              notificationId: delivery.notificationId,
+              title: delivery.notification?.title,
+              message: delivery.notification?.message,
+              priority: delivery.notification?.priority,
+            },
+          });
           result = { success: true };
           break;
         default:
           throw new Error(`Unsupported delivery type: ${delivery.type}`);
       }
 
-      delivery.responseTime = Date.now() - startTime;
-      delivery.markAsDelivered(result);
+      if (result.success) {
+        delivery.markAsDelivered(result);
+        delivery.responseTime = Date.now() - startTime;
+      } else {
+        throw new Error(result.error || 'Delivery failed');
+      }
 
-      this.logger.debug(
-        `Successfully delivered notification ${delivery.notificationId} via ${delivery.type}`
-      );
+      await this.deliveryRepository.save(delivery);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = error instanceof Error && 'code' in error ? (error as any).code : undefined;
+      const errorResponse = error instanceof Error && 'response' in error ? (error as any).response : undefined;
+      
       delivery.responseTime = Date.now() - startTime;
-      delivery.markAsFailed(error.message, error.code, error.response);
+      delivery.markAsFailed(errorMessage, errorCode, errorResponse);  
 
       this.logger.error(
-        `Failed to deliver notification ${delivery.notificationId} via ${delivery.type}: ${error.message}`,
-        error.stack
+        `Failed to deliver notification ${delivery.notificationId} via ${delivery.type}: ${errorMessage}`,
+        error instanceof Error ? error.stack : undefined
       );
 
       // Schedule retry if possible
       if (delivery.canRetry()) {
-        this.logger.debug(
-          `Scheduling retry ${delivery.retryCount}/${delivery.maxRetries} for delivery ${delivery.id}`
-        );
+        const retryDelay = Math.pow(2, delivery.retryCount) * 1000; // Exponential backoff
+        delivery.nextRetryAt = new Date(Date.now() + retryDelay);
+        await this.deliveryRepository.save(delivery);
+      } else {
+        // Mark as permanently failed - don't set nextRetryAt
+        await this.deliveryRepository.save(delivery);
       }
-    } finally {
-      await this.deliveryRepository.save(delivery);
     }
   }
 }

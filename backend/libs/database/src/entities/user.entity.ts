@@ -8,6 +8,7 @@ import { Session } from './session.entity';
 import { APXSession } from './apix-session.entity';
 import { APXExecution } from './apix-execution.entity';
 import { AIProvider } from './ai-provider.entity';
+import { ToolTemplate } from './tool-template.entity';
 import { UserRole } from '@shared/interfaces';
 
 @Entity('users')
@@ -19,6 +20,9 @@ export class User extends BaseEntity {
 
   @Column({ type: 'varchar', length: 255 })
   passwordHash: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  organizationId: string;
 
   @Column({ type: 'varchar', length: 100 })
   firstName: string;
@@ -84,6 +88,9 @@ export class User extends BaseEntity {
 
   @OneToMany(() => AIProvider, (provider) => provider.user)
   aiProviders: AIProvider[] = [];
+
+  @OneToMany(() => ToolTemplate, (template) => template.user)
+  toolTemplates: ToolTemplate[] = [];
 
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`;

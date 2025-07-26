@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule } from '@nestjs/bull';
-import * as redisStore from 'cache-manager-redis-store';
+// import redisStore from 'cache-manager-ioredis';
 import { databaseConfig } from '@database/config';
 import { AuthModule } from './auth/auth.module';
 import { SessionModule } from './session/session.module';
@@ -33,29 +33,23 @@ import { HITLModule } from './hitl/hitl.module';
     // Database
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: () => databaseConfig,
+      useFactory: (): TypeOrmModuleOptions => databaseConfig(),
     }),
 
-    // Redis Cache
-    CacheModule.registerAsync({
+    // Cache - Using memory store for now, can be configured for Redis later
+    CacheModule.register({
       isGlobal: true,
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        store: redisStore,
-        host: configService.get('REDIS_HOST', 'localhost'),
-        port: configService.get('REDIS_PORT', 6379),
-        password: configService.get('REDIS_PASSWORD'),
-        db: configService.get('REDIS_DB', 0),
-        ttl: 300, // 5 minutes default TTL
-      }),
+      ttl: 300, // 5 minutes default TTL
     }),
 
     // Rate Limiting
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        ttl: configService.get('THROTTLE_TTL', 60),
-        limit: configService.get('THROTTLE_LIMIT', 100),
+      useFactory: (configService: ConfigService): ThrottlerModuleOptions => ({
+        throttlers: [{
+          ttl: configService.get('THROTTLE_TTL', 60),
+          limit: configService.get('THROTTLE_LIMIT', 100),
+        }],
       }),
     }),
 

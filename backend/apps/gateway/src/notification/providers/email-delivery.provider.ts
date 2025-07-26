@@ -3,6 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { NotificationDelivery } from '@database/entities';
 import * as nodemailer from 'nodemailer';
 
+interface EmailDeliveryResult {
+  success: boolean;
+  messageId?: string;
+  response?: string;
+  envelope?: any;
+  error?: string;
+}
+
 @Injectable()
 export class EmailDeliveryProvider {
   private readonly logger = new Logger(EmailDeliveryProvider.name);
@@ -35,7 +43,7 @@ export class EmailDeliveryProvider {
     });
   }
 
-  async sendEmail(delivery: NotificationDelivery): Promise<any> {
+  async sendEmail(delivery: NotificationDelivery): Promise<EmailDeliveryResult> {
     try {
       const { notification } = delivery;
       const emailData = delivery.deliveryData?.email;
@@ -44,13 +52,19 @@ export class EmailDeliveryProvider {
         throw new Error('No email recipients specified');
       }
 
-      const mailOptions = {
+      // Get email configuration with proper fallbacks
+      const emailUser = this.configService.get<string>('EMAIL_USER');
+      const emailFromAddress = this.configService.get<string>('EMAIL_FROM_ADDRESS', emailUser || '');
+      const emailFromName = this.configService.get<string>('EMAIL_FROM_NAME', 'SynapseAI');
+
+      if (!emailFromAddress) {
+        throw new Error('Email from address not configured');
+      }
+
+      const mailOptions: nodemailer.SendMailOptions = {
         from: {
-          name: this.configService.get<string>('EMAIL_FROM_NAME', 'SynapseAI'),
-          address: this.configService.get<string>(
-            'EMAIL_FROM_ADDRESS',
-            emailData.fromAddress || this.configService.get<string>('EMAIL_USER')
-          ),
+          name: emailFromName,
+          address: emailData.fromAddress || emailFromAddress,
         },
         to: emailData.toAddresses,
         cc: emailData.ccAddresses,
@@ -77,8 +91,15 @@ export class EmailDeliveryProvider {
         envelope: result.envelope,
       };
     } catch (error) {
-      this.logger.error(`Failed to send email: ${error.message}`, error.stack);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
+      this.logger.error(`Failed to send email: ${errorMessage}`, errorStack);
+      
+      return {
+        success: false,
+        error: errorMessage,
+      };
     }
   }
 
@@ -201,18 +222,19 @@ export class EmailDeliveryProvider {
     }
   }
 
-  async sendBatchEmail(deliveries: NotificationDelivery[]): Promise<any[]> {
-    const results = [];
+  async sendBatchEmail(deliveries: NotificationDelivery[]): Promise<Array<{ deliveryId: string; success: boolean; result?: EmailDeliveryResult; error?: string }>> {
+    const results: Array<{ deliveryId: string; success: boolean; result?: EmailDeliveryResult; error?: string }> = [];
 
     for (const delivery of deliveries) {
       try {
         const result = await this.sendEmail(delivery);
         results.push({ deliveryId: delivery.id, success: true, result });
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         results.push({
           deliveryId: delivery.id,
           success: false,
-          error: error.message,
+          error: errorMessage,
         });
       }
     }

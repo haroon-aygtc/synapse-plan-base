@@ -35,8 +35,8 @@ export class KnowledgeController {
   @ApiOperation({ summary: 'Create a new document' })
   @ApiResponse({ status: 201, description: 'Document created successfully' })
   async createDocument(
-    @Body(ValidationPipe) createDocumentDto: CreateDocumentDto,
-    @Request() req: any
+    @Request() req: any,
+    @Body(ValidationPipe) createDocumentDto: CreateDocumentDto
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -53,12 +53,12 @@ export class KnowledgeController {
   @ApiOperation({ summary: 'Upload a document file' })
   @ApiResponse({ status: 201, description: 'Document uploaded successfully' })
   async uploadDocument(
+    @Request() req: any,
     @UploadedFile() file: Express.Multer.File,
     @Body('title') title: string,
-    @Body('tags') tags?: string,
-    @Body('metadata') metadata?: string,
-    @Body('visibility') visibility?: string,
-    @Request() req: any
+    @Body('tags') tags: string = '',
+    @Body('metadata') metadata: string = '',
+    @Body('visibility') visibility: string = 'private'
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -84,9 +84,9 @@ export class KnowledgeController {
   @ApiOperation({ summary: 'Bulk upload documents' })
   @ApiResponse({ status: 201, description: 'Documents uploaded successfully' })
   async bulkUploadDocuments(
+    @Request() req: any,
     @UploadedFiles() files: Express.Multer.File[],
-    @Body('metadata') metadata: string,
-    @Request() req: any
+    @Body('metadata') metadata: string
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -101,13 +101,13 @@ export class KnowledgeController {
   @ApiOperation({ summary: 'List all documents' })
   @ApiResponse({ status: 200, description: 'Documents retrieved successfully' })
   async listDocuments(
+    @Request() req: any,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
     @Query('search') search?: string,
     @Query('type') type?: string,
     @Query('status') status?: string,
-    @Query('tags') tags?: string,
-    @Request() req: any
+    @Query('tags') tags?: string
   ) {
     const context: SecurityContext = {
       userId: req.user.id,
@@ -188,10 +188,10 @@ export class KnowledgeController {
     description: 'Search history retrieved successfully',
   })
   async getSearchHistory(
+    @Request() req: any,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
-    @Query('userId') userId?: string,
-    @Request() req: any
+    @Query('userId') userId?: string
   ) {
     const context: SecurityContext = {
       userId: req.user.id,

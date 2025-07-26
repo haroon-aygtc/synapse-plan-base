@@ -16,8 +16,9 @@ import {
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '@libs/shared/src/guards/roles.guard';
+import { RolesGuard } from '@shared/guards/roles.guard';
 import { WidgetService } from './widget.service';
+import { createApiErrorResponse } from '@shared/utils/error-guards';
 import {
   CreateWidgetDto,
   UpdateWidgetDto,
@@ -28,7 +29,7 @@ import {
   CloneWidgetDto,
   PublishTemplateDto,
 } from './dto';
-import { Widget } from '@database/entities/widget.entity';
+
 
 @ApiTags('widgets')
 @Controller('widgets')
@@ -56,11 +57,13 @@ export class WidgetController {
       };
     } catch (error) {
       throw new HttpException(
-        {
-          success: false,
-          message: error instanceof Error ? error.message : String(error),
-          error: 'WIDGET_CREATION_FAILED',
-        },
+        createApiErrorResponse(
+          error,
+          HttpStatus.BAD_REQUEST,
+          '/widgets',
+          'POST',
+          { error: 'WIDGET_CREATION_FAILED' }
+        ),
         HttpStatus.BAD_REQUEST
       );
     }
@@ -77,7 +80,7 @@ export class WidgetController {
     @Query('isActive') isActive?: boolean,
     @Query('sortBy') sortBy: string = 'createdAt',
     @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC',
-    @Request() req: any
+    @Request() req?: any
   ) {
     try {
       const result = await this.widgetService.findAll({
@@ -98,11 +101,13 @@ export class WidgetController {
       };
     } catch (error) {
       throw new HttpException(
-        {
-          success: false,
-          message: error instanceof Error ? error.message : String(error),
-          error: 'WIDGETS_RETRIEVAL_FAILED',
-        },
+        createApiErrorResponse(
+          error,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+          '/widgets',
+          'GET',
+          { error: 'WIDGETS_RETRIEVAL_FAILED' }
+        ),
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
@@ -122,11 +127,13 @@ export class WidgetController {
       };
     } catch (error) {
       throw new HttpException(
-        {
-          success: false,
-          message: error instanceof Error ? error.message : String(error),
-          error: 'WIDGET_NOT_FOUND',
-        },
+        createApiErrorResponse(
+          error,
+          HttpStatus.NOT_FOUND,
+          `/widgets/${id}`,
+          'GET',
+          { error: 'WIDGET_NOT_FOUND' }
+        ),
         HttpStatus.NOT_FOUND
       );
     }
@@ -150,11 +157,13 @@ export class WidgetController {
       };
     } catch (error) {
       throw new HttpException(
-        {
-          success: false,
-          message: error instanceof Error ? error.message : String(error),
-          error: 'WIDGET_UPDATE_FAILED',
-        },
+        createApiErrorResponse(
+          error,
+          HttpStatus.BAD_REQUEST,
+          `/widgets/${id}`,
+          'PUT',
+          { error: 'WIDGET_UPDATE_FAILED' }
+        ),
         HttpStatus.BAD_REQUEST
       );
     }
@@ -173,11 +182,13 @@ export class WidgetController {
       };
     } catch (error) {
       throw new HttpException(
-        {
-          success: false,
-          message: error instanceof Error ? error.message : String(error),
-          error: 'WIDGET_DELETION_FAILED',
-        },
+        createApiErrorResponse(
+          error,
+          HttpStatus.BAD_REQUEST,
+          `/widgets/${id}`,
+          'DELETE',
+          { error: 'WIDGET_DELETION_FAILED' }
+        ),
         HttpStatus.BAD_REQUEST
       );
     }
@@ -464,15 +475,14 @@ export class WidgetController {
   @ApiOperation({ summary: 'Get widget templates' })
   @ApiResponse({ status: 200, description: 'Templates retrieved successfully' })
   async getTemplates(
+    @Request() req: any,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 12,
     @Query('category') category?: string,
     @Query('type') type?: 'agent' | 'tool' | 'workflow',
     @Query('search') search?: string,
     @Query('sortBy') sortBy: string = 'templateRating',
-    @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC',
-    @Query('featured') featured?: boolean,
-    @Request() req: any
+    @Query('sortOrder') sortOrder: 'ASC' | 'DESC' = 'DESC'
   ) {
     try {
       // Validate pagination parameters
@@ -593,7 +603,7 @@ export class WidgetController {
   @Get('templates/:templateId')
   @ApiOperation({ summary: 'Get template by ID' })
   @ApiResponse({ status: 200, description: 'Template retrieved successfully' })
-  async getTemplate(@Param('templateId') templateId: string, @Request() req: any) {
+  async getTemplate(@Param('templateId') templateId: string) {
     try {
       const template = await this.widgetService.getTemplate(templateId);
       return {
@@ -720,8 +730,7 @@ export class WidgetController {
   async getTemplateReviews(
     @Param('templateId') templateId: string,
     @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-    @Request() req: any
+    @Query('limit') limit: number = 10
   ) {
     try {
       const result = await this.widgetService.getTemplateReviews(templateId, {

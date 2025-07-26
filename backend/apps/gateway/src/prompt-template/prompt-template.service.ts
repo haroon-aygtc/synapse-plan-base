@@ -66,7 +66,7 @@ export class PromptTemplateService {
     await this.cacheTemplate(savedTemplate);
 
     // Emit event
-    this.eventEmitter.emit(PromptTemplateEventType.TEMPLATE_CREATED, {
+    this.eventEmitter.emit('prompt.template.created', {
       templateId: savedTemplate.id,
       userId,
       organizationId,
@@ -165,7 +165,8 @@ export class PromptTemplateService {
         query.leftJoinAndSelect('template.agents', 'agents');
       }
 
-      template = await query.getOne();
+      const result = await query.getOne();
+      template = result || undefined;
 
       if (template) {
         await this.cacheTemplate(template);
@@ -231,7 +232,7 @@ export class PromptTemplateService {
     await this.cacheTemplate(updatedTemplate);
 
     // Emit event
-    this.eventEmitter.emit(PromptTemplateEventType.TEMPLATE_UPDATED, {
+    this.eventEmitter.emit('prompt.template.updated', {
       templateId: updatedTemplate.id,
       userId,
       organizationId,
@@ -274,7 +275,7 @@ export class PromptTemplateService {
     await this.cacheManager.del(`${this.cachePrefix}${id}`);
 
     // Emit event
-    this.eventEmitter.emit(PromptTemplateEventType.TEMPLATE_DELETED, {
+    this.eventEmitter.emit('prompt.template.deleted', {
       templateId: id,
       userId,
       organizationId,
@@ -320,7 +321,7 @@ export class PromptTemplateService {
     await this.cacheTemplate(savedTemplate);
 
     // Emit event
-    this.eventEmitter.emit(PromptTemplateEventType.TEMPLATE_VERSION_CREATED, {
+    this.eventEmitter.emit('prompt.template.version.created', {
       templateId: savedTemplate.id,
       parentTemplateId: id,
       userId,
@@ -529,7 +530,7 @@ export class PromptTemplateService {
     const template = await this.findOne(id, context.organizationId);
 
     // Merge context into variables
-    const contextVariables = {
+    const contextVariables: Record<string, any> = {
       ...variables,
       user_id: context.userId,
       session_id: context.sessionId,
@@ -600,7 +601,7 @@ export class PromptTemplateService {
     await this.cacheTemplate(updatedTemplate);
 
     // Emit event
-    this.eventEmitter.emit(PromptTemplateEventType.TEMPLATE_RATED, {
+    this.eventEmitter.emit('prompt.template.rated', {
       templateId: id,
       userId,
       organizationId,
@@ -634,7 +635,7 @@ export class PromptTemplateService {
         if (!template) break;
 
         ancestors.unshift(template); // Add to beginning of array
-        currentId = template.parentTemplateId;
+        currentId = template.parentTemplateId || '';
       } catch (error) {
         break;
       }

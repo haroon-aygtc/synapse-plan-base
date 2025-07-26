@@ -79,7 +79,8 @@ export class APXPermissionService {
   };
 
   getRateLimit(role: string, limitType: 'messages' | 'executions' | 'streams'): number {
-    return this.rateLimits[role]?.[limitType] || this.rateLimits.VIEWER[limitType];
+    const roleKey = role as keyof typeof this.rateLimits;
+    return this.rateLimits[roleKey]?.[limitType] || this.rateLimits.VIEWER[limitType];
   }
 
   getSecurityLevel(role: string): APXSecurityLevel {
@@ -98,11 +99,13 @@ export class APXPermissionService {
   }
 
   getPermissions(role: string): APXPermissionLevel[] {
-    return this.rolePermissions[role] || this.rolePermissions.VIEWER;
+    const roleKey = role as keyof typeof this.rolePermissions;
+    return this.rolePermissions[roleKey] || this.rolePermissions.VIEWER;
   }
 
   getRequiredPermission(messageType: APXMessageType): APXPermissionLevel {
-    return this.messagePermissions[messageType] || APXPermissionLevel.READ;
+    const messageKey = messageType as keyof typeof this.messagePermissions;
+    return this.messagePermissions[messageKey] || APXPermissionLevel.READ;
   }
 
   hasPermission(userRole: string, requiredPermission: APXPermissionLevel): boolean {
@@ -146,7 +149,8 @@ export class APXPermissionService {
       DEVELOPER: 2 * 1024 * 1024, // 2MB
       VIEWER: 512 * 1024, // 512KB
     };
-    return limits[role] || limits.VIEWER;
+    const roleKey = role as keyof typeof limits;
+    return limits[roleKey] || limits.VIEWER;
   }
 
   getSessionTimeout(role: string): number {
@@ -156,6 +160,7 @@ export class APXPermissionService {
       DEVELOPER: 8 * 60 * 60 * 1000, // 8 hours
       VIEWER: 2 * 60 * 60 * 1000, // 2 hours
     };
-    return timeouts[role] || timeouts.VIEWER;
+    const roleKey = role as keyof typeof timeouts;
+    return timeouts[roleKey] || timeouts.VIEWER;
   }
 }

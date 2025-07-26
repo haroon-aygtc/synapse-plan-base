@@ -1,6 +1,6 @@
 import { IsString, IsOptional, IsEnum, IsBoolean, IsObject } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { WidgetConfiguration } from '@libs/shared/interfaces/widget.interface';
+import { WidgetConfiguration } from '@shared/interfaces';
 
 export class CreateWidgetDto {
   @ApiProperty({

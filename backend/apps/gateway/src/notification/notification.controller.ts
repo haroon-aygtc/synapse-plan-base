@@ -66,7 +66,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.BAD_REQUEST
       );
@@ -112,7 +112,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
@@ -138,7 +138,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
@@ -160,7 +160,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.BAD_REQUEST
       );
@@ -186,7 +186,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
@@ -209,7 +209,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.BAD_REQUEST
       );
@@ -241,7 +241,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.BAD_REQUEST
       );
@@ -271,7 +271,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
@@ -304,7 +304,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.BAD_REQUEST
       );
@@ -335,7 +335,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.BAD_REQUEST
       );
@@ -361,7 +361,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
@@ -393,7 +393,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.BAD_REQUEST
       );
@@ -419,7 +419,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
@@ -443,7 +443,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
@@ -466,7 +466,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.INTERNAL_SERVER_ERROR
       );
@@ -502,7 +502,7 @@ export class NotificationController {
       throw new HttpException(
         {
           success: false,
-          message: error.message,
+          message: error instanceof Error ? error.message : 'Unknown error',
         },
         HttpStatus.BAD_REQUEST
       );

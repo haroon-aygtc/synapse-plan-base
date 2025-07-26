@@ -14,10 +14,11 @@ import {
   Param,
   NotFoundException,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import { Response } from 'express';
+import { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import { UserService } from './user.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
@@ -32,6 +33,12 @@ import {
 } from './dto';
 import { IApiResponse, IUser, IPaginatedResponse } from '@shared/interfaces';
 import { Public, RequireOrgAdmin, RequireDeveloper } from '@shared/decorators/roles.decorator';
+
+// Define the authenticated request interface
+interface AuthenticatedRequest extends Request {
+  user?: IUser;
+  organizationId?: string;
+}
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -68,8 +75,8 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User successfully logged in' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 429, description: 'Too many failed attempts' })
-  async login(@Body() loginDto: LoginDto, @Request() req): Promise<IApiResponse> {
-    const result = await this.authService.login(req.user);
+  async login(@Body() loginDto: LoginDto, @Request() req: AuthenticatedRequest): Promise<IApiResponse> {
+    const result = await this.authService.login(req.user as IUser);
     return {
       success: true,
       data: result,
@@ -83,7 +90,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Get user profile' })
   @ApiResponse({ status: 200, description: 'User profile retrieved' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getProfile(@Request() req): Promise<IApiResponse<IUser>> {
+  async getProfile(@Request() req: AuthenticatedRequest): Promise<IApiResponse<IUser>> {
     return {
       success: true,
       data: req.user,
@@ -96,10 +103,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout user' })
   @ApiResponse({ status: 200, description: 'User successfully logged out' })
   async logout(
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
     @Headers('authorization') authHeader?: string
   ): Promise<IApiResponse> {
     const accessToken = authHeader?.replace('Bearer ', '');
+    if (!req.user) {
+      throw new UnauthorizedException('User not authenticated');
+    }
     await this.authService.logout(req.user.id, accessToken);
     return {
       success: true,
@@ -141,7 +151,7 @@ export class AuthController {
   @Get('csrf-token')
   @ApiOperation({ summary: 'Get CSRF token' })
   @ApiResponse({ status: 200, description: 'CSRF token retrieved' })
-  async getCsrfToken(@Request() req, @Res() res: Response): Promise<void> {
+  async getCsrfToken(@Request() req: ExpressRequest, @Res() res: Response): Promise<void> {
     res.json({
       success: true,
       data: { csrfToken: req.csrfToken() },
@@ -159,7 +169,10 @@ export class AuthController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 409, description: 'User already exists' })
-  async inviteUser(@Body() inviteUserDto: InviteUserDto, @Request() req): Promise<IApiResponse> {
+  async inviteUser(@Body() inviteUserDto: InviteUserDto, @Request() req: AuthenticatedRequest): Promise<IApiResponse> {
+    if (!req.user) {
+      throw new UnauthorizedException('User not authenticated');
+    }
     const result = await this.authService.inviteUser(
       inviteUserDto,
       req.user.organizationId,
@@ -182,7 +195,7 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async activateUser(
     @Body() activateUserDto: ActivateUserDto,
-    @Request() req
+    @Request() req: AuthenticatedRequest
   ): Promise<IApiResponse> {
     await this.userService.activate(activateUserDto.userId);
     return {
@@ -201,7 +214,7 @@ export class AuthController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async deactivateUser(
     @Body() deactivateUserDto: DeactivateUserDto,
-    @Request() req
+    @Request() req: AuthenticatedRequest
   ): Promise<IApiResponse> {
     await this.userService.deactivate(deactivateUserDto.userId);
     return {
@@ -222,8 +235,11 @@ export class AuthController {
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   async bulkUserAction(
     @Body() bulkActionDto: BulkUserActionDto,
-    @Request() req
+    @Request() req: AuthenticatedRequest
   ): Promise<IApiResponse> {
+    if (!req.user) {
+      throw new UnauthorizedException('User not authenticated');
+    }
     const result = await this.userService.bulkAction(
       bulkActionDto.userIds,
       bulkActionDto.action,
@@ -246,7 +262,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   async getUsers(
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('search') search?: string,
@@ -255,6 +271,9 @@ export class AuthController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'ASC' | 'DESC'
   ): Promise<IPaginatedResponse<IUser>> {
+    if (!req.user) {
+      throw new UnauthorizedException('User not authenticated');
+    }
     const result = await this.userService.findByOrganization(req.user.organizationId, {
       page: page || 1,
       limit: limit || 10,
@@ -288,7 +307,10 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User retrieved successfully' })
   @ApiResponse({ status: 403, description: 'Insufficient permissions' })
   @ApiResponse({ status: 404, description: 'User not found' })
-  async getUserById(@Param('id') id: string, @Request() req): Promise<IApiResponse<IUser>> {
+  async getUserById(@Param('id') id: string, @Request() req: AuthenticatedRequest): Promise<IApiResponse<IUser>> {
+    if (!req.user) {
+      throw new UnauthorizedException('User not authenticated');
+    }
     const user = await this.userService.findById(id);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -315,8 +337,11 @@ export class AuthController {
   async updateUser(
     @Param('id') id: string,
     @Body() updateData: any,
-    @Request() req
+    @Request() req: AuthenticatedRequest
   ): Promise<IApiResponse<IUser>> {
+    if (!req.user) {
+      throw new UnauthorizedException('User not authenticated');
+    }
     const updatedUser = await this.userService.update(id, updateData, req.user.id, req.user.role);
 
     return {

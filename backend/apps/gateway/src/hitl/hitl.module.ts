@@ -3,13 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { HITLController } from './hitl.controller';
 import { HITLService } from './hitl.service';
 import { HITLRequest, HITLComment, HITLVote, User } from '@database/entities';
-import { WebSocketModule } from '../websocket/websocket.module';
+import { WebsocketModule } from '../websocket/websocket.module';
 import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([HITLRequest, HITLComment, HITLVote, User]),
-    WebSocketModule,
+    WebsocketModule,
     NotificationModule,
   ],
   controllers: [HITLController],

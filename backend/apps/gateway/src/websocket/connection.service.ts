@@ -27,7 +27,7 @@ import {
   ICrossModuleEvent,
   ISessionContext,
 } from '@shared/interfaces';
-import { EventType, WebSocketEventType, EventTargetType, EventPriority } from '@shared/enums';
+import { EventType, WebSocketEventType, EventTargetType, EventPriority, AgentEventType } from '@shared/enums';
 
 export interface ConnectionInfo extends IConnectionInfo {}
 export interface MessageProtocol extends IWebSocketMessage {}
@@ -271,7 +271,8 @@ export class ConnectionService implements OnModuleDestroy {
       default: 200,
     };
 
-    return limits[messageType] || limits.default;
+    const messageKey = messageType as keyof typeof limits;
+    return limits[messageKey] || limits.default;
   }
 
   async removeConnection(socketId: string): Promise<void> {
@@ -809,7 +810,7 @@ export class ConnectionService implements OnModuleDestroy {
     try {
       const eventLog = this.eventLogRepository.create({
         eventId: eventPublication.eventId,
-        eventType: eventPublication.eventType as EventType,
+        eventType: eventPublication.eventType as AgentEventType,
         sourceModule: eventPublication.sourceModule,
         targetModule: eventPublication.targetModule,
         userId:
@@ -822,7 +823,7 @@ export class ConnectionService implements OnModuleDestroy {
           targeting: eventPublication.targeting,
           priority: eventPublication.priority,
           retryPolicy: eventPublication.retryPolicy,
-        },
+        } as Record<string, any>,
         correlationId: eventPublication.correlationId,
         parentEventId: eventPublication.parentEventId,
         timestamp: eventPublication.timestamp,
@@ -914,7 +915,7 @@ export class ConnectionService implements OnModuleDestroy {
             priority: eventPublication.priority,
             retryPolicy: eventPublication.retryPolicy,
             targetConnectionCount: targetConnections.length,
-          },
+          } as Record<string, any>,
         }
       );
     } catch (error) {

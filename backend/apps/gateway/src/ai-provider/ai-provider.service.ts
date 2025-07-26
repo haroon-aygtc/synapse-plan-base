@@ -12,9 +12,18 @@ import { ConfigService } from '@nestjs/config';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import { AIProvider, AIProviderExecution, AIProviderMetrics } from '@database/entities';
-import { ProviderType, ProviderStatus, RoutingRule } from '@database/entities/ai-provider.entity';
+import {
+  AIProvider,
+  AIProviderExecution,
+  AIProviderMetrics,
+} from '@database/entities';
+import {
+  ProviderType,
+  ProviderStatus,
+  RoutingRule,
+} from '@database/entities/ai-provider.entity';
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
+import { ExecutionStatus } from '@shared/enums';
 import { ProviderAdapterService } from './provider-adapter.service';
 import { ProviderRoutingService } from './provider-routing.service';
 import { ProviderHealthService } from './provider-health.service';
@@ -46,13 +55,13 @@ export class AIProviderService {
     private readonly providerCost: ProviderCostService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async createProvider(
     createProviderDto: CreateProviderDto,
     organizationId: string,
-    userId: string
+    userId: string,
   ): Promise<AIProvider> {
     // Check if provider with same type already exists
     const existingProvider = await this.providerRepository.findOne({
@@ -64,17 +73,21 @@ export class AIProviderService {
     });
 
     if (existingProvider) {
-      throw new ConflictException(`Provider of type ${createProviderDto.type} already exists`);
+      throw new ConflictException(
+        `Provider of type ${createProviderDto.type} already exists`,
+      );
     }
 
     // Test provider connection before creating
     const testResult = await this.providerAdapter.testConnection(
       createProviderDto.type,
-      createProviderDto.config
+      createProviderDto.config,
     );
 
     if (!testResult.success) {
-      throw new BadRequestException(`Provider connection test failed: ${testResult.error}`);
+      throw new BadRequestException(
+        `Provider connection test failed: ${testResult.error}`,
+      );
     }
 
     const provider = this.providerRepository.create({
@@ -117,7 +130,7 @@ export class AIProviderService {
     });
 
     this.logger.log(
-      `AI Provider created: ${savedProvider.id} (${savedProvider.type}) for org ${organizationId}`
+      `AI Provider created: ${savedProvider.id} (${savedProvider.type}) for org ${organizationId}`,
     );
 
     return savedProvider;
@@ -125,7 +138,7 @@ export class AIProviderService {
 
   async getProviders(
     organizationId: string,
-    options?: { includeInactive?: boolean }
+    options?: { includeInactive?: boolean },
   ): Promise<AIProvider[]> {
     const where: any = { organizationId };
     if (!options?.includeInactive) {
@@ -166,19 +179,21 @@ export class AIProviderService {
   async updateProvider(
     id: string,
     updateProviderDto: UpdateProviderDto,
-    organizationId: string
+    organizationId: string,
   ): Promise<AIProvider> {
     const provider = await this.getProvider(id, organizationId);
 
     // If config is being updated, test the connection
     if (updateProviderDto.config) {
-      const testResult = await this.providerAdapter.testConnection(provider.type, {
-        ...provider.config,
-        ...updateProviderDto.config,
-      });
+      const testResult = await this.providerAdapter.testConnection(
+        provider.type,
+        { ...provider.config, ...updateProviderDto.config },
+      );
 
       if (!testResult.success) {
-        throw new BadRequestException(`Provider connection test failed: ${testResult.error}`);
+        throw new BadRequestException(
+          `Provider connection test failed: ${testResult.error}`,
+        );
       }
     }
 
@@ -231,22 +246,31 @@ export class AIProviderService {
 
   async testProvider(
     id: string,
-    organizationId: string
+    organizationId: string,
   ): Promise<{ success: boolean; responseTime?: number; error?: string }> {
     const provider = await this.getProvider(id, organizationId);
 
     return this.providerAdapter.testConnection(provider.type, provider.config);
   }
 
-  async rotateApiKey(id: string, newApiKey: string, organizationId: string): Promise<AIProvider> {
+  async rotateApiKey(
+    id: string,
+    newApiKey: string,
+    organizationId: string,
+  ): Promise<AIProvider> {
     const provider = await this.getProvider(id, organizationId);
 
     // Test new API key
     const testConfig = { ...provider.config, apiKey: newApiKey };
-    const testResult = await this.providerAdapter.testConnection(provider.type, testConfig);
+    const testResult = await this.providerAdapter.testConnection(
+      provider.type,
+      testConfig,
+    );
 
     if (!testResult.success) {
-      throw new BadRequestException(`New API key test failed: ${testResult.error}`);
+      throw new BadRequestException(
+        `New API key test failed: ${testResult.error}`,
+      );
     }
 
     // Update API key
@@ -328,7 +352,12 @@ export class AIProviderService {
           'meta-llama/llama-2-70b-chat',
           'mistralai/mistral-7b-instruct',
         ],
-        features: ['Multi-Provider', 'Chat', 'Cost Optimization', 'Model Variety'],
+        features: [
+          'Multi-Provider',
+          'Chat',
+          'Cost Optimization',
+          'Model Variety',
+        ],
       },
     ];
   }
@@ -339,14 +368,17 @@ export class AIProviderService {
 
   async createRoutingRule(
     routingRuleDto: ProviderRoutingRuleDto,
-    organizationId: string
+    organizationId: string,
   ): Promise<RoutingRule> {
-    return this.providerRouting.createRoutingRule(routingRuleDto, organizationId);
+    return this.providerRouting.createRoutingRule(
+      routingRuleDto,
+      organizationId,
+    );
   }
 
   async getUsageStats(
     organizationId: string,
-    period: 'day' | 'week' | 'month'
+    period: 'day' | 'week' | 'month',
   ): Promise<{
     totalRequests: number;
     totalCost: number;
@@ -385,10 +417,15 @@ export class AIProviderService {
     });
 
     const totalRequests = executions.length;
-    const totalCost = executions.reduce((sum, exec) => sum + (exec.cost || 0), 0);
+    const totalCost = executions.reduce(
+      (sum, exec) => sum + (exec.cost || 0),
+      0,
+    );
     const avgResponseTime =
-      executions.reduce((sum, exec) => sum + (exec.responseTimeMs || 0), 0) / totalRequests || 0;
-    const errorRate = executions.filter((exec) => exec.error).length / totalRequests || 0;
+      executions.reduce((sum, exec) => sum + (exec.responseTimeMs || 0), 0) /
+        totalRequests || 0;
+    const errorRate =
+      executions.filter((exec) => exec.error).length / totalRequests || 0;
 
     // Provider breakdown
     const providerStats = new Map();
@@ -411,14 +448,16 @@ export class AIProviderService {
       if (exec.error) stats.errors++;
     });
 
-    const providerBreakdown = Array.from(providerStats.values()).map((stats) => ({
-      providerId: stats.providerId,
-      providerName: stats.providerName,
-      requests: stats.requests,
-      cost: stats.cost,
-      avgResponseTime: stats.totalResponseTime / stats.requests || 0,
-      errorRate: stats.errors / stats.requests || 0,
-    }));
+    const providerBreakdown = Array.from(providerStats.values()).map(
+      (stats) => ({
+        providerId: stats.providerId,
+        providerName: stats.providerName,
+        requests: stats.requests,
+        cost: stats.cost,
+        avgResponseTime: stats.totalResponseTime / stats.requests || 0,
+        errorRate: stats.errors / stats.requests || 0,
+      }),
+    );
 
     // Model breakdown
     const modelStats = new Map();
@@ -463,12 +502,14 @@ export class AIProviderService {
       stats.totalResponseTime += exec.responseTimeMs || 0;
     });
 
-    const executionTypeBreakdown = Array.from(typeStats.values()).map((stats) => ({
-      type: stats.type,
-      requests: stats.requests,
-      cost: stats.cost,
-      avgResponseTime: stats.totalResponseTime / stats.requests || 0,
-    }));
+    const executionTypeBreakdown = Array.from(typeStats.values()).map(
+      (stats) => ({
+        type: stats.type,
+        requests: stats.requests,
+        cost: stats.cost,
+        avgResponseTime: stats.totalResponseTime / stats.requests || 0,
+      }),
+    );
 
     return {
       totalRequests,
@@ -512,7 +553,8 @@ export class AIProviderService {
           description: `High cost provider ${providerStat.providerName} could be replaced for non-critical tasks`,
           potentialSavings: providerStat.cost * 0.3,
           impact: 'medium' as const,
-          recommendation: 'Consider using a more cost-effective provider for routine tasks',
+          recommendation:
+            'Consider using a more cost-effective provider for routine tasks',
         });
       }
     }
@@ -525,7 +567,8 @@ export class AIProviderService {
           description: `Slow response times from ${providerStat.providerName}`,
           expectedImprovement: '40% faster response times',
           impact: 'high' as const,
-          recommendation: 'Switch to a faster provider or implement load balancing',
+          recommendation:
+            'Switch to a faster provider or implement load balancing',
         });
       }
     }
@@ -539,7 +582,7 @@ export class AIProviderService {
   async getProviderMetrics(
     id: string,
     organizationId: string,
-    period: 'hour' | 'day' | 'week' | 'month'
+    period: 'hour' | 'day' | 'week' | 'month',
   ): Promise<{
     current: {
       requests: number;
@@ -571,11 +614,14 @@ export class AIProviderService {
 
     const current = {
       requests: executions.length,
-      successRate: executions.filter((e) => !e.error).length / executions.length || 0,
+      successRate:
+        executions.filter((e) => !e.error).length / executions.length || 0,
       avgResponseTime:
-        executions.reduce((sum, e) => sum + (e.responseTimeMs || 0), 0) / executions.length || 0,
+        executions.reduce((sum, e) => sum + (e.responseTimeMs || 0), 0) /
+          executions.length || 0,
       cost: executions.reduce((sum, e) => sum + (e.cost || 0), 0),
-      errorRate: executions.filter((e) => e.error).length / executions.length || 0,
+      errorRate:
+        executions.filter((e) => e.error).length / executions.length || 0,
     };
 
     const metrics = await this.metricsRepository.find({
@@ -605,7 +651,7 @@ export class AIProviderService {
   async bulkConfigureProviders(
     providers: ProviderConfigDto[],
     organizationId: string,
-    userId: string
+    userId: string,
   ): Promise<AIProvider[]> {
     const results = [];
 
@@ -624,11 +670,15 @@ export class AIProviderService {
           isActive: providerConfig.isActive,
         };
 
-        const provider = await this.createProvider(createDto, organizationId, userId);
+        const provider = await this.createProvider(
+          createDto,
+          organizationId,
+          userId,
+        );
         results.push(provider);
       } catch (error) {
         this.logger.error(
-          `Failed to create provider ${providerConfig.name}: ${error instanceof Error ? error.message : String(error)}`
+          `Failed to create provider ${providerConfig.name}: ${error instanceof Error ? error.message : String(error)}`,
         );
         // Continue with other providers
       }
@@ -642,36 +692,42 @@ export class AIProviderService {
     organizationId: string,
     executionType: ExecutionType,
     model?: string,
-    context?: Record<string, any>
+    context?: Record<string, any>,
   ): Promise<AIProvider> {
     try {
+      if (!organizationId) {
+        throw new Error('Organization ID is required for provider selection');
+      }
+
       return await this.providerRouting.selectProvider(
         organizationId,
         executionType,
         model,
-        context
+        context,
       );
     } catch (error) {
       this.logger.error(
         `Provider selection failed for org ${organizationId}: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined
+        error instanceof Error ? error.stack : undefined,
       );
 
       // Try to get a fallback provider
       const providers = await this.getProviders(organizationId);
       if (providers.length > 0) {
         const fallbackProvider = providers.find(
-          (p) => p.isActive && p.status === ProviderStatus.ACTIVE
+          (p) => p.isActive && p.status === ProviderStatus.ACTIVE,
         );
         if (fallbackProvider) {
           this.logger.warn(
-            `Using fallback provider ${fallbackProvider.id} due to selection failure`
+            `Using fallback provider ${fallbackProvider.id} due to selection failure`,
           );
           return fallbackProvider;
         }
       }
 
-      throw error;
+      throw new Error(
+        `No available AI providers found for organization ${organizationId}. Please configure a provider.`,
+      );
     }
   }
 
@@ -693,7 +749,7 @@ export class AIProviderService {
       streamResponse?: boolean;
     },
     organizationId: string,
-    userId: string
+    userId: string,
   ): Promise<any> {
     const startTime = Date.now();
     const executionId = uuidv4();
@@ -708,9 +764,12 @@ export class AIProviderService {
           resourceId: request.resourceId,
           userId,
           organizationId,
-          estimatedCost: this.estimateCost(request.model, request.maxTokens || 1000),
+          estimatedCost: this.estimateCost(
+            request.model,
+            request.maxTokens || 1000,
+          ),
           maxResponseTime: 30000,
-        }
+        },
       );
 
       // Emit provider selected event
@@ -718,7 +777,9 @@ export class AIProviderService {
         executionId,
         providerId: selectedProvider.id,
         providerType: selectedProvider.type,
-        model: request.model || this.getDefaultModelForProvider(selectedProvider.type),
+        model:
+          request.model ||
+          this.getDefaultModelForProvider(selectedProvider.type),
         organizationId,
         userId,
         timestamp: new Date(),
@@ -731,14 +792,14 @@ export class AIProviderService {
         organizationId,
         userId,
         executionId,
-        startTime
+        startTime,
       );
 
       return result;
     } catch (error) {
       this.logger.error(
         `Completion execution failed: ${error instanceof Error ? error.message : String(error)}`,
-        error instanceof Error ? error.stack : undefined
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
     }
@@ -751,7 +812,7 @@ export class AIProviderService {
     userId: string,
     executionId: string,
     startTime: number,
-    retryCount: number = 0
+    retryCount: number = 0,
   ): Promise<any> {
     const maxRetries = 3;
     const backoffDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff
@@ -764,7 +825,9 @@ export class AIProviderService {
 
       const providerRequest = {
         messages: request.messages,
-        model: request.model || this.getDefaultModelForProvider(primaryProvider.type),
+        model:
+          request.model ||
+          this.getDefaultModelForProvider(primaryProvider.type),
         temperature: request.temperature,
         maxTokens: request.maxTokens,
         tools: request.tools,
@@ -774,7 +837,7 @@ export class AIProviderService {
       const response = await this.providerAdapter.executeRequest(
         primaryProvider.type,
         primaryProvider.config,
-        providerRequest
+        providerRequest,
       );
 
       const executionTime = Date.now() - startTime;
@@ -791,7 +854,7 @@ export class AIProviderService {
         response.cost,
         executionTime,
         organizationId,
-        userId
+        userId,
       );
 
       // Record success in routing service
@@ -841,7 +904,7 @@ export class AIProviderService {
       // Try fallback providers
       if (retryCount < maxRetries) {
         this.logger.warn(
-          `Provider ${primaryProvider.id} failed, attempting fallback (retry ${retryCount + 1}/${maxRetries})`
+          `Provider ${primaryProvider.id} failed, attempting fallback (retry ${retryCount + 1}/${maxRetries})`,
         );
 
         // Wait for backoff delay
@@ -852,7 +915,7 @@ export class AIProviderService {
           organizationId,
           request.executionType,
           request.model,
-          primaryProvider.id
+          primaryProvider.id,
         );
 
         if (fallbackProvider) {
@@ -874,7 +937,7 @@ export class AIProviderService {
             userId,
             executionId,
             startTime,
-            retryCount + 1
+            retryCount + 1,
           );
         }
       }
@@ -892,7 +955,7 @@ export class AIProviderService {
         executionTime,
         organizationId,
         userId,
-        error instanceof Error ? error.message : String(error)
+        error instanceof Error ? error.message : String(error),
       );
 
       throw error;
@@ -903,14 +966,14 @@ export class AIProviderService {
     organizationId: string,
     executionType: ExecutionType,
     model?: string,
-    excludeProviderId?: string
+    excludeProviderId?: string,
   ): Promise<AIProvider | null> {
     const providers = await this.getProviders(organizationId);
     const availableProviders = providers.filter(
       (p) =>
         p.id !== excludeProviderId &&
         p.isActive &&
-        (!model || !p.config.models || p.config.models.includes(model))
+        (!model || !p.config.models || p.config.models.includes(model)),
     );
 
     if (availableProviders.length === 0) {
@@ -918,7 +981,9 @@ export class AIProviderService {
     }
 
     // Select provider with highest priority that's not circuit broken
-    for (const provider of availableProviders.sort((a, b) => b.priority - a.priority)) {
+    for (const provider of availableProviders.sort(
+      (a, b) => b.priority - a.priority,
+    )) {
       if (!this.providerRouting.checkCircuitBreakerOpen(provider.id)) {
         return provider;
       }
@@ -944,7 +1009,8 @@ export class AIProviderService {
       if (!provider.isActive) continue;
 
       const providerModels =
-        provider.config.models || this.getDefaultModelsForProvider(provider.type);
+        provider.config.models ||
+        this.getDefaultModelsForProvider(provider.type);
 
       for (const modelName of providerModels) {
         models.push({
@@ -964,9 +1030,17 @@ export class AIProviderService {
   private getDefaultModelsForProvider(providerType: ProviderType): string[] {
     const defaultModels = {
       [ProviderType.OPENAI]: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-      [ProviderType.CLAUDE]: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
+      [ProviderType.CLAUDE]: [
+        'claude-3-opus',
+        'claude-3-sonnet',
+        'claude-3-haiku',
+      ],
       [ProviderType.GEMINI]: ['gemini-pro', 'gemini-pro-vision'],
-      [ProviderType.MISTRAL]: ['mistral-large', 'mistral-medium', 'mistral-small'],
+      [ProviderType.MISTRAL]: [
+        'mistral-large',
+        'mistral-medium',
+        'mistral-small',
+      ],
       [ProviderType.GROQ]: ['llama2-70b-4096', 'mixtral-8x7b-32768'],
       [ProviderType.OPENROUTER]: [
         'openai/gpt-4-turbo',
@@ -1061,7 +1135,7 @@ export class AIProviderService {
     responseTimeMs: number,
     organizationId: string,
     userId: string,
-    error?: string
+    error?: string,
   ): Promise<void> {
     const execution = this.executionRepository.create({
       providerId,
@@ -1076,7 +1150,7 @@ export class AIProviderService {
       organizationId,
       userId,
       error,
-      status: error ? 'FAILED' : 'COMPLETED',
+      status: error ? ExecutionStatus.FAILED : ExecutionStatus.COMPLETED,
       startedAt: new Date(Date.now() - responseTimeMs),
       completedAt: new Date(),
     });
@@ -1137,7 +1211,7 @@ export class AIProviderService {
       responseTime: number;
       cost: number;
       tokens: number;
-    }
+    },
   ): Promise<void> {
     const provider = await this.providerRepository.findOne({
       where: { id: providerId },
@@ -1156,7 +1230,8 @@ export class AIProviderService {
 
     const newMetrics = {
       totalRequests: currentMetrics.totalRequests + metrics.requests,
-      successfulRequests: currentMetrics.successfulRequests + metrics.successful,
+      successfulRequests:
+        currentMetrics.successfulRequests + metrics.successful,
       failedRequests: currentMetrics.failedRequests + metrics.failed,
       averageResponseTime:
         (currentMetrics.averageResponseTime * currentMetrics.totalRequests +

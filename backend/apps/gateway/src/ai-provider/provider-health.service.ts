@@ -205,7 +205,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
         errorRate: stats ? stats.failedChecks / stats.totalChecks : 1,
         uptime: stats?.uptime || 0,
         lastCheck: new Date(),
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
 
@@ -336,7 +336,8 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
     try {
       return await this.performHealthCheck(providerId, organizationId);
     } catch (error) {
-      this.logger.error(`Failed to get health for provider ${providerId}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to get health for provider ${providerId}: ${errorMessage}`);
       return null;
     }
   }
@@ -446,7 +447,8 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log(`Cleaned up ${result.affected} old health metrics records`);
     } catch (error) {
-      this.logger.error(`Failed to cleanup old metrics: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to cleanup old metrics: ${errorMessage}`);
     }
   }
 

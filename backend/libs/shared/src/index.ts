@@ -40,3 +40,8 @@ export * from './monitoring/datadog.config';
 
 // Modules
 export * from './modules/monitoring.module';
+
+// Utilities
+export * from './utils/error-guards';
+export * from './utils/error-handler.util';
+export * from './utils/entity.util';

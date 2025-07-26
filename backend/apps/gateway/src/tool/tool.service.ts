@@ -7,7 +7,9 @@ import { ExecutionStatus } from '@shared/enums';
 import axios from 'axios';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AIProviderService } from '../ai-provider/ai-provider.service';
+import { ToolTemplateService } from './tool-template.service';
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
+import { safeErrorMessage } from '@shared/utils/error-guards';
 
 @Injectable()
 export class ToolService {
@@ -23,7 +25,8 @@ export class ToolService {
     @InjectRepository(Workflow)
     private readonly workflowRepository: Repository<Workflow>,
     private readonly eventEmitter: EventEmitter2,
-    private readonly aiProviderService: AIProviderService
+    private readonly aiProviderService: AIProviderService,
+    private readonly toolTemplateService: ToolTemplateService
   ) {}
 
   async create(createToolDto: CreateToolDto): Promise<Tool> {
@@ -213,7 +216,7 @@ export class ToolService {
           baseSchema.properties = {
             id: { type: 'string', description: 'Resource identifier' },
           };
-          baseSchema.required = ['id'];
+          baseSchema.required = ['id'] as any;
         } else {
           baseSchema.properties = {
             limit: {
@@ -234,7 +237,7 @@ export class ToolService {
         baseSchema.properties = {
           data: { type: 'object', description: 'Data to create' },
         };
-        baseSchema.required = ['data'];
+        baseSchema.required = ['data'] as any;
         break;
       case 'PUT':
       case 'PATCH':
@@ -242,13 +245,13 @@ export class ToolService {
           id: { type: 'string', description: 'Resource identifier' },
           data: { type: 'object', description: 'Data to update' },
         };
-        baseSchema.required = ['id', 'data'];
+        baseSchema.required = ['id', 'data'] as any;
         break;
       case 'DELETE':
         baseSchema.properties = {
           id: { type: 'string', description: 'Resource identifier' },
         };
-        baseSchema.required = ['id'];
+        baseSchema.required = ['id'] as any;
         break;
     }
 
@@ -366,7 +369,7 @@ export class ToolService {
           // For now, we'll skip this for regular API tools
         } catch (error) {
           this.logger.warn(
-            `Failed to record tool execution in AI provider metrics: ${error.message}`
+            `Failed to record tool execution in AI provider metrics: ${safeErrorMessage(error)}`
           );
         }
       }
@@ -386,7 +389,7 @@ export class ToolService {
 
       // Update execution record with error
       execution.status = ExecutionStatus.FAILED;
-      execution.error = error.message;
+      execution.error = safeErrorMessage(error);
       execution.executionTimeMs = executionTime;
       execution.completedAt = new Date();
 
@@ -416,7 +419,7 @@ export class ToolService {
 
       return response.data;
     } catch (error) {
-      throw new Error(`Tool execution failed: ${error.message}`);
+      throw new Error(`Tool execution failed: ${safeErrorMessage(error)}`);
     }
   }
 
@@ -524,11 +527,11 @@ export class ToolService {
         sessionId: require('uuid').v4(),
         input: testToolDto.parameters,
         status: ExecutionStatus.FAILED,
-        error: error.message,
+        error: safeErrorMessage(error),
         context: {
+          ...testToolDto.workflowContext,
           testMode: true,
-          functionName: testToolDto.functionName,
-          workflowId: testToolDto.workflowId,
+          testExecution: true,
         },
         executionTimeMs: executionTime,
         startedAt: new Date(startTime),
@@ -538,17 +541,19 @@ export class ToolService {
 
       await this.toolExecutionRepository.save(execution);
 
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         executionTime,
         cost: 0,
-        recommendations: this.generateTestRecommendations(
+        context: testToolDto.workflowContext,
+        recommendations: this.generateContextTestRecommendations(
           tool,
           testToolDto,
           null,
           executionTime,
-          error.message
+          errorMessage
         ),
       };
     }
@@ -1062,7 +1067,7 @@ export class ToolService {
       metadata: {
         ...marketplaceTool.metadata,
         downloads: (parseInt(marketplaceTool.metadata?.downloads || '0') + 1).toString(),
-      },
+      } as Record<string, any>,
     });
 
     return savedTool;
@@ -1098,8 +1103,9 @@ export class ToolService {
         suggestions: this.generateConfigurationSuggestions(description, serviceType),
       };
     } catch (error) {
-      this.logger.error(`AI configuration failed: ${error.message}`);
-      throw new Error(`AI configuration failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`AI configuration failed: ${errorMessage}`);
+      throw new Error(`AI configuration failed: ${errorMessage}`);
     }
   }
 
@@ -1166,7 +1172,8 @@ Return a JSON object with:
 
       return null;
     } catch (error) {
-      this.logger.warn(`OpenAI API call failed: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.warn(`OpenAI API call failed: ${errorMessage}`);
       return null;
     }
   }
@@ -1220,7 +1227,7 @@ Return a JSON object with:
       webhook: 'https://hooks.example.com/webhook',
       database: 'https://api.example.com/v1/query',
     };
-    return endpoints[serviceType] || 'https://api.example.com/v1/endpoint';
+    return endpoints[serviceType as keyof typeof endpoints] || 'https://api.example.com/v1/endpoint';
   }
 
   private suggestMethod(description: string, serviceType?: string): string {
@@ -1249,7 +1256,7 @@ Return a JSON object with:
       webhook: 'integration',
       database: 'data',
     };
-    return categories[serviceType] || 'integration';
+    return categories[serviceType as keyof typeof categories] || 'integration';
   }
 
   private generateTags(description: string, serviceType?: string): string[] {
@@ -1286,7 +1293,7 @@ Return a JSON object with:
         Authorization: 'Bearer {token}',
       },
     };
-    return headers[serviceType] || { 'Content-Type': 'application/json' };
+    return headers[serviceType as keyof typeof headers] || { 'Content-Type': 'application/json' };
   }
 
   private suggestAuthentication(serviceType?: string) {
@@ -1297,7 +1304,7 @@ Return a JSON object with:
       webhook: { type: 'none' },
       database: { type: 'bearer', description: 'Database API Token' },
     };
-    return auth[serviceType] || { type: 'api_key', description: 'API Key' };
+    return auth[serviceType as keyof typeof auth] || { type: 'api_key', description: 'API Key' };
   }
 
   private generateSchema(description: string, serviceType?: string) {
@@ -1371,7 +1378,21 @@ Return a JSON object with:
     return suggestions;
   }
 
-  async checkToolHealth(toolId: string) {
+  async checkToolHealth(toolId: string): Promise<{
+    toolId: string;
+    isHealthy: boolean;
+    status: number;
+    responseTime: number;
+    endpoint: string;
+    lastChecked: Date;
+    details: {
+      statusText?: string;
+      headers?: Record<string, any>;
+      errorCode?: string;
+      errorType?: string;
+    };
+    error?: string;
+  }> { 
     const tool = await this.findOne(toolId);
     const startTime = Date.now();
 
@@ -1410,10 +1431,10 @@ Return a JSON object with:
         responseTime,
         endpoint: tool.endpoint,
         lastChecked: new Date(),
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         details: {
-          errorCode: error.code,
-          errorType: error.name,
+          errorCode: error instanceof Error && 'code' in error ? String(error.code) : undefined,
+          errorType: error instanceof Error ? error.name : 'Error',
         },
       };
     }
@@ -1730,8 +1751,8 @@ Return a JSON object with:
     };
   }
 
-  private extractToolStepsFromWorkflow(definition: any, toolId: string) {
-    const steps = [];
+  private extractToolStepsFromWorkflow(definition: any, toolId: string): any[] {
+    const steps: any[] = [];
 
     if (definition.steps && Array.isArray(definition.steps)) {
       definition.steps.forEach((step: any, index: number) => {
@@ -2130,7 +2151,7 @@ Return a JSON object with:
         sessionId: require('uuid').v4(),
         input: testData.parameters,
         status: ExecutionStatus.FAILED,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         context: {
           ...testData.context,
           testMode: true,
@@ -2144,9 +2165,10 @@ Return a JSON object with:
 
       await this.toolExecutionRepository.save(execution);
 
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
         executionTime,
         cost: 0,
         context: testData.context,
@@ -2155,7 +2177,7 @@ Return a JSON object with:
           testData,
           null,
           executionTime,
-          error.message
+          errorMessage
         ),
       };
     }
@@ -2471,7 +2493,29 @@ Return a JSON object with:
     return recommendations;
   }
 
-  async getHealthMonitoring(toolId: string) {
+  async getHealthMonitoring(toolId: string): Promise<{
+    toolId: string;
+    healthStatus: 'healthy' | 'warning' | 'critical' | 'unknown';
+    metrics: {
+      availability: number;
+      errorRate: number;
+      avgResponseTime: number;
+      totalExecutions: number;
+      successfulExecutions: number;
+      failedExecutions: number;
+      lastExecution: Date | null;
+    };
+    errorPatterns: any[];
+    uptimePeriods: Array<{
+      status: 'up' | 'down';
+      startTime: Date;
+      endTime: Date | null;
+      duration: number;
+    }>;
+    activeAlerts: any[];
+    alertConfig: any;
+    recommendations: any[];
+  }> {
     const tool = await this.findOne(toolId);
 
     // Get recent executions for health analysis
@@ -2548,8 +2592,15 @@ Return a JSON object with:
   }
 
   private calculateUptimePeriods(executions: ToolExecution[]) {
-    const periods = [];
-    let currentPeriod = null;
+    interface UptimePeriod {
+      status: 'up' | 'down';
+      startTime: Date;
+      endTime: Date | null;
+      duration: number;
+    }
+    
+    const periods: UptimePeriod[] = [];
+    let currentPeriod: UptimePeriod | null = null;
 
     // Sort executions by time
     const sortedExecutions = executions.sort(
@@ -2714,7 +2765,9 @@ Return a JSON object with:
     }
 
     return recommendations;
-  }private getErrorPatternSuggestion(errorType: string): string {
+  }
+
+  private getErrorPatternSuggestion(errorType: string): string {
     const suggestions: Record<string, string> = {
       'Timeout Error': 'Increase timeout values or optimize API performance',
       'Network Error': 'Check network connectivity and DNS resolution',
@@ -2726,7 +2779,9 @@ Return a JSON object with:
     };
 
     return suggestions[errorType] || 'Review error details and contact support if needed';
-  }async configureHealthAlerts(
+  }
+
+  async configureHealthAlerts(
     toolId: string,
     alertConfig: {
       errorRateThreshold: number;
@@ -2741,14 +2796,16 @@ Return a JSON object with:
     const tool = await this.findOne(toolId);
 
     // Update tool metadata with alert configuration
+    const updatedMetadata = {
+      ...tool.metadata,
+      alertConfig: {
+        ...alertConfig,
+        updatedAt: new Date().toISOString(),
+      },
+    };
+    
     await this.toolRepository.update(toolId, {
-      metadata: JSON.stringify({
-        ...tool.metadata,
-        alertConfig: {
-          ...alertConfig,
-          updatedAt: new Date().toISOString(),
-        },
-      }),
+      metadata: updatedMetadata as Record<string, any>,
     });
 
     return {
@@ -2756,5 +2813,43 @@ Return a JSON object with:
       message: 'Health monitoring alerts configured successfully',
       configuration: alertConfig,
     };
+  }
+
+  async generateToolTemplates(): Promise<Array<{
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    endpoint: string;
+    method: string;
+    schema: any;
+    headers?: Record<string, string>;
+    authentication?: any;
+    tags: string[];
+    iconUrl?: string;
+  }>> {
+    // Use the real database-driven template system
+    const { data: templates } = await this.toolTemplateService.getTemplates({
+      page: 1,
+      limit: 50,
+      isPublic: true,
+      sortBy: 'templateRating',
+      sortOrder: 'DESC',
+    });
+
+    // Transform database entities to the expected format
+    return templates.map(template => ({
+      id: template.id,
+      name: template.name,
+      description: template.description || '',
+      category: template.category,
+      endpoint: template.endpoint,
+      method: template.method,
+      schema: template.schema,
+      headers: template.headers,
+      authentication: template.authentication,
+      tags: template.tags || [],
+      iconUrl: template.iconUrl,
+    }));
   }
 }

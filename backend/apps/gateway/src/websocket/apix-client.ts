@@ -512,7 +512,7 @@ export class APXClient extends EventEmitter {
     }
 
     for (const [eventType, options] of this.subscriptions.entries()) {
-      this.sendSubscription(eventType, options);
+      this.sendSubscription(eventType as APXMessageType, options);
     }
   }
 

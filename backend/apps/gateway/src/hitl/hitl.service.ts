@@ -18,6 +18,10 @@ import {
   UserRole,
 } from '@shared/enums';
 import {
+  NotificationType,
+  NotificationPriority,
+} from '@shared/enums';
+import {
   CreateHITLRequestDto,
   UpdateHITLRequestDto,
   ResolveHITLRequestDto,
@@ -474,7 +478,7 @@ export class HITLService {
     request.escalationReason = escalateDto.reason;
     request.assigneeRoles = nextLevel.assigneeRoles;
     request.assigneeUsers = nextLevel.assigneeUsers;
-    request.assigneeId = null; // Clear specific assignee
+    request.assigneeId = undefined; // Clear specific assignee
 
     request.updatePerformanceMetrics({
       escalationCount: (request.performanceMetrics?.escalationCount || 0) + 1,
@@ -957,8 +961,8 @@ export class HITLService {
         {
           title: 'HITL Request Assigned',
           message: `You have been assigned a ${request.type.toLowerCase()} request: ${request.title}`,
-          type: 'IN_APP',
-          priority: request.priority,
+          type: NotificationType.IN_APP,
+          priority: this.mapHITLPriorityToNotificationPriority(request.priority),
           userId: assigneeId,
           metadata: {
             requestId: request.id,
@@ -980,8 +984,8 @@ export class HITLService {
       {
         title: `HITL Request ${approved ? 'Approved' : 'Rejected'}`,
         message: `Your ${request.type.toLowerCase()} request "${request.title}" has been ${approved ? 'approved' : 'rejected'}.`,
-        type: 'IN_APP',
-        priority: request.priority,
+        type: NotificationType.IN_APP,
+        priority: this.mapHITLPriorityToNotificationPriority(request.priority),
         userId: request.requesterId,
         metadata: {
           requestId: request.id,
@@ -1002,8 +1006,8 @@ export class HITLService {
       {
         title: 'HITL Request Delegated to You',
         message: `A ${request.type.toLowerCase()} request has been delegated to you: ${request.title}`,
-        type: 'IN_APP',
-        priority: request.priority,
+        type: NotificationType.IN_APP,
+        priority: this.mapHITLPriorityToNotificationPriority(request.priority),
         userId: delegateDto.delegatedToId,
         metadata: {
           requestId: request.id,
@@ -1027,8 +1031,8 @@ export class HITLService {
         {
           title: 'HITL Request Escalated',
           message: `An escalated ${request.type.toLowerCase()} request requires your attention: ${request.title}`,
-          type: 'IN_APP',
-          priority: 'HIGH',
+          type: NotificationType.IN_APP,
+          priority: NotificationPriority.HIGH,
           userId: assigneeId,
           metadata: {
             requestId: request.id,
@@ -1064,8 +1068,8 @@ export class HITLService {
         {
           title: 'New Comment on HITL Request',
           message: `A new comment was added to the request: ${request.title}`,
-          type: 'IN_APP',
-          priority: 'MEDIUM',
+          type: NotificationType.IN_APP,
+          priority: NotificationPriority.MEDIUM,
           userId,
           metadata: {
             requestId: request.id,
@@ -1146,6 +1150,22 @@ export class HITLService {
     return [];
   }
 
+  private mapHITLPriorityToNotificationPriority(priority: HITLRequestPriority): NotificationPriority {
+    switch (priority) {
+      case HITLRequestPriority.CRITICAL:
+      case HITLRequestPriority.URGENT:
+        return NotificationPriority.CRITICAL;
+      case HITLRequestPriority.HIGH:
+        return NotificationPriority.HIGH;
+      case HITLRequestPriority.MEDIUM:
+        return NotificationPriority.MEDIUM;
+      case HITLRequestPriority.LOW:
+        return NotificationPriority.LOW;
+      default:
+        return NotificationPriority.MEDIUM;
+    }
+  }
+
   private identifyBottlenecks(requests: HITLRequest[]): Array<{
     type: string;
     count: number;
@@ -1172,7 +1192,7 @@ export class HITLService {
         type: 'Long Response Time',
         count: longRunningRequests.length,
         averageTime: Math.round(averageTime),
-        impact: longRunningRequests.length > requests.length * 0.2 ? 'high' : 'medium',
+        impact: longRunningRequests.length > requests.length * 0.2 ? 'high' as const : 'medium' as const,
       });
     }
 
@@ -1183,7 +1203,7 @@ export class HITLService {
         type: 'High Escalation Rate',
         count: escalatedRequests.length,
         averageTime: 0,
-        impact: escalatedRequests.length > requests.length * 0.1 ? 'high' : 'medium',
+        impact: escalatedRequests.length > requests.length * 0.1 ? 'high' as const : 'medium' as const,
       });
     }
 

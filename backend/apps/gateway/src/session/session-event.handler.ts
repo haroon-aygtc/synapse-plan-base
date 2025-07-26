@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { SessionEventType } from '@shared/enums';
 import { WebSocketService } from '../websocket/websocket.service';
+import { logSafeError } from '@shared/utils/error-guards';
 
 @Injectable()
 export class SessionEventHandler {
@@ -37,7 +38,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session created event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(`Failed to handle session created event: ${error.message}`, error.stack);
+      logSafeError(this.logger, 'Failed to handle session created event', error);
     }
   }
 
@@ -59,7 +60,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session updated event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(`Failed to handle session updated event: ${error.message}`, error.stack);
+      logSafeError(this.logger, 'Failed to handle session updated event', error);
     }
   }
 
@@ -80,7 +81,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session expired event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(`Failed to handle session expired event: ${error.message}`, error.stack);
+      logSafeError(this.logger, 'Failed to handle session expired event', error);
     }
   }
 
@@ -100,7 +101,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session destroyed event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(`Failed to handle session destroyed event: ${error.message}`, error.stack);
+      logSafeError(this.logger, 'Failed to handle session destroyed event', error);
     }
   }
 
@@ -122,10 +123,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session context updated event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session context updated event: ${error.message}`,
-        error.stack
-      );
+      logSafeError(this.logger, 'Failed to handle session context updated event', error);
     }
   }
 
@@ -151,7 +149,7 @@ export class SessionEventHandler {
         `Session memory warning: ${payload.sessionId} (${payload.memoryUsage}/${payload.memoryLimit} bytes)`
       );
     } catch (error) {
-      this.logger.error(`Failed to handle session memory warning: ${error.message}`, error.stack);
+      logSafeError(this.logger, 'Failed to handle session memory warning', error);
     }
   }
 
@@ -177,10 +175,7 @@ export class SessionEventHandler {
         `Session memory limit exceeded: ${payload.sessionId} (${payload.memoryUsage}/${payload.memoryLimit} bytes)`
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session memory limit exceeded: ${error.message}`,
-        error.stack
-      );
+      logSafeError(this.logger, 'Failed to handle session memory limit exceeded', error);
     }
   }
 
@@ -210,10 +205,7 @@ export class SessionEventHandler {
         `Session cross-module update broadcasted: ${payload.sessionId} (${payload.moduleType})`
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session cross-module update: ${error.message}`,
-        error.stack
-      );
+      logSafeError(this.logger, 'Failed to handle session cross-module update', error);
     }
   }
 
@@ -235,10 +227,7 @@ export class SessionEventHandler {
 
       this.logger.log(`Session recovery initiated: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session recovery initiated: ${error.message}`,
-        error.stack
-      );
+      logSafeError(this.logger, 'Failed to handle session recovery initiated', error);
     }
   }
 
@@ -260,10 +249,7 @@ export class SessionEventHandler {
 
       this.logger.log(`Session recovery completed: ${payload.sessionId}`);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle session recovery completed: ${error.message}`,
-        error.stack
-      );
+      logSafeError(this.logger, 'Failed to handle session recovery completed', error);
     }
   }
 
@@ -286,7 +272,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session analytics update broadcasted for org: ${payload.organizationId}`);
     } catch (error) {
-      this.logger.error(`Failed to handle session analytics update: ${error.message}`, error.stack);
+      logSafeError(this.logger, 'Failed to handle session analytics update', error);
     }
   }
 }

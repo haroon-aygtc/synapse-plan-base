@@ -135,7 +135,8 @@ export class APXMonitoringService {
         );
       }
     } catch (error) {
-      this.logger.error(`Failed to record message end: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to record message end: ${errorMessage}`);
     }
   }
 

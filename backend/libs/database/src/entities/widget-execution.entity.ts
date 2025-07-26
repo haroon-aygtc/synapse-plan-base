@@ -12,6 +12,7 @@ import { BaseEntity } from './base.entity';
 import { Widget } from './widget.entity';
 import { User } from './user.entity';
 import { Session } from './session.entity';
+import { ExecutionStatus } from '@shared/enums';
 
 export interface WidgetExecutionContext {
   userAgent: string;
@@ -89,6 +90,7 @@ export class WidgetExecution extends BaseEntity {
   @Column({
     type: 'enum',
     enum: ['pending', 'running', 'completed', 'failed', 'timeout'],
+    default: 'pending',
   })
   @Index()
   status!: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';

@@ -84,10 +84,10 @@ export class WidgetAnalytics extends BaseEntity {
   @Column({
     name: 'event_type',
     type: 'enum',
-    enum: ['view', 'interaction', 'conversion', 'error', 'performance'],
+    enum: ['view', 'interaction', 'conversion', 'error', 'performance', 'click', 'scroll', 'form_submit', 'session_start', 'session_end'],
   })
   @Index()
-  eventType!: 'view' | 'interaction' | 'conversion' | 'error' | 'performance';
+  eventType!: 'view' | 'interaction' | 'conversion' | 'error' | 'performance' | 'click' | 'scroll' | 'form_submit' | 'session_start' | 'session_end';
 
   @Column({ name: 'session_id' })
   @Index()
@@ -167,6 +167,9 @@ export class WidgetAnalytics extends BaseEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata?: Record<string, any>;
+
+  @Column({ type: 'jsonb', nullable: true })
+  properties?: Record<string, any>;
 
   @Column({ name: 'is_unique_visitor', default: false })
   @Index()

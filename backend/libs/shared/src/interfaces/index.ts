@@ -5,9 +5,18 @@ export interface IUser {
   email: string;
   firstName: string;
   lastName: string;
+  passwordHash: string;
   organizationId: string;
   role: UserRole;
   isActive: boolean;
+  emailVerified: boolean;
+  emailVerificationToken?: string;
+  passwordResetToken?: string;
+  passwordResetExpiresAt?: Date;
+  lastLoginAt?: Date;
+  avatar?: string;
+  preferences?: Record<string, any>;
+  permissions?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,6 +35,7 @@ export interface IOrganization {
   updatedAt: Date;
   settings?: Record<string, any>;
   quotas?: Record<string, number>;
+  privacySettings?: Record<string, any>;
 }
 
 export interface IAgent {
@@ -135,7 +145,97 @@ export interface IPaginatedResponse<T = any> extends IApiResponse<T[]> {
   };
 }
 
+// HITL Interfaces
+export interface AuditTrailEntry {
+  action: string;
+  userId: string;
+  timestamp: Date;
+  details: Record<string, any>;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface HITLRequest {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  status: string;
+  priority: string;
+  decisionType: string;
+  sourceType: 'agent' | 'tool' | 'workflow';
+  sourceId: string;
+  executionId?: string;
+  executionContext?: Record<string, any>;
+  requesterId: string;
+  assigneeId?: string;
+  assigneeRoles?: string[];
+  assigneeUsers?: string[];
+  delegatedFromId?: string;
+  delegatedToId?: string;
+  decisionData?: {
+    approved?: boolean;
+    reason?: string;
+    comments?: string;
+    attachments?: string[];
+    metadata?: Record<string, any>;
+  };
+  votingData?: {
+    totalVotes: number;
+    approvalVotes: number;
+    rejectionVotes: number;
+    abstainVotes: number;
+    requiredVotes: number;
+    voters: Array<{
+      userId: string;
+      vote: 'approve' | 'reject' | 'abstain';
+      reason?: string;
+      votedAt: Date;
+    }>;
+  };
+  expiresAt: Date;
+  timeoutMs: number;
+  assignedAt?: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+  escalatedAt?: Date;
+  escalationRules?: {
+    enabled: boolean;
+    timeoutMinutes: number;
+    escalationChain: Array<{
+      level: number;
+      assigneeRoles?: string[];
+      assigneeUsers?: string[];
+      timeoutMinutes: number;
+    }>;
+    autoEscalate: boolean;
+    maxEscalationLevel: number;
+  };
+  escalationLevel: number;
+  escalationReason?: string;
+  allowDiscussion: boolean;
+  requireExpertConsultation: boolean;
+  expertConsultants?: string[];
+  discussionThreadId?: string;
+  performanceMetrics?: {
+    responseTimeMs: number;
+    decisionTimeMs: number;
+    escalationCount: number;
+    discussionMessages: number;
+    expertsConsulted: number;
+    qualityScore?: number;
+  };
+  auditTrail?: AuditTrailEntry[];
+  metadata?: Record<string, any>;
+  tags?: string[];
+  category?: string;
+  organizationId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Export all interface files
 export * from './websocket.interface';
 export * from './session.interface';
 export * from './apix-protocol.interface';
+export * from './widget.interface';

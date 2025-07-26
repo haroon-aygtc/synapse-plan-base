@@ -359,7 +359,7 @@ export class WidgetSecurityService {
     } catch (error) {
       return {
         isValid: false,
-        reason: `Signature verification failed: ${error.message}`,
+        reason: `Signature verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         riskLevel: 'high',
         recommendations: ['Check signature format', 'Verify signing implementation'],
       };
@@ -394,7 +394,7 @@ export class WidgetSecurityService {
       const secret = process.env.WIDGET_JWT_SECRET || 'default-secret';
       return jwt.verify(token, secret);
     } catch (error) {
-      throw new Error(`Token verification failed: ${error.message}`);
+      throw new Error(`Token verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -547,7 +547,7 @@ export class WidgetSecurityService {
     } catch (error) {
       return {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }

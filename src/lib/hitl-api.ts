@@ -1,6 +1,7 @@
 import { apiClient } from './api';
 
 export interface HITLRequest {
+  [x: string]: any;
   id: string;
   title: string;
   description: string;

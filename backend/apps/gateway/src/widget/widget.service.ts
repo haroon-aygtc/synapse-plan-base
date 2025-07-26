@@ -6,7 +6,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
-import { ExecutionStatus } from '@libs/shared/enums';
+import { ExecutionStatus } from '@shared/enums/index';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In, Between } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
@@ -18,11 +18,17 @@ import { Cache } from 'cache-manager';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   Widget,
-  WidgetConfiguration,
   WidgetDeploymentInfo,
   WidgetAnalyticsData,
 } from '@database/entities/widget.entity';
-import { WidgetExecution } from '@database/entities/widget-execution.entity';
+import { WidgetConfiguration } from '@shared/interfaces';
+import { 
+  WidgetExecution,
+  WidgetExecutionContext,
+  WidgetExecutionInput,
+  WidgetExecutionOutput,
+  WidgetExecutionMetrics
+} from '@database/entities/widget-execution.entity';
 import { WidgetAnalytics } from '@database/entities/widget-analytics.entity';
 import { Agent } from '@database/entities/agent.entity';
 import { Tool } from '@database/entities/tool.entity';
@@ -45,6 +51,8 @@ import { ToolService } from '../tool/tool.service';
 import { WorkflowService } from '../workflow/workflow.service';
 import { SessionService } from '../session/session.service';
 import { WebSocketService } from '../websocket/websocket.service';
+import { safeErrorMessage, logSafeError, getSafeErrorInfo } from '@shared/utils/error-guards';
+import { UserRole } from '@shared/enums/index';
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
@@ -484,8 +492,12 @@ export class WidgetService {
     }
 
     const format = options.format || 'javascript';
-    const code = widget.generateEmbedCode(format);
-
+    
+    if (!widget.deploymentInfo?.embedCode) {
+      throw new BadRequestException('Widget deployment information not found');
+    }
+    
+    const code = widget.deploymentInfo.embedCode[format];
     const instructions = this.getEmbedInstructions(format, options);
 
     return {
@@ -1004,12 +1016,19 @@ export class WidgetService {
     }
 
     // Check if template name already exists
+    const whereClause: any = {
+      name: templateData.name,
+      isTemplate: true,
+    };
+    
+    if (!templateData.isPublic) {
+      whereClause.organizationId = organizationId;
+    } else {
+      whereClause.isPublicTemplate = true;
+    }
+    
     const existingTemplate = await this.widgetRepository.findOne({
-      where: {
-        name: templateData.name,
-        isTemplate: true,
-        organizationId: templateData.isPublic ? undefined : organizationId,
-      },
+      where: whereClause,
     });
 
     if (existingTemplate && existingTemplate.id !== id) {
@@ -1029,7 +1048,7 @@ export class WidgetService {
     widget.templateDownloads = 0;
     widget.templateFeatured = false;
     widget.templatePreviewImage = previewImage;
-    widget.templateDemoUrl = templateData.demoUrl || null;
+    widget.templateDemoUrl = templateData.demoUrl || undefined;
     widget.updatedAt = new Date();
 
     // Update name and description for template
@@ -1108,7 +1127,7 @@ export class WidgetService {
       widget = await this.widgetRepository.findOne({
         where: { id, isActive: true },
         relations: ['user', 'organization', 'template', 'template.user', 'template.organization'],
-      });
+      }) || undefined;
 
       if (widget) {
         await this.cacheManager.set(`widget:${id}`, widget, 300000); // 5 minutes
@@ -1129,7 +1148,7 @@ export class WidgetService {
     }
 
     // Check rate limiting
-    await this.checkRateLimit(widget.id, executionData.sessionId, organizationId);
+    await this.checkRateLimit(widget.id, executionData.sessionId, organizationId || widget.organizationId);
 
     // Validate origin if security settings exist
     if (widget.configuration.security.allowedDomains.length > 0) {
@@ -1140,42 +1159,44 @@ export class WidgetService {
     }
 
     // Create execution record with enhanced context
+    const executionContext: WidgetExecutionContext = {
+      userAgent: executionData.context?.userAgent || 'Unknown',
+      ipAddress: executionData.context?.ipAddress || '0.0.0.0',
+      referrer: executionData.context?.referrer,
+      sessionId: executionData.sessionId,
+      deviceType: this.detectDeviceType(executionData.context?.userAgent),
+      browserInfo: this.parseBrowserInfo(executionData.context?.userAgent),
+      geolocation: executionData.context?.geolocation,
+    };
+
+    const executionInput: WidgetExecutionInput = {
+      type: this.detectInputType(executionData.input) as 'message' | 'action' | 'file_upload' | 'voice_input',
+      content: executionData.input,
+      metadata: {
+        ...executionData.context,
+        timestamp: new Date(),
+        inputSize: JSON.stringify(executionData.input).length,
+      },
+    };
+
+    const executionMetrics: WidgetExecutionMetrics = {
+      startTime: new Date(),
+      endTime: new Date(),
+      duration: 0,
+      apiCalls: 0,
+      errorCount: 0,
+      cacheHits: 0,
+      cacheMisses: 0,
+    };
+
     const execution = this.widgetExecutionRepository.create({
       widgetId: id,
       sessionId: executionData.sessionId,
       userId,
       status: 'pending' as const,
-      input: {
-        type: this.detectInputType(executionData.input),
-        content: executionData.input,
-        metadata: {
-          ...executionData.context,
-          timestamp: new Date(),
-          inputSize: JSON.stringify(executionData.input).length,
-        },
-      },
-      context: {
-        userAgent: executionData.context?.userAgent || 'Unknown',
-        ipAddress: executionData.context?.ipAddress || '0.0.0.0',
-        referrer: executionData.context?.referrer,
-        sessionId: executionData.sessionId,
-        deviceType: this.detectDeviceType(executionData.context?.userAgent),
-        browserInfo: this.parseBrowserInfo(executionData.context?.userAgent),
-        geolocation: executionData.context?.geolocation,
-      },
-      metrics: {
-        startTime: new Date(),
-        endTime: new Date(),
-        duration: 0,
-        apiCalls: 0,
-        errorCount: 0,
-        cacheHits: 0,
-        cacheMisses: 0,
-      },
-      message: 'Executing widget',
-      action: 'execute',
-      fileUpload: null,
-      voiceInput: null,
+      input: executionInput,
+      context: executionContext,
+      metrics: executionMetrics,
     });
 
     const savedExecution = await this.widgetExecutionRepository.save(execution);
@@ -1248,31 +1269,39 @@ export class WidgetService {
       await this.widgetRepository.save(widget);
 
       // Track detailed analytics
-      await this.trackAnalytics(widget.id, 'interaction', {
-        ...executionData.context,
-        executionId: savedExecution.id,
-        executionTime,
-        tokensUsed: result.tokensUsed || 0,
-        cost: savedExecution.costUsd,
-        cached: result.cached || false,
-      });
+      try {
+        await this.trackAnalytics(widget.id, 'interaction', {
+          ...executionData.context,
+          executionId: savedExecution.id,
+          executionTime,
+          tokensUsed: result.tokensUsed || 0,
+          cost: savedExecution.costUsd,
+          cached: result.cached || false,
+        });
+      } catch (analyticsError: unknown) {
+        logSafeError(this.logger, 'Failed to track analytics', analyticsError);
+      }
 
       // Emit real-time execution update
-      await this.websocketService.broadcastToOrganization(
-        widget.organizationId,
-        'widget:execution:completed',
-        {
-          widgetId: widget.id,
-          executionId: savedExecution.id,
-          result: result.content || result,
-          metrics: {
-            executionTime,
-            tokensUsed: result.tokensUsed || 0,
-            cost: savedExecution.costUsd,
-          },
-          timestamp: new Date(),
-        }
-      );
+      try {
+        await this.websocketService.broadcastToOrganization(
+          widget.organizationId,
+          'widget:execution:completed',
+          {
+            widgetId: widget.id,
+            executionId: savedExecution.id,
+            result: result.content || result,
+            metrics: {
+              executionTime,
+              tokensUsed: result.tokensUsed || 0,
+              cost: savedExecution.costUsd,
+            },
+            timestamp: new Date(),
+          }
+        );
+      } catch (wsError: unknown) {
+        logSafeError(this.logger, 'Failed to broadcast execution completion', wsError);
+      }
 
       this.logger.log(`Widget execution completed: ${savedExecution.id} in ${executionTime}ms`);
 
@@ -1294,42 +1323,70 @@ export class WidgetService {
       const executionTime = Date.now() - startTime;
 
       // Update execution with error
-      savedExecution.markAsFailed(error.message || 'Unknown error', {
-        error: error.stack || '',
-        errorType: error.constructor?.name || 'Error',
+      const errorInfo = getSafeErrorInfo(error);
+      savedExecution.markAsFailed(errorInfo.message, {
+        error: errorInfo.stack || '',
+        errorType: errorInfo.name,
         executionTime,
       });
       await this.widgetExecutionRepository.save(savedExecution);
 
       // Track error analytics
-      await this.trackAnalytics(widget.id, 'error', {
-        ...executionData.context,
-        executionId: savedExecution.id,
-        errorMessage: error.message || 'Unknown error',
-        errorType: error.constructor?.name || 'Error',
-        executionTime,
-      });
+      try {
+        await this.trackAnalytics(widget.id, 'error', {
+          ...executionData.context,
+          executionId: savedExecution.id,
+          errorMessage: errorInfo.message,
+          errorType: errorInfo.name,
+          executionTime,
+        });
+      } catch (analyticsError: unknown) {
+        logSafeError(this.logger, 'Failed to track error analytics', analyticsError);
+      }
 
       // Emit error event
-      await this.websocketService.broadcastToOrganization(
-        widget.organizationId,
-        'widget:execution:failed',
-        {
-          widgetId: widget.id,
-          executionId: savedExecution.id,
-          error: error.message || 'Unknown error',
-          timestamp: new Date(),
-        }
-      );
+      try {
+        await this.websocketService.broadcastToOrganization(
+          widget.organizationId,
+          'widget:execution:failed',
+          {
+            widgetId: widget.id,
+            executionId: savedExecution.id,
+            error: errorInfo.message,
+            timestamp: new Date(),
+          }
+        );
+      } catch (wsError: unknown) {
+        logSafeError(this.logger, 'Failed to broadcast execution failure', wsError);
+      }
 
-      this.logger.error(
-        `Widget execution failed: ${savedExecution.id} - ${error.message || 'Unknown error'}`
+      logSafeError(
+        this.logger,
+        `Widget execution failed: ${savedExecution.id}`,
+        error
       );
       throw error;
     }
   }
 
   // Private helper methods
+
+  private convertExecutionStatus(status: ExecutionStatus): 'pending' | 'running' | 'completed' | 'failed' | 'timeout' {
+    switch (status) {
+      case ExecutionStatus.PENDING:
+        return 'pending';
+      case ExecutionStatus.RUNNING:
+        return 'running';
+      case ExecutionStatus.COMPLETED:
+        return 'completed';
+      case ExecutionStatus.FAILED:
+        return 'failed';
+      case ExecutionStatus.CANCELLED:
+        return 'timeout'; // Map cancelled to timeout for widget executions
+      default:
+        return 'pending';
+    }
+  }
 
   private async checkOrganizationLimits(organizationId: string): Promise<void> {
     const widgetCount = await this.widgetRepository.count({
@@ -1349,7 +1406,8 @@ export class WidgetService {
     userId: string,
     organizationId: string
   ): Promise<void> {
-    let source;
+    let source: { userId: string; organizationId: string } | null = null;
+    
     switch (type) {
       case 'agent':
         source = await this.agentRepository.findOne({
@@ -1437,7 +1495,7 @@ export class WidgetService {
         where: { id: userId },
       });
 
-      if (!user || (user.role !== 'ORG_ADMIN' && user.role !== 'SUPER_ADMIN')) {
+      if (!user || (user.role !== UserRole.ORG_ADMIN && user.role !== UserRole.SUPER_ADMIN)) {
         throw new ForbiddenException('Insufficient permissions to deploy widget');
       }
     }
@@ -1927,11 +1985,8 @@ export class WidgetComponent {
           delay: 1000, // 1 second delay for batching
         }
       );
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to track analytics: ${error.message || 'Unknown error'}`,
-        error.stack || ''
-      );
+    } catch (error: unknown) {
+      logSafeError(this.logger, 'Failed to track analytics', error);
       // Don't throw error to avoid breaking widget execution
     }
   }
@@ -2122,10 +2177,8 @@ export class WidgetComponent {
 
       // For now, return default preview
       return this.generateDefaultPreviewImage(widget.type);
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to generate template preview for widget ${widget.id}: ${error.message || 'Unknown error'}`
-      );
+    } catch (error: unknown) {
+      logSafeError(this.logger, `Failed to generate template preview for widget ${widget.id}`, error);
       return this.generateDefaultPreviewImage(widget.type);
     }
   }
@@ -2161,10 +2214,8 @@ export class WidgetComponent {
         derivedWidgets,
         lastUsed: new Date(),
       };
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to get template statistics for ${templateId}: ${error.message || 'Unknown error'}`
-      );
+    } catch (error: unknown) {
+      logSafeError(this.logger, `Failed to get template statistics for ${templateId}`, error);
       return {
         uniqueUsers: 0,
         totalInteractions: 0,
@@ -2206,10 +2257,8 @@ export class WidgetComponent {
 
       const analytics = this.widgetAnalyticsRepository.create(analyticsData);
       await this.widgetAnalyticsRepository.save(analytics);
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to track template usage for ${templateId}: ${error.message || 'Unknown error'}`
-      );
+    } catch (error: unknown) {
+      logSafeError(this.logger, `Failed to track template usage for ${templateId}`, error);
       // Don't throw error to avoid breaking widget creation
     }
   }
@@ -2236,10 +2285,8 @@ export class WidgetComponent {
         featuredTemplates,
         3600000 // 1 hour
       );
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to update featured templates cache: ${error.message || 'Unknown error'}`
-      );
+    } catch (error: unknown) {
+      logSafeError(this.logger, 'Failed to update featured templates cache', error);
     }
   }
 
@@ -2291,10 +2338,8 @@ export class WidgetComponent {
       });
 
       return counts;
-    } catch (error: any) {
-      this.logger.error(
-        `Failed to get template category counts: ${error.message || 'Unknown error'}`
-      );
+    } catch (error: unknown) {
+      logSafeError(this.logger, 'Failed to get template category counts', error);
       return {};
     }
   }
@@ -2370,44 +2415,30 @@ export class WidgetComponent {
     templateId: string,
     options: { page: number; limit: number }
   ): Promise<any> {
-    const reviews = await this.widgetRepository.find({
+    // For now, return empty reviews as the review system is not yet implemented
+    // This would typically query a separate TemplateReview entity
+    const template = await this.widgetRepository.findOne({
       where: { id: templateId, isTemplate: true, isActive: true },
-      order: { createdAt: 'DESC' },
-      skip: (options.page - 1) * options.limit,
-      take: options.limit,
-      relations: [
-        'user',
-        'organization',
-        'template',
-        'template.user',
-        'template.organization',
-        'template.templateReviews',
-        'template.templateReviews.user',
-        'template.templateReviews.organization',
-      ],
+      relations: ['user', 'organization'],
     });
 
-    const totalReviews = await this.widgetRepository.count({
-      where: { id: templateId, isTemplate: true, isActive: true },
-      relations: [
-        'user',
-        'organization',
-        'template',
-        'template.user',
-        'template.organization',
-        'template.templateReviews',
-        'template.templateReviews.user',
-        'template.templateReviews.organization',
-      ],
-    });
+    if (!template) {
+      throw new NotFoundException('Template not found');
+    }
 
     return {
-      data: reviews,
+      data: [], // Empty reviews for now
       pagination: {
         page: options.page,
         limit: options.limit,
-        total: totalReviews,
-        totalPages: Math.ceil(totalReviews / options.limit),
+        total: 0,
+        totalPages: 0,
+      },
+      template: {
+        id: template.id,
+        name: template.name,
+        rating: template.templateRating,
+        ratingCount: template.templateRatingCount,
       },
     };
   }

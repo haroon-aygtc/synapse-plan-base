@@ -17,6 +17,7 @@ import { Roles } from '@shared/decorators/roles.decorator';
 import { UserRole } from '@shared/enums';
 import { ToolService } from './tool.service';
 import { ToolExecutionEngine } from './tool-execution.engine';
+import { ToolTemplateService } from './tool-template.service';
 import { CreateToolDto, UpdateToolDto, ExecuteToolDto, TestToolDto } from './dto';
 
 @ApiTags('tools')
@@ -25,7 +26,8 @@ import { CreateToolDto, UpdateToolDto, ExecuteToolDto, TestToolDto } from './dto
 export class ToolController {
   constructor(
     private readonly toolService: ToolService,
-    private readonly toolExecutionEngine: ToolExecutionEngine
+    private readonly toolExecutionEngine: ToolExecutionEngine,
+    private readonly toolTemplateService: ToolTemplateService
   ) {}
 
   @Post()
@@ -232,6 +234,15 @@ export class ToolController {
   @ApiResponse({ status: 200, description: 'Templates retrieved successfully' })
   async getTemplates() {
     return this.toolService.generateToolTemplates();
+  }
+
+  @Post('/templates/seed')
+  @Roles(UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Seed initial tool templates' })
+  @ApiResponse({ status: 200, description: 'Templates seeded successfully' })
+  async seedTemplates() {
+    await this.toolTemplateService.seedInitialTemplates();
+    return { message: 'Tool templates seeded successfully' };
   }
 
   @Post('/detect-schema')

@@ -2,7 +2,8 @@ import { Test } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
-import * as redisStore from 'cache-manager-redis-store';
+import { beforeAll, afterAll } from '@jest/globals';
+// import * as redisStore from 'cache-manager-ioredis';
 
 // Global test setup
 beforeAll(async () => {
@@ -35,17 +36,9 @@ export const createTestModule = async (imports: any[] = [], providers: any[] = [
           logging: false,
         }),
       }),
-      CacheModule.registerAsync({
+      CacheModule.register({
         isGlobal: true,
-        inject: [ConfigService],
-        useFactory: (configService: ConfigService) => ({
-          store: redisStore,
-          host: configService.get('REDIS_HOST', 'localhost'),
-          port: configService.get('REDIS_PORT', 6379),
-          password: configService.get('REDIS_PASSWORD'),
-          db: configService.get('REDIS_DB', 15),
-          ttl: 300,
-        }),
+        ttl: 300,
       }),
       ...imports,
     ],
@@ -57,6 +50,4 @@ export const createTestModule = async (imports: any[] = [], providers: any[] = [
 
 // Clean up after tests
 afterAll(async () => {
-  // Close database connections
-  // This will be handled by the test framework
 });

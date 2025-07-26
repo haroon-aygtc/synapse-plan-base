@@ -67,6 +67,7 @@ export class HITLController {
     description: 'HITL requests retrieved successfully',
   })
   async getRequests(
+    @Request() req: any,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('status') status?: string,
@@ -76,8 +77,7 @@ export class HITLController {
     @Query('sourceType') sourceType?: 'agent' | 'tool' | 'workflow',
     @Query('category') category?: string,
     @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
-    @Request() req: any
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC'
   ) {
     const result = await this.hitlService.getRequests(req.user.organizationId, req.user.id, {
       page: page ? parseInt(page.toString()) : 1,

@@ -263,11 +263,11 @@ export class AnalyticsService {
       id: event.id,
       type: this.mapEventTypeToActivityType(event.eventType),
       title: this.generateActivityTitle(event),
-      message: event.eventData?.message || '',
-      status: this.mapEventStatusToActivityStatus(event.eventData?.status),
+      message: event.payload?.message || '',
+      status: this.mapEventStatusToActivityStatus(event.payload?.status),
       timestamp: this.formatTimestamp(event.createdAt),
-      duration: event.eventData?.duration
-        ? this.formatDuration(event.eventData.duration)
+      duration: event.payload?.duration
+        ? this.formatDuration(event.payload.duration)
         : undefined,
     }));
   }

@@ -19,6 +19,28 @@ export interface IAPXMessage {
   encryption?: boolean;
 }
 
+export interface IAPXSessionCreated {
+  session_id: string;
+  user_id: string;
+  organization_id: string;
+  security_level: APXSecurityLevel;
+  permissions: APXPermissionLevel[];
+  expires_at: string;
+  created_at: string;
+  initial_context: Record<string, any>;
+}
+
+export interface IAPXPerformanceMetrics {
+  execution_id: string;
+  response_time_ms: number;
+  token_count: number;
+  cost: number;
+  memory_usage: number;
+  cpu_usage: number;
+  network_latency_ms: number;
+  timestamp: string;
+}
+
 export interface IAPXMessageSchema {
   type: APXMessageType;
   required_fields: string[];

@@ -257,10 +257,10 @@ export function HITLDashboard({ className }: HITLDashboardProps) {
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge className={priorityColors[request.priority]}>
+                        <Badge className={priorityColors[request.priority as keyof typeof priorityColors] || 'bg-gray-100 text-gray-800'}>
                           {request.priority}
                         </Badge>
-                        <Badge className={statusColors[request.status]}>
+                        <Badge className={statusColors[request.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'}>
                           {request.status}
                         </Badge>
                       </div>
@@ -299,10 +299,10 @@ export function HITLDashboard({ className }: HITLDashboardProps) {
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Badge className={priorityColors[request.priority]}>
+                        <Badge className={priorityColors[request.priority as keyof typeof priorityColors] || 'bg-gray-100 text-gray-800'}>
                           {request.priority}
                         </Badge>
-                        <Badge className={statusColors[request.status]}>
+                        <Badge className={statusColors[request.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'}>
                           {request.status}
                         </Badge>
                       </div>
@@ -507,10 +507,10 @@ function RequestsList({
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <Badge className={priorityColors[request.priority]}>
+                <Badge className={priorityColors[request.priority as keyof typeof priorityColors] || 'bg-gray-100 text-gray-800'}>
                   {request.priority}
                 </Badge>
-                <Badge className={statusColors[request.status]}>
+                <Badge className={statusColors[request.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800'}>
                   {request.status}
                 </Badge>
               </div>

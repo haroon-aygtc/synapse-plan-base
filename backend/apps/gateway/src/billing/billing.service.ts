@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Subscription, Organization, User } from '@database/entities';
+import { BillingSubscription, Organization, User } from '@database/entities';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 
@@ -31,8 +31,8 @@ export class BillingService {
   private stripe: Stripe;
 
   constructor(
-    @InjectRepository(Subscription)
-    private readonly subscriptionRepository: Repository<Subscription>,
+    @InjectRepository(BillingSubscription)
+    private readonly subscriptionRepository: Repository<BillingSubscription>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
     @InjectRepository(User)
@@ -40,21 +40,24 @@ export class BillingService {
     private readonly configService: ConfigService
   ) {
     this.stripe = new Stripe(this.configService.get<string>('STRIPE_SECRET_KEY') || '', {
-      apiVersion: '2024-06-20',
+      apiVersion: '2025-02-24.acacia',
     });
   }
 
   async getUsageMetrics(organizationId: string): Promise<UsageMetrics> {
     const organization = await this.organizationRepository.findOne({
       where: { id: organizationId },
-      relations: ['subscription'],
     });
 
     if (!organization) {
       throw new NotFoundException('Organization not found');
     }
 
-    const subscription = organization.subscription;
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { organizationId },
+      order: { createdAt: 'DESC' },
+    });
+
     const currentDate = new Date();
     const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 
@@ -66,7 +69,7 @@ export class BillingService {
       this.getApiCallUsage(organizationId, startOfMonth),
     ]);
 
-    const quotas = this.getQuotasForPlan(subscription?.planType || 'free');
+    const quotas = this.getQuotasForPlan(subscription?.plan || 'free');
 
     const usage = {
       agentExecutions: agentUsage,
@@ -96,7 +99,7 @@ export class BillingService {
         limit: quotas.apiCalls,
       },
       billing: {
-        currentPlan: subscription?.planType || 'free',
+        currentPlan: subscription?.plan || 'free',
         billingPeriod: this.getBillingPeriod(startOfMonth),
         currentUsage: this.calculateCurrentUsage(usage),
         projectedTotal: this.calculateProjectedTotal(usage, quotas),
@@ -179,7 +182,7 @@ export class BillingService {
     const subscription = this.subscriptionRepository.create({
       organizationId,
       stripeSubscriptionId: stripeSubscription.id,
-      planType,
+      plan: planType as any,
       status: stripeSubscription.status,
       amount: stripeSubscription.items.data[0]?.price.unit_amount || 0,
       currency: stripeSubscription.items.data[0]?.price.currency || 'usd',
@@ -200,6 +203,10 @@ export class BillingService {
     }
 
     // Update Stripe subscription
+    if (!subscription.stripeSubscriptionId) {
+      throw new Error('No Stripe subscription ID found');
+    }
+    
     const stripeSubscription = await this.stripe.subscriptions.retrieve(
       subscription.stripeSubscriptionId
     );
@@ -214,7 +221,7 @@ export class BillingService {
     });
 
     // Update local subscription
-    subscription.planType = planType;
+    subscription.plan = planType as any;
     subscription.updatedAt = new Date();
 
     return this.subscriptionRepository.save(subscription);
@@ -230,6 +237,9 @@ export class BillingService {
     }
 
     // Cancel Stripe subscription
+    if (!subscription.stripeSubscriptionId) {
+      throw new Error('No Stripe subscription ID found');
+    }
     await this.stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
 
     // Update local subscription
@@ -303,7 +313,7 @@ export class BillingService {
   }
 
   private getPriceIdForPlan(planType: string): string {
-    const priceIds = {
+    const priceIds: Record<string, string> = {
       starter: this.configService.get<string>('STRIPE_STARTER_PRICE_ID') || 'price_starter',
       professional:
         this.configService.get<string>('STRIPE_PROFESSIONAL_PRICE_ID') || 'price_professional',
@@ -356,7 +366,7 @@ export class BillingService {
   }
 
   private getQuotasForPlan(planType: string): any {
-    const quotas = {
+    const quotas: Record<string, any> = {
       free: {
         agentExecutions: 100,
         toolExecutions: 500,
@@ -390,7 +400,12 @@ export class BillingService {
     usage: any,
     quotas: any
   ): Promise<void> {
-    const violations = [];
+    const violations: Array<{
+      type: string;
+      used: number;
+      limit: number;
+      percentage: number;
+    }> = [];
 
     Object.keys(usage).forEach((key) => {
       if (quotas[key] !== -1 && usage[key] >= quotas[key] * 0.8) {
@@ -431,7 +446,7 @@ export class BillingService {
 
   async enforceQuota(organizationId: string, resourceType: string): Promise<boolean> {
     const metrics = await this.getUsageMetrics(organizationId);
-    const resource = metrics[resourceType];
+    const resource = (metrics as any)[resourceType];
 
     if (!resource) {
       return true; // Allow if resource type not found

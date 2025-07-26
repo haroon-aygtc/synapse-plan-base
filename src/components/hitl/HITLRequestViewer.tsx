@@ -590,7 +590,7 @@ export function HITLRequestViewer({
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {request.auditTrail?.map((entry, index) => (
+                  {request.auditTrail?.map((entry: { action: string | number | bigint | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | Promise<React.AwaitedReactNode> | null | undefined; timestamp: string | number | Date; userId: string | number | bigint | boolean | React.ReactElement<any, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | Promise<React.AwaitedReactNode> | null | undefined; details: {}; }, index: React.Key | null | undefined) => (
                     <div
                       key={index}
                       className="border-l-2 border-blue-200 pl-4"
@@ -614,10 +614,10 @@ export function HITLRequestViewer({
                         )}
                     </div>
                   )) || (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No audit trail available
-                    </p>
-                  )}
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No audit trail available
+                      </p>
+                    )}
                 </div>
               </CardContent>
             </Card>

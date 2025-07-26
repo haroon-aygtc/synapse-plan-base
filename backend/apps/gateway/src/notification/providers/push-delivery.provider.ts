@@ -81,10 +81,14 @@ export class PushDeliveryProvider {
         );
 
         // Handle failed tokens
-        const failedTokens = [];
-        if (result.responses) {
+        const failedTokens: Array<{
+          token: string;
+          error?: string;
+          errorCode?: string;
+        }> = [];
+        if (result.responses && pushData.deviceTokens) {
           result.responses.forEach((response, index) => {
-            if (!response.success) {
+            if (!response.success && pushData.deviceTokens) {
               failedTokens.push({
                 token: pushData.deviceTokens[index],
                 error: response.error?.message,
@@ -100,11 +104,12 @@ export class PushDeliveryProvider {
           deliveredTokens: result.successCount,
           failedTokens: result.failureCount,
           failedTokenDetails: failedTokens,
-          multicastId: result.multicastId,
+          multicastId: (result as any).multicastId,
         };
       }
     } catch (error) {
-      this.logger.error(`Failed to send push notification: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to send push notification: ${errorMessage}`, error instanceof Error ? error.stack : undefined);
       throw error;
     }
   }
@@ -269,8 +274,18 @@ export class PushDeliveryProvider {
     return { validTokens, invalidTokens };
   }
 
-  async sendBatchPush(deliveries: NotificationDelivery[]): Promise<any[]> {
-    const results = [];
+  async sendBatchPush(deliveries: NotificationDelivery[]): Promise<Array<{
+    deliveryId: string;
+    success: boolean;
+    result?: any;
+    error?: string;
+  }>> {
+    const results: Array<{
+      deliveryId: string;
+      success: boolean;
+      result?: any;
+      error?: string;
+    }> = [];
     const batchSize = 500; // Firebase FCM batch limit
 
     for (let i = 0; i < deliveries.length; i += batchSize) {
@@ -284,7 +299,7 @@ export class PushDeliveryProvider {
           return {
             deliveryId: delivery.id,
             success: false,
-            error: error.message,
+            error: error instanceof Error ? error.message : 'Unknown error',
           };
         }
       });
@@ -296,8 +311,9 @@ export class PushDeliveryProvider {
           results.push(result.value);
         } else {
           results.push({
+            deliveryId: 'unknown',
             success: false,
-            error: result.reason?.message || 'Unknown error',
+            error: result.reason instanceof Error ? result.reason.message : 'Unknown error',
           });
         }
       });

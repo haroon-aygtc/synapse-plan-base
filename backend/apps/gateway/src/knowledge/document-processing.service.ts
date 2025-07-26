@@ -94,10 +94,10 @@ export class DocumentProcessingService {
     } catch (error) {
       // Update status to failed
       document.status = DocumentStatus.FAILED;
-      document.error = error.message;
+      document.error = error instanceof Error ? error.message : 'Unknown error';
       await this.documentRepository.save(document);
 
-      this.logger.error(`Document processing failed: ${documentId}`, error.stack);
+      this.logger.error(`Document processing failed: ${documentId}`, error instanceof Error ? error.stack : undefined);
       throw error;
     }
   }
@@ -218,8 +218,8 @@ export class DocumentProcessingService {
 
     // Reset status and reprocess
     document.status = DocumentStatus.UPLOADED;
-    document.error = null;
-    document.processedAt = null;
+    document.error = undefined;
+    document.processedAt = undefined;
     await this.documentRepository.save(document);
 
     await this.processDocument(documentId);

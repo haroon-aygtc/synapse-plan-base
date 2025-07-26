@@ -14,10 +14,11 @@ import * as crypto from 'crypto';
 import { UserService } from './user.service';
 import { OrganizationService } from './organization.service';
 import { RegisterDto, LoginDto, InviteUserDto } from './dto';
-import { IJwtPayload, IUser, ISession, UserRole } from '@shared/interfaces';
+import { IJwtPayload, IUser, ISession, UserRole, SubscriptionPlan } from '@shared/interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums';
 import { SessionService } from '../session/session.service';
+import { BillingService } from '../billing/billing.service';
 
 @Injectable()
 export class AuthService {
@@ -29,6 +30,7 @@ export class AuthService {
   constructor(
     private readonly userService: UserService,
     private readonly organizationService: OrganizationService,
+    private readonly billingService: BillingService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
@@ -79,13 +81,16 @@ export class AuthService {
     const tokens = await this.generateTokens(user);
 
     // Emit registration event for audit logging
-    this.eventEmitter.emit(EventType.USER_CREATED, {
+    this.eventEmitter.emit(AgentEventType.USER_CREATED, {
       userId: user.id,
       organizationId: user.organizationId,
       email: user.email,
       role: user.role,
       timestamp: new Date(),
     });
+
+    // Create billing subscription
+    await this.billingService.createSubscription(user.organizationId, SubscriptionPlan.FREE, '');
 
     return {
       user: this.sanitizeUser(user),
@@ -126,7 +131,7 @@ export class AuthService {
     await this.userService.updateLastLogin(user.id);
 
     // Emit login event for audit logging
-    this.eventEmitter.emit(EventType.USER_LOGIN, {
+    this.eventEmitter.emit(AgentEventType.USER_LOGIN, {
       userId: user.id,
       organizationId: user.organizationId,
       userAgent,
@@ -166,8 +171,12 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
-    if (user.organization && !user.organization.isActive) {
-      throw new UnauthorizedException('Organization is deactivated');
+    // Check if organization is active (if organizationId exists)
+    if (user.organizationId) {
+      const organization = await this.organizationService.findById(user.organizationId);
+      if (organization && !organization.isActive) {
+        throw new UnauthorizedException('Organization is deactivated');
+      }
     }
 
     // Clear failed attempts on successful login
@@ -194,7 +203,7 @@ export class AuthService {
     await this.invalidateUserRefreshTokens(userId);
 
     // Emit user logout event
-    this.eventEmitter.emit(EventType.USER_LOGOUT, {
+    this.eventEmitter.emit(AgentEventType.USER_LOGOUT, {
       userId,
       timestamp: new Date(),
     });
@@ -407,7 +416,7 @@ export class AuthService {
     });
 
     // Emit user invitation event
-    this.eventEmitter.emit(EventType.USER_CREATED, {
+    this.eventEmitter.emit(AgentEventType.USER_CREATED, {
       userId: user.id,
       organizationId,
       email,

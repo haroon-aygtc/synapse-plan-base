@@ -14,7 +14,7 @@ import { SessionEventHandler } from './session-event.handler';
   imports: [
     ConfigModule,
     TypeOrmModule.forFeature([Session, User, Organization]),
-    CacheModule,
+    // CacheModule is imported globally in GatewayModule
     EventEmitterModule,
     ScheduleModule,
   ],

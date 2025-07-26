@@ -22,6 +22,17 @@ import { AnalyticsService } from './analytics.service';
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
+  private handleError(error: unknown): never {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    throw new HttpException(
+      {
+        success: false,
+        message: errorMessage,
+      },
+      HttpStatus.INTERNAL_SERVER_ERROR
+    );
+  }
+
   @Get('dashboard/stats')
   @ApiOperation({ summary: 'Get dashboard statistics' })
   @ApiResponse({
@@ -42,13 +53,7 @@ export class AnalyticsController {
         message: 'Dashboard statistics retrieved successfully',
       };
     } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      this.handleError(error);
     }
   }
 
@@ -81,13 +86,7 @@ export class AnalyticsController {
         message: 'Dashboard activities retrieved successfully',
       };
     } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      this.handleError(error);
     }
   }
 
@@ -117,13 +116,7 @@ export class AnalyticsController {
         message: 'Detailed analytics retrieved successfully',
       };
     } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      this.handleError(error);
     }
   }
 
@@ -154,13 +147,7 @@ export class AnalyticsController {
         message: 'Performance metrics retrieved successfully',
       };
     } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      this.handleError(error);
     }
   }
 
@@ -191,13 +178,7 @@ export class AnalyticsController {
         message: 'Cost analysis retrieved successfully',
       };
     } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      this.handleError(error);
     }
   }
 
@@ -228,13 +209,7 @@ export class AnalyticsController {
         message: 'User engagement metrics retrieved successfully',
       };
     } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      this.handleError(error);
     }
   }
 
@@ -265,13 +240,7 @@ export class AnalyticsController {
         message: 'Execution trends retrieved successfully',
       };
     } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR
-      );
+      this.handleError(error);
     }
   }
 

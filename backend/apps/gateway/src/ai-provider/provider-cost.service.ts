@@ -213,10 +213,10 @@ export class ProviderCostService {
 
       if (dailyCost >= thresholds.dailyLimit) {
         alerts.push({
-          type: 'daily',
+          type: 'daily' as const,
           current: dailyCost,
           threshold: thresholds.dailyLimit,
-          severity: dailyCost >= thresholds.dailyLimit * 1.2 ? 'critical' : 'warning',
+          severity: dailyCost >= thresholds.dailyLimit * 1.2 ? 'critical' as const : 'warning' as const,
           message: `Daily cost limit ${dailyCost >= thresholds.dailyLimit * 1.2 ? 'exceeded' : 'approaching'}`,
         });
       }
@@ -229,10 +229,10 @@ export class ProviderCostService {
 
       if (weeklyCost >= thresholds.weeklyLimit) {
         alerts.push({
-          type: 'weekly',
+          type: 'weekly' as const,
           current: weeklyCost,
           threshold: thresholds.weeklyLimit,
-          severity: weeklyCost >= thresholds.weeklyLimit * 1.2 ? 'critical' : 'warning',
+          severity: weeklyCost >= thresholds.weeklyLimit * 1.2 ? 'critical' as const : 'warning' as const,
           message: `Weekly cost limit ${weeklyCost >= thresholds.weeklyLimit * 1.2 ? 'exceeded' : 'approaching'}`,
         });
       }
@@ -245,10 +245,10 @@ export class ProviderCostService {
 
       if (monthlyCost >= thresholds.monthlyLimit) {
         alerts.push({
-          type: 'monthly',
+          type: 'monthly' as const,
           current: monthlyCost,
           threshold: thresholds.monthlyLimit,
-          severity: monthlyCost >= thresholds.monthlyLimit * 1.2 ? 'critical' : 'warning',
+          severity: monthlyCost >= thresholds.monthlyLimit * 1.2 ? 'critical' as const : 'warning' as const,
           message: `Monthly cost limit ${monthlyCost >= thresholds.monthlyLimit * 1.2 ? 'exceeded' : 'approaching'}`,
         });
       }

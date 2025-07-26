@@ -11,6 +11,7 @@ import { WebSocketService } from '../websocket/websocket.service';
 import { HITLService } from '../hitl/hitl.service';
 import { ExecuteWorkflowDto } from './dto';
 import { ExecutionStatus, HITLRequestType, HITLRequestPriority } from '@shared/enums';
+import { getErrorMessage, logSafeError } from '@shared/utils/error-guards';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface WorkflowStep {
@@ -340,7 +341,7 @@ export class WorkflowExecutionEngine {
 
       // Update execution record with error
       execution.status = ExecutionStatus.FAILED;
-      execution.error = error.message || 'Unknown error';
+      execution.error = getErrorMessage(error);
       execution.executionTimeMs = executionTime;
       execution.completedAt = new Date();
       execution.errorDetails = {
@@ -351,7 +352,7 @@ export class WorkflowExecutionEngine {
         recoveryAttempts: context.retryCount,
         lastRecoveryAt: new Date(),
         isRecoverable: this.isRecoverableError(
-          error instanceof Error ? error : new Error(error.message || 'Unknown error')
+          error instanceof Error ? error : new Error(getErrorMessage(error))
         ),
       };
 
@@ -363,7 +364,7 @@ export class WorkflowExecutionEngine {
         executionId,
         userId: context.userId,
         organizationId: context.organizationId,
-        error: error.message || 'Unknown error',
+        error: getErrorMessage(error),
         executionTime,
         timestamp: new Date(),
       });
@@ -375,17 +376,14 @@ export class WorkflowExecutionEngine {
         {
           workflowId,
           status: ExecutionStatus.FAILED,
-          error: error.message || 'Unknown error',
+          error: getErrorMessage(error),
           progress: (context.completedSteps.length / workflow.definition.nodes.length) * 100,
           executionId,
           timestamp: new Date(),
         }
       );
 
-      this.logger.error(
-        `Workflow execution failed: ${executionId} - ${error.message || 'Unknown error'}`,
-        error.stack || ''
-      );
+        logSafeError(error, `Workflow execution failed: ${executionId}`);
 
       throw error;
     }
@@ -651,12 +649,12 @@ export class WorkflowExecutionEngine {
         if (errorHandling === 'retry' && context.retryCount < maxRetries) {
           context.retryCount++;
           this.logger.warn(
-            `Retrying step ${currentStepId} (attempt ${context.retryCount}): ${error.message || 'Unknown error'}`
+            `Retrying step ${currentStepId} (attempt ${context.retryCount}): ${getErrorMessage(error)}`
           );
           continue; // Retry the same step
         } else if (errorHandling === 'continue') {
           this.logger.warn(
-            `Continuing after error in step ${currentStepId}: ${error.message || 'Unknown error'}`
+              `Continuing after error in step ${currentStepId}: ${getErrorMessage(error)}`
           );
           // Find next step and continue
           const nextStep = await this.findNextStep(currentNode, edges, context, decisionPoints);
@@ -804,7 +802,7 @@ export class WorkflowExecutionEngine {
       });
 
       throw new Error(
-        `Agent execution failed in step ${step.id}: ${error.message || 'Unknown error'}`
+        `Agent execution failed in step ${step.id}: ${getErrorMessage(error)}`
       );
     }
   }
@@ -883,7 +881,7 @@ export class WorkflowExecutionEngine {
       });
 
       throw new Error(
-        `Tool execution failed in step ${step.id}: ${error.message || 'Unknown error'}`
+          `Tool execution failed in step ${step.id}: ${getErrorMessage(error)}`
       );
     }
   }
@@ -1117,7 +1115,7 @@ export class WorkflowExecutionEngine {
           hitlRequestId: hitlRequest.id,
           status: ExecutionStatus.FAILED,
           requestType: hitlConfig.type,
-          error: error.message || 'Unknown error',
+          error: getErrorMessage(error),
         },
         cost: 0,
         executionTime,
@@ -1126,7 +1124,7 @@ export class WorkflowExecutionEngine {
           requestType: hitlConfig.type,
           stepId: step.id,
           approved: false,
-          error: error.message || 'Unknown error',
+          error: getErrorMessage(error),
         },
       };
     }
@@ -1617,8 +1615,9 @@ export class WorkflowExecutionEngine {
 
   private isRecoverableError(error: Error): boolean {
     const recoverableErrors = ['timeout', 'rate_limit', 'network', 'temporary'];
+    const errorMessage = getErrorMessage(error).toLowerCase();
 
-    return recoverableErrors.some((type) => error.message.toLowerCase().includes(type));
+    return recoverableErrors.some((type) => errorMessage.includes(type));
   }
 
   private async sendCompletionNotification(

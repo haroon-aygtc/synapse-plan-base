@@ -49,11 +49,8 @@ export interface SandboxEventPayload {
 @Entity('sandbox_events')
 @Index(['runId', 'organizationId'])
 @Index(['organizationId', 'type'])
-@Index(['organizationId', 'timestamp'])
+@Index(['organizationId', 'eventTimestamp'])
 export class SandboxEvent extends BaseEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
   @Column({
     type: 'enum',
     enum: SandboxEventType,
@@ -64,18 +61,11 @@ export class SandboxEvent extends BaseEntity {
   payload: SandboxEventPayload;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  timestamp: Date;
+  eventTimestamp: Date;
 
   @Column({ type: 'uuid' })
   @Index()
   runId: string;
-
-  @Column({ type: 'uuid' })
-  @Index()
-  organizationId: string;
-
-  @CreateDateColumn()
-  createdAt: Date;
 
   // Relations
   @ManyToOne(() => SandboxRun, (run) => run.events, {

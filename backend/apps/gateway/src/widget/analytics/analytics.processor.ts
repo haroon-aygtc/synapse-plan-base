@@ -165,9 +165,9 @@ export class AnalyticsProcessor {
         { sessionId: analytics.sessionId },
         {
           properties: {
-            ...analytics.properties,
+            ...(analytics.properties || {}),
             sessionDuration: Math.round(sessionDuration / 1000), // in seconds
-          },
+          } as Record<string, any>,
         }
       );
     }

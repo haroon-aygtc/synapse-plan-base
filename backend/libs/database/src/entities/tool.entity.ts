@@ -55,6 +55,12 @@ export class Tool extends BaseEntity {
   @Column({ type: 'boolean', default: false })
   isPublic: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  requiresApproval: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  requiresAI: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   rateLimit?: {
     requestsPerMinute: number;
@@ -73,6 +79,9 @@ export class Tool extends BaseEntity {
 
   @Column({ type: 'simple-array', nullable: true })
   tags?: string[];
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  category?: string;
 
   @ManyToOne(() => Organization, (organization) => organization.tools)
   @JoinColumn({ name: 'organizationId' })

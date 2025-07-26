@@ -189,7 +189,13 @@ export class APXService implements OnModuleInit {
       sessionId,
       userId,
       organizationId,
-      timestamp: new Date(),
+      eventType: 'session_created',
+      eventData: {
+        sessionId,
+        userId,
+        organizationId,
+      },
+      success: true,
     });
 
     await this.apixAnalyticsRepository.save(analytics);

@@ -25,7 +25,7 @@ export interface WidgetSessionState {
   executionHistory: string[];
 }
 
-export interface WidgetSessionContext {
+  export interface WidgetSessionContext {
   origin: string;
   userAgent: string;
   ipAddress: string;
@@ -306,8 +306,8 @@ export class WidgetSessionService {
 
     const averageResponseTime =
       completedExecutions.length > 0
-        ? completedExecutions.reduce((sum, e) => sum + e.executionTimeMs, 0) /
-          completedExecutions.length
+        ? completedExecutions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
+        completedExecutions.length
         : 0;
 
     const sessionDuration = Date.now() - session.createdAt.getTime();
@@ -447,9 +447,9 @@ export class WidgetSessionService {
           messages: session.messages.slice(-10), // Keep only last 10 messages
           variables: session.variables,
           executionHistory: session.executionHistory.slice(-10),
-          lastActivity: session.lastActivity,
-          status: session.status,
-        },
+          status: session.status as 'active' | 'inactive' | 'expired' | 'suspended',
+        } as Record<string, any>,
+        lastAccessedAt: session.lastActivity,
         expiresAt: session.expiresAt,
       });
     } catch (error) {

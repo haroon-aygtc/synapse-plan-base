@@ -9,8 +9,9 @@ import { Repository, FindOptionsWhere, Like, In } from 'typeorm';
 import { User } from '@database/entities';
 import { IUser, UserRole } from '@shared/interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EventType } from '@shared/enums';
-
+import { AgentEventType } from '@shared/enums';
+import { getErrorMessage } from '@shared/utils/error-guards';
+  
 interface CreateUserData {
   email: string;
   passwordHash: string;
@@ -72,7 +73,7 @@ export class UserService {
     const savedUser = await this.userRepository.save(user);
 
     // Emit user created event
-    this.eventEmitter.emit(EventType.USER_CREATED, {
+    this.eventEmitter.emit(AgentEventType.USER_CREATED, {
       userId: savedUser.id,
       organizationId: savedUser.organizationId,
       email: savedUser.email,
@@ -80,7 +81,11 @@ export class UserService {
       timestamp: new Date(),
     });
 
-    return this.findById(savedUser.id);
+    const createdUser = await this.findById(savedUser.id);
+    if (!createdUser) {
+      throw new Error('Failed to create user - user not found after creation');
+    }
+    return createdUser;
   }
 
   async findById(id: string): Promise<IUser | null> {
@@ -209,9 +214,12 @@ export class UserService {
     await this.userRepository.update(id, updateData);
 
     const updatedUser = await this.findById(id);
+    if (!updatedUser) {
+      throw new Error('Failed to update user - user not found after update');
+    }
 
     // Emit user updated event
-    this.eventEmitter.emit(EventType.USER_UPDATED, {
+    this.eventEmitter.emit(AgentEventType.USER_UPDATED, {
       userId: id,
       organizationId: user.organizationId,
       changes: updateData,
@@ -227,7 +235,7 @@ export class UserService {
     });
 
     // Emit user login event
-    this.eventEmitter.emit(EventType.USER_LOGIN, {
+    this.eventEmitter.emit(AgentEventType.USER_LOGIN, {
       userId: id,
       timestamp: new Date(),
     });
@@ -242,7 +250,7 @@ export class UserService {
     await this.userRepository.update(id, { isActive: false });
 
     // Emit user deleted event (soft delete)
-    this.eventEmitter.emit(EventType.USER_DELETED, {
+    this.eventEmitter.emit(AgentEventType.USER_DELETED, {
       userId: id,
       organizationId: user.organizationId,
       timestamp: new Date(),
@@ -261,7 +269,7 @@ export class UserService {
   async verifyEmail(id: string): Promise<void> {
     await this.userRepository.update(id, {
       emailVerified: true,
-      emailVerificationToken: null,
+      emailVerificationToken: undefined,
     });
   }
 
@@ -289,14 +297,14 @@ export class UserService {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
-    if (user.passwordResetExpiresAt < new Date()) {
+    if (user.passwordResetExpiresAt && user.passwordResetExpiresAt < new Date()) {
       throw new BadRequestException('Reset token has expired');
     }
 
     await this.userRepository.update(user.id, {
       passwordHash: newPasswordHash,
-      passwordResetToken: null,
-      passwordResetExpiresAt: null,
+      passwordResetToken: undefined,
+      passwordResetExpiresAt: undefined,
     });
   }
 
@@ -441,7 +449,7 @@ export class UserService {
         results.success++;
 
         // Emit bulk action event
-        this.eventEmitter.emit(EventType.USER_BULK_ACTION, {
+        this.eventEmitter.emit(AgentEventType.USER_BULK_ACTION, {
           userId,
           organizationId,
           action,
@@ -450,7 +458,7 @@ export class UserService {
         });
       } catch (error) {
         results.failed++;
-        results.errors.push(`User ${userId}: ${error.message}`);
+        results.errors.push(`User ${userId}: ${getErrorMessage(error)}`);
       }
     }
 

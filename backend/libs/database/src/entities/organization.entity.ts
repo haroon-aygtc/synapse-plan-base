@@ -8,6 +8,7 @@ import { Session } from './session.entity';
 import { APXSession } from './apix-session.entity';
 import { APXExecution } from './apix-execution.entity';
 import { AIProvider } from './ai-provider.entity';
+import { ToolTemplate } from './tool-template.entity';
 import { SubscriptionPlan } from '@shared/interfaces';
 
 @Entity('organizations')
@@ -41,6 +42,12 @@ export class Organization extends BaseEntity {
   @Column({ type: 'jsonb', nullable: true })
   quotas?: Record<string, number>;
 
+  @Column({ type: 'jsonb', nullable: true })
+  privacySettings?: Record<string, any>;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  stripeCustomerId?: string;
+
   @Column({ type: 'boolean', default: true })
   isActive!: boolean;
 
@@ -67,4 +74,7 @@ export class Organization extends BaseEntity {
 
   @OneToMany(() => AIProvider, (provider) => provider.organization)
   aiProviders!: AIProvider[];
+
+  @OneToMany(() => ToolTemplate, (template) => template.organization)
+  toolTemplates!: ToolTemplate[];
 }

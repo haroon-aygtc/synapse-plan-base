@@ -1,8 +1,33 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NotificationDelivery } from '@database/entities';
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import * as crypto from 'crypto';
+
+interface WebhookDeliveryResult {
+  success: boolean;
+  statusCode?: number;
+  statusText?: string;
+  responseTime?: number;
+  responseHeaders?: any;
+  responseData?: any;
+  error?: string;
+}
+
+interface WebhookError extends Error {
+  response?: {
+    status: number;
+    statusText: string;
+    headers: any;
+    data: any;
+  };
+  config?: {
+    metadata?: {
+      startTime?: number;
+    };
+  };
+  statusCode?: number;
+}
 
 @Injectable()
 export class WebhookDeliveryProvider {
@@ -49,7 +74,7 @@ export class WebhookDeliveryProvider {
     );
   }
 
-  async sendWebhook(delivery: NotificationDelivery): Promise<any> {
+  async sendWebhook(delivery: NotificationDelivery): Promise<WebhookDeliveryResult> {
     try {
       const { notification } = delivery;
       const webhookData = delivery.deliveryData?.webhook;
@@ -91,24 +116,34 @@ export class WebhookDeliveryProvider {
         responseData: this.sanitizeResponseData(response.data),
       };
     } catch (error) {
-      const responseTime = error.response
-        ? Date.now() - (error.config?.metadata?.startTime || Date.now())
+      const webhookError = error as WebhookError;
+      const responseTime = webhookError.response
+        ? Date.now() - (webhookError.config?.metadata?.startTime || Date.now())
         : 0;
 
-      this.logger.error(`Failed to send webhook: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      this.logger.error(`Failed to send webhook: ${errorMessage}`, errorStack);
 
       // Extract useful error information
-      const errorInfo = {
+      const errorInfo: WebhookDeliveryResult = {
         success: false,
-        error: error.message,
-        statusCode: error.response?.status,
-        statusText: error.response?.statusText,
+        error: errorMessage,
+        statusCode: webhookError.response?.status,
+        statusText: webhookError.response?.statusText,
         responseTime,
-        responseHeaders: error.response?.headers,
-        responseData: error.response?.data ? this.sanitizeResponseData(error.response.data) : null,
+        responseHeaders: webhookError.response?.headers,
+        responseData: webhookError.response?.data ? this.sanitizeResponseData(webhookError.response.data) : null,
       };
 
-      throw Object.assign(error, errorInfo);
+      // Create a new error with additional properties
+      const enhancedError = new Error(errorMessage) as WebhookError;
+      enhancedError.response = webhookError.response;
+      enhancedError.config = webhookError.config;
+      enhancedError.statusCode = webhookError.statusCode;
+
+      throw enhancedError;
     }
   }
 
@@ -202,13 +237,14 @@ export class WebhookDeliveryProvider {
 
       return response.status >= 200 && response.status < 300;
     } catch (error) {
-      this.logger.error('Webhook test failed:', error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Webhook test failed:', errorMessage);
       return false;
     }
   }
 
-  async sendBatchWebhook(deliveries: NotificationDelivery[]): Promise<any[]> {
-    const results = [];
+  async sendBatchWebhook(deliveries: NotificationDelivery[]): Promise<Array<{ deliveryId: string; success: boolean; result?: WebhookDeliveryResult; error?: string; statusCode?: number }>> {
+    const results: Array<{ deliveryId: string; success: boolean; result?: WebhookDeliveryResult; error?: string; statusCode?: number }> = [];
     const concurrencyLimit = this.configService.get<number>('WEBHOOK_CONCURRENCY_LIMIT', 5);
 
     // Process webhooks in batches to avoid overwhelming the target servers
@@ -220,11 +256,12 @@ export class WebhookDeliveryProvider {
           const result = await this.sendWebhook(delivery);
           return { deliveryId: delivery.id, success: true, result };
         } catch (error) {
+          const webhookError = error as WebhookError;
           return {
             deliveryId: delivery.id,
             success: false,
-            error: error.message,
-            statusCode: error.statusCode,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            statusCode: webhookError.statusCode,
           };
         }
       });
@@ -236,6 +273,7 @@ export class WebhookDeliveryProvider {
           results.push(result.value);
         } else {
           results.push({
+            deliveryId: 'unknown',
             success: false,
             error: result.reason?.message || 'Unknown error',
           });

@@ -103,14 +103,16 @@ export class ProviderAdapterService {
       return response;
     } catch (error) {
       const executionTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
 
       this.logger.error(
-        `Provider execution failed for ${providerType} (${requestId}): ${error.message} after ${executionTime}ms`,
-        error.stack
+        `Provider execution failed for ${providerType} (${requestId}): ${errorMessage} after ${executionTime}ms`,
+        errorStack
       );
 
       // Enhance error with context
-      const enhancedError = new Error(`${providerType} execution failed: ${error.message}`);
+      const enhancedError = new Error(`${providerType} execution failed: ${errorMessage}`);
       (enhancedError as any).requestId = requestId;
       (enhancedError as any).providerType = providerType;
       (enhancedError as any).executionTime = executionTime;
@@ -169,7 +171,7 @@ export class ProviderAdapterService {
       return {
         success: false,
         responseTime: Date.now() - startTime,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }

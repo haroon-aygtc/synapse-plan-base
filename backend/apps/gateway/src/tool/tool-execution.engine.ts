@@ -8,6 +8,7 @@ import { ExecutionStatus, HITLRequestType, HITLRequestPriority } from '@shared/e
 import { HITLService } from '../hitl/hitl.service';
 import { AIProviderService } from '../ai-provider/ai-provider.service';
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
+import { getErrorMessage, logSafeError } from '@shared/utils/error-guards';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 
@@ -122,18 +123,18 @@ export class ToolExecutionEngine {
       // Select AI provider if tool requires AI processing
       let selectedProvider = null;
       if (tool.requiresAI) {
-        selectedProvider = await this.aiProviderService.selectProvider(
-          organizationId,
-          ExecutionType.TOOL,
-          undefined, // Let the system choose the best model
-          {
-            toolId: tool.id,
-            userId,
-            organizationId,
-            estimatedCost: 0.005,
-            maxResponseTime: executeToolDto.timeout || 30000,
-          }
-        );
+              selectedProvider = await this.aiProviderService.selectProvider(
+        organizationId || '',
+        ExecutionType.TOOL,
+        undefined, // Let the system choose the best model
+        {
+          toolId: tool.id,
+          userId,
+          organizationId: organizationId || '',
+          estimatedCost: 0.005,
+          maxResponseTime: executeToolDto.timeout || 30000,
+        }
+      );
       }
 
       // Execute the tool
@@ -162,7 +163,7 @@ export class ToolExecutionEngine {
           // For now, we'll skip this for regular API tools
         } catch (error) {
           this.logger.warn(
-            `Failed to record tool execution in AI provider metrics: ${error.message}`
+            `Failed to record tool execution in AI provider metrics: ${getErrorMessage(error)}`
           );
         }
       }
@@ -191,7 +192,7 @@ export class ToolExecutionEngine {
 
       // Update execution record with error
       execution.status = ExecutionStatus.FAILED;
-      execution.error = error.message;
+              execution.error = getErrorMessage(error);
       execution.executionTimeMs = executionTime;
       execution.completedAt = new Date();
 
@@ -201,7 +202,7 @@ export class ToolExecutionEngine {
       this.eventEmitter.emit('tool.execution.failed', {
         toolId,
         executionId,
-        error: error.message,
+        error: getErrorMessage(error),
         executionTime,
       });
 
@@ -234,8 +235,8 @@ export class ToolExecutionEngine {
 
       return response.data;
     } catch (error) {
-      this.logger.error(`Tool execution failed: ${error.message}`, error.stack);
-      throw new Error(`Tool execution failed: ${error.message}`);
+      logSafeError(error, 'Tool execution failed');
+      throw new Error(`Tool execution failed: ${getErrorMessage(error)}`);
     }
   }
 

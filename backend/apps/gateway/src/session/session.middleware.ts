@@ -2,6 +2,7 @@ import { Injectable, NestMiddleware, UnauthorizedException, Logger } from '@nest
 import { Request, Response, NextFunction } from 'express';
 import { SessionService } from './session.service';
 import { ISessionContext } from '@shared/interfaces';
+import { logSafeError } from '@shared/utils/error-guards';
 
 // Extend Express Request interface
 declare global {
@@ -52,7 +53,7 @@ export class SessionMiddleware implements NestMiddleware {
 
       next();
     } catch (error) {
-      this.logger.error(`Session middleware error: ${error.message}`, error.stack);
+      logSafeError(this.logger, 'Session middleware error', error);
       next(); // Continue without session context
     }
   }

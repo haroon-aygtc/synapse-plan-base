@@ -49,6 +49,7 @@ export enum AgentEventType {
   USER_DELETED = 'user.deleted',
   USER_LOGIN = 'user.login',
   USER_LOGOUT = 'user.logout',
+  USER_BULK_ACTION = 'user.bulk.action',
 
   // Organization Events
   ORGANIZATION_CREATED = 'organization.created',
@@ -214,8 +215,19 @@ export enum UserRole {
   VIEWER = 'VIEWER',
 }
 
+// Export EventType as alias for AgentEventType for backward compatibility
+export { AgentEventType as EventType } from './agent-event.enum';
+
 // Export APIX Protocol enums from separate file
 export * from './apix-protocol.enum';
 
 // Export HITL enums
 export * from './hitl.enum';
+
+// Prompt Template Event Type (alias for AgentEventType for backward compatibility)
+export enum PromptTemplateEventType {
+  PROMPT_TEMPLATE_CREATED = 'prompt.template.created',
+  PROMPT_TEMPLATE_UPDATED = 'prompt.template.updated',
+  PROMPT_TEMPLATE_DELETED = 'prompt.template.deleted',
+  PROMPT_TEMPLATE_EXECUTED = 'prompt.template.executed',
+}

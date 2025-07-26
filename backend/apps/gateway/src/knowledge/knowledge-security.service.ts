@@ -74,7 +74,7 @@ export class KnowledgeSecurityService {
           return false;
       }
     } catch (error) {
-      this.logger.error(`Error checking document access: ${error.message}`);
+      this.logger.error(`Error checking document access: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return false;
     }
   }

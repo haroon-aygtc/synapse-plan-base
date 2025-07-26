@@ -6,7 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import * as crypto from 'crypto';
-import { User, Organization } from '@database/entities';
+import { User, Organization, BillingSubscription } from '@database/entities';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -19,11 +19,13 @@ import { PermissionsGuard } from '@shared/guards/permissions.guard';
 import { RowLevelSecurityGuard } from '@shared/guards/row-level-security.guard';
 import { TenantContextInterceptor } from '@shared/interceptors/tenant-context.interceptor';
 import { RowLevelSecurityMiddleware } from '@shared/middleware/row-level-security.middleware';
+import { BillingModule } from '../billing/billing.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Organization]),
+    TypeOrmModule.forFeature([User, Organization, BillingSubscription]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
+    BillingModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {

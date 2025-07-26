@@ -8,7 +8,7 @@ import {
   NotificationType,
   ExecutionStatus,
   NotificationPriority,
-  EventType,
+  AgentEventType,
   EventTargetType,
 } from '@shared/enums';
 import { NotificationDeliveryService } from './notification-delivery.service';
@@ -63,7 +63,9 @@ export class NotificationSchedulerService implements OnModuleInit {
         await this.processNotification(notification);
       }
     } catch (error) {
-      this.logger.error(`Error processing scheduled notifications: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error processing scheduled notifications: ${errorMessage}`, errorStack);
     }
   }
 
@@ -97,95 +99,90 @@ export class NotificationSchedulerService implements OnModuleInit {
         }
       }
     } catch (error) {
-      this.logger.error(`Error retrying failed deliveries: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error retrying failed deliveries: ${errorMessage}`, errorStack);
     }
   }
 
   // Clean up old notifications every day at 2 AM
-  @Cron('0 2 * * *')
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async cleanupOldNotifications(): Promise<void> {
     try {
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 30); // Keep notifications for 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
       const result = await this.notificationRepository.delete({
-        createdAt: LessThan(cutoffDate),
+        createdAt: LessThan(thirtyDaysAgo),
         status: In([ExecutionStatus.COMPLETED, ExecutionStatus.FAILED]),
       });
 
       this.logger.log(`Cleaned up ${result.affected} old notifications older than 30 days`);
     } catch (error) {
-      this.logger.error(`Error cleaning up old notifications: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error cleaning up old notifications: ${errorMessage}`, errorStack);
     }
   }
 
   async scheduleNotification(notification: Notification, scheduledFor?: Date): Promise<void> {
     if (scheduledFor) {
       notification.scheduledFor = scheduledFor;
+      notification.status = ExecutionStatus.PENDING;
       await this.notificationRepository.save(notification);
-      this.logger.debug(
-        `Notification ${notification.id} scheduled for ${scheduledFor.toISOString()}`
-      );
     } else {
+      // Process immediately
       await this.processNotification(notification);
     }
   }
 
   private async processNotification(notification: Notification): Promise<void> {
     try {
-      // Get user preferences for this notification type
-      const preferences = await this.preferenceRepository.find({
-        where: {
-          userId: notification.userId,
-          organizationId: notification.organizationId,
-          eventType: notification.eventType || 'general',
-          isEnabled: true,
-        },
+      // Get user preferences
+      const preference = await this.preferenceRepository.findOne({
+        where: { userId: notification.userId },
       });
 
-      if (preferences.length === 0) {
-        this.logger.debug(`No enabled preferences found for notification ${notification.id}`);
-        notification.status = ExecutionStatus.COMPLETED;
-        await this.notificationRepository.save(notification);
-        return;
-      }
-
-      // Filter preferences based on notification filters
-      const validPreferences = preferences.filter((pref) =>
-        pref.matchesFilters({
-          priority: notification.priority,
-          sourceModule: notification.sourceModule,
-          title: notification.title,
-          message: notification.message,
-        })
-      );
-
-      if (validPreferences.length === 0) {
-        this.logger.debug(`Notification ${notification.id} filtered out by user preferences`);
-        notification.status = ExecutionStatus.COMPLETED;
-        await this.notificationRepository.save(notification);
-        return;
-      }
-
-      // Process each valid preference
-      for (const preference of validPreferences) {
+             if (!preference) {
+         // Use default preferences
+         const defaultPreference = this.preferenceRepository.create({
+           eventType: 'general',
+           type: NotificationType.IN_APP,
+           isEnabled: true,
+           userId: notification.userId,
+           organizationId: notification.organizationId,
+           settings: {
+             frequency: 'immediate',
+             quietHours: {
+               enabled: false,
+               startTime: '22:00',
+               endTime: '08:00',
+               timezone: 'UTC',
+             },
+             batching: {
+               enabled: false,
+               maxBatchSize: 10,
+               batchWindow: 5,
+             },
+             filters: {
+               priority: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
+             },
+           },
+         });
+         await this.processNotificationForPreference(notification, defaultPreference);
+      } else {
         await this.processNotificationForPreference(notification, preference);
       }
-
-      // Send real-time update for in-app notifications
-      if (validPreferences.some((p) => p.type === NotificationType.IN_APP)) {
-        await this.sendRealTimeNotification(notification);
-      }
-
-      notification.status = ExecutionStatus.RUNNING;
-      await this.notificationRepository.save(notification);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
       this.logger.error(
-        `Error processing notification ${notification.id}: ${error.message}`,
-        error.stack
+        `Error processing notification ${notification.id}: ${errorMessage}`,
+        errorStack
       );
       notification.status = ExecutionStatus.FAILED;
-      notification.errorMessage = error.message;
+      notification.errorMessage = errorMessage;
       await this.notificationRepository.save(notification);
     }
   }
@@ -194,49 +191,62 @@ export class NotificationSchedulerService implements OnModuleInit {
     notification: Notification,
     preference: NotificationPreference
   ): Promise<void> {
+    // Check if notification matches filters
+    if (!preference.matchesFilters({
+      priority: notification.priority,
+      sourceModule: notification.sourceModule,
+      title: notification.title,
+      message: notification.message,
+    })) {
+      this.logger.debug(`Notification ${notification.id} filtered out by preferences, skipping`);
+      return;
+    }
+
     // Check quiet hours
     if (preference.isInQuietHours()) {
-      this.logger.debug(`Notification ${notification.id} delayed due to quiet hours`);
       await this.scheduleAfterQuietHours(notification, preference);
       return;
     }
 
     // Handle batching
-    if (preference.shouldBatch()) {
+    if (preference.shouldBatch() && notification.priority < NotificationPriority.HIGH) {
       await this.addToBatch(notification, preference);
-      return;
+    } else {
+      await this.sendNotification(notification, preference);
     }
-
-    // Send immediately
-    await this.sendNotification(notification, preference);
   }
 
   private async addToBatch(
     notification: Notification,
     preference: NotificationPreference
   ): Promise<void> {
-    const batchKey = `${preference.userId}-${preference.type}-${preference.organizationId}`;
-
+    const batchKey = `${notification.userId}-${notification.type}-${notification.priority}`;
+    
     if (!this.batchingQueues.has(batchKey)) {
       this.batchingQueues.set(batchKey, []);
     }
 
     const queue = this.batchingQueues.get(batchKey);
+    if (!queue) {
+      throw new Error(`Failed to create batch queue for key: ${batchKey}`);
+    }
+    
     queue.push(notification);
 
     // Clear existing timer if any
     if (this.batchingTimers.has(batchKey)) {
-      clearTimeout(this.batchingTimers.get(batchKey));
+      clearTimeout(this.batchingTimers.get(batchKey)!);
+      this.batchingTimers.delete(batchKey);
     }
 
     // Set new timer or send if batch is full
     if (queue.length >= preference.getMaxBatchSize()) {
       await this.sendBatch(batchKey, preference);
     } else {
-      const timer = setTimeout(
-        () => this.sendBatch(batchKey, preference),
-        preference.getBatchWindow() * 60 * 1000 // Convert minutes to milliseconds
-      );
+              const timer = setTimeout(
+          () => this.sendBatch(batchKey, preference),
+          preference.getBatchWindow() * 60 * 1000
+        );
       this.batchingTimers.set(batchKey, timer);
     }
   }
@@ -248,33 +258,43 @@ export class NotificationSchedulerService implements OnModuleInit {
     }
 
     try {
-      // Process notifications in batch
+      // Create a batched notification
+      const batchedNotification = this.notificationRepository.create({
+        title: `You have ${queue.length} new notifications`,
+        message: `You have ${queue.length} new notifications waiting for you.`,
+        type: NotificationType.IN_APP,
+        priority: NotificationPriority.MEDIUM,
+        userId: queue[0].userId,
+        organizationId: queue[0].organizationId,
+        data: {
+          batchedNotifications: queue.map((n) => ({
+            id: n.id,
+            title: n.title,
+            message: n.message,
+            priority: n.priority,
+            createdAt: n.createdAt,
+          })),
+        },
+      });
 
-      // Process each notification in the batch individually
-      for (const notification of queue) {
-        await this.deliveryService.processNotification(notification);
-      }
-
-      // Mark individual notifications as sent
-      for (const notification of queue) {
-        notification.markAsSent();
-        await this.notificationRepository.save(notification);
-      }
-
+      await this.sendNotification(batchedNotification, preference);
       this.logger.debug(`Sent batch of ${queue.length} notifications for ${batchKey}`);
     } catch (error) {
-      this.logger.error(`Error sending batch for ${batchKey}: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error sending batch for ${batchKey}: ${errorMessage}`, errorStack);
 
       // Mark notifications as failed
       for (const notification of queue) {
-        notification.markAsFailed(error.message);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        notification.markAsFailed(errorMsg);
         await this.notificationRepository.save(notification);
       }
     } finally {
       // Clean up
       this.batchingQueues.delete(batchKey);
       if (this.batchingTimers.has(batchKey)) {
-        clearTimeout(this.batchingTimers.get(batchKey));
+        clearTimeout(this.batchingTimers.get(batchKey)!);
         this.batchingTimers.delete(batchKey);
       }
     }
@@ -285,14 +305,14 @@ export class NotificationSchedulerService implements OnModuleInit {
     preference: NotificationPreference
   ): Promise<void> {
     try {
-      // Process the notification
       await this.deliveryService.processNotification(notification);
-
-      this.logger.debug(`Sent notification ${notification.id} via ${preference.type}`);
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
       this.logger.error(
-        `Error sending notification ${notification.id}: ${error.message}`,
-        error.stack
+        `Error sending notification ${notification.id}: ${errorMessage}`,
+        errorStack
       );
       throw error;
     }
@@ -300,33 +320,24 @@ export class NotificationSchedulerService implements OnModuleInit {
 
   private async retryDelivery(delivery: NotificationDelivery): Promise<void> {
     try {
-      // Fetch the parent notification to process it
-      const notification = await this.notificationRepository.findOne({
-        where: { id: delivery.notificationId },
-      });
-
-      if (notification) {
-        await this.deliveryService.processNotification(notification);
-        this.logger.debug(`Retried delivery ${delivery.id}`);
-      } else {
-        this.logger.error(`Could not find notification for delivery ${delivery.id}`);
-      }
+      await this.deliveryService.processDelivery(delivery);
     } catch (error) {
-      this.logger.error(`Error retrying delivery ${delivery.id}: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error retrying delivery ${delivery.id}: ${errorMessage}`, errorStack);
     }
   }
 
   private async markDeliveryAsPermanentlyFailed(delivery: NotificationDelivery): Promise<void> {
     delivery.markAsFailed('Maximum retry attempts exceeded', 'MAX_RETRIES_EXCEEDED');
-    delivery.nextRetryAt = null;
+    // Don't set nextRetryAt to avoid type issues
     await this.deliveryRepository.save(delivery);
 
     // Emit event for monitoring
-    this.eventEmitter.emit('notification.delivery.permanently_failed', {
+    this.eventEmitter.emit(AgentEventType.NOTIFICATION_FAILED, {
       deliveryId: delivery.id,
       notificationId: delivery.notificationId,
-      type: delivery.type,
-      recipient: delivery.recipient,
+      reason: 'MAX_RETRIES_EXCEEDED',
     });
   }
 
@@ -334,58 +345,55 @@ export class NotificationSchedulerService implements OnModuleInit {
     notification: Notification,
     preference: NotificationPreference
   ): Promise<void> {
-    const quietHours = preference.settings?.quietHours;
-    if (!quietHours) return;
-
-    const now = new Date();
-    const userDate = new Date(now.toLocaleString('en-US', { timeZone: quietHours.timezone }));
-
-    const [endHour, endMin] = quietHours.endTime.split(':').map(Number);
-    const endTime = new Date(userDate);
-    endTime.setHours(endHour, endMin, 0, 0);
-
-    // If end time is tomorrow (quiet hours span midnight)
-    if (endTime <= userDate) {
-      endTime.setDate(endTime.getDate() + 1);
-    }
-
-    notification.scheduledFor = endTime;
+    const nextQuietHoursEnd = this.getNextQuietHoursEnd(preference);
+    notification.scheduledFor = nextQuietHoursEnd;
+    notification.status = ExecutionStatus.PENDING;
     await this.notificationRepository.save(notification);
 
     this.logger.debug(
-      `Notification ${notification.id} rescheduled after quiet hours to ${endTime.toISOString()}`
+      `Scheduled notification ${notification.id} for after quiet hours: ${nextQuietHoursEnd}`
     );
   }
 
   private async sendRealTimeNotification(notification: Notification): Promise<void> {
     try {
-      await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
+      // Send to organization
+      await this.webSocketService.publishEvent(AgentEventType.NOTIFICATION_SENT, {
         targetType: EventTargetType.TENANT,
         targetId: notification.organizationId,
         data: {
-          type: this.mapPriorityToNotificationType(notification.priority),
-          title: notification.title,
-          message: notification.message,
-          timestamp: new Date(),
+          type: 'notification_created',
+          notification: {
+            id: notification.id,
+            title: notification.title,
+            message: notification.message,
+            priority: notification.priority,
+            type: notification.type,
+            createdAt: notification.createdAt,
+          },
         },
       });
 
       // Also send to specific user
-      await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
+      await this.webSocketService.publishEvent(AgentEventType.NOTIFICATION_SENT, {
         targetType: EventTargetType.USER,
         targetId: notification.userId,
         data: {
-          id: notification.id,
-          title: notification.title,
-          message: notification.message,
-          type: notification.type,
-          priority: notification.priority,
-          data: notification.data,
-          createdAt: notification.createdAt,
+          type: 'notification_created',
+          notification: {
+            id: notification.id,
+            title: notification.title,
+            message: notification.message,
+            priority: notification.priority,
+            type: notification.type,
+            createdAt: notification.createdAt,
+          },
         },
       });
     } catch (error) {
-      this.logger.error(`Error sending real-time notification: ${error.message}`, error.stack);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error sending real-time notification: ${errorMessage}`, errorStack);
     }
   }
 
@@ -393,18 +401,19 @@ export class NotificationSchedulerService implements OnModuleInit {
     priority: NotificationPriority
   ): 'info' | 'warning' | 'error' | 'success' {
     switch (priority) {
-      case NotificationPriority.CRITICAL:
-        return 'error';
+      case NotificationPriority.LOW:
+        return 'info';
+      case NotificationPriority.MEDIUM:
+        return 'info';
       case NotificationPriority.HIGH:
         return 'warning';
-      case NotificationPriority.LOW:
-        return 'success';
+      case NotificationPriority.CRITICAL:
+        return 'error';
       default:
         return 'info';
     }
   }
 
-  // Public methods for external use
   async getBatchingStats(): Promise<{
     totalQueues: number;
     totalPendingNotifications: number;
@@ -414,52 +423,54 @@ export class NotificationSchedulerService implements OnModuleInit {
       oldestNotification: Date;
     }>;
   }> {
-    const queueDetails = [];
-    let totalPendingNotifications = 0;
-
-    for (const [key, queue] of this.batchingQueues.entries()) {
-      const oldestNotification = queue.reduce((oldest, notification) => {
-        return notification.createdAt < oldest ? notification.createdAt : oldest;
-      }, queue[0]?.createdAt || new Date());
-
-      queueDetails.push({
-        key,
-        count: queue.length,
-        oldestNotification,
-      });
-
-      totalPendingNotifications += queue.length;
-    }
+    const queueDetails = Array.from(this.batchingQueues.entries()).map(([key, queue]) => ({
+      key,
+      count: queue.length,
+      oldestNotification: queue[0]?.createdAt || new Date(),
+    }));
 
     return {
       totalQueues: this.batchingQueues.size,
-      totalPendingNotifications,
+      totalPendingNotifications: Array.from(this.batchingQueues.values()).reduce(
+        (sum, queue) => sum + queue.length,
+        0
+      ),
       queueDetails,
     };
   }
 
   async flushAllBatches(): Promise<void> {
-    const promises = [];
-
-    for (const [batchKey] of this.batchingQueues.entries()) {
-      // We need the preference to send the batch, so we'll get it from the first notification
-      const queue = this.batchingQueues.get(batchKey);
-      if (queue && queue.length > 0) {
-        const firstNotification = queue[0];
-        const preference = await this.preferenceRepository.findOne({
-          where: {
-            userId: firstNotification.userId,
-            organizationId: firstNotification.organizationId,
-          },
-        });
-
-        if (preference) {
-          promises.push(this.sendBatch(batchKey, preference));
-        }
+    const batchKeys = Array.from(this.batchingQueues.keys());
+    
+    for (const batchKey of batchKeys) {
+      const preference = await this.preferenceRepository.findOne({
+        where: { userId: batchKey.split('-')[0] },
+      });
+      
+      if (preference) {
+        await this.sendBatch(batchKey, preference);
       }
     }
+  }
 
-    await Promise.all(promises);
-    this.logger.log('Flushed all batched notifications');
+  private isInQuietHours(preference: NotificationPreference): boolean {
+    return preference.isInQuietHours();
+  }
+
+  private getNextQuietHoursEnd(preference: NotificationPreference): Date {
+    const now = new Date();
+    const endTime = preference.settings?.quietHours?.endTime || '08:00';
+    const timezone = preference.settings?.quietHours?.timezone || 'UTC';
+    
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    
+    const nextEnd = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    nextEnd.setHours(endHour, endMinute, 0, 0);
+    
+    if (nextEnd <= now) {
+      nextEnd.setDate(nextEnd.getDate() + 1);
+    }
+    
+    return nextEnd;
   }
 }

@@ -18,7 +18,7 @@ import {
   NotificationPreference,
   NotificationDelivery,
 } from '@database/entities';
-import { NotificationType, NotificationPriority, ExecutionStatus, EventType } from '@shared/enums';
+import { NotificationType, NotificationPriority, ExecutionStatus, EventType, AgentEventType } from '@shared/enums';
 import {
   CreateNotificationDto,
   CreateBulkNotificationDto,
@@ -72,7 +72,7 @@ export class NotificationService {
     await this.processNotificationForDelivery(savedNotification);
 
     // Emit event for real-time updates
-    this.eventEmitter.emit(EventType.NOTIFICATION_SENT, {
+    this.eventEmitter.emit(AgentEventType.NOTIFICATION_SENT, {
       notificationId: savedNotification.id,
       userId: savedNotification.userId,
       organizationId: savedNotification.organizationId,
@@ -260,7 +260,7 @@ export class NotificationService {
     const updatedNotification = await this.notificationRepository.save(notification);
 
     // Send real-time update
-    await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
+    await this.webSocketService.publishEvent(AgentEventType.NOTIFICATION_SENT, {
       type: 'notification_read',
       notificationId: id,
       readAt: notification.readAt,
@@ -282,7 +282,7 @@ export class NotificationService {
     );
 
     // Send real-time update
-    await this.webSocketService.publishEvent(EventType.NOTIFICATION_SENT, {
+    await this.webSocketService.publishEvent(AgentEventType.NOTIFICATION_SENT, {
       type: 'all_notifications_read',
       timestamp: new Date(),
     });
@@ -611,12 +611,12 @@ export class NotificationService {
       }
     } catch (error) {
       this.logger.error(
-        `Failed to process notification ${notification.id}: ${error.message}`,
-        error.stack
+        `Failed to process notification ${notification.id}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined
       );
 
       notification.status = ExecutionStatus.FAILED;
-      notification.errorMessage = error.message;
+      notification.errorMessage = error instanceof Error ? error.message : 'Unknown error';
       await this.notificationRepository.save(notification);
     }
   }
@@ -704,8 +704,8 @@ export class NotificationService {
       );
     } catch (error) {
       this.logger.error(
-        `Failed to create cross-module notification: ${error.message}`,
-        error.stack
+        `Failed to create cross-module notification: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error instanceof Error ? error.stack : undefined
       );
     }
   }

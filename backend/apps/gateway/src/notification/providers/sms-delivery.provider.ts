@@ -3,11 +3,22 @@ import { ConfigService } from '@nestjs/config';
 import { NotificationDelivery } from '@database/entities';
 import { Twilio } from 'twilio';
 
+interface SmsDeliveryResult {
+  success: boolean;
+  messageId?: string;
+  status?: string;
+  direction?: string;
+  price?: number;
+  priceUnit?: string;
+  segments?: number;
+  error?: string;
+}
+
 @Injectable()
 export class SmsDeliveryProvider {
   private readonly logger = new Logger(SmsDeliveryProvider.name);
-  private twilioClient: Twilio;
-  private fromNumber: string;
+  private twilioClient: Twilio | null = null;
+  private fromNumber: string | null = null;
 
   constructor(private readonly configService: ConfigService) {
     this.initializeTwilio();
@@ -16,23 +27,24 @@ export class SmsDeliveryProvider {
   private initializeTwilio(): void {
     const accountSid = this.configService.get<string>('TWILIO_ACCOUNT_SID');
     const authToken = this.configService.get<string>('TWILIO_AUTH_TOKEN');
-    this.fromNumber = this.configService.get<string>('TWILIO_FROM_NUMBER');
+    const fromNumber = this.configService.get<string>('TWILIO_FROM_NUMBER');
 
-    if (!accountSid || !authToken || !this.fromNumber) {
+    if (!accountSid || !authToken || !fromNumber) {
       this.logger.warn('Twilio credentials not configured. SMS delivery will be disabled.');
       return;
     }
 
     try {
       this.twilioClient = new Twilio(accountSid, authToken);
+      this.fromNumber = fromNumber;
       this.logger.log('Twilio SMS provider initialized successfully');
     } catch (error) {
       this.logger.error('Failed to initialize Twilio client:', error);
     }
   }
 
-  async sendSms(delivery: NotificationDelivery): Promise<any> {
-    if (!this.twilioClient) {
+  async sendSms(delivery: NotificationDelivery): Promise<SmsDeliveryResult> {
+    if (!this.twilioClient || !this.fromNumber) {
       throw new Error('Twilio client not initialized. Please check your configuration.');
     }
 
@@ -64,13 +76,20 @@ export class SmsDeliveryProvider {
         messageId: result.sid,
         status: result.status,
         direction: result.direction,
-        price: result.price,
+        price: result.price ? parseFloat(result.price) : undefined,
         priceUnit: result.priceUnit,
-        segments: result.numSegments,
+        segments: result.numSegments ? parseInt(result.numSegments.toString(), 10) : undefined,
       };
     } catch (error) {
-      this.logger.error(`Failed to send SMS: ${error.message}`, error.stack);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
+      this.logger.error(`Failed to send SMS: ${errorMessage}`, errorStack);
+      
+      return {
+        success: false,
+        error: errorMessage,
+      };
     }
   }
 
@@ -109,7 +128,8 @@ export class SmsDeliveryProvider {
         dateSent: message.dateSent,
       };
     } catch (error) {
-      this.logger.error(`Failed to get SMS status: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to get SMS status: ${errorMessage}`);
       throw error;
     }
   }
@@ -129,8 +149,8 @@ export class SmsDeliveryProvider {
     }
   }
 
-  async sendBatchSms(deliveries: NotificationDelivery[]): Promise<any[]> {
-    const results = [];
+  async sendBatchSms(deliveries: NotificationDelivery[]): Promise<Array<{ deliveryId: string; success: boolean; result?: SmsDeliveryResult; error?: string }>> {
+    const results: Array<{ deliveryId: string; success: boolean; result?: SmsDeliveryResult; error?: string }> = [];
 
     // Process SMS deliveries with rate limiting
     for (let i = 0; i < deliveries.length; i++) {
@@ -143,10 +163,11 @@ export class SmsDeliveryProvider {
           await new Promise((resolve) => setTimeout(resolve, 100));
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         results.push({
           deliveryId: deliveries[i].id,
           success: false,
-          error: error.message,
+          error: errorMessage,
         });
       }
     }

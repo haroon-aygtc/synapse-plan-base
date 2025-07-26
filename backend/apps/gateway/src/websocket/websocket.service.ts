@@ -17,7 +17,7 @@ import {
 } from '@shared/interfaces';
 // Import enums directly from the enums file
 import {
-  EventType,
+  AgentEventType,
   WebSocketEventType,
   EventTargetType,
   EventPriority,
@@ -85,6 +85,15 @@ export class WebSocketService implements OnModuleInit {
     const message = this.connectionService.createMessage(event, payload, undefined, organizationId);
     this.server.to(`org:${organizationId}`).emit('message', message);
     this.logger.debug(`Broadcasted to org ${organizationId}: ${event}`);
+  }
+
+  // Alias for backward compatibility
+  async emitToOrganization(
+    organizationId: string,
+    event: string,
+    payload: any
+  ): Promise<void> {
+    return this.broadcastToOrganization(organizationId, event, payload);
   }
 
   // Broadcast to specific room
@@ -216,7 +225,7 @@ export class WebSocketService implements OnModuleInit {
   async routeCrossModuleEvent(
     sourceModule: string,
     targetModule: string,
-    eventType: EventType | WebSocketEventType,
+    eventType: AgentEventType | WebSocketEventType,
     payload: any,
     context: {
       userId: string;

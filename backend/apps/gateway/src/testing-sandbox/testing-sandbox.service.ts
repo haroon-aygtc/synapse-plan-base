@@ -379,7 +379,8 @@ export class TestingSandboxService {
             runId,
             sessionToken,
             userId,
-            organizationId
+            organizationId,
+            executeTestDto.testName
           );
           break;
         case 'tool':
@@ -534,7 +535,8 @@ export class TestingSandboxService {
     runId: string,
     sessionToken: string,
     userId: string,
-    organizationId: string
+    organizationId: string,
+    testName: string
   ): Promise<any> {
     const agentId = executeTestDto.testData.agentId;
     const input = executeTestDto.testData.input;
@@ -553,8 +555,8 @@ export class TestingSandboxService {
     try {
       // Execute agent using real agent service with production logic
       const result = await this.agentService.execute(
+        agentId,
         {
-          agentId,
           input,
           sessionId: sessionToken,
           context: {
@@ -571,7 +573,6 @@ export class TestingSandboxService {
           },
           includeToolCalls: true,
           includeKnowledgeSearch: true,
-          timeout: executeTestDto.timeout || 30000,
         },
         userId,
         organizationId
@@ -710,16 +711,16 @@ export class TestingSandboxService {
 
     try {
       // Execute workflow using real workflow service with production logic
-      const result = await this.workflowService.execute(
+      const result = await this.workflowService.executeWorkflow(
         {
           workflowId,
           input,
-          variables: executeTestDto.testData.variables || {},
           sessionId: sessionToken,
           context: {
             sandboxMode: true,
             testExecution: true,
             testName: executeTestDto.testName,
+            variables: executeTestDto.testData.variables || {},
           },
           metadata: {
             sandboxRun: runId,
@@ -852,7 +853,7 @@ export class TestingSandboxService {
     return {
       output: {
         testName: executeTestDto.testName,
-        modules: testFlow.map((step) => step.moduleId),
+        modules: testFlow.map((step: any) => step.moduleId),
         status: overallStatus,
         results,
         dataFlow,
@@ -962,10 +963,9 @@ export class TestingSandboxService {
     organizationId: string
   ): Promise<any> {
     const result = await this.workflowService.test(step.moduleId, {
+      workflowId: step.moduleId,
       input: step.input,
-      variables: step.variables || {},
-      testName: `Integration step: ${step.moduleId}`,
-      metadata: { sandboxRun: runId, integrationStep: true },
+      variables: step.variables || {},  
     });
 
     dataFlow.push({
@@ -1019,17 +1019,16 @@ export class TestingSandboxService {
     data: any
   ): Promise<void> {
     const event = this.sandboxEventRepository.create({
-      runId,
-      organizationId,
       type,
       payload: {
         type,
         data,
         metadata: {
-          timestamp: new Date(),
+          sessionId: runId,
         },
       },
-      timestamp: new Date(),
+      eventTimestamp: new Date(),
+      runId,
     });
 
     await this.sandboxEventRepository.save(event);
@@ -1306,11 +1305,11 @@ export class TestingSandboxService {
       .map((r: any) => r.responseTime);
 
     if (executionTimes.length > 0) {
-      executionTimes.sort((a, b) => a - b);
+      executionTimes.sort((a: number, b: number) => a - b);
       performanceMetrics.latency.p50 = executionTimes[Math.floor(executionTimes.length * 0.5)];
       performanceMetrics.latency.p95 = executionTimes[Math.floor(executionTimes.length * 0.95)];
       performanceMetrics.latency.p99 = executionTimes[Math.floor(executionTimes.length * 0.99)];
-      performanceMetrics.throughput = loadTestResults.length / (performanceTestDto.duration / 1000);
+      performanceMetrics.throughput = loadTestResults.length / ((performanceTestDto.duration || 60000) / 1000);
       performanceMetrics.errorRate =
         (loadTestResults.filter((r: any) => !r.success).length / loadTestResults.length) * 100;
     }
@@ -1494,7 +1493,7 @@ export class TestingSandboxService {
 
     // Notify participants via WebSocket
     for (const participantId of collaborativeTestDto.participants) {
-      await this.websocketService.sendToUser(participantId, 'collaborative_test_invitation', {
+      await this.websocketService.broadcastToUser(participantId, 'collaborative_test_invitation', {
         sessionId,
         sandboxId,
         invitedBy: userId,
@@ -1883,11 +1882,11 @@ export class TestingSandboxService {
       const error = run.error || 'Unknown error';
       acc[error] = (acc[error] || 0) + 1;
       return acc;
-    }, {});
+    }, {} as Record<string, number>);
 
     return Object.entries(errorCounts)
       .map(([error, count]) => ({ error, count }))
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => (b.count as number) - (a.count as number))
       .slice(0, 10); // Top 10 errors
   }
 

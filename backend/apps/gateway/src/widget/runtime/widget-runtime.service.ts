@@ -3,9 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { Widget } from '@libs/database/src/entities/widget.entity';
-import { WidgetExecution } from '@libs/database/src/entities/widget-execution.entity';
-import { Session } from '@libs/database/src/entities/session.entity';
+import { Widget, WidgetExecution, Session } from '@database/entities';
 import { WebSocketService } from '../../websocket/websocket.service';
 import { SessionService } from '../../session/session.service';
 import {
@@ -13,7 +11,7 @@ import {
   WidgetExecutionInput,
   WidgetExecutionOutput,
   WidgetExecutionMetrics,
-} from '@libs/shared/interfaces/widget.interface';
+} from '@shared/interfaces';
 
 export interface WidgetRuntimeConfig {
   sandboxEnabled: boolean;
@@ -177,7 +175,7 @@ export class WidgetRuntimeService {
     const execution = this.widgetExecutionRepository.create({
       widgetId,
       sessionId: context.sessionId,
-      userId: context.userId,
+      userId: (context as any).userId,
       status: 'pending',
       input,
       context,
@@ -250,7 +248,9 @@ export class WidgetRuntimeService {
       }
 
       // Update execution record with error
-      savedExecution.markAsFailed(error.message, { error: error.stack });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      savedExecution.markAsFailed(errorMessage, { error: errorStack });
       await this.widgetExecutionRepository.save(savedExecution);
 
       // Emit error event
@@ -259,7 +259,7 @@ export class WidgetRuntimeService {
         widgetId,
         sessionId: context.sessionId,
         timestamp: new Date(),
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
 
       throw error;
@@ -415,8 +415,8 @@ export class WidgetRuntimeService {
     try {
       // Set resource limits for sandbox
       const resourceLimits = {
-        maxMemory: widget.configuration.security.maxMemoryUsage || 128 * 1024 * 1024, // 128MB
-        maxExecutionTime: widget.configuration.security.maxExecutionTime || 30000, // 30 seconds
+        maxMemory: (widget.configuration.security as any).maxMemoryUsage || 128 * 1024 * 1024, // 128MB
+        maxExecutionTime: (widget.configuration.security as any).maxExecutionTime || 30000, // 30 seconds
         maxCpuUsage: 80, // 80% CPU limit
       };
 
@@ -448,8 +448,9 @@ export class WidgetRuntimeService {
       this.logger.error(`Sandbox execution failed for widget ${widget.id}:`, error);
 
       // Attempt recovery if possible
-      if (error.message.includes('memory') || error.message.includes('timeout')) {
-        throw new Error(`Resource limit exceeded: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('memory') || errorMessage.includes('timeout')) {
+        throw new Error(`Resource limit exceeded: ${errorMessage}`);
       }
 
       throw error;

@@ -3,8 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { Widget } from '@libs/database/src/entities/widget.entity';
-import { WidgetExecution } from '@libs/database/src/entities/widget-execution.entity';
+import { Widget, WidgetExecution } from '@database/entities';
 import { WebSocketService } from '../../websocket/websocket.service';
 
 export interface WidgetError {
@@ -194,9 +193,10 @@ export class WidgetErrorHandlerService {
           requiresUserIntervention: strategy.type === 'user_intervention',
         };
       } catch (error) {
-        lastError = error.message;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        lastError = errorMessage;
         this.logger.warn(
-          `Recovery attempt ${attempts} failed for error ${widgetError.id}: ${error.message}`
+          `Recovery attempt ${attempts} failed for error ${widgetError.id}: ${errorMessage}`
         );
 
         // Wait before next attempt (exponential backoff)
@@ -240,8 +240,8 @@ export class WidgetErrorHandlerService {
     const errorTrends: Array<{ date: string; count: number }> = [];
 
     for (const execution of failedExecutions) {
-      const errorType = this.categorizeError(execution.error);
-      const severity = this.determineSeverity(execution.error);
+      const errorType = this.categorizeError(execution.errorMessage || 'Unknown error');
+      const severity = this.determineSeverity(execution.errorMessage || 'Unknown error');
 
       errorsByType.set(errorType, (errorsByType.get(errorType) || 0) + 1);
       errorsBySeverity.set(severity, (errorsBySeverity.get(severity) || 0) + 1);
@@ -529,11 +529,11 @@ export class WidgetErrorHandlerService {
   }
 
   private calculateAverageRecoveryTime(executions: WidgetExecution[]): number {
-    const recoveredExecutions = executions.filter((e) => e.context?.recovered);
+    const recoveredExecutions = executions.filter((e) => (e.context as any)?.recovered);
     if (recoveredExecutions.length === 0) return 0;
 
     const totalRecoveryTime = recoveredExecutions.reduce((sum, e) => {
-      const recoveryTime = e.context?.recoveryTime || 0;
+      const recoveryTime = (e.context as any)?.recoveryTime || 0;
       return sum + recoveryTime;
     }, 0);
 

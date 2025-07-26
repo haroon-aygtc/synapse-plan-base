@@ -6,6 +6,7 @@ export { AgentExecution } from './agent-execution.entity';
 export { AgentTestResult } from './agent-test-result.entity';
 export { Tool } from './tool.entity';
 export { ToolExecution } from './tool-execution.entity';
+export { ToolTemplate } from './tool-template.entity';
 export { Workflow } from './workflow.entity';
 export { WorkflowExecution } from './workflow-execution.entity';
 export { Session } from './session.entity';
@@ -63,6 +64,8 @@ export {
 // APIX entities
 export { APXSession } from './apix-session.entity';
 export { APXExecution } from './apix-execution.entity';
+export { APXAnalytics } from './apix-analytics.entity';
+export { BillingSubscription } from './billing-subscription.entity';
 
 // Notification entities
 export { NotificationDelivery } from './notification-delivery.entity';

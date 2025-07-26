@@ -9,7 +9,7 @@ import { Repository } from 'typeorm';
 import { Organization } from '@database/entities';
 import { IOrganization, SubscriptionPlan } from '@shared/interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums';
 
 interface CreateOrganizationData {
   name: string;
@@ -70,7 +70,7 @@ export class OrganizationService {
     const savedOrganization = await this.organizationRepository.save(organization);
 
     // Emit organization created event
-    this.eventEmitter.emit(EventType.ORGANIZATION_CREATED, {
+    this.eventEmitter.emit(AgentEventType.ORGANIZATION_CREATED, {
       organizationId: savedOrganization.id,
       name: savedOrganization.name,
       slug: savedOrganization.slug,
@@ -154,9 +154,12 @@ export class OrganizationService {
     await this.organizationRepository.update(id, updateData);
 
     const updatedOrganization = await this.findById(id);
+    if (!updatedOrganization) {
+      throw new Error('Failed to update organization - organization not found after update');
+    }
 
     // Emit organization updated event
-    this.eventEmitter.emit(EventType.ORGANIZATION_UPDATED, {
+    this.eventEmitter.emit(AgentEventType.ORGANIZATION_UPDATED, {
       organizationId: id,
       changes: updateData,
       timestamp: new Date(),
@@ -174,7 +177,7 @@ export class OrganizationService {
     await this.organizationRepository.update(id, { isActive: false });
 
     // Emit organization deleted event (soft delete)
-    this.eventEmitter.emit(EventType.ORGANIZATION_DELETED, {
+    this.eventEmitter.emit(AgentEventType.ORGANIZATION_DELETED, {
       organizationId: id,
       timestamp: new Date(),
     });

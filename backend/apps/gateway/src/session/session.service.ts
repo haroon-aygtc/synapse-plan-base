@@ -18,6 +18,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Session, User, Organization } from '@database/entities';
 import { ISession, ISessionContext, ISessionAnalytics, ISessionRecovery } from '@shared/interfaces';
 import { SessionEventType } from '@shared/enums';
+import { logSafeError } from '@shared/utils/error-guards';
 
 export interface CreateSessionDto {
   userId: string;
@@ -70,6 +71,7 @@ export class SessionService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
+
     private readonly configService: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly eventEmitter: EventEmitter2
@@ -116,8 +118,8 @@ export class SessionService {
     const sessionToken = this.generateSessionToken();
     const expiresAt = new Date(Date.now() + (ttl || this.defaultTTL) * 1000);
 
-    // Create session entity
-    const session = this.sessionRepository.create({
+    // Create and save session entity
+    const savedSession = await this.sessionRepository.save({
       sessionToken,
       userId,
       organizationId,
@@ -135,10 +137,8 @@ export class SessionService {
       memoryLimit: memoryLimit || this.memoryConfig.defaultLimit,
       crossModuleData: {},
       isRecoverable,
-      recoveryData: isRecoverable ? { createdAt: new Date() } : null,
+      recoveryData: isRecoverable ? { createdAt: new Date() } : undefined,
     });
-
-    const savedSession = await this.sessionRepository.save(session);
 
     // Store in Redis for fast access
     await this.storeSessionInRedis(savedSession);
@@ -284,7 +284,7 @@ export class SessionService {
     await this.updateSessionAnalytics(updatedSession.id, {
       accessCount: updatedSession.accessCount,
       memoryUsage: updatedSession.memoryUsage,
-      lastUpdate: new Date(),
+      timestamp: new Date(),
     });
 
     // Emit session updated event
@@ -581,7 +581,8 @@ export class SessionService {
   }
 
   private async checkMemoryLimits(session: Session): Promise<void> {
-    const warningThreshold = session.memoryLimit * this.memoryConfig.warningThreshold;
+    const memoryLimit = session.memoryLimit || this.memoryConfig.defaultLimit;
+    const warningThreshold = memoryLimit * this.memoryConfig.warningThreshold;
 
     if (session.memoryUsage > warningThreshold) {
       this.eventEmitter.emit(SessionEventType.SESSION_MEMORY_WARNING, {
@@ -594,13 +595,13 @@ export class SessionService {
       });
     }
 
-    if (session.memoryUsage > session.memoryLimit) {
+    if (session.memoryUsage > memoryLimit) {
       this.eventEmitter.emit(SessionEventType.SESSION_MEMORY_LIMIT_EXCEEDED, {
         sessionId: session.id,
         userId: session.userId,
         organizationId: session.organizationId,
         memoryUsage: session.memoryUsage,
-        memoryLimit: session.memoryLimit,
+        memoryLimit: memoryLimit,
         timestamp: new Date(),
       });
 
@@ -647,7 +648,8 @@ export class SessionService {
 
   private async getSessionFromRedis(sessionToken: string): Promise<ISession | null> {
     const key = `${this.redisPrefix}${sessionToken}`;
-    return await this.cacheManager.get<ISession>(key);
+    const session = await this.cacheManager.get<ISession>(key);
+    return session || null;
   }
 
   private async removeSessionFromRedis(sessionToken: string): Promise<void> {
@@ -787,7 +789,7 @@ export class SessionService {
         this.logger.log(`Cleaned up ${expiredSessions.length} expired sessions`);
       }
     } catch (error) {
-      this.logger.error(`Session cleanup failed: ${error.message}`, error.stack);
+      logSafeError(this.logger, 'Session cleanup failed', error);
     }
   }
 
@@ -847,7 +849,7 @@ export class SessionService {
 
       this.logger.debug(`Generated analytics for ${analyticsData.size} organizations`);
     } catch (error) {
-      this.logger.error(`Analytics generation failed: ${error.message}`, error.stack);
+      logSafeError(this.logger, 'Analytics generation failed', error);
     }
   }
 }

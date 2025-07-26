@@ -41,7 +41,7 @@ export class DocumentParsingService {
     private readonly httpService: HttpService
   ) {}
 
-  async parseDocument(
+  async parseDocumentFile(
     file: Express.Multer.File | Buffer,
     type: DocumentType,
     filename?: string
@@ -107,7 +107,7 @@ export class DocumentParsingService {
       };
     } catch (error) {
       this.logger.error(`Failed to parse document: ${originalName}`, error);
-      throw new Error(`Document parsing failed: ${error.message}`);
+      throw new Error(`Document parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -138,7 +138,7 @@ export class DocumentParsingService {
       }
 
       const buffer = Buffer.from(response.data);
-      const result = await this.parseDocument(buffer, type, url);
+      const result = await this.parseDocumentFile(buffer, type, url);
 
       // Add URL-specific metadata
       result.metadata = {
@@ -152,7 +152,7 @@ export class DocumentParsingService {
       return result;
     } catch (error) {
       this.logger.error(`Failed to parse URL: ${url}`, error);
-      throw new Error(`URL parsing failed: ${error.message}`);
+      throw new Error(`URL parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -195,44 +195,45 @@ export class DocumentParsingService {
     html: string,
     metadata: any
   ): Promise<{ content: string; metadata: any }> {
-    const $ = cheerio.load(html);
+    // Simple HTML parsing without cheerio for now
+    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : '';
+    
+    const descriptionMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i);
+    const description = descriptionMatch ? descriptionMatch[1] : '';
+    
+    const authorMatch = html.match(/<meta[^>]*name=["']author["'][^>]*content=["']([^"']*)["'][^>]*>/i);
+    const author = authorMatch ? authorMatch[1] : '';
+    
+    const keywordsMatch = html.match(/<meta[^>]*name=["']keywords["'][^>]*content=["']([^"']*)["'][^>]*>/i);
+    const keywords = keywordsMatch ? keywordsMatch[1] : '';
 
-    // Extract title
-    const title = $('title').text().trim() || $('h1').first().text().trim();
+    // Remove HTML tags and extract text content
+    let content = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+      .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+      .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    // Extract meta information
-    const description = $('meta[name="description"]').attr('content');
-    const author = $('meta[name="author"]').attr('content');
-    const keywords = $('meta[name="keywords"]').attr('content');
-
-    // Remove script and style elements
-    $('script, style, nav, footer, header, aside').remove();
-
-    // Extract main content
-    let content = '';
-    const mainContent = $('main, article, .content, #content').first();
-    if (mainContent.length > 0) {
-      content = mainContent.text();
-    } else {
-      content = $('body').text();
-    }
-
-    // Extract headings for structure
-    const headings: string[] = [];
-    $('h1, h2, h3, h4, h5, h6').each((_, el) => {
-      headings.push($(el).text().trim());
-    });
+    // Extract headings
+    const headingMatches = html.match(/<h[1-6][^>]*>([^<]*)<\/h[1-6]>/gi);
+    const headings = headingMatches ? headingMatches.map(h => h.replace(/<[^>]*>/g, '').trim()) : [];
 
     return {
-      content: content.replace(/\s+/g, ' ').trim(),
+      content,
       metadata: {
         ...metadata,
         title,
         description,
         author,
-        keywords: keywords ? keywords.split(',').map((k) => k.trim()) : [],
+        keywords: keywords ? keywords.split(',').map((k: string) => k.trim()) : [],
         headings,
-        extractionMethod: 'cheerio',
+        extractionMethod: 'regex',
       },
     };
   }
@@ -326,7 +327,7 @@ export class DocumentParsingService {
         },
       };
     } catch (error) {
-      throw new Error(`Invalid JSON format: ${error.message}`);
+      throw new Error(`Invalid JSON format: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

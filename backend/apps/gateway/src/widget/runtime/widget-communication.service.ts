@@ -307,7 +307,7 @@ export class WidgetCommunicationService {
         await this.sendMessage(channelId, {
           type: 'response',
           action: message.action,
-          payload: { error: error.message },
+          payload: { error: error instanceof Error ? error.message : 'Unknown error' },
           origin: 'platform',
           sessionId: message.sessionId,
           widgetId: message.widgetId,

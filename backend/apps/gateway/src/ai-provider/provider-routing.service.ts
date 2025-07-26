@@ -4,7 +4,11 @@ import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
-import { AIProvider, ProviderStatus, RoutingRule } from '@database/entities/ai-provider.entity';
+import {
+  AIProvider,
+  ProviderStatus,
+  RoutingRule,
+} from '@database/entities/ai-provider.entity';
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
 import { ProviderRoutingRuleDto } from './dto';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,15 +31,19 @@ export class ProviderRoutingService {
   constructor(
     @InjectRepository(AIProvider)
     private readonly providerRepository: Repository<AIProvider>,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async selectProvider(
     organizationId: string,
     executionType: ExecutionType,
     model?: string,
-    context?: Record<string, any>
+    context?: Record<string, any>,
   ): Promise<AIProvider> {
+    if (!organizationId) {
+      throw new Error('Organization ID is required for provider selection');
+    }
+
     // Get all active providers for the organization
     const providers = await this.getActiveProviders(organizationId);
 
@@ -52,7 +60,7 @@ export class ProviderRoutingService {
       routingRules,
       executionType,
       model,
-      context
+      context,
     );
 
     if (selectedProvider) {
@@ -63,10 +71,12 @@ export class ProviderRoutingService {
           providers,
           selectedProvider.id,
           executionType,
-          model
+          model,
         );
         if (fallbackProvider) {
-          this.logger.warn(`Using fallback provider ${fallbackProvider.id} due to circuit breaker`);
+          this.logger.warn(
+            `Using fallback provider ${fallbackProvider.id} due to circuit breaker`,
+          );
           return fallbackProvider;
         }
       } else {
@@ -105,7 +115,7 @@ export class ProviderRoutingService {
 
   async createRoutingRule(
     routingRuleDto: ProviderRoutingRuleDto,
-    organizationId: string
+    organizationId: string,
   ): Promise<RoutingRule> {
     // Find the target provider
     const targetProvider = await this.providerRepository.findOne({
@@ -136,13 +146,20 @@ export class ProviderRoutingService {
     // Clear cache
     await this.cacheManager.del(`routing-rules:${organizationId}`);
 
-    this.logger.log(`Created routing rule ${rule.id} for provider ${targetProvider.id}`);
+    this.logger.log(
+      `Created routing rule ${rule.id} for provider ${targetProvider.id}`,
+    );
 
     return rule;
   }
 
   // Circuit breaker methods
   recordSuccess(providerId: string): void {
+    if (!providerId) {
+      this.logger.warn('Attempted to record success with undefined providerId');
+      return;
+    }
+
     const state = this.circuitBreakers.get(providerId);
     if (state) {
       if (state.state === 'HALF_OPEN') {
@@ -161,6 +178,11 @@ export class ProviderRoutingService {
   }
 
   recordFailure(providerId: string): void {
+    if (!providerId) {
+      this.logger.warn('Attempted to record failure with undefined providerId');
+      return;
+    }
+
     const now = new Date();
     let state = this.circuitBreakers.get(providerId);
 
@@ -180,7 +202,7 @@ export class ProviderRoutingService {
       state.state = 'OPEN';
       state.nextAttempt = new Date(now.getTime() + this.timeoutMs);
       this.logger.warn(
-        `Circuit breaker opened for provider ${providerId} after ${state.failures} failures`
+        `Circuit breaker opened for provider ${providerId} after ${state.failures} failures`,
       );
     }
 
@@ -189,10 +211,20 @@ export class ProviderRoutingService {
 
   // Public method to check circuit breaker status
   checkCircuitBreakerOpen(providerId: string): boolean {
+    if (!providerId) {
+      this.logger.warn(
+        'Attempted to check circuit breaker with undefined providerId',
+      );
+      return false;
+    }
     return this.isCircuitBreakerOpen(providerId);
   }
 
   private isCircuitBreakerOpen(providerId: string): boolean {
+    if (!providerId) {
+      return false;
+    }
+
     const state = this.circuitBreakers.get(providerId);
     if (!state || state.state === 'CLOSED') {
       return false;
@@ -210,7 +242,9 @@ export class ProviderRoutingService {
     return state.state === 'OPEN';
   }
 
-  private async getActiveProviders(organizationId: string): Promise<AIProvider[]> {
+  private async getActiveProviders(
+    organizationId: string,
+  ): Promise<AIProvider[]> {
     return this.providerRepository.find({
       where: {
         organizationId,
@@ -226,13 +260,15 @@ export class ProviderRoutingService {
     rules: RoutingRule[],
     executionType: ExecutionType,
     model?: string,
-    context?: Record<string, any>
+    context?: Record<string, any>,
   ): Promise<AIProvider | null> {
     for (const rule of rules) {
       if (this.matchesRule(rule, executionType, model, context)) {
         const provider = providers.find((p) => p.id === rule.targetProvider);
         if (provider && !this.isCircuitBreakerOpen(provider.id)) {
-          this.logger.debug(`Selected provider ${provider.id} via routing rule ${rule.id}`);
+          this.logger.debug(
+            `Selected provider ${provider.id} via routing rule ${rule.id}`,
+          );
           return provider;
         }
       }
@@ -244,12 +280,15 @@ export class ProviderRoutingService {
     rule: RoutingRule,
     executionType: ExecutionType,
     model?: string,
-    context?: Record<string, any>
+    context?: Record<string, any>,
   ): boolean {
     const { conditions } = rule;
 
     // Check execution type
-    if (conditions.executionType && conditions.executionType !== executionType) {
+    if (
+      conditions.executionType &&
+      conditions.executionType !== executionType
+    ) {
       return false;
     }
 
@@ -259,7 +298,10 @@ export class ProviderRoutingService {
     }
 
     // Check organization ID
-    if (conditions.organizationId && context?.organizationId !== conditions.organizationId) {
+    if (
+      conditions.organizationId &&
+      context?.organizationId !== conditions.organizationId
+    ) {
       return false;
     }
 
@@ -269,7 +311,10 @@ export class ProviderRoutingService {
     }
 
     // Check cost threshold
-    if (conditions.costThreshold && context?.estimatedCost > conditions.costThreshold) {
+    if (
+      conditions.costThreshold &&
+      context?.estimatedCost > conditions.costThreshold
+    ) {
       return false;
     }
 
@@ -288,10 +333,10 @@ export class ProviderRoutingService {
     providers: AIProvider[],
     excludeProviderId: string,
     executionType: ExecutionType,
-    model?: string
+    model?: string,
   ): Promise<AIProvider | null> {
     const availableProviders = providers.filter(
-      (p) => p.id !== excludeProviderId && !this.isCircuitBreakerOpen(p.id)
+      (p) => p.id !== excludeProviderId && !this.isCircuitBreakerOpen(p.id),
     );
 
     if (availableProviders.length === 0) {
@@ -301,10 +346,14 @@ export class ProviderRoutingService {
     // Filter by model compatibility if specified
     if (model) {
       const compatibleProviders = availableProviders.filter(
-        (p) => !p.config.models || p.config.models.includes(model)
+        (p) => !p.config.models || p.config.models.includes(model),
       );
       if (compatibleProviders.length > 0) {
-        return this.selectByLoadBalancing(compatibleProviders, executionType, model);
+        return this.selectByLoadBalancing(
+          compatibleProviders,
+          executionType,
+          model,
+        );
       }
     }
 
@@ -314,7 +363,7 @@ export class ProviderRoutingService {
   private selectByLoadBalancing(
     providers: AIProvider[],
     executionType: ExecutionType,
-    model?: string
+    model?: string,
   ): AIProvider {
     if (providers.length === 1) {
       return providers[0];
@@ -323,7 +372,9 @@ export class ProviderRoutingService {
     // Filter by model compatibility
     let compatibleProviders = providers;
     if (model) {
-      const filtered = providers.filter((p) => !p.config.models || p.config.models.includes(model));
+      const filtered = providers.filter(
+        (p) => !p.config.models || p.config.models.includes(model),
+      );
       if (filtered.length > 0) {
         compatibleProviders = filtered;
       }
@@ -343,7 +394,9 @@ export class ProviderRoutingService {
     for (let i = 0; i < compatibleProviders.length; i++) {
       currentWeight += weights[i];
       if (random <= currentWeight) {
-        this.logger.debug(`Selected provider ${compatibleProviders[i].id} via load balancing`);
+        this.logger.debug(
+          `Selected provider ${compatibleProviders[i].id} via load balancing`,
+        );
         return compatibleProviders[i];
       }
     }

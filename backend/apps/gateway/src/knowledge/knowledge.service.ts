@@ -9,6 +9,8 @@ import {
   KnowledgeDocumentChunk,
   KnowledgeDocumentVersion,
   KnowledgeSearch,
+  SearchType,
+  SearchStatus,
   Organization,
   DocumentType,
   DocumentVisibility,
@@ -140,7 +142,7 @@ export class KnowledgeService {
 
     // Parse document content
     const documentType = this.getFileType(file.originalname);
-    const parsedDocument = await this.parsingService.parseDocument(
+    const parsedDocument = await this.parsingService.parseDocumentFile(
       validation.sanitizedContent || file.buffer,
       documentType,
       file.originalname
@@ -208,7 +210,18 @@ export class KnowledgeService {
     }>,
     context: SecurityContext
   ) {
-    const successful: any[] = [];
+      const successful: Array<{
+      title: string;
+      id: string;
+      type: string;
+      source: string;
+      status: string;
+      visibility: DocumentVisibility;
+      userId: string;
+      organizationId: string;
+      createdAt: Date;
+      updatedAt: Date;
+    }> = [];
     const failed: Array<{ title: string; error: string }> = [];
 
     for (let i = 0; i < files.length; i++) {
@@ -221,7 +234,7 @@ export class KnowledgeService {
       } catch (error) {
         failed.push({
           title: fileMetadata.title,
-          error: error.message,
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
@@ -393,7 +406,7 @@ export class KnowledgeService {
       // Add organization filter to ensure data isolation
       const searchOptions = {
         query: queryValidation.sanitizedQuery!,
-        type: searchDto.type || 'hybrid',
+        type: (searchDto.type || 'hybrid') as 'hybrid' | 'semantic' | 'keyword',
         maxResults: searchDto.maxResults || 10,
         threshold: searchDto.threshold || 0.7,
         filters: {
@@ -428,10 +441,9 @@ export class KnowledgeService {
 
       // Save search record
       const search = this.searchRepository.create({
-        id: searchId,
         query: searchDto.query,
-        type: searchDto.type || 'hybrid',
-        status: 'success',
+        type: (searchDto.type || 'hybrid') as SearchType,
+        status: SearchStatus.SUCCESS,
         results: accessibleResults,
         filters: searchDto.filters,
         resultCount: accessibleResults.length,
@@ -447,7 +459,6 @@ export class KnowledgeService {
           tokenCount: searchDto.query.split(' ').length,
           processingSteps: ['validation', 'vector_search', 'access_filter'],
         },
-        createdAt: new Date(),
       });
 
       await this.searchRepository.save(search);
@@ -469,18 +480,16 @@ export class KnowledgeService {
     } catch (error) {
       // Save failed search record
       const search = this.searchRepository.create({
-        id: searchId,
         query: searchDto.query,
-        type: searchDto.type || 'hybrid',
-        status: 'failed',
+        type: (searchDto.type || 'hybrid') as SearchType,
+        status: SearchStatus.FAILED,
         results: [],
         filters: searchDto.filters,
         resultCount: 0,
         executionTimeMs: Date.now() - startTime,
-        errorMessage: error.message,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
         userId: context.userId,
         organizationId: context.organizationId,
-        createdAt: new Date(),
       });
 
       await this.searchRepository.save(search);
