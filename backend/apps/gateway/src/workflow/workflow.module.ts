@@ -8,6 +8,7 @@ import { SessionModule } from '../session/session.module';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { AgentModule } from '../agent/agent.module';
 import { ToolModule } from '../tool/tool.module';
+import { HITLModule } from '../hitl/hitl.module';
 
 @Module({
   imports: [
@@ -16,6 +17,8 @@ import { ToolModule } from '../tool/tool.module';
     WebsocketModule,
     AgentModule,
     ToolModule,
+    HITLModule,
+    SessionModule,
   ],
   controllers: [WorkflowController],
   providers: [WorkflowService, WorkflowExecutionEngine],

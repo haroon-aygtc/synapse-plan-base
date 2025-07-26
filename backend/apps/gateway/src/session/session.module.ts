@@ -9,6 +9,7 @@ import { SessionService } from './session.service';
 import { SessionController } from './session.controller';
 import { SessionMiddleware } from './session.middleware';
 import { SessionEventHandler } from './session-event.handler';
+import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { SessionEventHandler } from './session-event.handler';
     // CacheModule is imported globally in GatewayModule
     EventEmitterModule,
     ScheduleModule,
+    WebsocketModule,
   ],
   controllers: [SessionController],
   providers: [SessionService, SessionMiddleware, SessionEventHandler],
