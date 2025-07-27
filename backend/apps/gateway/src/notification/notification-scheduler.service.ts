@@ -36,8 +36,15 @@ export class NotificationSchedulerService implements OnModuleInit {
 
   onModuleInit() {
     this.logger.log('Notification Scheduler Service initialized');
-    this.processScheduledNotifications();
-    this.retryFailedDeliveries();
+    // Delay initialization to ensure database is ready
+    setTimeout(async () => {
+      try {
+        await this.processScheduledNotifications();
+        await this.retryFailedDeliveries();
+      } catch (error) {
+        this.logger.warn('Failed to initialize notification scheduler, will retry later', error);
+      }
+    }, 5000); // Wait 5 seconds for database to be ready
   }
 
   // Process scheduled notifications every minute
@@ -63,6 +70,11 @@ export class NotificationSchedulerService implements OnModuleInit {
         await this.processNotification(notification);
       }
     } catch (error) {
+      // Check if it's a metadata error and log appropriately
+      if (error instanceof Error && error.message && error.message.includes('No metadata for')) {
+        this.logger.debug('Database not ready yet, skipping notification processing');
+        return;
+      }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Error processing scheduled notifications: ${errorMessage}`, errorStack);
@@ -99,6 +111,11 @@ export class NotificationSchedulerService implements OnModuleInit {
         }
       }
     } catch (error) {
+      // Check if it's a metadata error and log appropriately
+      if (error.message && error.message.includes('No metadata for')) {
+        this.logger.debug('Database not ready yet, skipping delivery retries');
+        return;
+      }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       const errorStack = error instanceof Error ? error.stack : undefined;
       this.logger.error(`Error retrying failed deliveries: ${errorMessage}`, errorStack);

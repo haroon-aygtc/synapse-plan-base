@@ -9,7 +9,7 @@ import { Cache } from 'cache-manager';
 import { AIProvider, AIProviderMetrics, ProviderStatus } from '@database/entities';
 import { ProviderAdapterService } from './provider-adapter.service';
 import { AgentEventType } from '@shared/enums';
-
+  
 interface HealthCheckResult {
   providerId: string;
   status: 'healthy' | 'unhealthy' | 'degraded';
@@ -58,7 +58,14 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     this.logger.log('Initializing Provider Health Service');
-    await this.initializeHealthMonitoring();
+    // Delay initialization to ensure database is ready
+    setTimeout(async () => {
+      try {
+        await this.initializeHealthMonitoring();
+      } catch (error) {
+        this.logger.warn('Failed to initialize health monitoring, will retry later', error);
+      }
+    }, 5000); // Wait 5 seconds for database to be ready
   }
 
   async onModuleDestroy() {
@@ -67,15 +74,19 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
   }
 
   async initializeHealthMonitoring(): Promise<void> {
-    const activeProviders = await this.providerRepository.find({
-      where: { isActive: true, status: ProviderStatus.ACTIVE },
-    });
+    try {
+      const activeProviders = await this.providerRepository.find({
+        where: { isActive: true, status: ProviderStatus.ACTIVE },
+      });
 
-    for (const provider of activeProviders) {
-      await this.startMonitoring(provider.id, provider.organizationId);
+      for (const provider of activeProviders) {
+        await this.startMonitoring(provider.id, provider.organizationId);
+      }
+
+      this.logger.log(`Started health monitoring for ${activeProviders.length} providers`);
+    } catch (error) {
+      this.logger.warn('No active providers found or database not ready yet', error);
     }
-
-    this.logger.log(`Started health monitoring for ${activeProviders.length} providers`);
   }
 
   async startMonitoring(providerId: string, organizationId: string): Promise<void> {

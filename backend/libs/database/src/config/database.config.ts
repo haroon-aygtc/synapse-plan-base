@@ -27,12 +27,12 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
   host: process.env.DATABASE_HOST || 'localhost',
   port: parseInt(process.env.DATABASE_PORT || '5432', 10),
   username: process.env.DATABASE_USERNAME || 'postgres',
-  password: process.env.DATABASE_PASSWORD || 'password',
-  database: process.env.DATABASE_NAME || 'tempo_ai_platform',
+  password: process.env.DATABASE_PASSWORD || '',
+  database: process.env.DATABASE_NAME || 'synapseai',
   entities: [`${__dirname}/../entities/*.entity{.ts,.js}`],
   migrations: [InitialSchema1700000001, CreateRLSPolicies1700000002, SeedInitialData1700000003],
   migrationsRun: process.env.DATABASE_MIGRATIONS_RUN === 'true',
-  synchronize: process.env.DATABASE_SYNCHRONIZE === 'true' || false,
+  synchronize: process.env.DATABASE_SYNCHRONIZE === 'true' || true, // Temporarily enable for development
   logging: process.env.DATABASE_LOGGING === 'true' || false,
   ssl:
     process.env.DATABASE_SSL === 'true'

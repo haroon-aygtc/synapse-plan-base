@@ -21,13 +21,22 @@ export class EmailDeliveryProvider {
   }
 
   private initializeTransporter(): void {
+    const emailUser = this.configService.get<string>('EMAIL_USER');
+    const emailPassword = this.configService.get<string>('EMAIL_PASSWORD');
+
+    // Check if email credentials are configured
+    if (!emailUser || !emailPassword) {
+      this.logger.warn('Email credentials not configured, email delivery will be disabled');
+      return;
+    }
+
     const emailConfig = {
       host: this.configService.get<string>('EMAIL_HOST', 'smtp.gmail.com'),
       port: this.configService.get<number>('EMAIL_PORT', 587),
       secure: this.configService.get<boolean>('EMAIL_SECURE', false),
       auth: {
-        user: this.configService.get<string>('EMAIL_USER'),
-        pass: this.configService.get<string>('EMAIL_PASSWORD'),
+        user: emailUser,
+        pass: emailPassword,
       },
     };
 
@@ -45,6 +54,15 @@ export class EmailDeliveryProvider {
 
   async sendEmail(delivery: NotificationDelivery): Promise<EmailDeliveryResult> {
     try {
+      // Check if transporter is initialized
+      if (!this.transporter) {
+        this.logger.warn('Email transporter not initialized, skipping email delivery');
+        return {
+          success: false,
+          error: 'Email transporter not configured',
+        };
+      }
+
       const { notification } = delivery;
       const emailData = delivery.deliveryData?.email;
 

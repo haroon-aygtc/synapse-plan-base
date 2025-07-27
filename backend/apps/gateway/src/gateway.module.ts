@@ -21,6 +21,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { HealthModule } from './health/health.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { HITLModule } from './hitl/hitl.module';
+import { MonitoringModule } from '@shared/modules/monitoring.module';
 
 @Module({
   imports: [
@@ -86,6 +87,7 @@ import { HITLModule } from './hitl/hitl.module';
     HealthModule,
     WebsocketModule,
     HITLModule,
+    MonitoringModule,
   ],
 })
 export class GatewayModule {}
