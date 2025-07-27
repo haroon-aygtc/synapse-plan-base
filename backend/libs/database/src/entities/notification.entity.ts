@@ -4,7 +4,8 @@ import { User } from './user.entity';
 import { Organization } from './organization.entity';
 import { NotificationDelivery } from './notification-delivery.entity';
 import { NotificationTemplate } from './notification-template.entity';
-import { NotificationType, NotificationPriority, ExecutionStatus } from '@shared/enums';
+import { NotificationType, NotificationPriority, ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 
 @Entity('notifications')
 @Index(['organizationId', 'status'])

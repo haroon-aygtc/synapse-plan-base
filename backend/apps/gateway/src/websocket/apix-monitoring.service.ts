@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Inject } from '@nestjs/common';
 import Redis from 'ioredis';
-import { APXMessageType } from '@shared/enums';
+import { APXMessageType } from '@shared/enums/apix-protocol.enum';
+
 
 interface MessageMetrics {
   messageType: APXMessageType;

@@ -10,17 +10,11 @@ import { Repository, In, Between, FindOptionsWhere, Not } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { HITLRequest, HITLComment, HITLVote, User } from '@database/entities';
-import {
-  HITLRequestStatus,
-  HITLRequestPriority,
-  HITLEscalationReason,
-  HITLEventType,
-  UserRole,
-} from '@shared/enums';
-import {
-  NotificationType,
-  NotificationPriority,
-} from '@shared/enums';
+import { HITLRequestStatus, HITLRequestPriority, HITLEscalationReason, HITLEventType } from '@shared/enums/hitl.enum';
+import { UserRole } from '@shared/interfaces';
+
+import { NotificationType, NotificationPriority } from '@shared/enums/execution-status.enum';
+
 import {
   CreateHITLRequestDto,
   UpdateHITLRequestDto,

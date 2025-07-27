@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EventType } from '@shared/enums';
+
 import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
 

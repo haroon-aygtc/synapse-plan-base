@@ -30,7 +30,8 @@ const typeorm_1 = __webpack_require__(/*! @nestjs/typeorm */ "@nestjs/typeorm");
 const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const uuid_1 = __webpack_require__(/*! uuid */ "uuid");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
+const hitl_enum_1 = __webpack_require__(/*! @shared/enums/hitl.enum */ "./libs/shared/src/enums/hitl.enum.ts");
 const ai_provider_execution_entity_1 = __webpack_require__(/*! @database/entities/ai-provider-execution.entity */ "./libs/database/src/entities/ai-provider-execution.entity.ts");
 const websocket_service_1 = __webpack_require__(/*! ../websocket/websocket.service */ "./apps/gateway/src/websocket/websocket.service.ts");
 const session_service_1 = __webpack_require__(/*! ../session/session.service */ "./apps/gateway/src/session/session.service.ts");
@@ -39,6 +40,7 @@ const ai_provider_service_1 = __webpack_require__(/*! ../ai-provider/ai-provider
 const provider_adapter_service_1 = __webpack_require__(/*! ../ai-provider/provider-adapter.service */ "./apps/gateway/src/ai-provider/provider-adapter.service.ts");
 const hitl_service_1 = __webpack_require__(/*! ../hitl/hitl.service */ "./apps/gateway/src/hitl/hitl.service.ts");
 const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
     constructor(agentExecutionRepository, sessionService, websocketService, toolService, aiProviderService, providerAdapter, eventEmitter, hitlService) {
         this.agentExecutionRepository = agentExecutionRepository;
@@ -55,18 +57,17 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
         const executionId = (0, uuid_1.v4)();
         const startTime = Date.now();
         const execution = this.agentExecutionRepository.create({
-            id: executionId,
             agentId: agent.id,
             sessionId: options.sessionId || (0, uuid_1.v4)(),
             input: options.input,
-            status: enums_1.ExecutionStatus.RUNNING,
             context: options.context || {},
             metadata: options.metadata || {},
             organizationId,
             startedAt: new Date(),
         });
+        execution.status = execution_status_enum_1.ExecutionStatus.RUNNING;
         await this.agentExecutionRepository.save(execution);
-        this.eventEmitter.emit(enums_1.AgentEventType.AGENT_EXECUTION_STARTED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AGENT_EXECUTION_STARTED, {
             executionId,
             agentId: agent.id,
             userId,
@@ -77,7 +78,7 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
         await this.websocketService.broadcastToOrganization(organizationId, 'agent_execution_started', {
             executionId,
             agentId: agent.id,
-            status: enums_1.ExecutionStatus.RUNNING,
+            status: execution_status_enum_1.ExecutionStatus.RUNNING,
         });
         try {
             let sessionContext = null;
@@ -127,7 +128,7 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
                 agent.knowledgeSources.length > 0 &&
                 options.includeKnowledgeSearch !== false) {
                 try {
-                    this.eventEmitter.emit(enums_1.AgentEventType.KNOWLEDGE_SEARCH_PERFORMED, {
+                    this.eventEmitter.emit(agent_event_enum_1.AgentEventType.KNOWLEDGE_SEARCH_PERFORMED, {
                         executionId,
                         agentId: agent.id,
                         query: options.input,
@@ -160,8 +161,8 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
                 const hitlRequest = await this.hitlService.createRequest({
                     title: `Agent Execution Approval Required`,
                     description: `Agent "${agent.name}" requires approval before execution`,
-                    type: enums_1.HITLRequestType.APPROVAL,
-                    priority: enums_1.HITLRequestPriority.HIGH,
+                    type: hitl_enum_1.HITLRequestType.APPROVAL,
+                    priority: hitl_enum_1.HITLRequestPriority.HIGH,
                     sourceType: 'agent',
                     sourceId: agent.id,
                     executionId,
@@ -171,12 +172,12 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
                         sessionId: options.sessionId,
                     },
                 }, userId, organizationId);
-                execution.status = enums_1.ExecutionStatus.PAUSED;
+                execution.status = execution_status_enum_1.ExecutionStatus.PAUSED;
                 await this.agentExecutionRepository.save(execution);
                 return {
                     id: executionId,
                     output: 'Execution paused pending approval',
-                    status: enums_1.ExecutionStatus.PAUSED,
+                    status: execution_status_enum_1.ExecutionStatus.PAUSED,
                     executionTimeMs: Date.now() - startTime,
                     metadata: {
                         hitlRequestId: hitlRequest.id,
@@ -242,7 +243,7 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
                 for (const toolCall of providerResponse.toolCalls) {
                     const toolStartTime = Date.now();
                     try {
-                        this.eventEmitter.emit(enums_1.AgentEventType.TOOL_EXECUTION_STARTED, {
+                        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.TOOL_EXECUTION_STARTED, {
                             executionId,
                             agentId: agent.id,
                             toolId: toolCall.function.name,
@@ -261,7 +262,7 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
                             output: toolResult.result,
                             executionTime: Date.now() - toolStartTime,
                         });
-                        this.eventEmitter.emit(enums_1.AgentEventType.TOOL_EXECUTION_COMPLETED, {
+                        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.TOOL_EXECUTION_COMPLETED, {
                             executionId,
                             agentId: agent.id,
                             toolId: toolCall.function.name,
@@ -307,7 +308,7 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
             }
             const executionTime = Date.now() - startTime;
             execution.output = finalOutput;
-            execution.status = enums_1.ExecutionStatus.COMPLETED;
+            execution.status = execution_status_enum_1.ExecutionStatus.COMPLETED;
             execution.tokensUsed = tokensUsed;
             execution.cost = cost;
             execution.executionTimeMs = executionTime;
@@ -342,7 +343,7 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
                     agentId: agent.id,
                 });
             }
-            this.eventEmitter.emit(enums_1.AgentEventType.AGENT_EXECUTION_COMPLETED, {
+            this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AGENT_EXECUTION_COMPLETED, {
                 executionId,
                 agentId: agent.id,
                 userId,
@@ -356,14 +357,14 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
             await this.websocketService.broadcastToOrganization(organizationId, 'agent_execution_completed', {
                 executionId,
                 agentId: agent.id,
-                status: enums_1.ExecutionStatus.COMPLETED,
+                status: execution_status_enum_1.ExecutionStatus.COMPLETED,
                 output: finalOutput,
                 executionTime,
             });
             const result = {
                 id: executionId,
                 output: finalOutput,
-                status: enums_1.ExecutionStatus.COMPLETED,
+                status: execution_status_enum_1.ExecutionStatus.COMPLETED,
                 tokensUsed,
                 cost,
                 executionTimeMs: executionTime,
@@ -377,12 +378,12 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
         catch (error) {
             const executionTime = Date.now() - startTime;
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            execution.status = enums_1.ExecutionStatus.FAILED;
+            execution.status = execution_status_enum_1.ExecutionStatus.FAILED;
             execution.error = errorMessage;
             execution.executionTimeMs = executionTime;
             execution.completedAt = new Date();
             await this.agentExecutionRepository.save(execution);
-            this.eventEmitter.emit(enums_1.AgentEventType.AGENT_EXECUTION_FAILED, {
+            this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AGENT_EXECUTION_FAILED, {
                 executionId,
                 agentId: agent.id,
                 userId,
@@ -394,7 +395,7 @@ let AgentExecutionEngine = AgentExecutionEngine_1 = class AgentExecutionEngine {
             await this.websocketService.broadcastToOrganization(organizationId, 'agent_execution_failed', {
                 executionId,
                 agentId: agent.id,
-                status: enums_1.ExecutionStatus.FAILED,
+                status: execution_status_enum_1.ExecutionStatus.FAILED,
                 error: errorMessage,
             });
             this.logger.error(`Agent execution failed: ${executionId} for agent ${agent.id}`, error);
@@ -887,7 +888,8 @@ const websocket_service_1 = __webpack_require__(/*! ../websocket/websocket.servi
 const agent_execution_engine_1 = __webpack_require__(/*! ./agent-execution.engine */ "./apps/gateway/src/agent/agent-execution.engine.ts");
 const tool_service_1 = __webpack_require__(/*! ../tool/tool.service */ "./apps/gateway/src/tool/tool.service.ts");
 const dto_1 = __webpack_require__(/*! ./dto */ "./apps/gateway/src/agent/dto/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 const openai_1 = __webpack_require__(/*! openai */ "openai");
 const uuid_1 = __webpack_require__(/*! uuid */ "uuid");
 let AgentService = AgentService_1 = class AgentService {
@@ -936,7 +938,7 @@ let AgentService = AgentService_1 = class AgentService {
         });
         const savedAgent = await this.agentRepository.save(agent);
         await this.cacheAgent(savedAgent);
-        this.eventEmitter.emit(enums_1.AgentEventType.AGENT_CREATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AGENT_CREATED, {
             agentId: savedAgent.id,
             userId,
             organizationId,
@@ -1020,7 +1022,7 @@ let AgentService = AgentService_1 = class AgentService {
         agent.updatedAt = new Date();
         const updatedAgent = await this.agentRepository.save(agent);
         await this.cacheAgent(updatedAgent);
-        this.eventEmitter.emit(enums_1.AgentEventType.AGENT_UPDATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AGENT_UPDATED, {
             agentId: updatedAgent.id,
             userId,
             organizationId,
@@ -1045,7 +1047,7 @@ let AgentService = AgentService_1 = class AgentService {
         agent.updatedAt = new Date();
         await this.agentRepository.save(agent);
         await this.cacheManager.del(`${this.cachePrefix}${id}`);
-        this.eventEmitter.emit(enums_1.AgentEventType.AGENT_DELETED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AGENT_DELETED, {
             agentId: id,
             userId,
             organizationId,
@@ -1072,7 +1074,7 @@ let AgentService = AgentService_1 = class AgentService {
         }, userId, organizationId);
         await this.updatePerformanceMetrics(id, {
             executionTime: result.executionTimeMs,
-            success: result.status === enums_1.ExecutionStatus.COMPLETED,
+            success: result.status === execution_status_enum_1.ExecutionStatus.COMPLETED,
             tokensUsed: result.tokensUsed,
             cost: result.cost,
         });
@@ -1089,7 +1091,7 @@ let AgentService = AgentService_1 = class AgentService {
             testName: testDto.testName,
             testInput: testDto.testInput,
             expectedOutput: testDto.expectedOutput,
-            status: enums_1.ExecutionStatus.RUNNING,
+            status: execution_status_enum_1.ExecutionStatus.RUNNING,
             organizationId,
             startedAt: new Date(),
             metadata: testDto.metadata || {},
@@ -1124,7 +1126,7 @@ let AgentService = AgentService_1 = class AgentService {
                 }
             }
             else {
-                passed = executionResult.status === enums_1.ExecutionStatus.COMPLETED;
+                passed = executionResult.status === execution_status_enum_1.ExecutionStatus.COMPLETED;
                 score = passed ? 1.0 : 0.0;
             }
             testResult.actualOutput = {
@@ -1134,7 +1136,7 @@ let AgentService = AgentService_1 = class AgentService {
                 toolCalls: executionResult.toolCalls,
                 knowledgeSearches: executionResult.knowledgeSearches,
             };
-            testResult.status = enums_1.ExecutionStatus.COMPLETED;
+            testResult.status = execution_status_enum_1.ExecutionStatus.COMPLETED;
             testResult.passed = passed;
             testResult.score = score;
             testResult.metrics = {
@@ -1159,7 +1161,7 @@ let AgentService = AgentService_1 = class AgentService {
         }
         catch (error) {
             const executionTime = Date.now() - startTime;
-            testResult.status = enums_1.ExecutionStatus.FAILED;
+            testResult.status = execution_status_enum_1.ExecutionStatus.FAILED;
             testResult.passed = false;
             testResult.errorMessage = error instanceof Error ? error.message : 'Unknown error';
             testResult.metrics = {
@@ -1246,7 +1248,7 @@ let AgentService = AgentService_1 = class AgentService {
             lastUpdated: new Date(),
         };
         await this.agentRepository.updatePerformanceMetrics(agentId, newMetrics);
-        this.eventEmitter.emit(enums_1.AgentEventType.AGENT_PERFORMANCE_UPDATE, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AGENT_PERFORMANCE_UPDATE, {
             agentId,
             metrics: newMetrics,
             timestamp: new Date(),
@@ -2242,12 +2244,12 @@ const common_2 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const cache_manager_2 = __webpack_require__(/*! cache-manager */ "cache-manager");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
 const ai_provider_entity_1 = __webpack_require__(/*! @database/entities/ai-provider.entity */ "./libs/database/src/entities/ai-provider.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 const provider_adapter_service_1 = __webpack_require__(/*! ./provider-adapter.service */ "./apps/gateway/src/ai-provider/provider-adapter.service.ts");
 const provider_routing_service_1 = __webpack_require__(/*! ./provider-routing.service */ "./apps/gateway/src/ai-provider/provider-routing.service.ts");
 const provider_health_service_1 = __webpack_require__(/*! ./provider-health.service */ "./apps/gateway/src/ai-provider/provider-health.service.ts");
 const provider_cost_service_1 = __webpack_require__(/*! ./provider-cost.service */ "./apps/gateway/src/ai-provider/provider-cost.service.ts");
-const enums_2 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 const uuid_1 = __webpack_require__(/*! uuid */ "uuid");
 let AIProviderService = AIProviderService_1 = class AIProviderService {
     constructor(providerRepository, executionRepository, metricsRepository, providerAdapter, providerRouting, providerHealth, providerCost, eventEmitter, configService, cacheManager) {
@@ -2303,7 +2305,7 @@ let AIProviderService = AIProviderService_1 = class AIProviderService {
         const savedProvider = await this.providerRepository.save(provider);
         await this.cacheProvider(savedProvider);
         this.providerHealth.startMonitoring(savedProvider.id, organizationId);
-        this.eventEmitter.emit(enums_2.AgentEventType.AI_PROVIDER_CREATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AI_PROVIDER_CREATED, {
             providerId: savedProvider.id,
             organizationId,
             userId,
@@ -2354,7 +2356,7 @@ let AIProviderService = AIProviderService_1 = class AIProviderService {
         provider.updatedAt = new Date();
         const updatedProvider = await this.providerRepository.save(provider);
         await this.cacheProvider(updatedProvider);
-        this.eventEmitter.emit(enums_2.AgentEventType.AI_PROVIDER_UPDATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AI_PROVIDER_UPDATED, {
             providerId: updatedProvider.id,
             organizationId,
             changes: updateProviderDto,
@@ -2371,7 +2373,7 @@ let AIProviderService = AIProviderService_1 = class AIProviderService {
         await this.providerRepository.save(provider);
         await this.cacheManager.del(`${this.cachePrefix}${id}`);
         this.providerHealth.stopMonitoring(id);
-        this.eventEmitter.emit(enums_2.AgentEventType.AI_PROVIDER_DELETED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AI_PROVIDER_DELETED, {
             providerId: id,
             organizationId,
             timestamp: new Date(),
@@ -2393,7 +2395,7 @@ let AIProviderService = AIProviderService_1 = class AIProviderService {
         provider.updatedAt = new Date();
         const updatedProvider = await this.providerRepository.save(provider);
         await this.cacheProvider(updatedProvider);
-        this.eventEmitter.emit(enums_2.AgentEventType.AI_PROVIDER_KEY_ROTATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AI_PROVIDER_KEY_ROTATED, {
             providerId: updatedProvider.id,
             organizationId,
             timestamp: new Date(),
@@ -2919,7 +2921,7 @@ let AIProviderService = AIProviderService_1 = class AIProviderService {
             organizationId,
             userId,
             error,
-            status: error ? enums_1.ExecutionStatus.FAILED : enums_1.ExecutionStatus.COMPLETED,
+            status: error ? execution_status_enum_1.ExecutionStatus.FAILED : execution_status_enum_1.ExecutionStatus.COMPLETED,
             startedAt: new Date(Date.now() - responseTimeMs),
             completedAt: new Date(),
         });
@@ -4385,7 +4387,7 @@ const common_2 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const cache_manager_2 = __webpack_require__(/*! cache-manager */ "cache-manager");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
 const provider_adapter_service_1 = __webpack_require__(/*! ./provider-adapter.service */ "./apps/gateway/src/ai-provider/provider-adapter.service.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 let ProviderHealthService = ProviderHealthService_1 = class ProviderHealthService {
     constructor(providerRepository, metricsRepository, providerAdapter, eventEmitter, cacheManager) {
         this.providerRepository = providerRepository;
@@ -4546,7 +4548,7 @@ let ProviderHealthService = ProviderHealthService_1 = class ProviderHealthServic
         }
         await this.updateProviderHealth(provider, result);
         await this.cacheManager.set(`health:${providerId}`, result, 300000);
-        this.eventEmitter.emit(enums_1.AgentEventType.AI_PROVIDER_HEALTH_CHECK, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AI_PROVIDER_HEALTH_CHECK, {
             providerId,
             organizationId,
             healthStatus: result.status,
@@ -4589,7 +4591,7 @@ let ProviderHealthService = ProviderHealthService_1 = class ProviderHealthServic
             if (provider.status === entities_1.ProviderStatus.ACTIVE) {
                 provider.status = entities_1.ProviderStatus.ERROR;
                 await this.providerRepository.save(provider);
-                this.eventEmitter.emit(enums_1.AgentEventType.AI_PROVIDER_STATUS_CHANGED, {
+                this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AI_PROVIDER_STATUS_CHANGED, {
                     providerId: provider.id,
                     organizationId: provider.organizationId,
                     oldStatus: entities_1.ProviderStatus.ACTIVE,
@@ -4603,7 +4605,7 @@ let ProviderHealthService = ProviderHealthService_1 = class ProviderHealthServic
         else if (result.status === 'healthy' && provider.status === entities_1.ProviderStatus.ERROR) {
             provider.status = entities_1.ProviderStatus.ACTIVE;
             await this.providerRepository.save(provider);
-            this.eventEmitter.emit(enums_1.AgentEventType.AI_PROVIDER_STATUS_CHANGED, {
+            this.eventEmitter.emit(agent_event_enum_1.AgentEventType.AI_PROVIDER_STATUS_CHANGED, {
                 providerId: provider.id,
                 organizationId: provider.organizationId,
                 oldStatus: entities_1.ProviderStatus.ERROR,
@@ -5438,7 +5440,7 @@ const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const typeorm_1 = __webpack_require__(/*! @nestjs/typeorm */ "@nestjs/typeorm");
 const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let AnalyticsService = class AnalyticsService {
     constructor(agentExecutionRepository, toolExecutionRepository, workflowExecutionRepository, knowledgeSearchRepository, eventLogRepository, organizationRepository, userRepository) {
         this.agentExecutionRepository = agentExecutionRepository;
@@ -5498,7 +5500,7 @@ let AnalyticsService = class AnalyticsService {
             startDate,
             endDate,
         })
-            .setParameter('completedStatus', enums_1.ExecutionStatus.COMPLETED)
+            .setParameter('completedStatus', execution_status_enum_1.ExecutionStatus.COMPLETED)
             .getRawOne();
         const previousWorkflowExecutions = await this.workflowExecutionRepository
             .createQueryBuilder('execution')
@@ -5612,7 +5614,7 @@ let AnalyticsService = class AnalyticsService {
             startDate,
             endDate,
         })
-            .setParameter('completed', enums_1.ExecutionStatus.COMPLETED)
+            .setParameter('completed', execution_status_enum_1.ExecutionStatus.COMPLETED)
             .getRawOne();
         const total = parseInt(agentMetrics.total) || 0;
         const successful = parseInt(agentMetrics.successful) || 0;
@@ -5742,11 +5744,11 @@ let AnalyticsService = class AnalyticsService {
     }
     mapEventStatusToActivityStatus(status) {
         switch (status) {
-            case enums_1.ExecutionStatus.COMPLETED:
+            case execution_status_enum_1.ExecutionStatus.COMPLETED:
                 return 'completed';
-            case enums_1.ExecutionStatus.RUNNING:
+            case execution_status_enum_1.ExecutionStatus.RUNNING:
                 return 'in_progress';
-            case enums_1.ExecutionStatus.FAILED:
+            case execution_status_enum_1.ExecutionStatus.FAILED:
                 return 'failed';
             default:
                 return 'completed';
@@ -6330,7 +6332,7 @@ const user_service_1 = __webpack_require__(/*! ./user.service */ "./apps/gateway
 const organization_service_1 = __webpack_require__(/*! ./organization.service */ "./apps/gateway/src/auth/organization.service.ts");
 const interfaces_1 = __webpack_require__(/*! @shared/interfaces */ "./libs/shared/src/interfaces/index.ts");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 const session_service_1 = __webpack_require__(/*! ../session/session.service */ "./apps/gateway/src/session/session.service.ts");
 const billing_service_1 = __webpack_require__(/*! ../billing/billing.service */ "./apps/gateway/src/billing/billing.service.ts");
 let AuthService = class AuthService {
@@ -6372,7 +6374,7 @@ let AuthService = class AuthService {
             role: organization ? interfaces_1.UserRole.ORG_ADMIN : interfaces_1.UserRole.DEVELOPER,
         });
         const tokens = await this.generateTokens(user);
-        this.eventEmitter.emit(enums_1.AgentEventType.USER_CREATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.USER_CREATED, {
             userId: user.id,
             organizationId: user.organizationId,
             email: user.email,
@@ -6412,7 +6414,7 @@ let AuthService = class AuthService {
             isRecoverable: true,
         });
         await this.userService.updateLastLogin(user.id);
-        this.eventEmitter.emit(enums_1.AgentEventType.USER_LOGIN, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.USER_LOGIN, {
             userId: user.id,
             organizationId: user.organizationId,
             userAgent,
@@ -6464,7 +6466,7 @@ let AuthService = class AuthService {
             await this.sessionService.destroyUserSessions(userId);
         }
         await this.invalidateUserRefreshTokens(userId);
-        this.eventEmitter.emit(enums_1.AgentEventType.USER_LOGOUT, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.USER_LOGOUT, {
             userId,
             timestamp: new Date(),
         });
@@ -6615,7 +6617,7 @@ let AuthService = class AuthService {
             isActive: false,
             emailVerificationToken: invitationToken,
         });
-        this.eventEmitter.emit(enums_1.AgentEventType.USER_CREATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.USER_CREATED, {
             userId: user.id,
             organizationId,
             email,
@@ -7176,7 +7178,7 @@ const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
 const interfaces_1 = __webpack_require__(/*! @shared/interfaces */ "./libs/shared/src/interfaces/index.ts");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 let OrganizationService = class OrganizationService {
     constructor(organizationRepository, eventEmitter) {
         this.organizationRepository = organizationRepository;
@@ -7203,7 +7205,7 @@ let OrganizationService = class OrganizationService {
             isActive: true,
         });
         const savedOrganization = await this.organizationRepository.save(organization);
-        this.eventEmitter.emit(enums_1.AgentEventType.ORGANIZATION_CREATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.ORGANIZATION_CREATED, {
             organizationId: savedOrganization.id,
             name: savedOrganization.name,
             slug: savedOrganization.slug,
@@ -7267,7 +7269,7 @@ let OrganizationService = class OrganizationService {
         if (!updatedOrganization) {
             throw new Error('Failed to update organization - organization not found after update');
         }
-        this.eventEmitter.emit(enums_1.AgentEventType.ORGANIZATION_UPDATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.ORGANIZATION_UPDATED, {
             organizationId: id,
             changes: updateData,
             timestamp: new Date(),
@@ -7280,7 +7282,7 @@ let OrganizationService = class OrganizationService {
             throw new common_1.NotFoundException('Organization not found');
         }
         await this.organizationRepository.update(id, { isActive: false });
-        this.eventEmitter.emit(enums_1.AgentEventType.ORGANIZATION_DELETED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.ORGANIZATION_DELETED, {
             organizationId: id,
             timestamp: new Date(),
         });
@@ -7499,7 +7501,7 @@ const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
 const interfaces_1 = __webpack_require__(/*! @shared/interfaces */ "./libs/shared/src/interfaces/index.ts");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 const error_guards_1 = __webpack_require__(/*! @shared/utils/error-guards */ "./libs/shared/src/utils/error-guards.ts");
 let UserService = class UserService {
     constructor(userRepository, eventEmitter) {
@@ -7519,7 +7521,7 @@ let UserService = class UserService {
             permissions: userData.permissions || this.getDefaultPermissions(userData.role || interfaces_1.UserRole.DEVELOPER),
         });
         const savedUser = await this.userRepository.save(user);
-        this.eventEmitter.emit(enums_1.AgentEventType.USER_CREATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.USER_CREATED, {
             userId: savedUser.id,
             organizationId: savedUser.organizationId,
             email: savedUser.email,
@@ -7613,7 +7615,7 @@ let UserService = class UserService {
         if (!updatedUser) {
             throw new Error('Failed to update user - user not found after update');
         }
-        this.eventEmitter.emit(enums_1.AgentEventType.USER_UPDATED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.USER_UPDATED, {
             userId: id,
             organizationId: user.organizationId,
             changes: updateData,
@@ -7625,7 +7627,7 @@ let UserService = class UserService {
         await this.userRepository.update(id, {
             lastLoginAt: new Date(),
         });
-        this.eventEmitter.emit(enums_1.AgentEventType.USER_LOGIN, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.USER_LOGIN, {
             userId: id,
             timestamp: new Date(),
         });
@@ -7636,7 +7638,7 @@ let UserService = class UserService {
             throw new common_1.NotFoundException('User not found');
         }
         await this.userRepository.update(id, { isActive: false });
-        this.eventEmitter.emit(enums_1.AgentEventType.USER_DELETED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.USER_DELETED, {
             userId: id,
             organizationId: user.organizationId,
             timestamp: new Date(),
@@ -7780,7 +7782,7 @@ let UserService = class UserService {
                         break;
                 }
                 results.success++;
-                this.eventEmitter.emit(enums_1.AgentEventType.USER_BULK_ACTION, {
+                this.eventEmitter.emit(agent_event_enum_1.AgentEventType.USER_BULK_ACTION, {
                     userId,
                     organizationId,
                     action,
@@ -9095,7 +9097,7 @@ exports.CreateHITLRequestDto = void 0;
 const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
 const class_transformer_1 = __webpack_require__(/*! class-transformer */ "class-transformer");
 const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const hitl_enum_1 = __webpack_require__(/*! @shared/enums/hitl.enum */ "./libs/shared/src/enums/hitl.enum.ts");
 class EscalationLevelDto {
 }
 __decorate([
@@ -9167,9 +9169,9 @@ __decorate([
 ], VotingDataDto.prototype, "requiredVotes", void 0);
 class CreateHITLRequestDto {
     constructor() {
-        this.type = enums_1.HITLRequestType.APPROVAL;
-        this.priority = enums_1.HITLRequestPriority.MEDIUM;
-        this.decisionType = enums_1.HITLDecisionType.SINGLE_APPROVER;
+        this.type = hitl_enum_1.HITLRequestType.APPROVAL;
+        this.priority = hitl_enum_1.HITLRequestPriority.MEDIUM;
+        this.decisionType = hitl_enum_1.HITLDecisionType.SINGLE_APPROVER;
         this.timeoutMs = 86400000;
         this.allowDiscussion = false;
         this.requireExpertConsultation = false;
@@ -9187,22 +9189,22 @@ __decorate([
     __metadata("design:type", String)
 ], CreateHITLRequestDto.prototype, "description", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: enums_1.HITLRequestType }),
+    (0, swagger_1.ApiPropertyOptional)({ enum: hitl_enum_1.HITLRequestType }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.HITLRequestType),
-    __metadata("design:type", typeof (_a = typeof enums_1.HITLRequestType !== "undefined" && enums_1.HITLRequestType) === "function" ? _a : Object)
+    (0, class_validator_1.IsEnum)(hitl_enum_1.HITLRequestType),
+    __metadata("design:type", typeof (_a = typeof hitl_enum_1.HITLRequestType !== "undefined" && hitl_enum_1.HITLRequestType) === "function" ? _a : Object)
 ], CreateHITLRequestDto.prototype, "type", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: enums_1.HITLRequestPriority }),
+    (0, swagger_1.ApiPropertyOptional)({ enum: hitl_enum_1.HITLRequestPriority }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.HITLRequestPriority),
-    __metadata("design:type", typeof (_b = typeof enums_1.HITLRequestPriority !== "undefined" && enums_1.HITLRequestPriority) === "function" ? _b : Object)
+    (0, class_validator_1.IsEnum)(hitl_enum_1.HITLRequestPriority),
+    __metadata("design:type", typeof (_b = typeof hitl_enum_1.HITLRequestPriority !== "undefined" && hitl_enum_1.HITLRequestPriority) === "function" ? _b : Object)
 ], CreateHITLRequestDto.prototype, "priority", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: enums_1.HITLDecisionType }),
+    (0, swagger_1.ApiPropertyOptional)({ enum: hitl_enum_1.HITLDecisionType }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.HITLDecisionType),
-    __metadata("design:type", typeof (_c = typeof enums_1.HITLDecisionType !== "undefined" && enums_1.HITLDecisionType) === "function" ? _c : Object)
+    (0, class_validator_1.IsEnum)(hitl_enum_1.HITLDecisionType),
+    __metadata("design:type", typeof (_c = typeof hitl_enum_1.HITLDecisionType !== "undefined" && hitl_enum_1.HITLDecisionType) === "function" ? _c : Object)
 ], CreateHITLRequestDto.prototype, "decisionType", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)(),
@@ -9383,14 +9385,14 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.EscalateHITLRequestDto = void 0;
 const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
 const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const hitl_enum_1 = __webpack_require__(/*! @shared/enums/hitl.enum */ "./libs/shared/src/enums/hitl.enum.ts");
 class EscalateHITLRequestDto {
 }
 exports.EscalateHITLRequestDto = EscalateHITLRequestDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: enums_1.HITLEscalationReason }),
-    (0, class_validator_1.IsEnum)(enums_1.HITLEscalationReason),
-    __metadata("design:type", typeof (_a = typeof enums_1.HITLEscalationReason !== "undefined" && enums_1.HITLEscalationReason) === "function" ? _a : Object)
+    (0, swagger_1.ApiProperty)({ enum: hitl_enum_1.HITLEscalationReason }),
+    (0, class_validator_1.IsEnum)(hitl_enum_1.HITLEscalationReason),
+    __metadata("design:type", typeof (_a = typeof hitl_enum_1.HITLEscalationReason !== "undefined" && hitl_enum_1.HITLEscalationReason) === "function" ? _a : Object)
 ], EscalateHITLRequestDto.prototype, "reason", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
@@ -9438,7 +9440,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.HITLAnalyticsQueryDto = void 0;
 const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
 const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const hitl_enum_1 = __webpack_require__(/*! @shared/enums/hitl.enum */ "./libs/shared/src/enums/hitl.enum.ts");
 class HITLAnalyticsQueryDto {
 }
 exports.HITLAnalyticsQueryDto = HITLAnalyticsQueryDto;
@@ -9455,22 +9457,22 @@ __decorate([
     __metadata("design:type", String)
 ], HITLAnalyticsQueryDto.prototype, "endDate", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: enums_1.HITLRequestType }),
+    (0, swagger_1.ApiPropertyOptional)({ enum: hitl_enum_1.HITLRequestType }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.HITLRequestType),
-    __metadata("design:type", typeof (_a = typeof enums_1.HITLRequestType !== "undefined" && enums_1.HITLRequestType) === "function" ? _a : Object)
+    (0, class_validator_1.IsEnum)(hitl_enum_1.HITLRequestType),
+    __metadata("design:type", typeof (_a = typeof hitl_enum_1.HITLRequestType !== "undefined" && hitl_enum_1.HITLRequestType) === "function" ? _a : Object)
 ], HITLAnalyticsQueryDto.prototype, "type", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: enums_1.HITLRequestStatus }),
+    (0, swagger_1.ApiPropertyOptional)({ enum: hitl_enum_1.HITLRequestStatus }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.HITLRequestStatus),
-    __metadata("design:type", typeof (_b = typeof enums_1.HITLRequestStatus !== "undefined" && enums_1.HITLRequestStatus) === "function" ? _b : Object)
+    (0, class_validator_1.IsEnum)(hitl_enum_1.HITLRequestStatus),
+    __metadata("design:type", typeof (_b = typeof hitl_enum_1.HITLRequestStatus !== "undefined" && hitl_enum_1.HITLRequestStatus) === "function" ? _b : Object)
 ], HITLAnalyticsQueryDto.prototype, "status", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ enum: enums_1.HITLRequestPriority }),
+    (0, swagger_1.ApiPropertyOptional)({ enum: hitl_enum_1.HITLRequestPriority }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.HITLRequestPriority),
-    __metadata("design:type", typeof (_c = typeof enums_1.HITLRequestPriority !== "undefined" && enums_1.HITLRequestPriority) === "function" ? _c : Object)
+    (0, class_validator_1.IsEnum)(hitl_enum_1.HITLRequestPriority),
+    __metadata("design:type", typeof (_c = typeof hitl_enum_1.HITLRequestPriority !== "undefined" && hitl_enum_1.HITLRequestPriority) === "function" ? _c : Object)
 ], HITLAnalyticsQueryDto.prototype, "priority", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({ enum: ['agent', 'tool', 'workflow'] }),
@@ -9687,7 +9689,7 @@ const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
 const jwt_auth_guard_1 = __webpack_require__(/*! ../auth/guards/jwt-auth.guard */ "./apps/gateway/src/auth/guards/jwt-auth.guard.ts");
 const roles_guard_1 = __webpack_require__(/*! ../auth/guards/roles.guard */ "./apps/gateway/src/auth/guards/roles.guard.ts");
 const roles_decorator_1 = __webpack_require__(/*! @shared/decorators/roles.decorator */ "./libs/shared/src/decorators/roles.decorator.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const interfaces_1 = __webpack_require__(/*! @shared/interfaces */ "./libs/shared/src/interfaces/index.ts");
 const hitl_service_1 = __webpack_require__(/*! ./hitl.service */ "./apps/gateway/src/hitl/hitl.service.ts");
 const dto_1 = __webpack_require__(/*! ./dto */ "./apps/gateway/src/hitl/dto/index.ts");
 let HITLController = class HITLController {
@@ -9826,7 +9828,7 @@ let HITLController = class HITLController {
 exports.HITLController = HITLController;
 __decorate([
     (0, common_1.Post)('requests'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new HITL request' }),
     (0, swagger_1.ApiResponse)({
         status: 201,
@@ -9841,7 +9843,7 @@ __decorate([
 ], HITLController.prototype, "createRequest", null);
 __decorate([
     (0, common_1.Get)('requests'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.VIEWER, enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.VIEWER, interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Get HITL requests' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
@@ -9864,7 +9866,7 @@ __decorate([
 ], HITLController.prototype, "getRequests", null);
 __decorate([
     (0, common_1.Get)('requests/:id'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.VIEWER, enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.VIEWER, interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Get HITL request by ID' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
@@ -9878,7 +9880,7 @@ __decorate([
 ], HITLController.prototype, "getRequestById", null);
 __decorate([
     (0, common_1.Put)('requests/:id'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Update HITL request' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
@@ -9893,7 +9895,7 @@ __decorate([
 ], HITLController.prototype, "updateRequest", null);
 __decorate([
     (0, common_1.Post)('requests/:id/resolve'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Resolve HITL request' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
@@ -9908,7 +9910,7 @@ __decorate([
 ], HITLController.prototype, "resolveRequest", null);
 __decorate([
     (0, common_1.Post)('requests/:id/assign'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Assign HITL request' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
@@ -9923,7 +9925,7 @@ __decorate([
 ], HITLController.prototype, "assignRequest", null);
 __decorate([
     (0, common_1.Post)('requests/:id/delegate'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Delegate HITL request' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
@@ -9938,7 +9940,7 @@ __decorate([
 ], HITLController.prototype, "delegateRequest", null);
 __decorate([
     (0, common_1.Post)('requests/:id/escalate'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Escalate HITL request' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
@@ -9953,7 +9955,7 @@ __decorate([
 ], HITLController.prototype, "escalateRequest", null);
 __decorate([
     (0, common_1.Post)('requests/:id/vote'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Cast vote on HITL request' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Vote cast successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -9965,7 +9967,7 @@ __decorate([
 ], HITLController.prototype, "castVote", null);
 __decorate([
     (0, common_1.Post)('requests/:id/comments'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.VIEWER, enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.VIEWER, interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Add comment to HITL request' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Comment added successfully' }),
     (0, common_1.HttpCode)(common_1.HttpStatus.CREATED),
@@ -9978,7 +9980,7 @@ __decorate([
 ], HITLController.prototype, "addComment", null);
 __decorate([
     (0, common_1.Get)('analytics'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Get HITL analytics' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Analytics retrieved successfully' }),
     __param(0, (0, common_1.Query)()),
@@ -9989,7 +9991,7 @@ __decorate([
 ], HITLController.prototype, "getAnalytics", null);
 __decorate([
     (0, common_1.Get)('dashboard'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.VIEWER, enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.VIEWER, interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Get HITL dashboard data' }),
     (0, swagger_1.ApiResponse)({
         status: 200,
@@ -10085,8 +10087,8 @@ const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
 const schedule_1 = __webpack_require__(/*! @nestjs/schedule */ "@nestjs/schedule");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
-const enums_2 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const hitl_enum_1 = __webpack_require__(/*! @shared/enums/hitl.enum */ "./libs/shared/src/enums/hitl.enum.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 const websocket_service_1 = __webpack_require__(/*! ../websocket/websocket.service */ "./apps/gateway/src/websocket/websocket.service.ts");
 const notification_service_1 = __webpack_require__(/*! ../notification/notification.service */ "./apps/gateway/src/notification/notification.service.ts");
 let HITLService = HITLService_1 = class HITLService {
@@ -10109,7 +10111,7 @@ let HITLService = HITLService_1 = class HITLService {
             requesterId,
             organizationId,
             expiresAt,
-            status: enums_1.HITLRequestStatus.PENDING,
+            status: hitl_enum_1.HITLRequestStatus.PENDING,
             escalationLevel: 0,
             auditTrail: [],
             performanceMetrics: {
@@ -10136,7 +10138,7 @@ let HITLService = HITLService_1 = class HITLService {
                 reason: 'Auto-assigned during creation',
             }, requesterId, organizationId);
         }
-        this.eventEmitter.emit(enums_1.HITLEventType.REQUEST_CREATED, {
+        this.eventEmitter.emit(hitl_enum_1.HITLEventType.REQUEST_CREATED, {
             requestId: savedRequest.id,
             requesterId,
             organizationId,
@@ -10245,7 +10247,7 @@ let HITLService = HITLService_1 = class HITLService {
         if (!this.canResolveRequest(request, userId)) {
             throw new common_1.ForbiddenException('Insufficient permissions to resolve this request');
         }
-        request.status = resolveDto.approved ? enums_1.HITLRequestStatus.APPROVED : enums_1.HITLRequestStatus.REJECTED;
+        request.status = resolveDto.approved ? hitl_enum_1.HITLRequestStatus.APPROVED : hitl_enum_1.HITLRequestStatus.REJECTED;
         request.completedAt = new Date();
         request.decisionData = {
             approved: resolveDto.approved,
@@ -10270,8 +10272,8 @@ let HITLService = HITLService_1 = class HITLService {
         });
         const resolvedRequest = await this.hitlRequestRepository.save(request);
         const eventType = resolveDto.approved
-            ? enums_1.HITLEventType.REQUEST_APPROVED
-            : enums_1.HITLEventType.REQUEST_REJECTED;
+            ? hitl_enum_1.HITLEventType.REQUEST_APPROVED
+            : hitl_enum_1.HITLEventType.REQUEST_REJECTED;
         this.eventEmitter.emit(eventType, {
             requestId: id,
             userId,
@@ -10299,14 +10301,14 @@ let HITLService = HITLService_1 = class HITLService {
     }
     async assignRequest(id, assignDto, userId, organizationId) {
         const request = await this.getRequestById(id, organizationId, userId);
-        if (request.status !== enums_1.HITLRequestStatus.PENDING) {
+        if (request.status !== hitl_enum_1.HITLRequestStatus.PENDING) {
             throw new common_1.BadRequestException('Request cannot be assigned in its current state');
         }
         request.assigneeId = assignDto.assigneeId;
         request.assigneeRoles = assignDto.assigneeRoles;
         request.assigneeUsers = assignDto.assigneeUsers;
         request.assignedAt = new Date();
-        request.status = enums_1.HITLRequestStatus.IN_PROGRESS;
+        request.status = hitl_enum_1.HITLRequestStatus.IN_PROGRESS;
         request.addAuditEntry('REQUEST_ASSIGNED', userId, {
             assigneeId: assignDto.assigneeId,
             assigneeRoles: assignDto.assigneeRoles,
@@ -10314,7 +10316,7 @@ let HITLService = HITLService_1 = class HITLService {
             reason: assignDto.reason,
         });
         const assignedRequest = await this.hitlRequestRepository.save(request);
-        this.eventEmitter.emit(enums_1.HITLEventType.REQUEST_ASSIGNED, {
+        this.eventEmitter.emit(hitl_enum_1.HITLEventType.REQUEST_ASSIGNED, {
             requestId: id,
             assignerId: userId,
             assigneeId: assignDto.assigneeId,
@@ -10341,7 +10343,7 @@ let HITLService = HITLService_1 = class HITLService {
             instructions: delegateDto.instructions,
         });
         const delegatedRequest = await this.hitlRequestRepository.save(request);
-        this.eventEmitter.emit(enums_1.HITLEventType.REQUEST_DELEGATED, {
+        this.eventEmitter.emit(hitl_enum_1.HITLEventType.REQUEST_DELEGATED, {
             requestId: id,
             delegatedFromId: userId,
             delegatedToId: delegateDto.delegatedToId,
@@ -10375,7 +10377,7 @@ let HITLService = HITLService_1 = class HITLService {
             justification: escalateDto.justification,
         });
         const escalatedRequest = await this.hitlRequestRepository.save(request);
-        this.eventEmitter.emit(enums_1.HITLEventType.REQUEST_ESCALATED, {
+        this.eventEmitter.emit(hitl_enum_1.HITLEventType.REQUEST_ESCALATED, {
             requestId: id,
             escalatedById: userId,
             escalationLevel: request.escalationLevel,
@@ -10427,7 +10429,7 @@ let HITLService = HITLService_1 = class HITLService {
                 metadata: { votingResult: true },
             }, 'system', organizationId);
         }
-        this.eventEmitter.emit(enums_1.HITLEventType.VOTE_CAST, {
+        this.eventEmitter.emit(hitl_enum_1.HITLEventType.VOTE_CAST, {
             requestId,
             userId,
             vote: voteDto.vote,
@@ -10453,7 +10455,7 @@ let HITLService = HITLService_1 = class HITLService {
             discussionMessages: (request.performanceMetrics?.discussionMessages || 0) + 1,
         });
         await this.hitlRequestRepository.save(request);
-        this.eventEmitter.emit(enums_1.HITLEventType.COMMENT_ADDED, {
+        this.eventEmitter.emit(hitl_enum_1.HITLEventType.COMMENT_ADDED, {
             requestId,
             commentId: savedComment.id,
             userId,
@@ -10485,10 +10487,10 @@ let HITLService = HITLService_1 = class HITLService {
             queryBuilder.andWhere('request.sourceType = :sourceType', { sourceType });
         const requests = await queryBuilder.getMany();
         const totalRequests = requests.length;
-        const pendingRequests = requests.filter((r) => r.status === enums_1.HITLRequestStatus.PENDING).length;
-        const approvedRequests = requests.filter((r) => r.status === enums_1.HITLRequestStatus.APPROVED).length;
-        const rejectedRequests = requests.filter((r) => r.status === enums_1.HITLRequestStatus.REJECTED).length;
-        const expiredRequests = requests.filter((r) => r.status === enums_1.HITLRequestStatus.EXPIRED).length;
+        const pendingRequests = requests.filter((r) => r.status === hitl_enum_1.HITLRequestStatus.PENDING).length;
+        const approvedRequests = requests.filter((r) => r.status === hitl_enum_1.HITLRequestStatus.APPROVED).length;
+        const rejectedRequests = requests.filter((r) => r.status === hitl_enum_1.HITLRequestStatus.REJECTED).length;
+        const expiredRequests = requests.filter((r) => r.status === hitl_enum_1.HITLRequestStatus.EXPIRED).length;
         const completedRequests = requests.filter((r) => r.completedAt);
         const averageResponseTime = completedRequests.length > 0
             ? completedRequests.reduce((sum, r) => sum + (r.performanceMetrics?.responseTimeMs || 0), 0) / completedRequests.length
@@ -10530,19 +10532,19 @@ let HITLService = HITLService_1 = class HITLService {
     async handleExpiredRequests() {
         const expiredRequests = await this.hitlRequestRepository.find({
             where: {
-                status: (0, typeorm_2.In)([enums_1.HITLRequestStatus.PENDING, enums_1.HITLRequestStatus.IN_PROGRESS]),
+                status: (0, typeorm_2.In)([hitl_enum_1.HITLRequestStatus.PENDING, hitl_enum_1.HITLRequestStatus.IN_PROGRESS]),
                 expiresAt: (0, typeorm_2.Between)(new Date(0), new Date()),
             },
         });
         for (const request of expiredRequests) {
-            request.status = enums_1.HITLRequestStatus.EXPIRED;
+            request.status = hitl_enum_1.HITLRequestStatus.EXPIRED;
             request.completedAt = new Date();
             request.addAuditEntry('REQUEST_EXPIRED', 'system', {
                 expiredAt: new Date(),
                 originalStatus: request.status,
             });
             await this.hitlRequestRepository.save(request);
-            this.eventEmitter.emit(enums_1.HITLEventType.REQUEST_EXPIRED, {
+            this.eventEmitter.emit(hitl_enum_1.HITLEventType.REQUEST_EXPIRED, {
                 requestId: request.id,
                 organizationId: request.organizationId,
                 sourceType: request.sourceType,
@@ -10559,7 +10561,7 @@ let HITLService = HITLService_1 = class HITLService {
         const escalationWindow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
         const escalationCandidates = await this.hitlRequestRepository.find({
             where: {
-                status: (0, typeorm_2.In)([enums_1.HITLRequestStatus.PENDING, enums_1.HITLRequestStatus.IN_PROGRESS]),
+                status: (0, typeorm_2.In)([hitl_enum_1.HITLRequestStatus.PENDING, hitl_enum_1.HITLRequestStatus.IN_PROGRESS]),
                 expiresAt: (0, typeorm_2.Between)(now, escalationWindow),
             },
             relations: ['requester', 'assignee'],
@@ -10568,7 +10570,7 @@ let HITLService = HITLService_1 = class HITLService {
             try {
                 if (this.shouldEscalateRequest(request)) {
                     await this.escalateRequest(request.id, {
-                        reason: enums_1.HITLEscalationReason.TIMEOUT,
+                        reason: hitl_enum_1.HITLEscalationReason.TIMEOUT,
                         description: `Auto-escalated due to approaching timeout. Original request created at ${request.createdAt.toISOString()}`,
                         justification: 'Automatic escalation triggered by system timeout rules',
                     }, 'system', request.organizationId);
@@ -10680,7 +10682,7 @@ let HITLService = HITLService_1 = class HITLService {
             await this.notificationService.createNotification({
                 title: 'HITL Request Assigned',
                 message: `You have been assigned a ${request.type.toLowerCase()} request: ${request.title}`,
-                type: enums_2.NotificationType.IN_APP,
+                type: execution_status_enum_1.NotificationType.IN_APP,
                 priority: this.mapHITLPriorityToNotificationPriority(request.priority),
                 userId: assigneeId,
                 metadata: {
@@ -10695,7 +10697,7 @@ let HITLService = HITLService_1 = class HITLService {
         await this.notificationService.createNotification({
             title: `HITL Request ${approved ? 'Approved' : 'Rejected'}`,
             message: `Your ${request.type.toLowerCase()} request "${request.title}" has been ${approved ? 'approved' : 'rejected'}.`,
-            type: enums_2.NotificationType.IN_APP,
+            type: execution_status_enum_1.NotificationType.IN_APP,
             priority: this.mapHITLPriorityToNotificationPriority(request.priority),
             userId: request.requesterId,
             metadata: {
@@ -10709,7 +10711,7 @@ let HITLService = HITLService_1 = class HITLService {
         await this.notificationService.createNotification({
             title: 'HITL Request Delegated to You',
             message: `A ${request.type.toLowerCase()} request has been delegated to you: ${request.title}`,
-            type: enums_2.NotificationType.IN_APP,
+            type: execution_status_enum_1.NotificationType.IN_APP,
             priority: this.mapHITLPriorityToNotificationPriority(request.priority),
             userId: delegateDto.delegatedToId,
             metadata: {
@@ -10728,8 +10730,8 @@ let HITLService = HITLService_1 = class HITLService {
             await this.notificationService.createNotification({
                 title: 'HITL Request Escalated',
                 message: `An escalated ${request.type.toLowerCase()} request requires your attention: ${request.title}`,
-                type: enums_2.NotificationType.IN_APP,
-                priority: enums_2.NotificationPriority.HIGH,
+                type: execution_status_enum_1.NotificationType.IN_APP,
+                priority: execution_status_enum_1.NotificationPriority.HIGH,
                 userId: assigneeId,
                 metadata: {
                     requestId: request.id,
@@ -10752,8 +10754,8 @@ let HITLService = HITLService_1 = class HITLService {
             await this.notificationService.createNotification({
                 title: 'New Comment on HITL Request',
                 message: `A new comment was added to the request: ${request.title}`,
-                type: enums_2.NotificationType.IN_APP,
-                priority: enums_2.NotificationPriority.MEDIUM,
+                type: execution_status_enum_1.NotificationType.IN_APP,
+                priority: execution_status_enum_1.NotificationPriority.MEDIUM,
                 userId,
                 metadata: {
                     requestId: request.id,
@@ -10771,11 +10773,11 @@ let HITLService = HITLService_1 = class HITLService {
                 trends.set(createdDate, { created: 0, resolved: 0, expired: 0 });
             }
             trends.get(createdDate).created++;
-            if (request.status === enums_1.HITLRequestStatus.APPROVED ||
-                request.status === enums_1.HITLRequestStatus.REJECTED) {
+            if (request.status === hitl_enum_1.HITLRequestStatus.APPROVED ||
+                request.status === hitl_enum_1.HITLRequestStatus.REJECTED) {
                 trends.get(createdDate).resolved++;
             }
-            if (request.status === enums_1.HITLRequestStatus.EXPIRED) {
+            if (request.status === hitl_enum_1.HITLRequestStatus.EXPIRED) {
                 trends.get(createdDate).expired++;
             }
         });
@@ -10797,17 +10799,17 @@ let HITLService = HITLService_1 = class HITLService {
     }
     mapHITLPriorityToNotificationPriority(priority) {
         switch (priority) {
-            case enums_1.HITLRequestPriority.CRITICAL:
-            case enums_1.HITLRequestPriority.URGENT:
-                return enums_2.NotificationPriority.CRITICAL;
-            case enums_1.HITLRequestPriority.HIGH:
-                return enums_2.NotificationPriority.HIGH;
-            case enums_1.HITLRequestPriority.MEDIUM:
-                return enums_2.NotificationPriority.MEDIUM;
-            case enums_1.HITLRequestPriority.LOW:
-                return enums_2.NotificationPriority.LOW;
+            case hitl_enum_1.HITLRequestPriority.CRITICAL:
+            case hitl_enum_1.HITLRequestPriority.URGENT:
+                return execution_status_enum_1.NotificationPriority.CRITICAL;
+            case hitl_enum_1.HITLRequestPriority.HIGH:
+                return execution_status_enum_1.NotificationPriority.HIGH;
+            case hitl_enum_1.HITLRequestPriority.MEDIUM:
+                return execution_status_enum_1.NotificationPriority.MEDIUM;
+            case hitl_enum_1.HITLRequestPriority.LOW:
+                return execution_status_enum_1.NotificationPriority.LOW;
             default:
-                return enums_2.NotificationPriority.MEDIUM;
+                return execution_status_enum_1.NotificationPriority.MEDIUM;
         }
     }
     identifyBottlenecks(requests) {
@@ -11280,7 +11282,8 @@ const typeorm_1 = __webpack_require__(/*! @nestjs/typeorm */ "@nestjs/typeorm");
 const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 const vector_search_service_1 = __webpack_require__(/*! ./vector-search.service */ "./apps/gateway/src/knowledge/vector-search.service.ts");
 const openai_1 = __webpack_require__(/*! openai */ "openai");
 const config_1 = __webpack_require__(/*! @nestjs/config */ "@nestjs/config");
@@ -11303,9 +11306,9 @@ let DocumentProcessingService = DocumentProcessingService_1 = class DocumentProc
             throw new Error(`Document not found: ${documentId}`);
         }
         try {
-            document.status = enums_1.DocumentStatus.PROCESSING;
+            document.status = execution_status_enum_1.DocumentStatus.PROCESSING;
             await this.documentRepository.save(document);
-            this.eventEmitter.emit(enums_1.AgentEventType.KNOWLEDGE_DOCUMENT_UPLOADED, {
+            this.eventEmitter.emit(agent_event_enum_1.AgentEventType.KNOWLEDGE_DOCUMENT_UPLOADED, {
                 documentId,
                 title: document.title,
                 type: document.type,
@@ -11327,7 +11330,7 @@ let DocumentProcessingService = DocumentProcessingService_1 = class DocumentProc
                     processedAt: new Date(),
                 },
             });
-            document.status = enums_1.DocumentStatus.PROCESSED;
+            document.status = execution_status_enum_1.DocumentStatus.PROCESSED;
             document.processedAt = new Date();
             document.metadata = {
                 ...document.metadata,
@@ -11336,7 +11339,7 @@ let DocumentProcessingService = DocumentProcessingService_1 = class DocumentProc
                 processedAt: new Date(),
             };
             await this.documentRepository.save(document);
-            this.eventEmitter.emit(enums_1.AgentEventType.KNOWLEDGE_DOCUMENT_PROCESSED, {
+            this.eventEmitter.emit(agent_event_enum_1.AgentEventType.KNOWLEDGE_DOCUMENT_PROCESSED, {
                 documentId,
                 title: document.title,
                 chunkCount: chunks.length,
@@ -11346,7 +11349,7 @@ let DocumentProcessingService = DocumentProcessingService_1 = class DocumentProc
             this.logger.log(`Document processed successfully: ${documentId} (${chunks.length} chunks)`);
         }
         catch (error) {
-            document.status = enums_1.DocumentStatus.FAILED;
+            document.status = execution_status_enum_1.DocumentStatus.FAILED;
             document.error = error instanceof Error ? error.message : 'Unknown error';
             await this.documentRepository.save(document);
             this.logger.error(`Document processing failed: ${documentId}`, error instanceof Error ? error.stack : undefined);
@@ -11444,7 +11447,7 @@ let DocumentProcessingService = DocumentProcessingService_1 = class DocumentProc
             throw new Error(`Document not found: ${documentId}`);
         }
         await this.vectorSearchService.removeDocument(documentId);
-        document.status = enums_1.DocumentStatus.UPLOADED;
+        document.status = execution_status_enum_1.DocumentStatus.UPLOADED;
         document.error = undefined;
         document.processedAt = undefined;
         await this.documentRepository.save(document);
@@ -11469,14 +11472,14 @@ let DocumentProcessingService = DocumentProcessingService_1 = class DocumentProc
         for (const stat of stats) {
             result.totalDocuments += parseInt(stat.count);
             switch (stat.status) {
-                case enums_1.DocumentStatus.PROCESSING:
+                case execution_status_enum_1.DocumentStatus.PROCESSING:
                     result.processingDocuments = parseInt(stat.count);
                     break;
-                case enums_1.DocumentStatus.PROCESSED:
+                case execution_status_enum_1.DocumentStatus.PROCESSED:
                     result.processedDocuments = parseInt(stat.count);
                     result.averageProcessingTime = parseFloat(stat.avgTime) || 0;
                     break;
-                case enums_1.DocumentStatus.FAILED:
+                case execution_status_enum_1.DocumentStatus.FAILED:
                     result.failedDocuments = parseInt(stat.count);
                     break;
             }
@@ -12124,7 +12127,7 @@ const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const typeorm_1 = __webpack_require__(/*! @nestjs/typeorm */ "@nestjs/typeorm");
 const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const interfaces_1 = __webpack_require__(/*! @shared/interfaces */ "./libs/shared/src/interfaces/index.ts");
 const crypto = __webpack_require__(/*! crypto */ "crypto");
 let KnowledgeSecurityService = KnowledgeSecurityService_1 = class KnowledgeSecurityService {
     constructor(documentRepository) {
@@ -12172,7 +12175,7 @@ let KnowledgeSecurityService = KnowledgeSecurityService_1 = class KnowledgeSecur
         }
     }
     async getDocumentPermissions(document, context) {
-        if (context.role === enums_1.UserRole.SUPER_ADMIN) {
+        if (context.role === interfaces_1.UserRole.SUPER_ADMIN) {
             return {
                 canRead: true,
                 canWrite: true,
@@ -12180,7 +12183,7 @@ let KnowledgeSecurityService = KnowledgeSecurityService_1 = class KnowledgeSecur
                 canShare: true,
             };
         }
-        if (context.role === enums_1.UserRole.ORG_ADMIN && document.organizationId === context.organizationId) {
+        if (context.role === interfaces_1.UserRole.ORG_ADMIN && document.organizationId === context.organizationId) {
             return {
                 canRead: true,
                 canWrite: true,
@@ -12205,7 +12208,7 @@ let KnowledgeSecurityService = KnowledgeSecurityService_1 = class KnowledgeSecur
                     canShare: false,
                 };
             case entities_1.DocumentVisibility.TEAM:
-                const canAccessTeam = context.role === enums_1.UserRole.DEVELOPER;
+                const canAccessTeam = context.role === interfaces_1.UserRole.DEVELOPER;
                 return {
                     canRead: canAccessTeam,
                     canWrite: false,
@@ -12213,7 +12216,7 @@ let KnowledgeSecurityService = KnowledgeSecurityService_1 = class KnowledgeSecur
                     canShare: false,
                 };
             case entities_1.DocumentVisibility.ORGANIZATION:
-                const canAccessOrg = [enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN].includes(context.role);
+                const canAccessOrg = [interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN].includes(context.role);
                 return {
                     canRead: canAccessOrg,
                     canWrite: false,
@@ -12451,7 +12454,7 @@ const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
 const jwt_auth_guard_1 = __webpack_require__(/*! ../auth/guards/jwt-auth.guard */ "./apps/gateway/src/auth/guards/jwt-auth.guard.ts");
 const roles_guard_1 = __webpack_require__(/*! ../auth/guards/roles.guard */ "./apps/gateway/src/auth/guards/roles.guard.ts");
 const roles_decorator_1 = __webpack_require__(/*! @shared/decorators/roles.decorator */ "./libs/shared/src/decorators/roles.decorator.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const interfaces_1 = __webpack_require__(/*! @shared/interfaces */ "./libs/shared/src/interfaces/index.ts");
 const knowledge_service_1 = __webpack_require__(/*! ./knowledge.service */ "./apps/gateway/src/knowledge/knowledge.service.ts");
 const dto_1 = __webpack_require__(/*! ./dto */ "./apps/gateway/src/knowledge/dto/index.ts");
 let KnowledgeController = class KnowledgeController {
@@ -12609,7 +12612,7 @@ let KnowledgeController = class KnowledgeController {
 exports.KnowledgeController = KnowledgeController;
 __decorate([
     (0, common_1.Post)('/documents'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new document' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Document created successfully' }),
     __param(0, (0, common_1.Request)()),
@@ -12620,7 +12623,7 @@ __decorate([
 ], KnowledgeController.prototype, "createDocument", null);
 __decorate([
     (0, common_1.Post)('/documents/upload'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiOperation)({ summary: 'Upload a document file' }),
@@ -12637,7 +12640,7 @@ __decorate([
 ], KnowledgeController.prototype, "uploadDocument", null);
 __decorate([
     (0, common_1.Post)('/documents/bulk-upload'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)('files', 10)),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiOperation)({ summary: 'Bulk upload documents' }),
@@ -12676,7 +12679,7 @@ __decorate([
 ], KnowledgeController.prototype, "getDocument", null);
 __decorate([
     (0, common_1.Put)('/documents/:id'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Update document' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Document updated successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -12688,7 +12691,7 @@ __decorate([
 ], KnowledgeController.prototype, "updateDocument", null);
 __decorate([
     (0, common_1.Delete)('/documents/:id'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Delete document' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Document deleted successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -12734,7 +12737,7 @@ __decorate([
 ], KnowledgeController.prototype, "getSearch", null);
 __decorate([
     (0, common_1.Post)('/documents/:id/reprocess'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Reprocess document' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Document reprocessing started' }),
     __param(0, (0, common_1.Param)('id')),
@@ -12784,7 +12787,7 @@ __decorate([
 ], KnowledgeController.prototype, "getAnalytics", null);
 __decorate([
     (0, common_1.Post)('/collections'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Create document collection' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Collection created successfully' }),
     __param(0, (0, common_1.Body)()),
@@ -12922,7 +12925,8 @@ const bull_1 = __webpack_require__(/*! @nestjs/bull */ "@nestjs/bull");
 const bull_2 = __webpack_require__(/*! bull */ "bull");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 const document_processing_service_1 = __webpack_require__(/*! ./document-processing.service */ "./apps/gateway/src/knowledge/document-processing.service.ts");
 const vector_search_service_1 = __webpack_require__(/*! ./vector-search.service */ "./apps/gateway/src/knowledge/vector-search.service.ts");
 const knowledge_analytics_service_1 = __webpack_require__(/*! ./knowledge-analytics.service */ "./apps/gateway/src/knowledge/knowledge-analytics.service.ts");
@@ -12972,7 +12976,7 @@ let KnowledgeService = class KnowledgeService {
         const document = this.documentRepository.create({
             ...createDocumentDto,
             contentHash,
-            status: enums_1.DocumentStatus.UPLOADED,
+            status: execution_status_enum_1.DocumentStatus.UPLOADED,
             visibility: createDocumentDto.visibility || entities_1.DocumentVisibility.PRIVATE,
             userId: context.userId,
             organizationId: context.organizationId,
@@ -12986,7 +12990,7 @@ let KnowledgeService = class KnowledgeService {
             documentId: savedDocument.id,
             priority: 'normal',
         });
-        this.eventEmitter.emit(enums_1.AgentEventType.KNOWLEDGE_DOCUMENT_UPLOADED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.KNOWLEDGE_DOCUMENT_UPLOADED, {
             documentId: savedDocument.id,
             organizationId: context.organizationId,
             userId: context.userId,
@@ -13022,7 +13026,7 @@ let KnowledgeService = class KnowledgeService {
                 size: file.size,
                 mimeType: file.mimetype,
             },
-            status: enums_1.DocumentStatus.UPLOADED,
+            status: execution_status_enum_1.DocumentStatus.UPLOADED,
             visibility: metadata.visibility || entities_1.DocumentVisibility.PRIVATE,
             userId: context.userId,
             organizationId: context.organizationId,
@@ -13145,7 +13149,7 @@ let KnowledgeService = class KnowledgeService {
         }
         await this.vectorSearchService.removeDocument(id);
         await this.documentRepository.remove(document);
-        this.eventEmitter.emit(enums_1.AgentEventType.KNOWLEDGE_DOCUMENT_PROCESSED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.KNOWLEDGE_DOCUMENT_PROCESSED, {
             documentId: id,
             action: 'deleted',
             organizationId: context.organizationId,
@@ -13203,7 +13207,7 @@ let KnowledgeService = class KnowledgeService {
                 },
             });
             await this.searchRepository.save(search);
-            this.eventEmitter.emit(enums_1.AgentEventType.KNOWLEDGE_SEARCH_PERFORMED, {
+            this.eventEmitter.emit(agent_event_enum_1.AgentEventType.KNOWLEDGE_SEARCH_PERFORMED, {
                 searchId,
                 query: searchDto.query,
                 resultCount: accessibleResults.length,
@@ -13275,7 +13279,7 @@ let KnowledgeService = class KnowledgeService {
         if (!hasWriteAccess) {
             throw new common_1.ForbiddenException('Write access denied to this document');
         }
-        document.status = enums_1.DocumentStatus.PROCESSING;
+        document.status = execution_status_enum_1.DocumentStatus.PROCESSING;
         await this.documentRepository.save(document);
         await this.processingQueue.add('process-document', {
             documentId: id,
@@ -13301,19 +13305,19 @@ let KnowledgeService = class KnowledgeService {
                 },
                 {
                     step: 'extraction',
-                    status: document.status === enums_1.DocumentStatus.PROCESSING
+                    status: document.status === execution_status_enum_1.DocumentStatus.PROCESSING
                         ? 'processing'
-                        : document.status === enums_1.DocumentStatus.PROCESSED
+                        : document.status === execution_status_enum_1.DocumentStatus.PROCESSED
                             ? 'completed'
-                            : document.status === enums_1.DocumentStatus.FAILED
+                            : document.status === execution_status_enum_1.DocumentStatus.FAILED
                                 ? 'failed'
                                 : 'pending',
                 },
                 {
                     step: 'vectorization',
-                    status: document.status === enums_1.DocumentStatus.PROCESSED
+                    status: document.status === execution_status_enum_1.DocumentStatus.PROCESSED
                         ? 'completed'
-                        : document.status === enums_1.DocumentStatus.FAILED
+                        : document.status === execution_status_enum_1.DocumentStatus.FAILED
                             ? 'failed'
                             : 'pending',
                     completedAt: document.processedAt,
@@ -13341,9 +13345,9 @@ let KnowledgeService = class KnowledgeService {
     }
     getProcessingProgress(status) {
         switch (status) {
-            case enums_1.DocumentStatus.PROCESSING:
+            case execution_status_enum_1.DocumentStatus.PROCESSING:
                 return 'Processing...';
-            case enums_1.DocumentStatus.PROCESSED:
+            case execution_status_enum_1.DocumentStatus.PROCESSED:
                 return 'Completed';
             default:
                 return 'Pending';
@@ -13418,7 +13422,7 @@ let KnowledgeService = class KnowledgeService {
                 isCollection: true,
                 documentCount: documents.length,
             },
-            status: enums_1.DocumentStatus.PROCESSED,
+            status: execution_status_enum_1.DocumentStatus.PROCESSED,
             visibility: entities_1.DocumentVisibility.PRIVATE,
             userId: context.userId,
             organizationId: context.organizationId,
@@ -13780,7 +13784,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.CreateNotificationFromTemplateDto = exports.CreateBulkNotificationDto = exports.CreateNotificationDto = void 0;
 const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
 const class_transformer_1 = __webpack_require__(/*! class-transformer */ "class-transformer");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 class EmailDeliveryConfigDto {
 }
 __decorate([
@@ -13882,13 +13886,13 @@ __decorate([
     __metadata("design:type", String)
 ], CreateNotificationDto.prototype, "message", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(enums_1.NotificationType),
-    __metadata("design:type", typeof (_b = typeof enums_1.NotificationType !== "undefined" && enums_1.NotificationType) === "function" ? _b : Object)
+    (0, class_validator_1.IsEnum)(execution_status_enum_1.NotificationType),
+    __metadata("design:type", typeof (_b = typeof execution_status_enum_1.NotificationType !== "undefined" && execution_status_enum_1.NotificationType) === "function" ? _b : Object)
 ], CreateNotificationDto.prototype, "type", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.NotificationPriority),
-    __metadata("design:type", typeof (_c = typeof enums_1.NotificationPriority !== "undefined" && enums_1.NotificationPriority) === "function" ? _c : Object)
+    (0, class_validator_1.IsEnum)(execution_status_enum_1.NotificationPriority),
+    __metadata("design:type", typeof (_c = typeof execution_status_enum_1.NotificationPriority !== "undefined" && execution_status_enum_1.NotificationPriority) === "function" ? _c : Object)
 ], CreateNotificationDto.prototype, "priority", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -13978,8 +13982,8 @@ __decorate([
 ], CreateNotificationFromTemplateDto.prototype, "userId", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.NotificationPriority),
-    __metadata("design:type", typeof (_g = typeof enums_1.NotificationPriority !== "undefined" && enums_1.NotificationPriority) === "function" ? _g : Object)
+    (0, class_validator_1.IsEnum)(execution_status_enum_1.NotificationPriority),
+    __metadata("design:type", typeof (_g = typeof execution_status_enum_1.NotificationPriority !== "undefined" && execution_status_enum_1.NotificationPriority) === "function" ? _g : Object)
 ], CreateNotificationFromTemplateDto.prototype, "priority", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -14054,7 +14058,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GetPreferencesQueryDto = exports.BulkUpdatePreferencesDto = exports.UpdateNotificationPreferenceDto = exports.CreateNotificationPreferenceDto = void 0;
 const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
 const class_transformer_1 = __webpack_require__(/*! class-transformer */ "class-transformer");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 class QuietHoursDto {
 }
 __decorate([
@@ -14221,8 +14225,8 @@ __decorate([
     __metadata("design:type", String)
 ], CreateNotificationPreferenceDto.prototype, "eventType", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(enums_1.NotificationType),
-    __metadata("design:type", typeof (_a = typeof enums_1.NotificationType !== "undefined" && enums_1.NotificationType) === "function" ? _a : Object)
+    (0, class_validator_1.IsEnum)(execution_status_enum_1.NotificationType),
+    __metadata("design:type", typeof (_a = typeof execution_status_enum_1.NotificationType !== "undefined" && execution_status_enum_1.NotificationType) === "function" ? _a : Object)
 ], CreateNotificationPreferenceDto.prototype, "type", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -14268,8 +14272,8 @@ __decorate([
 ], GetPreferencesQueryDto.prototype, "eventType", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.NotificationType),
-    __metadata("design:type", typeof (_b = typeof enums_1.NotificationType !== "undefined" && enums_1.NotificationType) === "function" ? _b : Object)
+    (0, class_validator_1.IsEnum)(execution_status_enum_1.NotificationType),
+    __metadata("design:type", typeof (_b = typeof execution_status_enum_1.NotificationType !== "undefined" && execution_status_enum_1.NotificationType) === "function" ? _b : Object)
 ], GetPreferencesQueryDto.prototype, "type", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -14302,7 +14306,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.TestNotificationTemplateDto = exports.UpdateNotificationTemplateDto = exports.CreateNotificationTemplateDto = void 0;
 const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
 const class_transformer_1 = __webpack_require__(/*! class-transformer */ "class-transformer");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 class TemplateVariableDto {
 }
 __decorate([
@@ -14483,8 +14487,8 @@ __decorate([
     __metadata("design:type", String)
 ], CreateNotificationTemplateDto.prototype, "category", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(enums_1.NotificationType),
-    __metadata("design:type", typeof (_a = typeof enums_1.NotificationType !== "undefined" && enums_1.NotificationType) === "function" ? _a : Object)
+    (0, class_validator_1.IsEnum)(execution_status_enum_1.NotificationType),
+    __metadata("design:type", typeof (_a = typeof execution_status_enum_1.NotificationType !== "undefined" && execution_status_enum_1.NotificationType) === "function" ? _a : Object)
 ], CreateNotificationTemplateDto.prototype, "type", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
@@ -14617,7 +14621,7 @@ var _a, _b, _c, _d, _e, _f;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.BulkUpdateNotificationDto = exports.RetryNotificationDto = exports.MarkNotificationReadDto = exports.UpdateNotificationDto = void 0;
 const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 class UpdateNotificationDto {
 }
 exports.UpdateNotificationDto = UpdateNotificationDto;
@@ -14633,13 +14637,13 @@ __decorate([
 ], UpdateNotificationDto.prototype, "message", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.NotificationPriority),
-    __metadata("design:type", typeof (_a = typeof enums_1.NotificationPriority !== "undefined" && enums_1.NotificationPriority) === "function" ? _a : Object)
+    (0, class_validator_1.IsEnum)(execution_status_enum_1.NotificationPriority),
+    __metadata("design:type", typeof (_a = typeof execution_status_enum_1.NotificationPriority !== "undefined" && execution_status_enum_1.NotificationPriority) === "function" ? _a : Object)
 ], UpdateNotificationDto.prototype, "priority", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.ExecutionStatus),
-    __metadata("design:type", typeof (_b = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _b : Object)
+    (0, class_validator_1.IsEnum)(execution_status_enum_1.ExecutionStatus),
+    __metadata("design:type", typeof (_b = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _b : Object)
 ], UpdateNotificationDto.prototype, "status", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -14698,8 +14702,8 @@ __decorate([
 ], BulkUpdateNotificationDto.prototype, "notificationIds", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEnum)(enums_1.ExecutionStatus),
-    __metadata("design:type", typeof (_e = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _e : Object)
+    (0, class_validator_1.IsEnum)(execution_status_enum_1.ExecutionStatus),
+    __metadata("design:type", typeof (_e = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _e : Object)
 ], BulkUpdateNotificationDto.prototype, "status", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
@@ -14745,6 +14749,8 @@ const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const config_1 = __webpack_require__(/*! @nestjs/config */ "@nestjs/config");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
 const email_delivery_provider_1 = __webpack_require__(/*! ./providers/email-delivery.provider */ "./apps/gateway/src/notification/providers/email-delivery.provider.ts");
 const sms_delivery_provider_1 = __webpack_require__(/*! ./providers/sms-delivery.provider */ "./apps/gateway/src/notification/providers/sms-delivery.provider.ts");
@@ -14767,7 +14773,7 @@ let NotificationDeliveryService = NotificationDeliveryService_1 = class Notifica
     async processNotification(notification) {
         try {
             this.logger.debug(`Processing notification ${notification.id} of type ${notification.type}`);
-            notification.status = enums_1.ExecutionStatus.RUNNING;
+            notification.status = execution_status_enum_1.ExecutionStatus.RUNNING;
             await this.notificationRepository.save(notification);
             const deliveries = await this.createDeliveryRecords(notification);
             const deliveryPromises = deliveries.map((delivery) => this.processDelivery(delivery));
@@ -14781,7 +14787,7 @@ let NotificationDeliveryService = NotificationDeliveryService_1 = class Notifica
                 notification.markAsFailed('All delivery attempts failed');
             }
             await this.notificationRepository.save(notification);
-            await this.webSocketService.publishEvent(enums_1.AgentEventType.NOTIFICATION_SENT, {
+            await this.webSocketService.publishEvent(agent_event_enum_1.AgentEventType.NOTIFICATION_SENT, {
                 targetType: enums_1.EventTargetType.USER,
                 targetId: notification.userId,
                 data: {
@@ -14791,7 +14797,7 @@ let NotificationDeliveryService = NotificationDeliveryService_1 = class Notifica
                     deliveryCount: deliveries.length,
                 },
             });
-            this.eventEmitter.emit(enums_1.AgentEventType.NOTIFICATION_SENT, {
+            this.eventEmitter.emit(agent_event_enum_1.AgentEventType.NOTIFICATION_SENT, {
                 notificationId: notification.id,
                 userId: notification.userId,
                 organizationId: notification.organizationId,
@@ -14805,7 +14811,7 @@ let NotificationDeliveryService = NotificationDeliveryService_1 = class Notifica
             this.logger.error(`Failed to process notification ${notification.id}: ${errorMessage}`, errorStack);
             notification.markAsFailed(errorMessage);
             await this.notificationRepository.save(notification);
-            this.eventEmitter.emit(enums_1.AgentEventType.NOTIFICATION_FAILED, {
+            this.eventEmitter.emit(agent_event_enum_1.AgentEventType.NOTIFICATION_FAILED, {
                 notificationId: notification.id,
                 userId: notification.userId,
                 organizationId: notification.organizationId,
@@ -14824,19 +14830,19 @@ let NotificationDeliveryService = NotificationDeliveryService_1 = class Notifica
             notificationId: notification.id,
             type: notification.type,
             recipient: notification.userId,
-            status: enums_1.ExecutionStatus.PENDING,
+            status: execution_status_enum_1.ExecutionStatus.PENDING,
             retryCount: 0,
             maxRetries: notification.maxRetries || 3,
             deliveryData: this.buildDeliveryData(notification),
         });
         deliveries.push(delivery);
         if (notification.deliveryConfig) {
-            if (notification.deliveryConfig.email && notification.type !== enums_1.NotificationType.EMAIL) {
+            if (notification.deliveryConfig.email && notification.type !== execution_status_enum_1.NotificationType.EMAIL) {
                 const emailDelivery = this.deliveryRepository.create({
                     notificationId: notification.id,
-                    type: enums_1.NotificationType.EMAIL,
+                    type: execution_status_enum_1.NotificationType.EMAIL,
                     recipient: notification.deliveryConfig.email.to.join(','),
-                    status: enums_1.ExecutionStatus.PENDING,
+                    status: execution_status_enum_1.ExecutionStatus.PENDING,
                     retryCount: 0,
                     maxRetries: notification.maxRetries || 3,
                     deliveryData: {
@@ -14849,12 +14855,12 @@ let NotificationDeliveryService = NotificationDeliveryService_1 = class Notifica
                 });
                 deliveries.push(emailDelivery);
             }
-            if (notification.deliveryConfig.sms && notification.type !== enums_1.NotificationType.SMS) {
+            if (notification.deliveryConfig.sms && notification.type !== execution_status_enum_1.NotificationType.SMS) {
                 const smsDelivery = this.deliveryRepository.create({
                     notificationId: notification.id,
-                    type: enums_1.NotificationType.SMS,
+                    type: execution_status_enum_1.NotificationType.SMS,
                     recipient: notification.deliveryConfig.sms.to.join(','),
-                    status: enums_1.ExecutionStatus.PENDING,
+                    status: execution_status_enum_1.ExecutionStatus.PENDING,
                     retryCount: 0,
                     maxRetries: notification.maxRetries || 3,
                     deliveryData: {
@@ -14865,12 +14871,12 @@ let NotificationDeliveryService = NotificationDeliveryService_1 = class Notifica
                 });
                 deliveries.push(smsDelivery);
             }
-            if (notification.deliveryConfig.webhook && notification.type !== enums_1.NotificationType.WEBHOOK) {
+            if (notification.deliveryConfig.webhook && notification.type !== execution_status_enum_1.NotificationType.WEBHOOK) {
                 const webhookDelivery = this.deliveryRepository.create({
                     notificationId: notification.id,
-                    type: enums_1.NotificationType.WEBHOOK,
+                    type: execution_status_enum_1.NotificationType.WEBHOOK,
                     recipient: notification.deliveryConfig.webhook.url,
-                    status: enums_1.ExecutionStatus.PENDING,
+                    status: execution_status_enum_1.ExecutionStatus.PENDING,
                     retryCount: 0,
                     maxRetries: notification.maxRetries || 3,
                     deliveryData: {
@@ -14883,12 +14889,12 @@ let NotificationDeliveryService = NotificationDeliveryService_1 = class Notifica
                 });
                 deliveries.push(webhookDelivery);
             }
-            if (notification.deliveryConfig.push && notification.type !== enums_1.NotificationType.PUSH) {
+            if (notification.deliveryConfig.push && notification.type !== execution_status_enum_1.NotificationType.PUSH) {
                 const pushDelivery = this.deliveryRepository.create({
                     notificationId: notification.id,
-                    type: enums_1.NotificationType.PUSH,
+                    type: execution_status_enum_1.NotificationType.PUSH,
                     recipient: notification.deliveryConfig.push.tokens.join(','),
-                    status: enums_1.ExecutionStatus.PENDING,
+                    status: execution_status_enum_1.ExecutionStatus.PENDING,
                     retryCount: 0,
                     maxRetries: notification.maxRetries || 3,
                     deliveryData: {
@@ -14906,33 +14912,33 @@ let NotificationDeliveryService = NotificationDeliveryService_1 = class Notifica
     }
     buildDeliveryData(notification) {
         switch (notification.type) {
-            case enums_1.NotificationType.EMAIL:
+            case execution_status_enum_1.NotificationType.EMAIL:
                 return {
                     email: {
                         subject: notification.title,
                         toAddresses: notification.deliveryConfig?.email?.to || [notification.userId],
                     },
                 };
-            case enums_1.NotificationType.SMS:
+            case execution_status_enum_1.NotificationType.SMS:
                 return {
                     sms: {
                         toNumber: notification.deliveryConfig?.sms?.to?.[0] || notification.userId,
                     },
                 };
-            case enums_1.NotificationType.WEBHOOK:
+            case execution_status_enum_1.NotificationType.WEBHOOK:
                 return {
                     webhook: {
                         url: notification.deliveryConfig?.webhook?.url || '',
                         method: notification.deliveryConfig?.webhook?.method || 'POST',
                     },
                 };
-            case enums_1.NotificationType.PUSH:
+            case execution_status_enum_1.NotificationType.PUSH:
                 return {
                     push: {
                         deviceTokens: notification.deliveryConfig?.push?.tokens || [],
                     },
                 };
-            case enums_1.NotificationType.IN_APP:
+            case execution_status_enum_1.NotificationType.IN_APP:
                 return {};
             default:
                 return {};
@@ -14941,24 +14947,24 @@ let NotificationDeliveryService = NotificationDeliveryService_1 = class Notifica
     async processDelivery(delivery) {
         const startTime = Date.now();
         try {
-            delivery.status = enums_1.ExecutionStatus.RUNNING;
+            delivery.status = execution_status_enum_1.ExecutionStatus.RUNNING;
             await this.deliveryRepository.save(delivery);
             let result;
             switch (delivery.type) {
-                case enums_1.NotificationType.EMAIL:
+                case execution_status_enum_1.NotificationType.EMAIL:
                     result = await this.emailProvider.sendEmail(delivery);
                     break;
-                case enums_1.NotificationType.SMS:
+                case execution_status_enum_1.NotificationType.SMS:
                     result = await this.smsProvider.sendSms(delivery);
                     break;
-                case enums_1.NotificationType.WEBHOOK:
+                case execution_status_enum_1.NotificationType.WEBHOOK:
                     result = await this.webhookProvider.sendWebhook(delivery);
                     break;
-                case enums_1.NotificationType.PUSH:
+                case execution_status_enum_1.NotificationType.PUSH:
                     result = await this.pushProvider.sendPush(delivery);
                     break;
-                case enums_1.NotificationType.IN_APP:
-                    await this.webSocketService.publishEvent(enums_1.AgentEventType.NOTIFICATION_SENT, {
+                case execution_status_enum_1.NotificationType.IN_APP:
+                    await this.webSocketService.publishEvent(agent_event_enum_1.AgentEventType.NOTIFICATION_SENT, {
                         targetType: enums_1.EventTargetType.USER,
                         targetId: delivery.recipient,
                         data: {
@@ -15042,6 +15048,8 @@ const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const schedule_1 = __webpack_require__(/*! @nestjs/schedule */ "@nestjs/schedule");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
 const notification_delivery_service_1 = __webpack_require__(/*! ./notification-delivery.service */ "./apps/gateway/src/notification/notification-delivery.service.ts");
 const websocket_service_1 = __webpack_require__(/*! ../websocket/websocket.service */ "./apps/gateway/src/websocket/websocket.service.ts");
@@ -15073,7 +15081,7 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
         try {
             const scheduledNotifications = await this.notificationRepository.find({
                 where: {
-                    status: enums_1.ExecutionStatus.PENDING,
+                    status: execution_status_enum_1.ExecutionStatus.PENDING,
                     scheduledFor: (0, typeorm_2.LessThan)(new Date()),
                 },
                 relations: ['user', 'organization', 'template'],
@@ -15101,7 +15109,7 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
         try {
             const failedDeliveries = await this.deliveryRepository.find({
                 where: {
-                    status: enums_1.ExecutionStatus.FAILED,
+                    status: execution_status_enum_1.ExecutionStatus.FAILED,
                     nextRetryAt: (0, typeorm_2.LessThan)(new Date()),
                 },
                 relations: ['notification', 'notification.user', 'notification.organization'],
@@ -15122,7 +15130,7 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
             }
         }
         catch (error) {
-            if (error.message && error.message.includes('No metadata for')) {
+            if (error instanceof Error && error.message && error.message.includes('No metadata for')) {
                 this.logger.debug('Database not ready yet, skipping delivery retries');
                 return;
             }
@@ -15137,7 +15145,7 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             const result = await this.notificationRepository.delete({
                 createdAt: (0, typeorm_2.LessThan)(thirtyDaysAgo),
-                status: (0, typeorm_2.In)([enums_1.ExecutionStatus.COMPLETED, enums_1.ExecutionStatus.FAILED]),
+                status: (0, typeorm_2.In)([execution_status_enum_1.ExecutionStatus.COMPLETED, execution_status_enum_1.ExecutionStatus.FAILED]),
             });
             this.logger.log(`Cleaned up ${result.affected} old notifications older than 30 days`);
         }
@@ -15150,7 +15158,7 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
     async scheduleNotification(notification, scheduledFor) {
         if (scheduledFor) {
             notification.scheduledFor = scheduledFor;
-            notification.status = enums_1.ExecutionStatus.PENDING;
+            notification.status = execution_status_enum_1.ExecutionStatus.PENDING;
             await this.notificationRepository.save(notification);
         }
         else {
@@ -15165,7 +15173,7 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
             if (!preference) {
                 const defaultPreference = this.preferenceRepository.create({
                     eventType: 'general',
-                    type: enums_1.NotificationType.IN_APP,
+                    type: execution_status_enum_1.NotificationType.IN_APP,
                     isEnabled: true,
                     userId: notification.userId,
                     organizationId: notification.organizationId,
@@ -15197,7 +15205,7 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             const errorStack = error instanceof Error ? error.stack : undefined;
             this.logger.error(`Error processing notification ${notification.id}: ${errorMessage}`, errorStack);
-            notification.status = enums_1.ExecutionStatus.FAILED;
+            notification.status = execution_status_enum_1.ExecutionStatus.FAILED;
             notification.errorMessage = errorMessage;
             await this.notificationRepository.save(notification);
         }
@@ -15216,7 +15224,7 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
             await this.scheduleAfterQuietHours(notification, preference);
             return;
         }
-        if (preference.shouldBatch() && notification.priority < enums_1.NotificationPriority.HIGH) {
+        if (preference.shouldBatch() && notification.priority < execution_status_enum_1.NotificationPriority.HIGH) {
             await this.addToBatch(notification, preference);
         }
         else {
@@ -15254,8 +15262,8 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
             const batchedNotification = this.notificationRepository.create({
                 title: `You have ${queue.length} new notifications`,
                 message: `You have ${queue.length} new notifications waiting for you.`,
-                type: enums_1.NotificationType.IN_APP,
-                priority: enums_1.NotificationPriority.MEDIUM,
+                type: execution_status_enum_1.NotificationType.IN_APP,
+                priority: execution_status_enum_1.NotificationPriority.MEDIUM,
                 userId: queue[0].userId,
                 organizationId: queue[0].organizationId,
                 data: {
@@ -15313,7 +15321,7 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
     async markDeliveryAsPermanentlyFailed(delivery) {
         delivery.markAsFailed('Maximum retry attempts exceeded', 'MAX_RETRIES_EXCEEDED');
         await this.deliveryRepository.save(delivery);
-        this.eventEmitter.emit(enums_1.AgentEventType.NOTIFICATION_FAILED, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.NOTIFICATION_FAILED, {
             deliveryId: delivery.id,
             notificationId: delivery.notificationId,
             reason: 'MAX_RETRIES_EXCEEDED',
@@ -15322,13 +15330,13 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
     async scheduleAfterQuietHours(notification, preference) {
         const nextQuietHoursEnd = this.getNextQuietHoursEnd(preference);
         notification.scheduledFor = nextQuietHoursEnd;
-        notification.status = enums_1.ExecutionStatus.PENDING;
+        notification.status = execution_status_enum_1.ExecutionStatus.PENDING;
         await this.notificationRepository.save(notification);
         this.logger.debug(`Scheduled notification ${notification.id} for after quiet hours: ${nextQuietHoursEnd}`);
     }
     async sendRealTimeNotification(notification) {
         try {
-            await this.webSocketService.publishEvent(enums_1.AgentEventType.NOTIFICATION_SENT, {
+            await this.webSocketService.publishEvent(agent_event_enum_1.AgentEventType.NOTIFICATION_SENT, {
                 targetType: enums_1.EventTargetType.TENANT,
                 targetId: notification.organizationId,
                 data: {
@@ -15343,7 +15351,7 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
                     },
                 },
             });
-            await this.webSocketService.publishEvent(enums_1.AgentEventType.NOTIFICATION_SENT, {
+            await this.webSocketService.publishEvent(agent_event_enum_1.AgentEventType.NOTIFICATION_SENT, {
                 targetType: enums_1.EventTargetType.USER,
                 targetId: notification.userId,
                 data: {
@@ -15367,13 +15375,13 @@ let NotificationSchedulerService = NotificationSchedulerService_1 = class Notifi
     }
     mapPriorityToNotificationType(priority) {
         switch (priority) {
-            case enums_1.NotificationPriority.LOW:
+            case execution_status_enum_1.NotificationPriority.LOW:
                 return 'info';
-            case enums_1.NotificationPriority.MEDIUM:
+            case execution_status_enum_1.NotificationPriority.MEDIUM:
                 return 'info';
-            case enums_1.NotificationPriority.HIGH:
+            case execution_status_enum_1.NotificationPriority.HIGH:
                 return 'warning';
-            case enums_1.NotificationPriority.CRITICAL:
+            case execution_status_enum_1.NotificationPriority.URGENT:
                 return 'error';
             default:
                 return 'info';
@@ -15479,7 +15487,7 @@ const roles_decorator_1 = __webpack_require__(/*! @shared/decorators/roles.decor
 const notification_service_1 = __webpack_require__(/*! ./notification.service */ "./apps/gateway/src/notification/notification.service.ts");
 const notification_scheduler_service_1 = __webpack_require__(/*! ./notification-scheduler.service */ "./apps/gateway/src/notification/notification-scheduler.service.ts");
 const dto_1 = __webpack_require__(/*! ./dto */ "./apps/gateway/src/notification/dto/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 const interfaces_1 = __webpack_require__(/*! @shared/interfaces */ "./libs/shared/src/interfaces/index.ts");
 let NotificationController = class NotificationController {
     constructor(notificationService, schedulerService) {
@@ -15746,8 +15754,8 @@ let NotificationController = class NotificationController {
             const notification = await this.notificationService.createNotification({
                 title: 'Test Notification',
                 message: 'This is a test notification from the SynapseAI platform.',
-                type: enums_1.NotificationType.IN_APP,
-                priority: enums_1.NotificationPriority.MEDIUM,
+                type: execution_status_enum_1.NotificationType.IN_APP,
+                priority: execution_status_enum_1.NotificationPriority.MEDIUM,
                 userId: req.user.id,
                 eventType: 'test',
                 sourceModule: 'notification-system',
@@ -15789,7 +15797,7 @@ __decorate([
     __param(4, (0, common_1.Query)('priority')),
     __param(5, (0, common_1.Query)('unreadOnly')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Number, Number, typeof (_d = typeof enums_1.NotificationType !== "undefined" && enums_1.NotificationType) === "function" ? _d : Object, typeof (_e = typeof enums_1.NotificationPriority !== "undefined" && enums_1.NotificationPriority) === "function" ? _e : Object, Boolean]),
+    __metadata("design:paramtypes", [Object, Number, Number, typeof (_d = typeof execution_status_enum_1.NotificationType !== "undefined" && execution_status_enum_1.NotificationType) === "function" ? _d : Object, typeof (_e = typeof execution_status_enum_1.NotificationPriority !== "undefined" && execution_status_enum_1.NotificationPriority) === "function" ? _e : Object, Boolean]),
     __metadata("design:returntype", Promise)
 ], NotificationController.prototype, "getNotifications", null);
 __decorate([
@@ -15850,7 +15858,7 @@ __decorate([
     __param(1, (0, common_1.Query)('category')),
     __param(2, (0, common_1.Query)('type')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, typeof (_g = typeof enums_1.NotificationType !== "undefined" && enums_1.NotificationType) === "function" ? _g : Object]),
+    __metadata("design:paramtypes", [Object, String, typeof (_g = typeof execution_status_enum_1.NotificationType !== "undefined" && execution_status_enum_1.NotificationType) === "function" ? _g : Object]),
     __metadata("design:returntype", Promise)
 ], NotificationController.prototype, "getTemplates", null);
 __decorate([
@@ -16042,7 +16050,8 @@ const common_2 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const cache_manager_2 = __webpack_require__(/*! cache-manager */ "cache-manager");
 const config_1 = __webpack_require__(/*! @nestjs/config */ "@nestjs/config");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 const websocket_service_1 = __webpack_require__(/*! ../websocket/websocket.service */ "./apps/gateway/src/websocket/websocket.service.ts");
 const notification_delivery_service_1 = __webpack_require__(/*! ./notification-delivery.service */ "./apps/gateway/src/notification/notification-delivery.service.ts");
 const notification_scheduler_service_1 = __webpack_require__(/*! ./notification-scheduler.service */ "./apps/gateway/src/notification/notification-scheduler.service.ts");
@@ -16064,12 +16073,12 @@ let NotificationService = NotificationService_1 = class NotificationService {
         const notification = this.notificationRepository.create({
             ...createNotificationDto,
             organizationId,
-            priority: createNotificationDto.priority || enums_1.NotificationPriority.MEDIUM,
-            status: enums_1.ExecutionStatus.PENDING,
+            priority: createNotificationDto.priority || execution_status_enum_1.NotificationPriority.MEDIUM,
+            status: execution_status_enum_1.ExecutionStatus.PENDING,
         });
         const savedNotification = await this.notificationRepository.save(notification);
         await this.processNotificationForDelivery(savedNotification);
-        this.eventEmitter.emit(enums_1.AgentEventType.NOTIFICATION_SENT, {
+        this.eventEmitter.emit(agent_event_enum_1.AgentEventType.NOTIFICATION_SENT, {
             notificationId: savedNotification.id,
             userId: savedNotification.userId,
             organizationId: savedNotification.organizationId,
@@ -16082,8 +16091,8 @@ let NotificationService = NotificationService_1 = class NotificationService {
         const notifications = createBulkDto.notifications.map((dto) => this.notificationRepository.create({
             ...dto,
             organizationId,
-            priority: dto.priority || enums_1.NotificationPriority.MEDIUM,
-            status: enums_1.ExecutionStatus.PENDING,
+            priority: dto.priority || execution_status_enum_1.NotificationPriority.MEDIUM,
+            status: execution_status_enum_1.ExecutionStatus.PENDING,
         }));
         const savedNotifications = await this.notificationRepository.save(notifications);
         for (const notification of savedNotifications) {
@@ -16112,7 +16121,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
             title,
             message,
             type: template.type,
-            priority: createFromTemplateDto.priority || enums_1.NotificationPriority.MEDIUM,
+            priority: createFromTemplateDto.priority || execution_status_enum_1.NotificationPriority.MEDIUM,
             userId: createFromTemplateDto.userId,
             organizationId,
             templateId: template.id,
@@ -16122,7 +16131,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
                 : undefined,
             correlationId: createFromTemplateDto.correlationId,
             deliveryConfig: createFromTemplateDto.deliveryConfig,
-            status: enums_1.ExecutionStatus.PENDING,
+            status: execution_status_enum_1.ExecutionStatus.PENDING,
         });
         const savedNotification = await this.notificationRepository.save(notification);
         await this.processNotificationForDelivery(savedNotification);
@@ -16183,7 +16192,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
         const notification = await this.getNotificationById(id, userId, organizationId);
         notification.markAsRead();
         const updatedNotification = await this.notificationRepository.save(notification);
-        await this.webSocketService.publishEvent(enums_1.AgentEventType.NOTIFICATION_SENT, {
+        await this.webSocketService.publishEvent(agent_event_enum_1.AgentEventType.NOTIFICATION_SENT, {
             type: 'notification_read',
             notificationId: id,
             readAt: notification.readAt,
@@ -16198,7 +16207,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
         }, {
             readAt: new Date(),
         });
-        await this.webSocketService.publishEvent(enums_1.AgentEventType.NOTIFICATION_SENT, {
+        await this.webSocketService.publishEvent(agent_event_enum_1.AgentEventType.NOTIFICATION_SENT, {
             type: 'all_notifications_read',
             timestamp: new Date(),
         });
@@ -16323,12 +16332,12 @@ let NotificationService = NotificationService_1 = class NotificationService {
         const failedDeliveries = await this.deliveryRepository.find({
             where: {
                 notificationId: notification.id,
-                status: enums_1.ExecutionStatus.FAILED,
+                status: execution_status_enum_1.ExecutionStatus.FAILED,
             },
         });
         const retriableDeliveries = failedDeliveries.filter((delivery) => delivery.canRetry());
         for (const delivery of retriableDeliveries) {
-            delivery.status = enums_1.ExecutionStatus.PENDING;
+            delivery.status = execution_status_enum_1.ExecutionStatus.PENDING;
             delivery.nextRetryAt = new Date();
             await this.deliveryRepository.save(delivery);
             await this.deliveryService.scheduleDelivery(delivery);
@@ -16353,8 +16362,8 @@ let NotificationService = NotificationService_1 = class NotificationService {
         for (const notification of notifications) {
             byType[notification.type] = (byType[notification.type] || 0) + 1;
             byPriority[notification.priority] = (byPriority[notification.priority] || 0) + 1;
-            const hasSuccessfulDelivery = notification.deliveries.some((d) => d.status === enums_1.ExecutionStatus.COMPLETED);
-            const hasFailedDelivery = notification.deliveries.some((d) => d.status === enums_1.ExecutionStatus.FAILED);
+            const hasSuccessfulDelivery = notification.deliveries.some((d) => d.status === execution_status_enum_1.ExecutionStatus.COMPLETED);
+            const hasFailedDelivery = notification.deliveries.some((d) => d.status === execution_status_enum_1.ExecutionStatus.FAILED);
             if (hasSuccessfulDelivery)
                 totalDelivered++;
             if (hasFailedDelivery && !hasSuccessfulDelivery)
@@ -16382,7 +16391,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
             const preferences = await this.getPreferences(notification.userId, notification.organizationId, notification.eventType, notification.type);
             const preference = preferences.find((p) => p.eventType === notification.eventType && p.type === notification.type);
             if (preference && !preference.isEnabled) {
-                notification.status = enums_1.ExecutionStatus.CANCELLED;
+                notification.status = execution_status_enum_1.ExecutionStatus.CANCELLED;
                 await this.notificationRepository.save(notification);
                 return;
             }
@@ -16405,7 +16414,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
         }
         catch (error) {
             this.logger.error(`Failed to process notification ${notification.id}: ${error instanceof Error ? error.message : 'Unknown error'}`, error instanceof Error ? error.stack : undefined);
-            notification.status = enums_1.ExecutionStatus.FAILED;
+            notification.status = execution_status_enum_1.ExecutionStatus.FAILED;
             notification.errorMessage = error instanceof Error ? error.message : 'Unknown error';
             await this.notificationRepository.save(notification);
         }
@@ -16416,7 +16425,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
             sourceModule: 'agent',
             title: 'Agent Execution Failed',
             message: `Agent "${payload.agentName}" failed to execute: ${payload.error}`,
-            priority: enums_1.NotificationPriority.HIGH,
+            priority: execution_status_enum_1.NotificationPriority.HIGH,
             userId: payload.userId,
             organizationId: payload.organizationId,
             data: payload,
@@ -16428,7 +16437,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
             sourceModule: 'tool',
             title: 'Tool Execution Failed',
             message: `Tool "${payload.toolName}" failed to execute: ${payload.error}`,
-            priority: enums_1.NotificationPriority.HIGH,
+            priority: execution_status_enum_1.NotificationPriority.HIGH,
             userId: payload.userId,
             organizationId: payload.organizationId,
             data: payload,
@@ -16440,7 +16449,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
             sourceModule: 'workflow',
             title: 'Workflow Approval Required',
             message: `Workflow "${payload.workflowName}" requires your approval to continue`,
-            priority: enums_1.NotificationPriority.HIGH,
+            priority: execution_status_enum_1.NotificationPriority.HIGH,
             userId: payload.approverId,
             organizationId: payload.organizationId,
             data: payload,
@@ -16452,7 +16461,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
             sourceModule: 'billing',
             title: 'Usage Quota Exceeded',
             message: `Your ${payload.resourceType} quota has been exceeded. Please upgrade your plan or contact support.`,
-            priority: enums_1.NotificationPriority.CRITICAL,
+            priority: execution_status_enum_1.NotificationPriority.CRITICAL,
             userId: payload.userId,
             organizationId: payload.organizationId,
             data: payload,
@@ -16463,7 +16472,7 @@ let NotificationService = NotificationService_1 = class NotificationService {
             await this.createNotification({
                 title: data.title,
                 message: data.message,
-                type: enums_1.NotificationType.IN_APP,
+                type: execution_status_enum_1.NotificationType.IN_APP,
                 priority: data.priority,
                 eventType: data.eventType,
                 sourceModule: data.sourceModule,
@@ -18813,7 +18822,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.SessionEventHandler = void 0;
 const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 const websocket_service_1 = __webpack_require__(/*! ../websocket/websocket.service */ "./apps/gateway/src/websocket/websocket.service.ts");
 const error_guards_1 = __webpack_require__(/*! @shared/utils/error-guards */ "./libs/shared/src/utils/error-guards.ts");
 let SessionEventHandler = SessionEventHandler_1 = class SessionEventHandler {
@@ -18974,67 +18983,67 @@ let SessionEventHandler = SessionEventHandler_1 = class SessionEventHandler {
 };
 exports.SessionEventHandler = SessionEventHandler;
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_CREATED),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_CREATED),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_b = typeof Promise !== "undefined" && Promise) === "function" ? _b : Object)
 ], SessionEventHandler.prototype, "handleSessionCreated", null);
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_UPDATED),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_UPDATED),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_c = typeof Promise !== "undefined" && Promise) === "function" ? _c : Object)
 ], SessionEventHandler.prototype, "handleSessionUpdated", null);
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_EXPIRED),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_EXPIRED),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_d = typeof Promise !== "undefined" && Promise) === "function" ? _d : Object)
 ], SessionEventHandler.prototype, "handleSessionExpired", null);
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_DESTROYED),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_DESTROYED),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_e = typeof Promise !== "undefined" && Promise) === "function" ? _e : Object)
 ], SessionEventHandler.prototype, "handleSessionDestroyed", null);
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_CONTEXT_UPDATED),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_CONTEXT_UPDATED),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_f = typeof Promise !== "undefined" && Promise) === "function" ? _f : Object)
 ], SessionEventHandler.prototype, "handleSessionContextUpdated", null);
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_MEMORY_WARNING),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_MEMORY_WARNING),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_g = typeof Promise !== "undefined" && Promise) === "function" ? _g : Object)
 ], SessionEventHandler.prototype, "handleSessionMemoryWarning", null);
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_MEMORY_LIMIT_EXCEEDED),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_MEMORY_LIMIT_EXCEEDED),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_h = typeof Promise !== "undefined" && Promise) === "function" ? _h : Object)
 ], SessionEventHandler.prototype, "handleSessionMemoryLimitExceeded", null);
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_CROSS_MODULE_UPDATE),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_CROSS_MODULE_UPDATE),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_j = typeof Promise !== "undefined" && Promise) === "function" ? _j : Object)
 ], SessionEventHandler.prototype, "handleSessionCrossModuleUpdate", null);
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_RECOVERY_INITIATED),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_RECOVERY_INITIATED),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_k = typeof Promise !== "undefined" && Promise) === "function" ? _k : Object)
 ], SessionEventHandler.prototype, "handleSessionRecoveryInitiated", null);
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_RECOVERY_COMPLETED),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_RECOVERY_COMPLETED),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_l = typeof Promise !== "undefined" && Promise) === "function" ? _l : Object)
 ], SessionEventHandler.prototype, "handleSessionRecoveryCompleted", null);
 __decorate([
-    (0, event_emitter_1.OnEvent)(enums_1.SessionEventType.SESSION_ANALYTICS_UPDATE),
+    (0, event_emitter_1.OnEvent)(execution_status_enum_1.SessionEventType.SESSION_ANALYTICS_UPDATE),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", typeof (_m = typeof Promise !== "undefined" && Promise) === "function" ? _m : Object)
@@ -19429,7 +19438,7 @@ const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestj
 const schedule_1 = __webpack_require__(/*! @nestjs/schedule */ "@nestjs/schedule");
 const crypto = __webpack_require__(/*! crypto */ "crypto");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 const error_guards_1 = __webpack_require__(/*! @shared/utils/error-guards */ "./libs/shared/src/utils/error-guards.ts");
 let SessionService = SessionService_1 = class SessionService {
     constructor(sessionRepository, userRepository, organizationRepository, configService, cacheManager, eventEmitter) {
@@ -19486,7 +19495,7 @@ let SessionService = SessionService_1 = class SessionService {
         });
         await this.storeSessionInRedis(savedSession);
         await this.initializeSessionAnalytics(savedSession.id, userId, organizationId);
-        this.eventEmitter.emit(enums_1.SessionEventType.SESSION_CREATED, {
+        this.eventEmitter.emit(execution_status_enum_1.SessionEventType.SESSION_CREATED, {
             sessionId: savedSession.id,
             userId,
             organizationId,
@@ -19594,7 +19603,7 @@ let SessionService = SessionService_1 = class SessionService {
             memoryUsage: updatedSession.memoryUsage,
             timestamp: new Date(),
         });
-        this.eventEmitter.emit(enums_1.SessionEventType.SESSION_UPDATED, {
+        this.eventEmitter.emit(execution_status_enum_1.SessionEventType.SESSION_UPDATED, {
             sessionId: updatedSession.id,
             userId: updatedSession.userId,
             organizationId: updatedSession.organizationId,
@@ -19633,7 +19642,7 @@ let SessionService = SessionService_1 = class SessionService {
         await this.sessionRepository.save(session);
         await this.removeSessionFromRedis(sessionToken);
         await this.finalizeSessionAnalytics(session.id);
-        this.eventEmitter.emit(enums_1.SessionEventType.SESSION_DESTROYED, {
+        this.eventEmitter.emit(execution_status_enum_1.SessionEventType.SESSION_DESTROYED, {
             sessionId: session.id,
             userId: session.userId,
             organizationId: session.organizationId,
@@ -19717,7 +19726,7 @@ let SessionService = SessionService_1 = class SessionService {
         await this.updateSession(sessionToken, {
             crossModuleData: crossModuleUpdate,
         });
-        this.eventEmitter.emit(enums_1.SessionEventType.SESSION_CROSS_MODULE_UPDATE, {
+        this.eventEmitter.emit(execution_status_enum_1.SessionEventType.SESSION_CROSS_MODULE_UPDATE, {
             sessionId: session.id,
             userId: session.userId,
             organizationId: session.organizationId,
@@ -19764,7 +19773,7 @@ let SessionService = SessionService_1 = class SessionService {
                 }
                 : undefined,
         };
-        this.eventEmitter.emit(enums_1.SessionEventType.SESSION_RECOVERY_INITIATED, {
+        this.eventEmitter.emit(execution_status_enum_1.SessionEventType.SESSION_RECOVERY_INITIATED, {
             sessionId,
             userId: session.userId,
             organizationId: session.organizationId,
@@ -19829,7 +19838,7 @@ let SessionService = SessionService_1 = class SessionService {
         const memoryLimit = session.memoryLimit || this.memoryConfig.defaultLimit;
         const warningThreshold = memoryLimit * this.memoryConfig.warningThreshold;
         if (session.memoryUsage > warningThreshold) {
-            this.eventEmitter.emit(enums_1.SessionEventType.SESSION_MEMORY_WARNING, {
+            this.eventEmitter.emit(execution_status_enum_1.SessionEventType.SESSION_MEMORY_WARNING, {
                 sessionId: session.id,
                 userId: session.userId,
                 organizationId: session.organizationId,
@@ -19839,7 +19848,7 @@ let SessionService = SessionService_1 = class SessionService {
             });
         }
         if (session.memoryUsage > memoryLimit) {
-            this.eventEmitter.emit(enums_1.SessionEventType.SESSION_MEMORY_LIMIT_EXCEEDED, {
+            this.eventEmitter.emit(execution_status_enum_1.SessionEventType.SESSION_MEMORY_LIMIT_EXCEEDED, {
                 sessionId: session.id,
                 userId: session.userId,
                 organizationId: session.organizationId,
@@ -19978,7 +19987,7 @@ let SessionService = SessionService_1 = class SessionService {
             });
             for (const session of expiredSessions) {
                 await this.destroySession(session.sessionToken);
-                this.eventEmitter.emit(enums_1.SessionEventType.SESSION_EXPIRED, {
+                this.eventEmitter.emit(execution_status_enum_1.SessionEventType.SESSION_EXPIRED, {
                     sessionId: session.id,
                     userId: session.userId,
                     organizationId: session.organizationId,
@@ -20035,7 +20044,7 @@ let SessionService = SessionService_1 = class SessionService {
             }
             for (const [orgId, data] of analyticsData) {
                 data.averageAccessCount = data.averageAccessCount / data.totalSessions;
-                this.eventEmitter.emit(enums_1.SessionEventType.SESSION_ANALYTICS_UPDATE, {
+                this.eventEmitter.emit(execution_status_enum_1.SessionEventType.SESSION_ANALYTICS_UPDATE, {
                     organizationId: orgId,
                     analytics: data,
                     timestamp: new Date(),
@@ -20465,7 +20474,7 @@ var _a, _b, _c, _d, _e;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ToolExecutionResponseDto = exports.ToolResponseDto = void 0;
 const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 class ToolResponseDto {
 }
 exports.ToolResponseDto = ToolResponseDto;
@@ -20553,8 +20562,8 @@ __decorate([
     __metadata("design:type", Object)
 ], ToolExecutionResponseDto.prototype, "result", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Execution status', enum: enums_1.ExecutionStatus }),
-    __metadata("design:type", typeof (_e = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _e : Object)
+    (0, swagger_1.ApiProperty)({ description: 'Execution status', enum: execution_status_enum_1.ExecutionStatus }),
+    __metadata("design:type", typeof (_e = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _e : Object)
 ], ToolExecutionResponseDto.prototype, "status", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Execution time in milliseconds' }),
@@ -20620,7 +20629,8 @@ const typeorm_1 = __webpack_require__(/*! @nestjs/typeorm */ "@nestjs/typeorm");
 const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
+const hitl_enum_1 = __webpack_require__(/*! @shared/enums/hitl.enum */ "./libs/shared/src/enums/hitl.enum.ts");
 const hitl_service_1 = __webpack_require__(/*! ../hitl/hitl.service */ "./apps/gateway/src/hitl/hitl.service.ts");
 const ai_provider_service_1 = __webpack_require__(/*! ../ai-provider/ai-provider.service */ "./apps/gateway/src/ai-provider/ai-provider.service.ts");
 const ai_provider_execution_entity_1 = __webpack_require__(/*! @database/entities/ai-provider-execution.entity */ "./libs/database/src/entities/ai-provider-execution.entity.ts");
@@ -20647,8 +20657,8 @@ let ToolExecutionEngine = ToolExecutionEngine_1 = class ToolExecutionEngine {
             const hitlRequest = await this.hitlService.createRequest({
                 title: `Tool Execution Approval Required`,
                 description: `Tool "${tool.name}" requires approval before execution`,
-                type: enums_1.HITLRequestType.APPROVAL,
-                priority: enums_1.HITLRequestPriority.MEDIUM,
+                type: hitl_enum_1.HITLRequestType.APPROVAL,
+                priority: hitl_enum_1.HITLRequestPriority.MEDIUM,
                 sourceType: 'tool',
                 sourceId: tool.id,
                 executionId,
@@ -20663,7 +20673,7 @@ let ToolExecutionEngine = ToolExecutionEngine_1 = class ToolExecutionEngine {
                 toolId,
                 sessionId: (0, uuid_1.v4)(),
                 input: executeToolDto.parameters,
-                status: enums_1.ExecutionStatus.PAUSED,
+                status: execution_status_enum_1.ExecutionStatus.PAUSED,
                 context: {
                     functionName: executeToolDto.functionName,
                     callerType: executeToolDto.callerType || 'user',
@@ -20680,7 +20690,7 @@ let ToolExecutionEngine = ToolExecutionEngine_1 = class ToolExecutionEngine {
                 functionName: executeToolDto.functionName,
                 parameters: executeToolDto.parameters,
                 result: 'Execution paused pending approval',
-                status: enums_1.ExecutionStatus.PAUSED,
+                status: execution_status_enum_1.ExecutionStatus.PAUSED,
                 executionTime: Date.now() - startTime,
                 cost: 0,
                 hitlRequestId: hitlRequest.id,
@@ -20691,7 +20701,7 @@ let ToolExecutionEngine = ToolExecutionEngine_1 = class ToolExecutionEngine {
             toolId,
             sessionId: (0, uuid_1.v4)(),
             input: executeToolDto.parameters,
-            status: enums_1.ExecutionStatus.RUNNING,
+            status: execution_status_enum_1.ExecutionStatus.RUNNING,
             context: {
                 functionName: executeToolDto.functionName,
                 callerType: executeToolDto.callerType || 'user',
@@ -20720,7 +20730,7 @@ let ToolExecutionEngine = ToolExecutionEngine_1 = class ToolExecutionEngine {
             }
             const result = await this.performToolExecution(tool, executeToolDto, selectedProvider, organizationId, userId);
             const executionTime = Date.now() - startTime;
-            execution.status = enums_1.ExecutionStatus.COMPLETED;
+            execution.status = execution_status_enum_1.ExecutionStatus.COMPLETED;
             execution.output = result;
             execution.executionTimeMs = executionTime;
             execution.cost = this.calculateCost(tool, executionTime);
@@ -20746,14 +20756,14 @@ let ToolExecutionEngine = ToolExecutionEngine_1 = class ToolExecutionEngine {
                 functionName: executeToolDto.functionName,
                 parameters: executeToolDto.parameters,
                 result,
-                status: enums_1.ExecutionStatus.COMPLETED,
+                status: execution_status_enum_1.ExecutionStatus.COMPLETED,
                 executionTime,
                 cost: execution.cost,
             };
         }
         catch (error) {
             const executionTime = Date.now() - startTime;
-            execution.status = enums_1.ExecutionStatus.FAILED;
+            execution.status = execution_status_enum_1.ExecutionStatus.FAILED;
             execution.error = (0, error_guards_1.getErrorMessage)(error);
             execution.executionTimeMs = executionTime;
             execution.completedAt = new Date();
@@ -21743,7 +21753,7 @@ const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
 const jwt_auth_guard_1 = __webpack_require__(/*! ../auth/guards/jwt-auth.guard */ "./apps/gateway/src/auth/guards/jwt-auth.guard.ts");
 const roles_guard_1 = __webpack_require__(/*! ../auth/guards/roles.guard */ "./apps/gateway/src/auth/guards/roles.guard.ts");
 const roles_decorator_1 = __webpack_require__(/*! @shared/decorators/roles.decorator */ "./libs/shared/src/decorators/roles.decorator.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const interfaces_1 = __webpack_require__(/*! @shared/interfaces */ "./libs/shared/src/interfaces/index.ts");
 const tool_service_1 = __webpack_require__(/*! ./tool.service */ "./apps/gateway/src/tool/tool.service.ts");
 const tool_execution_engine_1 = __webpack_require__(/*! ./tool-execution.engine */ "./apps/gateway/src/tool/tool-execution.engine.ts");
 const tool_template_service_1 = __webpack_require__(/*! ./tool-template.service */ "./apps/gateway/src/tool/tool-template.service.ts");
@@ -21877,7 +21887,7 @@ let ToolController = class ToolController {
 exports.ToolController = ToolController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new tool' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Tool created successfully' }),
     __param(0, (0, common_1.Body)(common_1.ValidationPipe)),
@@ -21909,7 +21919,7 @@ __decorate([
 ], ToolController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Put)(':id'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Update tool' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Tool updated successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -21920,7 +21930,7 @@ __decorate([
 ], ToolController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Delete tool' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Tool deleted successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -21940,7 +21950,7 @@ __decorate([
 ], ToolController.prototype, "execute", null);
 __decorate([
     (0, common_1.Post)(':id/test'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Test tool' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Tool tested successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -21977,7 +21987,7 @@ __decorate([
 ], ToolController.prototype, "getAnalytics", null);
 __decorate([
     (0, common_1.Post)('/validate-schema'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Validate tool schema' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Schema validated successfully' }),
     __param(0, (0, common_1.Body)()),
@@ -22076,7 +22086,7 @@ __decorate([
 ], ToolController.prototype, "getTemplates", null);
 __decorate([
     (0, common_1.Post)('/templates/seed'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Seed initial tool templates' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Templates seeded successfully' }),
     __metadata("design:type", Function),
@@ -22085,7 +22095,7 @@ __decorate([
 ], ToolController.prototype, "seedTemplates", null);
 __decorate([
     (0, common_1.Post)('/detect-schema'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Detect API schema from endpoint' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Schema detected successfully' }),
     __param(0, (0, common_1.Body)()),
@@ -22095,7 +22105,7 @@ __decorate([
 ], ToolController.prototype, "detectSchema", null);
 __decorate([
     (0, common_1.Post)('/ai-configure'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({
         summary: 'AI-powered tool configuration from natural language',
     }),
@@ -22174,7 +22184,7 @@ __decorate([
 ], ToolController.prototype, "getUsageAnalytics", null);
 __decorate([
     (0, common_1.Post)(':id/test-in-context'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Test tool within workflow execution context' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Context test completed' }),
     __param(0, (0, common_1.Param)('id')),
@@ -22210,7 +22220,7 @@ __decorate([
 ], ToolController.prototype, "getHealthMonitoring", null);
 __decorate([
     (0, common_1.Post)(':id/alerts/configure'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Configure health monitoring alerts' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Alerts configured successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -22308,7 +22318,7 @@ const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const typeorm_1 = __webpack_require__(/*! @nestjs/typeorm */ "@nestjs/typeorm");
 const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 const axios_1 = __webpack_require__(/*! axios */ "axios");
 const event_emitter_1 = __webpack_require__(/*! @nestjs/event-emitter */ "@nestjs/event-emitter");
 const ai_provider_service_1 = __webpack_require__(/*! ../ai-provider/ai-provider.service */ "./apps/gateway/src/ai-provider/ai-provider.service.ts");
@@ -22554,7 +22564,7 @@ let ToolService = ToolService_1 = class ToolService {
             toolId,
             sessionId: sessionId || (__webpack_require__(/*! uuid */ "uuid").v4)(),
             input: executeDto.parameters,
-            status: enums_1.ExecutionStatus.RUNNING,
+            status: execution_status_enum_1.ExecutionStatus.RUNNING,
             context: {
                 functionName: executeDto.functionName || 'execute',
                 callerType: executeDto.callerType || 'user',
@@ -22568,7 +22578,7 @@ let ToolService = ToolService_1 = class ToolService {
         try {
             const result = await this.performToolExecution(tool, executeDto);
             const executionTime = Date.now() - startTime;
-            execution.status = enums_1.ExecutionStatus.COMPLETED;
+            execution.status = execution_status_enum_1.ExecutionStatus.COMPLETED;
             execution.output = result;
             execution.executionTimeMs = executionTime;
             execution.cost = this.calculateCost(tool, executionTime);
@@ -22587,14 +22597,14 @@ let ToolService = ToolService_1 = class ToolService {
                 functionName: executeDto.functionName || 'execute',
                 parameters: executeDto.parameters,
                 result,
-                status: enums_1.ExecutionStatus.COMPLETED,
+                status: execution_status_enum_1.ExecutionStatus.COMPLETED,
                 executionTime,
                 cost: execution.cost,
             };
         }
         catch (error) {
             const executionTime = Date.now() - startTime;
-            execution.status = enums_1.ExecutionStatus.FAILED;
+            execution.status = execution_status_enum_1.ExecutionStatus.FAILED;
             execution.error = (0, error_guards_1.safeErrorMessage)(error);
             execution.executionTimeMs = executionTime;
             execution.completedAt = new Date();
@@ -22678,7 +22688,7 @@ let ToolService = ToolService_1 = class ToolService {
                 sessionId: (__webpack_require__(/*! uuid */ "uuid").v4)(),
                 input: testToolDto.parameters,
                 output: result,
-                status: enums_1.ExecutionStatus.COMPLETED,
+                status: execution_status_enum_1.ExecutionStatus.COMPLETED,
                 context: {
                     ...testContext,
                     testMode: true,
@@ -22706,7 +22716,7 @@ let ToolService = ToolService_1 = class ToolService {
                 toolId: id,
                 sessionId: (__webpack_require__(/*! uuid */ "uuid").v4)(),
                 input: testToolDto.parameters,
-                status: enums_1.ExecutionStatus.FAILED,
+                status: execution_status_enum_1.ExecutionStatus.FAILED,
                 error: (0, error_guards_1.safeErrorMessage)(error),
                 context: {
                     ...testToolDto.workflowContext,
@@ -22810,8 +22820,8 @@ let ToolService = ToolService_1 = class ToolService {
         }
         const executions = await queryBuilder.getMany();
         const totalExecutions = executions.length;
-        const successfulExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length;
-        const failedExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.FAILED).length;
+        const successfulExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length;
+        const failedExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.FAILED).length;
         const averageExecutionTime = totalExecutions > 0
             ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions
             : 0;
@@ -22956,8 +22966,8 @@ let ToolService = ToolService_1 = class ToolService {
             .andWhere('execution.createdAt <= :end', { end: period.end })
             .getMany();
         const totalExecutions = executions.length;
-        const successfulExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length;
-        const failedExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.FAILED).length;
+        const successfulExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length;
+        const failedExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.FAILED).length;
         const executionTimes = executions
             .filter((e) => e.executionTimeMs)
             .map((e) => e.executionTimeMs);
@@ -22978,9 +22988,9 @@ let ToolService = ToolService_1 = class ToolService {
                 };
             }
             acc[date].executions++;
-            if (execution.status === enums_1.ExecutionStatus.COMPLETED)
+            if (execution.status === execution_status_enum_1.ExecutionStatus.COMPLETED)
                 acc[date].successes++;
-            if (execution.status === enums_1.ExecutionStatus.FAILED)
+            if (execution.status === execution_status_enum_1.ExecutionStatus.FAILED)
                 acc[date].failures++;
             if (execution.executionTimeMs)
                 acc[date].totalTime += execution.executionTimeMs;
@@ -23459,9 +23469,9 @@ Return a JSON object with:
             trends: costTrends,
             recommendations,
             breakdown: {
-                successfulExecutions: executions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED)
+                successfulExecutions: executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED)
                     .length,
-                failedExecutions: executions.filter((e) => e.status === enums_1.ExecutionStatus.FAILED).length,
+                failedExecutions: executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.FAILED).length,
                 averageExecutionTime: executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions,
             },
         };
@@ -23478,7 +23488,7 @@ Return a JSON object with:
                 potentialSavings: totalCost * 0.3,
             });
         }
-        const failureRate = executions.filter((e) => e.status === enums_1.ExecutionStatus.FAILED).length / executions.length;
+        const failureRate = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.FAILED).length / executions.length;
         if (failureRate > 0.1) {
             recommendations.push({
                 type: 'reliability',
@@ -23551,7 +23561,7 @@ Return a JSON object with:
             })
                 .getMany();
             const totalExecutions = executions.length;
-            const successfulExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length;
+            const successfulExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length;
             const avgExecutionTime = totalExecutions > 0
                 ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions
                 : 0;
@@ -23613,7 +23623,7 @@ Return a JSON object with:
             })
                 .getMany();
             const totalExecutions = executions.length;
-            const successfulExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length;
+            const successfulExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length;
             const avgExecutionTime = totalExecutions > 0
                 ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions
                 : 0;
@@ -23686,9 +23696,9 @@ Return a JSON object with:
             },
             summary: {
                 totalExecutions: executions.length,
-                successfulExecutions: executions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED)
+                successfulExecutions: executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED)
                     .length,
-                failedExecutions: executions.filter((e) => e.status === enums_1.ExecutionStatus.FAILED).length,
+                failedExecutions: executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.FAILED).length,
                 avgExecutionTime: executions.length > 0
                     ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / executions.length
                     : 0,
@@ -23730,10 +23740,10 @@ Return a JSON object with:
             }
             acc[key].executions.push(execution);
             acc[key].totalExecutions++;
-            if (execution.status === enums_1.ExecutionStatus.COMPLETED) {
+            if (execution.status === execution_status_enum_1.ExecutionStatus.COMPLETED) {
                 acc[key].successfulExecutions++;
             }
-            else if (execution.status === enums_1.ExecutionStatus.FAILED) {
+            else if (execution.status === execution_status_enum_1.ExecutionStatus.FAILED) {
                 acc[key].failedExecutions++;
             }
             acc[key].totalTime += execution.executionTimeMs || 0;
@@ -23765,10 +23775,10 @@ Return a JSON object with:
                 };
             }
             acc[key].totalExecutions++;
-            if (execution.status === enums_1.ExecutionStatus.COMPLETED) {
+            if (execution.status === execution_status_enum_1.ExecutionStatus.COMPLETED) {
                 acc[key].successfulExecutions++;
             }
-            else if (execution.status === enums_1.ExecutionStatus.FAILED) {
+            else if (execution.status === execution_status_enum_1.ExecutionStatus.FAILED) {
                 acc[key].failedExecutions++;
             }
             acc[key].totalTime += execution.executionTimeMs || 0;
@@ -23811,7 +23821,7 @@ Return a JSON object with:
         });
     }
     analyzeErrorPatterns(executions) {
-        const failedExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.FAILED && e.error);
+        const failedExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.FAILED && e.error);
         const errorCounts = failedExecutions.reduce((acc, execution) => {
             const error = execution.error || 'Unknown error';
             const errorType = this.categorizeError(error);
@@ -23916,7 +23926,7 @@ Return a JSON object with:
                 sessionId: (__webpack_require__(/*! uuid */ "uuid").v4)(),
                 input: testData.parameters,
                 output: result,
-                status: enums_1.ExecutionStatus.COMPLETED,
+                status: execution_status_enum_1.ExecutionStatus.COMPLETED,
                 context: {
                     ...enhancedContext,
                     testExecution: true,
@@ -23943,7 +23953,7 @@ Return a JSON object with:
                 toolId,
                 sessionId: (__webpack_require__(/*! uuid */ "uuid").v4)(),
                 input: testData.parameters,
-                status: enums_1.ExecutionStatus.FAILED,
+                status: execution_status_enum_1.ExecutionStatus.FAILED,
                 error: error instanceof Error ? error.message : 'Unknown error',
                 context: {
                     ...testData.context,
@@ -24026,8 +24036,8 @@ Return a JSON object with:
             .andWhere('execution.createdAt >= :startDate', { startDate })
             .getMany();
         const totalExecutions = executions.length;
-        const successfulExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length;
-        const failedExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.FAILED).length;
+        const successfulExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length;
+        const failedExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.FAILED).length;
         const totalCost = executions.reduce((sum, e) => sum + (e.cost || 0), 0);
         const avgExecutionTime = totalExecutions > 0
             ? executions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) / totalExecutions
@@ -24046,14 +24056,14 @@ Return a JSON object with:
             }
             acc[category].toolCount++;
             acc[category].executions += toolExecutions.length;
-            acc[category].successfulExecutions += toolExecutions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length;
+            acc[category].successfulExecutions += toolExecutions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length;
             acc[category].cost += toolExecutions.reduce((sum, e) => sum + (e.cost || 0), 0);
             return acc;
         }, {});
         const toolPerformance = tools
             .map((tool) => {
             const toolExecutions = executions.filter((e) => e.toolId === tool.id);
-            const successful = toolExecutions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length;
+            const successful = toolExecutions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length;
             return {
                 id: tool.id,
                 name: tool.name,
@@ -24102,7 +24112,7 @@ Return a JSON object with:
             const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
             const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
             const dayExecutions = executions.filter((e) => e.createdAt >= dayStart && e.createdAt < dayEnd);
-            const successful = dayExecutions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length;
+            const successful = dayExecutions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length;
             trends.push({
                 date: dayStart.toISOString().split('T')[0],
                 executions: dayExecutions.length,
@@ -24129,7 +24139,7 @@ Return a JSON object with:
             })
                 .getMany();
             if (recentExecutions.length > 0) {
-                const failureRate = recentExecutions.filter((e) => e.status === enums_1.ExecutionStatus.FAILED).length /
+                const failureRate = recentExecutions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.FAILED).length /
                     recentExecutions.length;
                 const avgResponseTime = recentExecutions.reduce((sum, e) => sum + (e.executionTimeMs || 0), 0) /
                     recentExecutions.length;
@@ -24181,7 +24191,7 @@ Return a JSON object with:
             });
         }
         const overallSuccessRate = executions.length > 0
-            ? (executions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length /
+            ? (executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length /
                 executions.length) *
                 100
             : 100;
@@ -24207,8 +24217,8 @@ Return a JSON object with:
             .orderBy('execution.createdAt', 'DESC')
             .getMany();
         const totalExecutions = recentExecutions.length;
-        const successfulExecutions = recentExecutions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length;
-        const failedExecutions = recentExecutions.filter((e) => e.status === enums_1.ExecutionStatus.FAILED).length;
+        const successfulExecutions = recentExecutions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length;
+        const failedExecutions = recentExecutions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.FAILED).length;
         const availability = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 100;
         const errorRate = totalExecutions > 0 ? (failedExecutions / totalExecutions) * 100 : 0;
         const avgResponseTime = totalExecutions > 0
@@ -24252,7 +24262,7 @@ Return a JSON object with:
         let currentPeriod = null;
         const sortedExecutions = executions.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
         for (const execution of sortedExecutions) {
-            const isUp = execution.status === enums_1.ExecutionStatus.COMPLETED;
+            const isUp = execution.status === execution_status_enum_1.ExecutionStatus.COMPLETED;
             if (!currentPeriod || currentPeriod.status !== (isUp ? 'up' : 'down')) {
                 if (currentPeriod) {
                     currentPeriod.endTime = execution.createdAt;
@@ -24737,7 +24747,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.APXPermissionService = void 0;
 const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const apix_protocol_enum_1 = __webpack_require__(/*! @shared/enums/apix-protocol.enum */ "./libs/shared/src/enums/apix-protocol.enum.ts");
 let APXPermissionService = class APXPermissionService {
     constructor() {
         this.rateLimits = {
@@ -24748,52 +24758,52 @@ let APXPermissionService = class APXPermissionService {
         };
         this.rolePermissions = {
             SUPER_ADMIN: [
-                enums_1.APXPermissionLevel.READ,
-                enums_1.APXPermissionLevel.WRITE,
-                enums_1.APXPermissionLevel.ADMIN,
-                enums_1.APXPermissionLevel.EXECUTE,
+                apix_protocol_enum_1.APXPermissionLevel.READ,
+                apix_protocol_enum_1.APXPermissionLevel.WRITE,
+                apix_protocol_enum_1.APXPermissionLevel.ADMIN,
+                apix_protocol_enum_1.APXPermissionLevel.EXECUTE,
             ],
             ORG_ADMIN: [
-                enums_1.APXPermissionLevel.READ,
-                enums_1.APXPermissionLevel.WRITE,
-                enums_1.APXPermissionLevel.ADMIN,
-                enums_1.APXPermissionLevel.EXECUTE,
+                apix_protocol_enum_1.APXPermissionLevel.READ,
+                apix_protocol_enum_1.APXPermissionLevel.WRITE,
+                apix_protocol_enum_1.APXPermissionLevel.ADMIN,
+                apix_protocol_enum_1.APXPermissionLevel.EXECUTE,
             ],
-            DEVELOPER: [enums_1.APXPermissionLevel.READ, enums_1.APXPermissionLevel.WRITE, enums_1.APXPermissionLevel.EXECUTE],
-            VIEWER: [enums_1.APXPermissionLevel.READ],
+            DEVELOPER: [apix_protocol_enum_1.APXPermissionLevel.READ, apix_protocol_enum_1.APXPermissionLevel.WRITE, apix_protocol_enum_1.APXPermissionLevel.EXECUTE],
+            VIEWER: [apix_protocol_enum_1.APXPermissionLevel.READ],
         };
         this.messagePermissions = {
-            [enums_1.APXMessageType.CONNECTION_ACK]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.CONNECTION_HEARTBEAT]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.SESSION_CREATED]: enums_1.APXPermissionLevel.ADMIN,
-            [enums_1.APXMessageType.SESSION_ENDED]: enums_1.APXPermissionLevel.ADMIN,
-            [enums_1.APXMessageType.AGENT_EXECUTION_STARTED]: enums_1.APXPermissionLevel.EXECUTE,
-            [enums_1.APXMessageType.AGENT_TEXT_CHUNK]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.AGENT_TOOL_CALL]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.AGENT_MEMORY_USED]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.AGENT_ERROR]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.AGENT_EXECUTION_COMPLETE]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.TOOL_CALL_START]: enums_1.APXPermissionLevel.EXECUTE,
-            [enums_1.APXMessageType.TOOL_CALL_RESULT]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.TOOL_CALL_ERROR]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.KB_SEARCH_PERFORMED]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.KB_CHUNK_INJECTED]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.HITL_REQUEST_CREATED]: enums_1.APXPermissionLevel.WRITE,
-            [enums_1.APXMessageType.HITL_RESOLUTION_PENDING]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.HITL_RESOLVED]: enums_1.APXPermissionLevel.WRITE,
-            [enums_1.APXMessageType.HITL_EXPIRED]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.WIDGET_LOADED]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.WIDGET_OPENED]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.WIDGET_QUERY_SUBMITTED]: enums_1.APXPermissionLevel.WRITE,
-            [enums_1.APXMessageType.WIDGET_CONVERTED]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.STREAM_PAUSE]: enums_1.APXPermissionLevel.WRITE,
-            [enums_1.APXMessageType.STREAM_RESUME]: enums_1.APXPermissionLevel.WRITE,
-            [enums_1.APXMessageType.TOKEN_LIMIT_REACHED]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.PROVIDER_FALLBACK]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.WORKFLOW_EXECUTION_STARTED]: enums_1.APXPermissionLevel.EXECUTE,
-            [enums_1.APXMessageType.VALIDATION_ERROR]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.PERMISSION_DENIED]: enums_1.APXPermissionLevel.READ,
-            [enums_1.APXMessageType.RATE_LIMIT_EXCEEDED]: enums_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.CONNECTION_ACK]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.CONNECTION_HEARTBEAT]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.SESSION_CREATED]: apix_protocol_enum_1.APXPermissionLevel.ADMIN,
+            [apix_protocol_enum_1.APXMessageType.SESSION_ENDED]: apix_protocol_enum_1.APXPermissionLevel.ADMIN,
+            [apix_protocol_enum_1.APXMessageType.AGENT_EXECUTION_STARTED]: apix_protocol_enum_1.APXPermissionLevel.EXECUTE,
+            [apix_protocol_enum_1.APXMessageType.AGENT_TEXT_CHUNK]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.AGENT_TOOL_CALL]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.AGENT_MEMORY_USED]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.AGENT_ERROR]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.AGENT_EXECUTION_COMPLETE]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.TOOL_CALL_START]: apix_protocol_enum_1.APXPermissionLevel.EXECUTE,
+            [apix_protocol_enum_1.APXMessageType.TOOL_CALL_RESULT]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.TOOL_CALL_ERROR]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.KB_SEARCH_PERFORMED]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.KB_CHUNK_INJECTED]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.HITL_REQUEST_CREATED]: apix_protocol_enum_1.APXPermissionLevel.WRITE,
+            [apix_protocol_enum_1.APXMessageType.HITL_RESOLUTION_PENDING]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.HITL_RESOLVED]: apix_protocol_enum_1.APXPermissionLevel.WRITE,
+            [apix_protocol_enum_1.APXMessageType.HITL_EXPIRED]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.WIDGET_LOADED]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.WIDGET_OPENED]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.WIDGET_QUERY_SUBMITTED]: apix_protocol_enum_1.APXPermissionLevel.WRITE,
+            [apix_protocol_enum_1.APXMessageType.WIDGET_CONVERTED]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.STREAM_PAUSE]: apix_protocol_enum_1.APXPermissionLevel.WRITE,
+            [apix_protocol_enum_1.APXMessageType.STREAM_RESUME]: apix_protocol_enum_1.APXPermissionLevel.WRITE,
+            [apix_protocol_enum_1.APXMessageType.TOKEN_LIMIT_REACHED]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.PROVIDER_FALLBACK]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.WORKFLOW_EXECUTION_STARTED]: apix_protocol_enum_1.APXPermissionLevel.EXECUTE,
+            [apix_protocol_enum_1.APXMessageType.VALIDATION_ERROR]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.PERMISSION_DENIED]: apix_protocol_enum_1.APXPermissionLevel.READ,
+            [apix_protocol_enum_1.APXMessageType.RATE_LIMIT_EXCEEDED]: apix_protocol_enum_1.APXPermissionLevel.READ,
         };
     }
     getRateLimit(role, limitType) {
@@ -24803,15 +24813,15 @@ let APXPermissionService = class APXPermissionService {
     getSecurityLevel(role) {
         switch (role) {
             case 'SUPER_ADMIN':
-                return enums_1.APXSecurityLevel.PRIVATE;
+                return apix_protocol_enum_1.APXSecurityLevel.PRIVATE;
             case 'ORG_ADMIN':
-                return enums_1.APXSecurityLevel.SENSITIVE;
+                return apix_protocol_enum_1.APXSecurityLevel.SENSITIVE;
             case 'DEVELOPER':
-                return enums_1.APXSecurityLevel.ENCRYPTED;
+                return apix_protocol_enum_1.APXSecurityLevel.ENCRYPTED;
             case 'VIEWER':
-                return enums_1.APXSecurityLevel.AUTHENTICATED;
+                return apix_protocol_enum_1.APXSecurityLevel.AUTHENTICATED;
             default:
-                return enums_1.APXSecurityLevel.PUBLIC;
+                return apix_protocol_enum_1.APXSecurityLevel.PUBLIC;
         }
     }
     getPermissions(role) {
@@ -24820,7 +24830,7 @@ let APXPermissionService = class APXPermissionService {
     }
     getRequiredPermission(messageType) {
         const messageKey = messageType;
-        return this.messagePermissions[messageKey] || enums_1.APXPermissionLevel.READ;
+        return this.messagePermissions[messageKey] || apix_protocol_enum_1.APXPermissionLevel.READ;
     }
     hasPermission(userRole, requiredPermission) {
         const userPermissions = this.getPermissions(userRole);
@@ -24893,7 +24903,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.APXSchemaService = void 0;
 const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const zod_1 = __webpack_require__(/*! zod */ "zod");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const apix_protocol_enum_1 = __webpack_require__(/*! @shared/enums/apix-protocol.enum */ "./libs/shared/src/enums/apix-protocol.enum.ts");
 let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
     constructor() {
         this.logger = new common_1.Logger(APXSchemaService_1.name);
@@ -24902,7 +24912,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
     }
     initializeSchemas() {
         const baseMessageSchema = zod_1.z.object({
-            type: zod_1.z.nativeEnum(enums_1.APXMessageType),
+            type: zod_1.z.nativeEnum(apix_protocol_enum_1.APXMessageType),
             session_id: zod_1.z.string().uuid(),
             payload: zod_1.z.record(zod_1.z.any()),
             timestamp: zod_1.z.string().datetime(),
@@ -24910,11 +24920,11 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
             correlation_id: zod_1.z.string().uuid().optional(),
             user_id: zod_1.z.string().uuid().optional(),
             organization_id: zod_1.z.string().uuid().optional(),
-            security_level: zod_1.z.nativeEnum(enums_1.APXSecurityLevel).optional(),
-            permissions: zod_1.z.array(zod_1.z.nativeEnum(enums_1.APXPermissionLevel)).optional(),
+            security_level: zod_1.z.nativeEnum(apix_protocol_enum_1.APXSecurityLevel).optional(),
+            permissions: zod_1.z.array(zod_1.z.nativeEnum(apix_protocol_enum_1.APXPermissionLevel)).optional(),
             metadata: zod_1.z.record(zod_1.z.any()).optional(),
         });
-        this.schemas.set(enums_1.APXMessageType.AGENT_EXECUTION_STARTED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.AGENT_EXECUTION_STARTED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 agent_id: zod_1.z.string().uuid(),
                 execution_id: zod_1.z.string().uuid(),
@@ -24926,7 +24936,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 execution_context: zod_1.z.record(zod_1.z.any()).optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.AGENT_TEXT_CHUNK, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.AGENT_TEXT_CHUNK, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 execution_id: zod_1.z.string().uuid(),
                 chunk_id: zod_1.z.string(),
@@ -24936,7 +24946,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 cumulative_tokens: zod_1.z.number().int().nonnegative(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.AGENT_TOOL_CALL, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.AGENT_TOOL_CALL, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 execution_id: zod_1.z.string().uuid(),
                 tool_call_id: zod_1.z.string().uuid(),
@@ -24946,7 +24956,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 start_time: zod_1.z.string().datetime(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.AGENT_MEMORY_USED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.AGENT_MEMORY_USED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 execution_id: zod_1.z.string().uuid(),
                 memory_id: zod_1.z.string(),
@@ -24956,7 +24966,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 source: zod_1.z.string(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.AGENT_ERROR, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.AGENT_ERROR, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 execution_id: zod_1.z.string().uuid(),
                 error_type: zod_1.z.string(),
@@ -24967,7 +24977,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 suggested_action: zod_1.z.string(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.AGENT_EXECUTION_COMPLETE, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.AGENT_EXECUTION_COMPLETE, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 execution_id: zod_1.z.string().uuid(),
                 final_response: zod_1.z.string(),
@@ -24989,7 +24999,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 }),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.TOOL_CALL_START, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.TOOL_CALL_START, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 tool_call_id: zod_1.z.string().uuid(),
                 tool_id: zod_1.z.string(),
@@ -24999,7 +25009,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 execution_context: zod_1.z.record(zod_1.z.any()).optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.TOOL_CALL_RESULT, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.TOOL_CALL_RESULT, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 tool_call_id: zod_1.z.string().uuid(),
                 tool_id: zod_1.z.string(),
@@ -25009,7 +25019,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 cost: zod_1.z.number().nonnegative().optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.TOOL_CALL_ERROR, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.TOOL_CALL_ERROR, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 tool_call_id: zod_1.z.string().uuid(),
                 tool_id: zod_1.z.string(),
@@ -25020,7 +25030,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 retry_possible: zod_1.z.boolean(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.KB_SEARCH_PERFORMED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.KB_SEARCH_PERFORMED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 search_id: zod_1.z.string().uuid(),
                 query: zod_1.z.string(),
@@ -25030,7 +25040,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 top_k: zod_1.z.number().int().positive().optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.KB_CHUNK_INJECTED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.KB_CHUNK_INJECTED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 search_id: zod_1.z.string().uuid(),
                 chunk_id: zod_1.z.string(),
@@ -25040,7 +25050,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 metadata: zod_1.z.record(zod_1.z.any()).optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.HITL_REQUEST_CREATED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.HITL_REQUEST_CREATED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 request_id: zod_1.z.string().uuid(),
                 request_type: zod_1.z.string(),
@@ -25060,7 +25070,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 assignee_users: zod_1.z.array(zod_1.z.string()).optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.HITL_RESOLUTION_PENDING, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.HITL_RESOLUTION_PENDING, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 request_id: zod_1.z.string().uuid(),
                 assigned_to: zod_1.z.string(),
@@ -25068,7 +25078,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 expected_resolution_by: zod_1.z.string().datetime().optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.HITL_RESOLVED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.HITL_RESOLVED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 request_id: zod_1.z.string().uuid(),
                 resolved_by: zod_1.z.string(),
@@ -25077,7 +25087,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 notes: zod_1.z.string().optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.HITL_EXPIRED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.HITL_EXPIRED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 request_id: zod_1.z.string().uuid(),
                 created_at: zod_1.z.string().datetime(),
@@ -25086,7 +25096,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 fallback_result: zod_1.z.any().optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.WIDGET_LOADED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.WIDGET_LOADED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 widget_id: zod_1.z.string(),
                 widget_type: zod_1.z.string(),
@@ -25095,7 +25105,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 configuration: zod_1.z.record(zod_1.z.any()).optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.WIDGET_OPENED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.WIDGET_OPENED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 widget_id: zod_1.z.string(),
                 widget_type: zod_1.z.string(),
@@ -25105,7 +25115,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 device_info: zod_1.z.record(zod_1.z.any()).optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.WIDGET_QUERY_SUBMITTED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.WIDGET_QUERY_SUBMITTED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 interaction_id: zod_1.z.string().uuid(),
                 widget_id: zod_1.z.string(),
@@ -25115,7 +25125,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 user_info: zod_1.z.record(zod_1.z.any()).optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.WIDGET_CONVERTED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.WIDGET_CONVERTED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 widget_id: zod_1.z.string(),
                 interaction_id: zod_1.z.string().uuid(),
@@ -25124,7 +25134,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 conversion_details: zod_1.z.record(zod_1.z.any()).optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.STREAM_PAUSE, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.STREAM_PAUSE, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 execution_id: zod_1.z.string().uuid(),
                 action: zod_1.z.enum(['pause', 'resume']),
@@ -25133,8 +25143,8 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 timestamp: zod_1.z.string().datetime(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.STREAM_RESUME, this.schemas.get(enums_1.APXMessageType.STREAM_PAUSE));
-        this.schemas.set(enums_1.APXMessageType.TOKEN_LIMIT_REACHED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.STREAM_RESUME, this.schemas.get(apix_protocol_enum_1.APXMessageType.STREAM_PAUSE));
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.TOKEN_LIMIT_REACHED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 execution_id: zod_1.z.string().uuid(),
                 limit: zod_1.z.number().int().positive(),
@@ -25143,7 +25153,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 suggested_action: zod_1.z.string(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.PROVIDER_FALLBACK, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.PROVIDER_FALLBACK, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 execution_id: zod_1.z.string().uuid(),
                 original_provider: zod_1.z.string(),
@@ -25152,7 +25162,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 impact_assessment: zod_1.z.string(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.CONNECTION_ACK, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.CONNECTION_ACK, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 connection_id: zod_1.z.string().uuid(),
                 session_id: zod_1.z.string().uuid(),
@@ -25166,13 +25176,13 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                 }),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.CONNECTION_HEARTBEAT, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.CONNECTION_HEARTBEAT, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 timestamp: zod_1.z.string().datetime(),
                 client_id: zod_1.z.string().optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.SESSION_CREATED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.SESSION_CREATED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 session_id: zod_1.z.string().uuid(),
                 user_id: zod_1.z.string().uuid(),
@@ -25189,7 +25199,7 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
                     .optional(),
             }),
         }));
-        this.schemas.set(enums_1.APXMessageType.SESSION_ENDED, baseMessageSchema.extend({
+        this.schemas.set(apix_protocol_enum_1.APXMessageType.SESSION_ENDED, baseMessageSchema.extend({
             payload: zod_1.z.object({
                 session_id: zod_1.z.string().uuid(),
                 user_id: zod_1.z.string().uuid(),
@@ -25344,8 +25354,8 @@ let APXSchemaService = APXSchemaService_1 = class APXSchemaService {
             optional_fields: optionalFields,
             payload_schema: payloadSchema,
             security_requirements: {
-                min_permission_level: enums_1.APXPermissionLevel.READ,
-                required_security_level: enums_1.APXSecurityLevel.AUTHENTICATED,
+                min_permission_level: apix_protocol_enum_1.APXPermissionLevel.READ,
+                required_security_level: apix_protocol_enum_1.APXSecurityLevel.AUTHENTICATED,
                 tenant_isolation: true,
             },
         };
@@ -26274,7 +26284,7 @@ const websocket_service_1 = __webpack_require__(/*! ./websocket.service */ "./ap
 const apix_schema_service_1 = __webpack_require__(/*! ./apix-schema.service */ "./apps/gateway/src/websocket/apix-schema.service.ts");
 const apix_permission_service_1 = __webpack_require__(/*! ./apix-permission.service */ "./apps/gateway/src/websocket/apix-permission.service.ts");
 const class_validator_1 = __webpack_require__(/*! class-validator */ "class-validator");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const apix_protocol_enum_1 = __webpack_require__(/*! @shared/enums/apix-protocol.enum */ "./libs/shared/src/enums/apix-protocol.enum.ts");
 const uuid_1 = __webpack_require__(/*! uuid */ "uuid");
 class WebSocketMessageDto {
 }
@@ -26300,8 +26310,8 @@ __decorate([
 class APXMessageDto {
 }
 __decorate([
-    (0, class_validator_1.IsEnum)(enums_1.APXMessageType),
-    __metadata("design:type", typeof (_a = typeof enums_1.APXMessageType !== "undefined" && enums_1.APXMessageType) === "function" ? _a : Object)
+    (0, class_validator_1.IsEnum)(apix_protocol_enum_1.APXMessageType),
+    __metadata("design:type", typeof (_a = typeof apix_protocol_enum_1.APXMessageType !== "undefined" && apix_protocol_enum_1.APXMessageType) === "function" ? _a : Object)
 ], APXMessageDto.prototype, "type", void 0);
 __decorate([
     (0, class_validator_1.IsString)(),
@@ -26322,13 +26332,13 @@ __decorate([
     __metadata("design:type", String)
 ], APXMessageDto.prototype, "correlation_id", void 0);
 __decorate([
-    (0, class_validator_1.IsEnum)(enums_1.APXSecurityLevel),
+    (0, class_validator_1.IsEnum)(apix_protocol_enum_1.APXSecurityLevel),
     (0, class_validator_1.IsOptional)(),
-    __metadata("design:type", typeof (_b = typeof enums_1.APXSecurityLevel !== "undefined" && enums_1.APXSecurityLevel) === "function" ? _b : Object)
+    __metadata("design:type", typeof (_b = typeof apix_protocol_enum_1.APXSecurityLevel !== "undefined" && apix_protocol_enum_1.APXSecurityLevel) === "function" ? _b : Object)
 ], APXMessageDto.prototype, "security_level", void 0);
 __decorate([
     (0, class_validator_1.IsArray)(),
-    (0, class_validator_1.IsEnum)(enums_1.APXPermissionLevel, { each: true }),
+    (0, class_validator_1.IsEnum)(apix_protocol_enum_1.APXPermissionLevel, { each: true }),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", Array)
 ], APXMessageDto.prototype, "permissions", void 0);
@@ -26355,8 +26365,8 @@ __decorate([
 class APXSubscriptionDto {
 }
 __decorate([
-    (0, class_validator_1.IsEnum)(enums_1.APXMessageType),
-    __metadata("design:type", typeof (_d = typeof enums_1.APXMessageType !== "undefined" && enums_1.APXMessageType) === "function" ? _d : Object)
+    (0, class_validator_1.IsEnum)(apix_protocol_enum_1.APXMessageType),
+    __metadata("design:type", typeof (_d = typeof apix_protocol_enum_1.APXMessageType !== "undefined" && apix_protocol_enum_1.APXMessageType) === "function" ? _d : Object)
 ], APXSubscriptionDto.prototype, "message_type", void 0);
 __decorate([
     (0, class_validator_1.IsObject)(),
@@ -26388,7 +26398,7 @@ let WebSocketGatewayImpl = WebSocketGatewayImpl_1 = class WebSocketGatewayImpl {
         this.startRateLimitCleanup();
     }
     initializeMessageSchemas() {
-        for (const messageType of Object.values(enums_1.APXMessageType)) {
+        for (const messageType of Object.values(apix_protocol_enum_1.APXMessageType)) {
             const schema = this.apxSchemaService.getMessageSchema(messageType);
             if (schema) {
                 this.messageSchemas.set(messageType, schema);
@@ -26433,7 +26443,7 @@ let WebSocketGatewayImpl = WebSocketGatewayImpl_1 = class WebSocketGatewayImpl {
                 await client.join(`role:${role}:${organizationId}`);
             }
             const apxConnectionAck = {
-                type: enums_1.APXMessageType.CONNECTION_ACK,
+                type: apix_protocol_enum_1.APXMessageType.CONNECTION_ACK,
                 session_id: connectionId,
                 payload: {
                     connection_id: connectionId,
@@ -26923,7 +26933,7 @@ let WebSocketGatewayImpl = WebSocketGatewayImpl_1 = class WebSocketGatewayImpl {
                     limit: this.apxPermissionService.getRateLimit(role, 'messages'),
                     reset_at: new Date(rateLimitResult.resetTime || Date.now() + 60000).toISOString(),
                 };
-                this.sendAPXMessage(client, enums_1.APXMessageType.RATE_LIMIT_EXCEEDED, rateLimitError, messageDto.request_id);
+                this.sendAPXMessage(client, apix_protocol_enum_1.APXMessageType.RATE_LIMIT_EXCEEDED, rateLimitError, messageDto.request_id);
                 return;
             }
             const fullMessage = {
@@ -26947,11 +26957,11 @@ let WebSocketGatewayImpl = WebSocketGatewayImpl_1 = class WebSocketGatewayImpl {
                     error_message: securityResult.reason || 'Security validation failed',
                     request_id: messageDto.request_id,
                 };
-                this.sendAPXMessage(client, enums_1.APXMessageType.PERMISSION_DENIED, securityError, messageDto.request_id);
+                this.sendAPXMessage(client, apix_protocol_enum_1.APXMessageType.PERMISSION_DENIED, securityError, messageDto.request_id);
                 return;
             }
             if (!validationResult.valid && validationResult.errors) {
-                this.sendAPXMessage(client, enums_1.APXMessageType.VALIDATION_ERROR, validationResult.errors, messageDto.request_id);
+                this.sendAPXMessage(client, apix_protocol_enum_1.APXMessageType.VALIDATION_ERROR, validationResult.errors, messageDto.request_id);
                 return;
             }
             const hasPermission = this.checkMessagePermissions(messageDto.type, userId, organizationId, role);
@@ -26960,10 +26970,10 @@ let WebSocketGatewayImpl = WebSocketGatewayImpl_1 = class WebSocketGatewayImpl {
                     error_code: 'PERMISSION_DENIED',
                     error_message: 'Insufficient permissions for this message type',
                     required_permission: this.getRequiredPermission(messageDto.type),
-                    required_security_level: enums_1.APXSecurityLevel.AUTHENTICATED,
+                    required_security_level: apix_protocol_enum_1.APXSecurityLevel.AUTHENTICATED,
                     request_id: messageDto.request_id,
                 };
-                this.sendAPXMessage(client, enums_1.APXMessageType.PERMISSION_DENIED, permissionError, messageDto.request_id);
+                this.sendAPXMessage(client, apix_protocol_enum_1.APXMessageType.PERMISSION_DENIED, permissionError, messageDto.request_id);
                 return;
             }
             await this.processAPXMessage(client, {
@@ -26997,7 +27007,7 @@ let WebSocketGatewayImpl = WebSocketGatewayImpl_1 = class WebSocketGatewayImpl {
                 organizationId,
                 reason: controlDto.reason,
             });
-            this.sendAPXMessage(client, enums_1.APXMessageType.STREAM_PAUSE, {
+            this.sendAPXMessage(client, apix_protocol_enum_1.APXMessageType.STREAM_PAUSE, {
                 execution_id: controlDto.execution_id,
                 action: controlDto.action,
                 requested_by: userId,
@@ -27024,7 +27034,7 @@ let WebSocketGatewayImpl = WebSocketGatewayImpl_1 = class WebSocketGatewayImpl {
             }
             const success = await this.connectionService.subscribeToEvent(connectionId, subscriptionDto.message_type, 'tenant', subscriptionDto.target_id, subscriptionDto.filters);
             if (success) {
-                this.sendAPXMessage(client, enums_1.APXMessageType.CONNECTION_ACK, {
+                this.sendAPXMessage(client, apix_protocol_enum_1.APXMessageType.CONNECTION_ACK, {
                     subscription_confirmed: true,
                     message_type: subscriptionDto.message_type,
                     timestamp: new Date().toISOString(),
@@ -27042,35 +27052,35 @@ let WebSocketGatewayImpl = WebSocketGatewayImpl_1 = class WebSocketGatewayImpl {
     async processAPXMessage(client, message) {
         const { userId, organizationId } = client.data || {};
         switch (message.type) {
-            case enums_1.APXMessageType.AGENT_EXECUTION_STARTED:
+            case apix_protocol_enum_1.APXMessageType.AGENT_EXECUTION_STARTED:
                 await this.websocketService.handleAgentExecutionStart(message.payload, {
                     userId,
                     organizationId,
                     sessionId: message.session_id,
                 });
                 break;
-            case enums_1.APXMessageType.TOOL_CALL_START:
+            case apix_protocol_enum_1.APXMessageType.TOOL_CALL_START:
                 await this.websocketService.handleToolCallStart(message.payload, {
                     userId,
                     organizationId,
                     sessionId: message.session_id,
                 });
                 break;
-            case enums_1.APXMessageType.HITL_REQUEST_CREATED:
+            case apix_protocol_enum_1.APXMessageType.HITL_REQUEST_CREATED:
                 await this.websocketService.handleHITLRequest(message.payload, {
                     userId,
                     organizationId,
                     sessionId: message.session_id,
                 });
                 break;
-            case enums_1.APXMessageType.KB_SEARCH_PERFORMED:
+            case apix_protocol_enum_1.APXMessageType.KB_SEARCH_PERFORMED:
                 await this.websocketService.handleKnowledgeSearch(message.payload, {
                     userId,
                     organizationId,
                     sessionId: message.session_id,
                 });
                 break;
-            case enums_1.APXMessageType.WIDGET_QUERY_SUBMITTED:
+            case apix_protocol_enum_1.APXMessageType.WIDGET_QUERY_SUBMITTED:
                 await this.websocketService.handleWidgetQuery(message.payload, {
                     userId,
                     organizationId,
@@ -27092,16 +27102,16 @@ let WebSocketGatewayImpl = WebSocketGatewayImpl_1 = class WebSocketGatewayImpl {
     }
     checkSubscriptionPermissions(messageType, role) {
         const adminMessages = [
-            enums_1.APXMessageType.SESSION_CREATED,
-            enums_1.APXMessageType.SESSION_ENDED,
+            apix_protocol_enum_1.APXMessageType.SESSION_CREATED,
+            apix_protocol_enum_1.APXMessageType.SESSION_ENDED,
         ];
         if (adminMessages.includes(messageType)) {
             return ['ORG_ADMIN', 'SUPER_ADMIN'].includes(role);
         }
         const executionMessages = [
-            enums_1.APXMessageType.AGENT_EXECUTION_STARTED,
-            enums_1.APXMessageType.TOOL_CALL_START,
-            enums_1.APXMessageType.WORKFLOW_EXECUTION_STARTED,
+            apix_protocol_enum_1.APXMessageType.AGENT_EXECUTION_STARTED,
+            apix_protocol_enum_1.APXMessageType.TOOL_CALL_START,
+            apix_protocol_enum_1.APXMessageType.WORKFLOW_EXECUTION_STARTED,
         ];
         if (executionMessages.includes(messageType)) {
             return role !== 'VIEWER';
@@ -27171,7 +27181,7 @@ let WebSocketGatewayImpl = WebSocketGatewayImpl_1 = class WebSocketGatewayImpl {
             error_message: errorMessage,
             timestamp: new Date().toISOString(),
         };
-        this.sendAPXMessage(client, enums_1.APXMessageType.VALIDATION_ERROR, errorPayload, requestId);
+        this.sendAPXMessage(client, apix_protocol_enum_1.APXMessageType.VALIDATION_ERROR, errorPayload, requestId);
     }
 };
 exports.WebSocketGatewayImpl = WebSocketGatewayImpl;
@@ -28162,7 +28172,7 @@ var _a, _b, _c, _d, _e, _f, _g, _h;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.WorkflowExecutionResponseDto = exports.WorkflowResponseDto = void 0;
 const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 class WorkflowResponseDto {
 }
 exports.WorkflowResponseDto = WorkflowResponseDto;
@@ -28222,8 +28232,8 @@ __decorate([
     __metadata("design:type", String)
 ], WorkflowExecutionResponseDto.prototype, "workflowId", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ description: 'Execution status', enum: enums_1.ExecutionStatus }),
-    __metadata("design:type", typeof (_c = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _c : Object)
+    (0, swagger_1.ApiProperty)({ description: 'Execution status', enum: execution_status_enum_1.ExecutionStatus }),
+    __metadata("design:type", typeof (_c = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _c : Object)
 ], WorkflowExecutionResponseDto.prototype, "status", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ description: 'Execution input' }),
@@ -28296,7 +28306,8 @@ const tool_service_1 = __webpack_require__(/*! ../tool/tool.service */ "./apps/g
 const session_service_1 = __webpack_require__(/*! ../session/session.service */ "./apps/gateway/src/session/session.service.ts");
 const websocket_service_1 = __webpack_require__(/*! ../websocket/websocket.service */ "./apps/gateway/src/websocket/websocket.service.ts");
 const hitl_service_1 = __webpack_require__(/*! ../hitl/hitl.service */ "./apps/gateway/src/hitl/hitl.service.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
+const hitl_enum_1 = __webpack_require__(/*! @shared/enums/hitl.enum */ "./libs/shared/src/enums/hitl.enum.ts");
 const error_guards_1 = __webpack_require__(/*! @shared/utils/error-guards */ "./libs/shared/src/utils/error-guards.ts");
 const uuid_1 = __webpack_require__(/*! uuid */ "uuid");
 let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutionEngine {
@@ -28352,7 +28363,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
             sessionId,
             userId: context.userId,
             input: executeDto.input,
-            status: enums_1.ExecutionStatus.RUNNING,
+            status: execution_status_enum_1.ExecutionStatus.RUNNING,
             context: executeDto.input,
             stepResults: {},
             metadata: {
@@ -28401,7 +28412,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
         await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
             executionId,
             workflowId,
-            status: enums_1.ExecutionStatus.RUNNING,
+            status: execution_status_enum_1.ExecutionStatus.RUNNING,
             currentStep: context.currentStep,
             progress: 0,
         });
@@ -28412,7 +28423,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
             }
             const result = await this.executeWorkflowSteps(workflow, context, startNode.id);
             const executionTime = Date.now() - startTime;
-            execution.status = enums_1.ExecutionStatus.COMPLETED;
+            execution.status = execution_status_enum_1.ExecutionStatus.COMPLETED;
             execution.output = result.output;
             execution.executionTimeMs = executionTime;
             execution.cost = result.cost;
@@ -28444,7 +28455,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
             await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
                 executionId,
                 workflowId,
-                status: enums_1.ExecutionStatus.COMPLETED,
+                status: execution_status_enum_1.ExecutionStatus.COMPLETED,
                 output: result.output,
                 executionTime,
                 progress: 100,
@@ -28456,7 +28467,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
             return {
                 id: executionId,
                 workflowId,
-                status: enums_1.ExecutionStatus.COMPLETED,
+                status: execution_status_enum_1.ExecutionStatus.COMPLETED,
                 input: executeDto.input,
                 output: result.output,
                 currentStep: undefined,
@@ -28470,7 +28481,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
         }
         catch (error) {
             const executionTime = Date.now() - startTime;
-            execution.status = enums_1.ExecutionStatus.FAILED;
+            execution.status = execution_status_enum_1.ExecutionStatus.FAILED;
             execution.error = (0, error_guards_1.getErrorMessage)(error);
             execution.executionTimeMs = executionTime;
             execution.completedAt = new Date();
@@ -28495,7 +28506,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
             });
             await this.websocketService.broadcastToOrganization(context.organizationId, 'workflow:execution:failed', {
                 workflowId,
-                status: enums_1.ExecutionStatus.FAILED,
+                status: execution_status_enum_1.ExecutionStatus.FAILED,
                 error: (0, error_guards_1.getErrorMessage)(error),
                 progress: (context.completedSteps.length / workflow.definition.nodes.length) * 100,
                 executionId,
@@ -28516,7 +28527,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
         });
         this.activeExecutions.delete(executionId);
         await this.workflowExecutionRepository.update({ id: executionId }, {
-            status: enums_1.ExecutionStatus.PAUSED,
+            status: execution_status_enum_1.ExecutionStatus.PAUSED,
             workflowState: {
                 variables: context.variables,
                 completedSteps: context.completedSteps,
@@ -28536,7 +28547,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
         await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
             executionId,
             workflowId: context.workflowId,
-            status: enums_1.ExecutionStatus.PAUSED,
+            status: execution_status_enum_1.ExecutionStatus.PAUSED,
             currentStep: context.currentStep,
         });
         this.logger.log(`Workflow execution paused: ${executionId}`);
@@ -28553,7 +28564,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
         });
         this.pausedExecutions.delete(executionId);
         await this.workflowExecutionRepository.update({ id: executionId }, {
-            status: enums_1.ExecutionStatus.RUNNING,
+            status: execution_status_enum_1.ExecutionStatus.RUNNING,
             workflowState: {
                 variables: context.variables,
                 completedSteps: context.completedSteps,
@@ -28573,7 +28584,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
         await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
             executionId,
             workflowId: context.workflowId,
-            status: enums_1.ExecutionStatus.RUNNING,
+            status: execution_status_enum_1.ExecutionStatus.RUNNING,
             currentStep: context.currentStep,
         });
         this.logger.log(`Workflow execution resumed: ${executionId}`);
@@ -28586,7 +28597,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
         this.activeExecutions.delete(executionId);
         this.pausedExecutions.delete(executionId);
         await this.workflowExecutionRepository.update({ id: executionId }, {
-            status: enums_1.ExecutionStatus.CANCELLED,
+            status: execution_status_enum_1.ExecutionStatus.CANCELLED,
             completedAt: new Date(),
             workflowState: {
                 variables: context.variables,
@@ -28606,7 +28617,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
         await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
             executionId,
             workflowId: context.workflowId,
-            status: enums_1.ExecutionStatus.CANCELLED,
+            status: execution_status_enum_1.ExecutionStatus.CANCELLED,
         });
         this.logger.log(`Workflow execution cancelled: ${executionId}`);
     }
@@ -28678,7 +28689,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
                 await this.websocketService.sendWorkflowExecutionUpdate(context.organizationId, {
                     executionId: context.executionId,
                     workflowId: context.workflowId,
-                    status: enums_1.ExecutionStatus.RUNNING,
+                    status: execution_status_enum_1.ExecutionStatus.RUNNING,
                     currentStep: currentStepId,
                     progress,
                     stepResult,
@@ -28796,7 +28807,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
                 executionTime,
                 tokensUsed: 0,
                 cost: 0,
-                status: enums_1.ExecutionStatus.FAILED,
+                status: execution_status_enum_1.ExecutionStatus.FAILED,
             });
             throw new Error(`Agent execution failed in step ${step.id}: ${(0, error_guards_1.getErrorMessage)(error)}`);
         }
@@ -28846,7 +28857,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
                 executionId: (0, uuid_1.v4)(),
                 executionTime,
                 cost: 0,
-                status: enums_1.ExecutionStatus.FAILED,
+                status: execution_status_enum_1.ExecutionStatus.FAILED,
             });
             throw new Error(`Tool execution failed in step ${step.id}: ${(0, error_guards_1.getErrorMessage)(error)}`);
         }
@@ -28929,8 +28940,8 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
         const hitlRequest = await this.hitlService.createRequest({
             title: hitlConfig.title || `Workflow Step Approval Required`,
             description: hitlConfig.description || `Please review and approve workflow step: ${step.id}`,
-            type: hitlConfig.type || enums_1.HITLRequestType.APPROVAL,
-            priority: hitlConfig.priority || enums_1.HITLRequestPriority.MEDIUM,
+            type: hitlConfig.type || hitl_enum_1.HITLRequestType.APPROVAL,
+            priority: hitlConfig.priority || hitl_enum_1.HITLRequestPriority.MEDIUM,
             sourceType: 'workflow',
             sourceId: context.workflowId,
             executionId: context.executionId,
@@ -29001,7 +29012,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
             return {
                 output: {
                     hitlRequestId: hitlRequest.id,
-                    status: enums_1.ExecutionStatus.FAILED,
+                    status: execution_status_enum_1.ExecutionStatus.FAILED,
                     requestType: hitlConfig.type,
                     error: (0, error_guards_1.getErrorMessage)(error),
                 },
@@ -29050,8 +29061,8 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
             const hitlRequest = await this.hitlService.createRequest({
                 title: hitlConfig.title || `Workflow Step Approval Required`,
                 description: hitlConfig.description || `Please review and approve workflow step: ${step.id}`,
-                type: hitlConfig.type || enums_1.HITLRequestType.APPROVAL,
-                priority: hitlConfig.priority || enums_1.HITLRequestPriority.MEDIUM,
+                type: hitlConfig.type || hitl_enum_1.HITLRequestType.APPROVAL,
+                priority: hitlConfig.priority || hitl_enum_1.HITLRequestPriority.MEDIUM,
                 sourceType: 'workflow',
                 sourceId: context.workflowId,
                 executionId: context.executionId,
@@ -29124,7 +29135,7 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
                 return {
                     output: {
                         hitlRequestId: hitlRequest.id,
-                        status: enums_1.ExecutionStatus.FAILED,
+                        status: execution_status_enum_1.ExecutionStatus.FAILED,
                         requestType: hitlConfig.type,
                         error: error.message || 'Unknown error',
                     },
@@ -29142,10 +29153,10 @@ let WorkflowExecutionEngine = WorkflowExecutionEngine_1 = class WorkflowExecutio
         }
         catch (error) {
             return {
-                status: enums_1.ExecutionStatus.FAILED,
+                status: execution_status_enum_1.ExecutionStatus.FAILED,
                 requestId: null,
                 requestData: {
-                    status: enums_1.ExecutionStatus.FAILED,
+                    status: execution_status_enum_1.ExecutionStatus.FAILED,
                     requestType: hitlConfig.type,
                     error: error.message || 'Unknown error',
                 },
@@ -29396,7 +29407,7 @@ const swagger_1 = __webpack_require__(/*! @nestjs/swagger */ "@nestjs/swagger");
 const jwt_auth_guard_1 = __webpack_require__(/*! ../auth/guards/jwt-auth.guard */ "./apps/gateway/src/auth/guards/jwt-auth.guard.ts");
 const roles_guard_1 = __webpack_require__(/*! ../auth/guards/roles.guard */ "./apps/gateway/src/auth/guards/roles.guard.ts");
 const roles_decorator_1 = __webpack_require__(/*! @shared/decorators/roles.decorator */ "./libs/shared/src/decorators/roles.decorator.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const interfaces_1 = __webpack_require__(/*! @shared/interfaces */ "./libs/shared/src/interfaces/index.ts");
 const workflow_service_1 = __webpack_require__(/*! ./workflow.service */ "./apps/gateway/src/workflow/workflow.service.ts");
 const workflow_execution_engine_1 = __webpack_require__(/*! ./workflow-execution.engine */ "./apps/gateway/src/workflow/workflow-execution.engine.ts");
 const dto_1 = __webpack_require__(/*! ./dto */ "./apps/gateway/src/workflow/dto/index.ts");
@@ -29465,7 +29476,7 @@ let WorkflowController = class WorkflowController {
 exports.WorkflowController = WorkflowController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new workflow' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Workflow created successfully' }),
     __param(0, (0, common_1.Body)(common_1.ValidationPipe)),
@@ -29496,7 +29507,7 @@ __decorate([
 ], WorkflowController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Put)(':id'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Update workflow' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Workflow updated successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -29507,7 +29518,7 @@ __decorate([
 ], WorkflowController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Delete workflow' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Workflow deleted successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -29527,7 +29538,7 @@ __decorate([
 ], WorkflowController.prototype, "execute", null);
 __decorate([
     (0, common_1.Post)(':id/test'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Test workflow' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Workflow tested successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -29561,7 +29572,7 @@ __decorate([
 ], WorkflowController.prototype, "getAnalytics", null);
 __decorate([
     (0, common_1.Post)('/validate'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Validate workflow definition' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Workflow validated successfully' }),
     __param(0, (0, common_1.Body)()),
@@ -29571,7 +29582,7 @@ __decorate([
 ], WorkflowController.prototype, "validate", null);
 __decorate([
     (0, common_1.Post)(':id/clone'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Clone workflow' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Workflow cloned successfully' }),
     __param(0, (0, common_1.Param)('id')),
@@ -29591,7 +29602,7 @@ __decorate([
 ], WorkflowController.prototype, "export", null);
 __decorate([
     (0, common_1.Post)('/import'),
-    (0, roles_decorator_1.Roles)(enums_1.UserRole.DEVELOPER, enums_1.UserRole.ORG_ADMIN, enums_1.UserRole.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(interfaces_1.UserRole.DEVELOPER, interfaces_1.UserRole.ORG_ADMIN, interfaces_1.UserRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Import workflow definition' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Workflow imported successfully' }),
     __param(0, (0, common_1.Body)()),
@@ -29713,7 +29724,7 @@ const common_1 = __webpack_require__(/*! @nestjs/common */ "@nestjs/common");
 const typeorm_1 = __webpack_require__(/*! @nestjs/typeorm */ "@nestjs/typeorm");
 const typeorm_2 = __webpack_require__(/*! typeorm */ "typeorm");
 const entities_1 = __webpack_require__(/*! @database/entities */ "./libs/database/src/entities/index.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 const workflow_execution_engine_1 = __webpack_require__(/*! ./workflow-execution.engine */ "./apps/gateway/src/workflow/workflow-execution.engine.ts");
 const error_guards_1 = __webpack_require__(/*! @shared/utils/error-guards */ "./libs/shared/src/utils/error-guards.ts");
 let WorkflowService = class WorkflowService {
@@ -29824,7 +29835,7 @@ let WorkflowService = class WorkflowService {
             const result = {
                 id: `test_${Date.now()}`,
                 workflowId: testWorkflowDto.workflowId,
-                status: enums_1.ExecutionStatus.COMPLETED,
+                status: execution_status_enum_1.ExecutionStatus.COMPLETED,
                 input: testWorkflowDto.input,
                 output: currentOutput,
                 currentStep: null,
@@ -29842,7 +29853,7 @@ let WorkflowService = class WorkflowService {
             const executionTime = Date.now() - startTime;
             const result = {
                 workflowId: testWorkflowDto.workflowId,
-                status: enums_1.ExecutionStatus.FAILED,
+                status: execution_status_enum_1.ExecutionStatus.FAILED,
                 input: testWorkflowDto.input,
                 error: (0, error_guards_1.safeErrorMessage)(error),
                 executionTime,
@@ -29890,8 +29901,8 @@ let WorkflowService = class WorkflowService {
         }
         const executions = await queryBuilder.getMany();
         const totalExecutions = executions.length;
-        const successfulExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.COMPLETED).length;
-        const failedExecutions = executions.filter((e) => e.status === enums_1.ExecutionStatus.FAILED).length;
+        const successfulExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.COMPLETED).length;
+        const failedExecutions = executions.filter((e) => e.status === execution_status_enum_1.ExecutionStatus.FAILED).length;
         const completedExecutions = executions.filter((e) => e.completedAt && e.createdAt);
         const averageExecutionTime = completedExecutions.length > 0
             ? completedExecutions.reduce((sum, e) => sum + (e.completedAt.getTime() - e.createdAt.getTime()), 0) / completedExecutions.length
@@ -30095,9 +30106,12 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.databaseConfig = exports.AppDataSource = void 0;
 const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const config_1 = __webpack_require__(/*! @nestjs/config */ "@nestjs/config");
+const entities = __webpack_require__(/*! ../entities */ "./libs/database/src/entities/index.ts");
 const _001_initial_schema_1 = __webpack_require__(/*! ../migrations/001-initial-schema */ "./libs/database/src/migrations/001-initial-schema.ts");
 const _002_create_rls_policies_1 = __webpack_require__(/*! ../migrations/002-create-rls-policies */ "./libs/database/src/migrations/002-create-rls-policies.ts");
 const _003_seed_initial_data_1 = __webpack_require__(/*! ../migrations/003-seed-initial-data */ "./libs/database/src/migrations/003-seed-initial-data.ts");
+const _004_fix_notification_schema_1 = __webpack_require__(/*! ../migrations/004-fix-notification-schema */ "./libs/database/src/migrations/004-fix-notification-schema.ts");
+const _005_create_tool_templates_1 = __webpack_require__(/*! ../migrations/005-create-tool-templates */ "./libs/database/src/migrations/005-create-tool-templates.ts");
 const configService = new config_1.ConfigService();
 exports.AppDataSource = new typeorm_1.DataSource({
     type: 'postgres',
@@ -30119,10 +30133,58 @@ const databaseConfig = () => ({
     username: process.env.DATABASE_USERNAME || 'postgres',
     password: process.env.DATABASE_PASSWORD || '',
     database: process.env.DATABASE_NAME || 'synapseai',
-    entities: [`${__dirname}/../entities/*.entity{.ts,.js}`],
-    migrations: [_001_initial_schema_1.InitialSchema1700000001, _002_create_rls_policies_1.CreateRLSPolicies1700000002, _003_seed_initial_data_1.SeedInitialData1700000003],
-    migrationsRun: process.env.DATABASE_MIGRATIONS_RUN === 'true',
-    synchronize: process.env.DATABASE_SYNCHRONIZE === 'true' || true,
+    entities: [
+        entities.BaseEntity,
+        entities.Organization,
+        entities.User,
+        entities.Agent,
+        entities.AgentExecution,
+        entities.AgentTestResult,
+        entities.Tool,
+        entities.ToolExecution,
+        entities.ToolTemplate,
+        entities.Workflow,
+        entities.WorkflowExecution,
+        entities.Session,
+        entities.ConnectionStatsEntity,
+        entities.MessageTrackingEntity,
+        entities.EventLog,
+        entities.Subscription,
+        entities.Notification,
+        entities.NotificationPreference,
+        entities.AIProvider,
+        entities.AIProviderExecution,
+        entities.AIProviderMetrics,
+        entities.PromptTemplate,
+        entities.TestingSandbox,
+        entities.TestScenario,
+        entities.TestExecution,
+        entities.MockData,
+        entities.DebugSession,
+        entities.SandboxRun,
+        entities.SandboxEvent,
+        entities.HITLRequest,
+        entities.HITLComment,
+        entities.HITLVote,
+        entities.Widget,
+        entities.WidgetExecution,
+        entities.WidgetAnalytics,
+        entities.KnowledgeDocument,
+        entities.KnowledgeDocumentChunk,
+        entities.KnowledgeDocumentVersion,
+        entities.KnowledgeSearch,
+        entities.KnowledgeSearchFeedback,
+        entities.KnowledgeAnalytics,
+        entities.APXSession,
+        entities.APXExecution,
+        entities.APXAnalytics,
+        entities.BillingSubscription,
+        entities.NotificationDelivery,
+        entities.NotificationTemplate,
+    ],
+    migrations: [_001_initial_schema_1.InitialSchema1700000000001, _002_create_rls_policies_1.CreateRLSPolicies1700000000002, _003_seed_initial_data_1.SeedInitialData1700000000003, _004_fix_notification_schema_1.FixNotificationSchema1700000000004, _005_create_tool_templates_1.CreateToolTemplates1700000000005],
+    migrationsRun: true,
+    synchronize: false,
     logging: process.env.DATABASE_LOGGING === 'true' || false,
     ssl: process.env.DATABASE_SSL === 'true'
         ? {
@@ -30134,19 +30196,8 @@ const databaseConfig = () => ({
         acquireTimeout: 60000,
         timeout: 60000,
         reconnect: true,
-        charset: 'utf8mb4_unicode_ci',
     },
     poolSize: 20,
-    cache: {
-        duration: 30000,
-        type: 'redis',
-        options: {
-            host: process.env.REDIS_HOST || 'localhost',
-            port: parseInt(process.env.REDIS_PORT || '6379', 10),
-            password: process.env.REDIS_PASSWORD || undefined,
-            db: parseInt(process.env.REDIS_CACHE_DB || '1', 10),
-        },
-    },
     applicationName: 'tempo-ai-platform',
     maxQueryExecutionTime: process.env.NODE_ENV === 'development' ? 1000 : 5000,
 });
@@ -30206,7 +30257,7 @@ exports.AgentExecution = void 0;
 const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/src/entities/base.entity.ts");
 const agent_entity_1 = __webpack_require__(/*! ./agent.entity */ "./libs/database/src/entities/agent.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let AgentExecution = class AgentExecution extends base_entity_1.BaseEntity {
 };
 exports.AgentExecution = AgentExecution;
@@ -30229,10 +30280,10 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.ExecutionStatus,
-        default: enums_1.ExecutionStatus.PENDING,
+        enum: execution_status_enum_1.ExecutionStatus,
+        default: execution_status_enum_1.ExecutionStatus.PENDING,
     }),
-    __metadata("design:type", typeof (_a = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _a : Object)
+    __metadata("design:type", typeof (_a = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _a : Object)
 ], AgentExecution.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
@@ -30303,7 +30354,7 @@ exports.AgentTestResult = void 0;
 const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/src/entities/base.entity.ts");
 const agent_entity_1 = __webpack_require__(/*! ./agent.entity */ "./libs/database/src/entities/agent.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let AgentTestResult = class AgentTestResult extends base_entity_1.BaseEntity {
 };
 exports.AgentTestResult = AgentTestResult;
@@ -30334,10 +30385,10 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.ExecutionStatus,
-        default: enums_1.ExecutionStatus.PENDING,
+        enum: execution_status_enum_1.ExecutionStatus,
+        default: execution_status_enum_1.ExecutionStatus.PENDING,
     }),
-    __metadata("design:type", typeof (_d = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _d : Object)
+    __metadata("design:type", typeof (_d = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _d : Object)
 ], AgentTestResult.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', default: false }),
@@ -30533,7 +30584,7 @@ const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/
 const organization_entity_1 = __webpack_require__(/*! ./organization.entity */ "./libs/database/src/entities/organization.entity.ts");
 const user_entity_1 = __webpack_require__(/*! ./user.entity */ "./libs/database/src/entities/user.entity.ts");
 const ai_provider_entity_1 = __webpack_require__(/*! ./ai-provider.entity */ "./libs/database/src/entities/ai-provider.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 var ExecutionType;
 (function (ExecutionType) {
     ExecutionType["AGENT"] = "agent";
@@ -30569,8 +30620,8 @@ __decorate([
     __metadata("design:type", typeof (_b = typeof Record !== "undefined" && Record) === "function" ? _b : Object)
 ], AIProviderExecution.prototype, "output", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'enum', enum: enums_1.ExecutionStatus }),
-    __metadata("design:type", typeof (_c = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _c : Object)
+    (0, typeorm_1.Column)({ type: 'enum', enum: execution_status_enum_1.ExecutionStatus }),
+    __metadata("design:type", typeof (_c = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _c : Object)
 ], AIProviderExecution.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'integer', nullable: true }),
@@ -31022,7 +31073,7 @@ const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/
 const user_entity_1 = __webpack_require__(/*! ./user.entity */ "./libs/database/src/entities/user.entity.ts");
 const organization_entity_1 = __webpack_require__(/*! ./organization.entity */ "./libs/database/src/entities/organization.entity.ts");
 const apix_session_entity_1 = __webpack_require__(/*! ./apix-session.entity */ "./libs/database/src/entities/apix-session.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const apix_protocol_enum_1 = __webpack_require__(/*! @shared/enums/apix-protocol.enum */ "./libs/shared/src/enums/apix-protocol.enum.ts");
 let APXExecution = class APXExecution extends base_entity_1.BaseEntity {
 };
 exports.APXExecution = APXExecution;
@@ -31031,16 +31082,16 @@ __decorate([
     __metadata("design:type", String)
 ], APXExecution.prototype, "executionId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'enum', enum: enums_1.APXMessageType }),
-    __metadata("design:type", typeof (_a = typeof enums_1.APXMessageType !== "undefined" && enums_1.APXMessageType) === "function" ? _a : Object)
+    (0, typeorm_1.Column)({ type: 'enum', enum: apix_protocol_enum_1.APXMessageType }),
+    __metadata("design:type", typeof (_a = typeof apix_protocol_enum_1.APXMessageType !== "undefined" && apix_protocol_enum_1.APXMessageType) === "function" ? _a : Object)
 ], APXExecution.prototype, "executionType", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'enum', enum: enums_1.APXExecutionState, default: enums_1.APXExecutionState.PENDING }),
-    __metadata("design:type", typeof (_b = typeof enums_1.APXExecutionState !== "undefined" && enums_1.APXExecutionState) === "function" ? _b : Object)
+    (0, typeorm_1.Column)({ type: 'enum', enum: apix_protocol_enum_1.APXExecutionState, default: apix_protocol_enum_1.APXExecutionState.PENDING }),
+    __metadata("design:type", typeof (_b = typeof apix_protocol_enum_1.APXExecutionState !== "undefined" && apix_protocol_enum_1.APXExecutionState) === "function" ? _b : Object)
 ], APXExecution.prototype, "state", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'enum', enum: enums_1.APXStreamState, default: enums_1.APXStreamState.INITIALIZING }),
-    __metadata("design:type", typeof (_c = typeof enums_1.APXStreamState !== "undefined" && enums_1.APXStreamState) === "function" ? _c : Object)
+    (0, typeorm_1.Column)({ type: 'enum', enum: apix_protocol_enum_1.APXStreamState, default: apix_protocol_enum_1.APXStreamState.INITIALIZING }),
+    __metadata("design:type", typeof (_c = typeof apix_protocol_enum_1.APXStreamState !== "undefined" && apix_protocol_enum_1.APXStreamState) === "function" ? _c : Object)
 ], APXExecution.prototype, "streamState", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'uuid' }),
@@ -31164,7 +31215,7 @@ const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/src/entities/base.entity.ts");
 const user_entity_1 = __webpack_require__(/*! ./user.entity */ "./libs/database/src/entities/user.entity.ts");
 const organization_entity_1 = __webpack_require__(/*! ./organization.entity */ "./libs/database/src/entities/organization.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const apix_protocol_enum_1 = __webpack_require__(/*! @shared/enums/apix-protocol.enum */ "./libs/shared/src/enums/apix-protocol.enum.ts");
 const apix_execution_entity_1 = __webpack_require__(/*! ./apix-execution.entity */ "./libs/database/src/entities/apix-execution.entity.ts");
 let APXSession = class APXSession extends base_entity_1.BaseEntity {
 };
@@ -31174,19 +31225,19 @@ __decorate([
     __metadata("design:type", String)
 ], APXSession.prototype, "sessionId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 255 }),
+    (0, typeorm_1.Column)({ type: 'uuid' }),
     __metadata("design:type", String)
 ], APXSession.prototype, "userId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'varchar', length: 255 }),
+    (0, typeorm_1.Column)({ type: 'uuid' }),
     __metadata("design:type", String)
 ], APXSession.prototype, "organizationId", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'enum', enum: enums_1.APXSecurityLevel, default: enums_1.APXSecurityLevel.PUBLIC }),
-    __metadata("design:type", typeof (_a = typeof enums_1.APXSecurityLevel !== "undefined" && enums_1.APXSecurityLevel) === "function" ? _a : Object)
+    (0, typeorm_1.Column)({ type: 'enum', enum: apix_protocol_enum_1.APXSecurityLevel, default: apix_protocol_enum_1.APXSecurityLevel.PUBLIC }),
+    __metadata("design:type", typeof (_a = typeof apix_protocol_enum_1.APXSecurityLevel !== "undefined" && apix_protocol_enum_1.APXSecurityLevel) === "function" ? _a : Object)
 ], APXSession.prototype, "securityLevel", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'enum', enum: enums_1.APXPermissionLevel, default: enums_1.APXPermissionLevel.READ }),
+    (0, typeorm_1.Column)({ type: 'enum', enum: apix_protocol_enum_1.APXPermissionLevel, default: apix_protocol_enum_1.APXPermissionLevel.READ }),
     __metadata("design:type", Array)
 ], APXSession.prototype, "permissions", void 0);
 __decorate([
@@ -31578,7 +31629,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.EventLog = void 0;
 const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/src/entities/base.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const agent_event_enum_1 = __webpack_require__(/*! @shared/enums/agent-event.enum */ "./libs/shared/src/enums/agent-event.enum.ts");
 let EventLog = class EventLog extends base_entity_1.BaseEntity {
 };
 exports.EventLog = EventLog;
@@ -31589,9 +31640,9 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.AgentEventType,
+        enum: agent_event_enum_1.AgentEventType,
     }),
-    __metadata("design:type", typeof (_a = typeof enums_1.AgentEventType !== "undefined" && enums_1.AgentEventType) === "function" ? _a : Object)
+    __metadata("design:type", typeof (_a = typeof agent_event_enum_1.AgentEventType !== "undefined" && agent_event_enum_1.AgentEventType) === "function" ? _a : Object)
 ], EventLog.prototype, "eventType", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 100 }),
@@ -31677,29 +31728,29 @@ exports.HITLVote = exports.HITLComment = exports.HITLRequest = void 0;
 const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/src/entities/base.entity.ts");
 const user_entity_1 = __webpack_require__(/*! ./user.entity */ "./libs/database/src/entities/user.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const hitl_enum_1 = __webpack_require__(/*! @shared/enums/hitl.enum */ "./libs/shared/src/enums/hitl.enum.ts");
 let HITLRequest = class HITLRequest extends base_entity_1.BaseEntity {
     isExpired() {
         return new Date() > this.expiresAt;
     }
     canBeApproved() {
-        return ((this.status === enums_1.HITLRequestStatus.PENDING ||
-            this.status === enums_1.HITLRequestStatus.IN_PROGRESS) &&
+        return ((this.status === hitl_enum_1.HITLRequestStatus.PENDING ||
+            this.status === hitl_enum_1.HITLRequestStatus.IN_PROGRESS) &&
             !this.isExpired());
     }
     requiresVoting() {
-        return (this.decisionType === enums_1.HITLDecisionType.MAJORITY_VOTE ||
-            this.decisionType === enums_1.HITLDecisionType.UNANIMOUS);
+        return (this.decisionType === hitl_enum_1.HITLDecisionType.MAJORITY_VOTE ||
+            this.decisionType === hitl_enum_1.HITLDecisionType.UNANIMOUS);
     }
     hasRequiredVotes() {
         if (!this.requiresVoting() || !this.votingData) {
             return false;
         }
         const { totalVotes, approvalVotes, requiredVotes } = this.votingData;
-        if (this.decisionType === enums_1.HITLDecisionType.UNANIMOUS) {
+        if (this.decisionType === hitl_enum_1.HITLDecisionType.UNANIMOUS) {
             return totalVotes >= requiredVotes && approvalVotes === totalVotes;
         }
-        if (this.decisionType === enums_1.HITLDecisionType.MAJORITY_VOTE) {
+        if (this.decisionType === hitl_enum_1.HITLDecisionType.MAJORITY_VOTE) {
             return totalVotes >= requiredVotes && approvalVotes > totalVotes / 2;
         }
         return false;
@@ -31761,34 +31812,34 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.HITLRequestType,
-        default: enums_1.HITLRequestType.APPROVAL,
+        enum: hitl_enum_1.HITLRequestType,
+        default: hitl_enum_1.HITLRequestType.APPROVAL,
     }),
-    __metadata("design:type", typeof (_a = typeof enums_1.HITLRequestType !== "undefined" && enums_1.HITLRequestType) === "function" ? _a : Object)
+    __metadata("design:type", typeof (_a = typeof hitl_enum_1.HITLRequestType !== "undefined" && hitl_enum_1.HITLRequestType) === "function" ? _a : Object)
 ], HITLRequest.prototype, "type", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.HITLRequestStatus,
-        default: enums_1.HITLRequestStatus.PENDING,
+        enum: hitl_enum_1.HITLRequestStatus,
+        default: hitl_enum_1.HITLRequestStatus.PENDING,
     }),
-    __metadata("design:type", typeof (_b = typeof enums_1.HITLRequestStatus !== "undefined" && enums_1.HITLRequestStatus) === "function" ? _b : Object)
+    __metadata("design:type", typeof (_b = typeof hitl_enum_1.HITLRequestStatus !== "undefined" && hitl_enum_1.HITLRequestStatus) === "function" ? _b : Object)
 ], HITLRequest.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.HITLRequestPriority,
-        default: enums_1.HITLRequestPriority.MEDIUM,
+        enum: hitl_enum_1.HITLRequestPriority,
+        default: hitl_enum_1.HITLRequestPriority.MEDIUM,
     }),
-    __metadata("design:type", typeof (_c = typeof enums_1.HITLRequestPriority !== "undefined" && enums_1.HITLRequestPriority) === "function" ? _c : Object)
+    __metadata("design:type", typeof (_c = typeof hitl_enum_1.HITLRequestPriority !== "undefined" && hitl_enum_1.HITLRequestPriority) === "function" ? _c : Object)
 ], HITLRequest.prototype, "priority", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.HITLDecisionType,
-        default: enums_1.HITLDecisionType.SINGLE_APPROVER,
+        enum: hitl_enum_1.HITLDecisionType,
+        default: hitl_enum_1.HITLDecisionType.SINGLE_APPROVER,
     }),
-    __metadata("design:type", typeof (_d = typeof enums_1.HITLDecisionType !== "undefined" && enums_1.HITLDecisionType) === "function" ? _d : Object)
+    __metadata("design:type", typeof (_d = typeof hitl_enum_1.HITLDecisionType !== "undefined" && hitl_enum_1.HITLDecisionType) === "function" ? _d : Object)
 ], HITLRequest.prototype, "decisionType", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 50 }),
@@ -31873,10 +31924,10 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.HITLEscalationReason,
+        enum: hitl_enum_1.HITLEscalationReason,
         nullable: true,
     }),
-    __metadata("design:type", typeof (_l = typeof enums_1.HITLEscalationReason !== "undefined" && enums_1.HITLEscalationReason) === "function" ? _l : Object)
+    __metadata("design:type", typeof (_l = typeof hitl_enum_1.HITLEscalationReason !== "undefined" && hitl_enum_1.HITLEscalationReason) === "function" ? _l : Object)
 ], HITLRequest.prototype, "escalationReason", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', default: false }),
@@ -32185,7 +32236,7 @@ exports.KnowledgeDocumentVersion = exports.KnowledgeDocumentChunk = exports.Know
 const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const user_entity_1 = __webpack_require__(/*! ./user.entity */ "./libs/database/src/entities/user.entity.ts");
 const organization_entity_1 = __webpack_require__(/*! ./organization.entity */ "./libs/database/src/entities/organization.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 var DocumentType;
 (function (DocumentType) {
     DocumentType["PDF"] = "pdf";
@@ -32241,10 +32292,10 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.DocumentStatus,
-        default: enums_1.DocumentStatus.UPLOADED,
+        enum: execution_status_enum_1.DocumentStatus,
+        default: execution_status_enum_1.DocumentStatus.UPLOADED,
     }),
-    __metadata("design:type", typeof (_b = typeof enums_1.DocumentStatus !== "undefined" && enums_1.DocumentStatus) === "function" ? _b : Object)
+    __metadata("design:type", typeof (_b = typeof execution_status_enum_1.DocumentStatus !== "undefined" && execution_status_enum_1.DocumentStatus) === "function" ? _b : Object)
 ], KnowledgeDocument.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({
@@ -32948,36 +32999,36 @@ exports.NotificationDelivery = void 0;
 const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/src/entities/base.entity.ts");
 const notification_entity_1 = __webpack_require__(/*! ./notification.entity */ "./libs/database/src/entities/notification.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let NotificationDelivery = class NotificationDelivery extends base_entity_1.BaseEntity {
     isDelivered() {
-        return this.status === enums_1.ExecutionStatus.COMPLETED && !!this.deliveredAt;
+        return this.status === execution_status_enum_1.ExecutionStatus.COMPLETED && !!this.deliveredAt;
     }
     isFailed() {
-        return this.status === enums_1.ExecutionStatus.FAILED;
+        return this.status === execution_status_enum_1.ExecutionStatus.FAILED;
     }
     isPending() {
-        return this.status === enums_1.ExecutionStatus.PENDING;
+        return this.status === execution_status_enum_1.ExecutionStatus.PENDING;
     }
     isRunning() {
-        return this.status === enums_1.ExecutionStatus.RUNNING;
+        return this.status === execution_status_enum_1.ExecutionStatus.RUNNING;
     }
     canRetry() {
         return this.retryCount < this.maxRetries && this.isFailed();
     }
     markAsSent() {
-        this.status = enums_1.ExecutionStatus.RUNNING;
+        this.status = execution_status_enum_1.ExecutionStatus.RUNNING;
         this.sentAt = new Date();
     }
     markAsDelivered(providerResponse) {
-        this.status = enums_1.ExecutionStatus.COMPLETED;
+        this.status = execution_status_enum_1.ExecutionStatus.COMPLETED;
         this.deliveredAt = new Date();
         if (providerResponse) {
             this.providerResponse = providerResponse;
         }
     }
     markAsFailed(error, errorCode, providerResponse) {
-        this.status = enums_1.ExecutionStatus.FAILED;
+        this.status = execution_status_enum_1.ExecutionStatus.FAILED;
         this.failedAt = new Date();
         this.errorMessage = error;
         this.errorCode = errorCode || 'DELIVERY_FAILED';
@@ -33003,17 +33054,17 @@ exports.NotificationDelivery = NotificationDelivery;
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.NotificationType,
+        enum: execution_status_enum_1.NotificationType,
     }),
-    __metadata("design:type", typeof (_a = typeof enums_1.NotificationType !== "undefined" && enums_1.NotificationType) === "function" ? _a : Object)
+    __metadata("design:type", typeof (_a = typeof execution_status_enum_1.NotificationType !== "undefined" && execution_status_enum_1.NotificationType) === "function" ? _a : Object)
 ], NotificationDelivery.prototype, "type", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.ExecutionStatus,
-        default: enums_1.ExecutionStatus.PENDING,
+        enum: execution_status_enum_1.ExecutionStatus,
+        default: execution_status_enum_1.ExecutionStatus.PENDING,
     }),
-    __metadata("design:type", typeof (_b = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _b : Object)
+    __metadata("design:type", typeof (_b = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _b : Object)
 ], NotificationDelivery.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 500 }),
@@ -33121,7 +33172,7 @@ const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/src/entities/base.entity.ts");
 const user_entity_1 = __webpack_require__(/*! ./user.entity */ "./libs/database/src/entities/user.entity.ts");
 const organization_entity_1 = __webpack_require__(/*! ./organization.entity */ "./libs/database/src/entities/organization.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let NotificationPreference = class NotificationPreference extends base_entity_1.BaseEntity {
     isInQuietHours(date = new Date()) {
         if (!this.settings?.quietHours?.enabled) {
@@ -33175,11 +33226,11 @@ let NotificationPreference = class NotificationPreference extends base_entity_1.
     }
     getDeliveryAddress() {
         switch (this.type) {
-            case enums_1.NotificationType.EMAIL:
+            case execution_status_enum_1.NotificationType.EMAIL:
                 return this.settings?.delivery?.email?.address || this.user?.email || null;
-            case enums_1.NotificationType.SMS:
+            case execution_status_enum_1.NotificationType.SMS:
                 return this.settings?.delivery?.sms?.number || null;
-            case enums_1.NotificationType.WEBHOOK:
+            case execution_status_enum_1.NotificationType.WEBHOOK:
                 return this.settings?.delivery?.webhook?.url || null;
             default:
                 return null;
@@ -33194,9 +33245,9 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.NotificationType,
+        enum: execution_status_enum_1.NotificationType,
     }),
-    __metadata("design:type", typeof (_a = typeof enums_1.NotificationType !== "undefined" && enums_1.NotificationType) === "function" ? _a : Object)
+    __metadata("design:type", typeof (_a = typeof execution_status_enum_1.NotificationType !== "undefined" && execution_status_enum_1.NotificationType) === "function" ? _a : Object)
 ], NotificationPreference.prototype, "type", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'boolean', default: true }),
@@ -33259,7 +33310,7 @@ const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/
 const user_entity_1 = __webpack_require__(/*! ./user.entity */ "./libs/database/src/entities/user.entity.ts");
 const organization_entity_1 = __webpack_require__(/*! ./organization.entity */ "./libs/database/src/entities/organization.entity.ts");
 const notification_entity_1 = __webpack_require__(/*! ./notification.entity */ "./libs/database/src/entities/notification.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let NotificationTemplate = class NotificationTemplate extends base_entity_1.BaseEntity {
     renderSubject(variables) {
         return this.interpolateTemplate(this.subject, variables);
@@ -33337,9 +33388,9 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.NotificationType,
+        enum: execution_status_enum_1.NotificationType,
     }),
-    __metadata("design:type", typeof (_a = typeof enums_1.NotificationType !== "undefined" && enums_1.NotificationType) === "function" ? _a : Object)
+    __metadata("design:type", typeof (_a = typeof execution_status_enum_1.NotificationType !== "undefined" && execution_status_enum_1.NotificationType) === "function" ? _a : Object)
 ], NotificationTemplate.prototype, "type", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 255 }),
@@ -33444,16 +33495,16 @@ const user_entity_1 = __webpack_require__(/*! ./user.entity */ "./libs/database/
 const organization_entity_1 = __webpack_require__(/*! ./organization.entity */ "./libs/database/src/entities/organization.entity.ts");
 const notification_delivery_entity_1 = __webpack_require__(/*! ./notification-delivery.entity */ "./libs/database/src/entities/notification-delivery.entity.ts");
 const notification_template_entity_1 = __webpack_require__(/*! ./notification-template.entity */ "./libs/database/src/entities/notification-template.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let Notification = class Notification extends base_entity_1.BaseEntity {
     isRead() {
         return !!this.readAt;
     }
     isSent() {
-        return this.status === enums_1.ExecutionStatus.COMPLETED;
+        return this.status === execution_status_enum_1.ExecutionStatus.COMPLETED;
     }
     isFailed() {
-        return this.status === enums_1.ExecutionStatus.FAILED;
+        return this.status === execution_status_enum_1.ExecutionStatus.FAILED;
     }
     canRetry() {
         return this.retryCount < this.maxRetries && this.isFailed();
@@ -33464,11 +33515,11 @@ let Notification = class Notification extends base_entity_1.BaseEntity {
         }
     }
     markAsSent() {
-        this.status = enums_1.ExecutionStatus.COMPLETED;
+        this.status = execution_status_enum_1.ExecutionStatus.COMPLETED;
         this.sentAt = new Date();
     }
     markAsFailed(error) {
-        this.status = enums_1.ExecutionStatus.FAILED;
+        this.status = execution_status_enum_1.ExecutionStatus.FAILED;
         this.errorMessage = error;
         this.retryCount++;
     }
@@ -33485,26 +33536,26 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.NotificationType,
-        default: enums_1.NotificationType.IN_APP,
+        enum: execution_status_enum_1.NotificationType,
+        default: execution_status_enum_1.NotificationType.IN_APP,
     }),
-    __metadata("design:type", typeof (_a = typeof enums_1.NotificationType !== "undefined" && enums_1.NotificationType) === "function" ? _a : Object)
+    __metadata("design:type", typeof (_a = typeof execution_status_enum_1.NotificationType !== "undefined" && execution_status_enum_1.NotificationType) === "function" ? _a : Object)
 ], Notification.prototype, "type", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.NotificationPriority,
-        default: enums_1.NotificationPriority.MEDIUM,
+        enum: execution_status_enum_1.NotificationPriority,
+        default: execution_status_enum_1.NotificationPriority.MEDIUM,
     }),
-    __metadata("design:type", typeof (_b = typeof enums_1.NotificationPriority !== "undefined" && enums_1.NotificationPriority) === "function" ? _b : Object)
+    __metadata("design:type", typeof (_b = typeof execution_status_enum_1.NotificationPriority !== "undefined" && execution_status_enum_1.NotificationPriority) === "function" ? _b : Object)
 ], Notification.prototype, "priority", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.ExecutionStatus,
-        default: enums_1.ExecutionStatus.PENDING,
+        enum: execution_status_enum_1.ExecutionStatus,
+        default: execution_status_enum_1.ExecutionStatus.PENDING,
     }),
-    __metadata("design:type", typeof (_c = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _c : Object)
+    __metadata("design:type", typeof (_c = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _c : Object)
 ], Notification.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
@@ -33961,7 +34012,7 @@ const user_entity_1 = __webpack_require__(/*! ./user.entity */ "./libs/database/
 const organization_entity_1 = __webpack_require__(/*! ./organization.entity */ "./libs/database/src/entities/organization.entity.ts");
 const testing_sandbox_entity_1 = __webpack_require__(/*! ./testing-sandbox.entity */ "./libs/database/src/entities/testing-sandbox.entity.ts");
 const sandbox_event_entity_1 = __webpack_require__(/*! ./sandbox-event.entity */ "./libs/database/src/entities/sandbox-event.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let SandboxRun = class SandboxRun extends base_entity_1.BaseEntity {
 };
 exports.SandboxRun = SandboxRun;
@@ -33984,10 +34035,10 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.ExecutionStatus,
-        default: enums_1.ExecutionStatus.PENDING,
+        enum: execution_status_enum_1.ExecutionStatus,
+        default: execution_status_enum_1.ExecutionStatus.PENDING,
     }),
-    __metadata("design:type", typeof (_a = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _a : Object)
+    __metadata("design:type", typeof (_a = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _a : Object)
 ], SandboxRun.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
@@ -34079,8 +34130,7 @@ exports.SandboxRun = SandboxRun = __decorate([
     (0, typeorm_1.Entity)('sandbox_runs'),
     (0, typeorm_1.Index)(['sandboxId', 'organizationId']),
     (0, typeorm_1.Index)(['organizationId', 'userId']),
-    (0, typeorm_1.Index)(['organizationId', 'status']),
-    (0, typeorm_1.Index)(['organizationId', 'targetType'])
+    (0, typeorm_1.Index)(['organizationId', 'status'])
 ], SandboxRun);
 
 
@@ -34332,7 +34382,7 @@ const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/
 const user_entity_1 = __webpack_require__(/*! ./user.entity */ "./libs/database/src/entities/user.entity.ts");
 const organization_entity_1 = __webpack_require__(/*! ./organization.entity */ "./libs/database/src/entities/organization.entity.ts");
 const testing_sandbox_entity_1 = __webpack_require__(/*! ./testing-sandbox.entity */ "./libs/database/src/entities/testing-sandbox.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let TestExecution = class TestExecution extends base_entity_1.BaseEntity {
 };
 exports.TestExecution = TestExecution;
@@ -34351,10 +34401,10 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.ExecutionStatus,
-        default: enums_1.ExecutionStatus.PENDING,
+        enum: execution_status_enum_1.ExecutionStatus,
+        default: execution_status_enum_1.ExecutionStatus.PENDING,
     }),
-    __metadata("design:type", typeof (_a = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _a : Object)
+    __metadata("design:type", typeof (_a = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _a : Object)
 ], TestExecution.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
@@ -34715,7 +34765,7 @@ exports.ToolExecution = void 0;
 const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/src/entities/base.entity.ts");
 const tool_entity_1 = __webpack_require__(/*! ./tool.entity */ "./libs/database/src/entities/tool.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let ToolExecution = class ToolExecution extends base_entity_1.BaseEntity {
 };
 exports.ToolExecution = ToolExecution;
@@ -34738,10 +34788,10 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.ExecutionStatus,
-        default: enums_1.ExecutionStatus.PENDING,
+        enum: execution_status_enum_1.ExecutionStatus,
+        default: execution_status_enum_1.ExecutionStatus.PENDING,
     }),
-    __metadata("design:type", typeof (_c = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _c : Object)
+    __metadata("design:type", typeof (_c = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _c : Object)
 ], ToolExecution.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
@@ -35087,13 +35137,6 @@ const ai_provider_entity_1 = __webpack_require__(/*! ./ai-provider.entity */ "./
 const tool_template_entity_1 = __webpack_require__(/*! ./tool-template.entity */ "./libs/database/src/entities/tool-template.entity.ts");
 const interfaces_1 = __webpack_require__(/*! @shared/interfaces */ "./libs/shared/src/interfaces/index.ts");
 let User = class User extends base_entity_1.BaseEntity {
-    constructor() {
-        super(...arguments);
-        this.apixSessions = [];
-        this.apixExecutions = [];
-        this.aiProviders = [];
-        this.toolTemplates = [];
-    }
     get fullName() {
         return `${this.firstName} ${this.lastName}`;
     }
@@ -36130,7 +36173,7 @@ exports.WorkflowExecution = void 0;
 const typeorm_1 = __webpack_require__(/*! typeorm */ "typeorm");
 const base_entity_1 = __webpack_require__(/*! ./base.entity */ "./libs/database/src/entities/base.entity.ts");
 const workflow_entity_1 = __webpack_require__(/*! ./workflow.entity */ "./libs/database/src/entities/workflow.entity.ts");
-const enums_1 = __webpack_require__(/*! @shared/enums */ "./libs/shared/src/enums/index.ts");
+const execution_status_enum_1 = __webpack_require__(/*! @shared/enums/execution-status.enum */ "./libs/shared/src/enums/execution-status.enum.ts");
 let WorkflowExecution = class WorkflowExecution extends base_entity_1.BaseEntity {
 };
 exports.WorkflowExecution = WorkflowExecution;
@@ -36157,10 +36200,10 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({
         type: 'enum',
-        enum: enums_1.ExecutionStatus,
-        default: enums_1.ExecutionStatus.PENDING,
+        enum: execution_status_enum_1.ExecutionStatus,
+        default: execution_status_enum_1.ExecutionStatus.PENDING,
     }),
-    __metadata("design:type", typeof (_c = typeof enums_1.ExecutionStatus !== "undefined" && enums_1.ExecutionStatus) === "function" ? _c : Object)
+    __metadata("design:type", typeof (_c = typeof execution_status_enum_1.ExecutionStatus !== "undefined" && execution_status_enum_1.ExecutionStatus) === "function" ? _c : Object)
 ], WorkflowExecution.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'jsonb', nullable: true }),
@@ -36329,10 +36372,65 @@ exports.Workflow = Workflow = __decorate([
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.InitialSchema1700000001 = void 0;
-class InitialSchema1700000001 {
+exports.InitialSchema1700000000001 = void 0;
+var ExecutionStatus;
+(function (ExecutionStatus) {
+    ExecutionStatus["PENDING"] = "PENDING";
+    ExecutionStatus["RUNNING"] = "RUNNING";
+    ExecutionStatus["COMPLETED"] = "COMPLETED";
+    ExecutionStatus["FAILED"] = "FAILED";
+    ExecutionStatus["CANCELLED"] = "CANCELLED";
+    ExecutionStatus["TIMEOUT"] = "TIMEOUT";
+})(ExecutionStatus || (ExecutionStatus = {}));
+var UserRole;
+(function (UserRole) {
+    UserRole["SUPER_ADMIN"] = "SUPER_ADMIN";
+    UserRole["ADMIN"] = "ADMIN";
+    UserRole["MANAGER"] = "MANAGER";
+    UserRole["DEVELOPER"] = "DEVELOPER";
+    UserRole["VIEWER"] = "VIEWER";
+})(UserRole || (UserRole = {}));
+var SubscriptionPlan;
+(function (SubscriptionPlan) {
+    SubscriptionPlan["FREE"] = "FREE";
+    SubscriptionPlan["STARTER"] = "STARTER";
+    SubscriptionPlan["PROFESSIONAL"] = "PROFESSIONAL";
+    SubscriptionPlan["ENTERPRISE"] = "ENTERPRISE";
+})(SubscriptionPlan || (SubscriptionPlan = {}));
+var HITLStatus;
+(function (HITLStatus) {
+    HITLStatus["PENDING"] = "PENDING";
+    HITLStatus["IN_PROGRESS"] = "IN_PROGRESS";
+    HITLStatus["RESOLVED"] = "RESOLVED";
+    HITLStatus["ESCALATED"] = "ESCALATED";
+    HITLStatus["CANCELLED"] = "CANCELLED";
+})(HITLStatus || (HITLStatus = {}));
+var HITLPriority;
+(function (HITLPriority) {
+    HITLPriority["LOW"] = "LOW";
+    HITLPriority["MEDIUM"] = "MEDIUM";
+    HITLPriority["HIGH"] = "HIGH";
+    HITLPriority["CRITICAL"] = "CRITICAL";
+})(HITLPriority || (HITLPriority = {}));
+var NotificationType;
+(function (NotificationType) {
+    NotificationType["INFO"] = "INFO";
+    NotificationType["SUCCESS"] = "SUCCESS";
+    NotificationType["WARNING"] = "WARNING";
+    NotificationType["ERROR"] = "ERROR";
+    NotificationType["SYSTEM"] = "SYSTEM";
+})(NotificationType || (NotificationType = {}));
+var NotificationChannel;
+(function (NotificationChannel) {
+    NotificationChannel["EMAIL"] = "EMAIL";
+    NotificationChannel["SMS"] = "SMS";
+    NotificationChannel["PUSH"] = "PUSH";
+    NotificationChannel["WEBHOOK"] = "WEBHOOK";
+    NotificationChannel["IN_APP"] = "IN_APP";
+})(NotificationChannel || (NotificationChannel = {}));
+class InitialSchema1700000000001 {
     constructor() {
-        this.name = 'InitialSchema1700000001';
+        this.name = 'InitialSchema1700000000001';
     }
     async up(queryRunner) {
         await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
@@ -36341,47 +36439,79 @@ class InitialSchema1700000001 {
         await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "pg_stat_statements"`);
         await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`);
         await queryRunner.query(`
-      CREATE TYPE "user_role_enum" AS ENUM(
-        'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEVELOPER', 'VIEWER'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "user_role_enum" AS ENUM(
+          'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEVELOPER', 'VIEWER'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
         await queryRunner.query(`
-      CREATE TYPE "subscription_plan_enum" AS ENUM(
-        'FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "subscription_plan_enum" AS ENUM(
+          'FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
         await queryRunner.query(`
-      CREATE TYPE "execution_status_enum" AS ENUM(
-        'PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED', 'TIMEOUT'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "execution_status_enum" AS ENUM(
+          'PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED', 'TIMEOUT'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
         await queryRunner.query(`
-      CREATE TYPE "agent_event_enum" AS ENUM(
-        'CREATED', 'UPDATED', 'DELETED', 'EXECUTED', 'TESTED', 'DEPLOYED'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "agent_event_enum" AS ENUM(
+          'CREATED', 'UPDATED', 'DELETED', 'EXECUTED', 'TESTED', 'DEPLOYED'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
         await queryRunner.query(`
-      CREATE TYPE "hitl_status_enum" AS ENUM(
-        'PENDING', 'IN_PROGRESS', 'RESOLVED', 'ESCALATED', 'CANCELLED'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "hitl_status_enum" AS ENUM(
+          'PENDING', 'IN_PROGRESS', 'RESOLVED', 'ESCALATED', 'CANCELLED'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
         await queryRunner.query(`
-      CREATE TYPE "hitl_priority_enum" AS ENUM(
-        'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "hitl_priority_enum" AS ENUM(
+          'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
         await queryRunner.query(`
-      CREATE TYPE "notification_type_enum" AS ENUM(
-        'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'SYSTEM'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "notification_type_enum" AS ENUM(
+          'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'SYSTEM'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
         await queryRunner.query(`
-      CREATE TYPE "notification_channel_enum" AS ENUM(
-        'EMAIL', 'SMS', 'PUSH', 'WEBHOOK', 'IN_APP'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "notification_channel_enum" AS ENUM(
+          'EMAIL', 'SMS', 'PUSH', 'WEBHOOK', 'IN_APP'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
         await queryRunner.query(`
-      CREATE TABLE "organizations" (
+      CREATE TABLE IF NOT EXISTS "organizations" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36401,7 +36531,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "users" (
+      CREATE TABLE IF NOT EXISTS "users" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36428,7 +36558,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "ai_providers" (
+      CREATE TABLE IF NOT EXISTS "ai_providers" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36448,7 +36578,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "agents" (
+      CREATE TABLE IF NOT EXISTS "agents" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36475,7 +36605,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "tools" (
+      CREATE TABLE IF NOT EXISTS "tools" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36500,7 +36630,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "workflows" (
+      CREATE TABLE IF NOT EXISTS "workflows" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36524,7 +36654,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "widgets" (
+      CREATE TABLE IF NOT EXISTS "widgets" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36555,7 +36685,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "sessions" (
+      CREATE TABLE IF NOT EXISTS "sessions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36575,7 +36705,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "agent_executions" (
+      CREATE TABLE IF NOT EXISTS "agent_executions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36584,15 +36714,15 @@ class InitialSchema1700000001 {
         "agentId" uuid NOT NULL,
         "userId" uuid NOT NULL,
         "sessionId" uuid,
+        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
         "input" jsonb NOT NULL,
         "output" jsonb,
-        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
+        "error" text,
         "startedAt" TIMESTAMP WITH TIME ZONE,
         "completedAt" TIMESTAMP WITH TIME ZONE,
         "duration" integer,
         "tokensUsed" integer,
-        "cost" decimal(10,4),
-        "error" text,
+        "cost" decimal(10,6),
         "metadata" jsonb,
         CONSTRAINT "PK_agent_executions" PRIMARY KEY ("id"),
         CONSTRAINT "FK_agent_executions_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
@@ -36602,7 +36732,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "tool_executions" (
+      CREATE TABLE IF NOT EXISTS "tool_executions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36610,25 +36740,25 @@ class InitialSchema1700000001 {
         "organizationId" uuid NOT NULL,
         "toolId" uuid NOT NULL,
         "userId" uuid NOT NULL,
-        "sessionId" uuid,
+        "agentExecutionId" uuid,
+        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
         "input" jsonb NOT NULL,
         "output" jsonb,
-        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
+        "error" text,
         "startedAt" TIMESTAMP WITH TIME ZONE,
         "completedAt" TIMESTAMP WITH TIME ZONE,
         "duration" integer,
-        "cost" decimal(10,4),
-        "error" text,
+        "cost" decimal(10,6),
         "metadata" jsonb,
         CONSTRAINT "PK_tool_executions" PRIMARY KEY ("id"),
         CONSTRAINT "FK_tool_executions_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_tool_executions_tool" FOREIGN KEY ("toolId") REFERENCES "tools"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_tool_executions_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_tool_executions_session" FOREIGN KEY ("sessionId") REFERENCES "sessions"("id") ON DELETE SET NULL
+        CONSTRAINT "FK_tool_executions_agent_execution" FOREIGN KEY ("agentExecutionId") REFERENCES "agent_executions"("id") ON DELETE SET NULL
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "workflow_executions" (
+      CREATE TABLE IF NOT EXISTS "workflow_executions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36636,26 +36766,46 @@ class InitialSchema1700000001 {
         "organizationId" uuid NOT NULL,
         "workflowId" uuid NOT NULL,
         "userId" uuid NOT NULL,
-        "sessionId" uuid,
+        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
         "input" jsonb NOT NULL,
         "output" jsonb,
-        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
+        "error" text,
         "startedAt" TIMESTAMP WITH TIME ZONE,
         "completedAt" TIMESTAMP WITH TIME ZONE,
         "duration" integer,
-        "steps" jsonb DEFAULT '[]',
-        "currentStep" integer DEFAULT 0,
-        "error" text,
+        "steps" jsonb,
         "metadata" jsonb,
         CONSTRAINT "PK_workflow_executions" PRIMARY KEY ("id"),
         CONSTRAINT "FK_workflow_executions_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_workflow_executions_workflow" FOREIGN KEY ("workflowId") REFERENCES "workflows"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_workflow_executions_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_workflow_executions_session" FOREIGN KEY ("sessionId") REFERENCES "sessions"("id") ON DELETE SET NULL
+        CONSTRAINT "FK_workflow_executions_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "knowledge_documents" (
+      CREATE TABLE IF NOT EXISTS "notifications" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        "deletedAt" TIMESTAMP WITH TIME ZONE,
+        "organizationId" uuid NOT NULL,
+        "userId" uuid NOT NULL,
+        "type" "notification_type_enum" NOT NULL,
+        "channel" "notification_channel_enum" NOT NULL,
+        "title" character varying(255) NOT NULL,
+        "message" text NOT NULL,
+        "data" jsonb,
+        "readAt" TIMESTAMP WITH TIME ZONE,
+        "sentAt" TIMESTAMP WITH TIME ZONE,
+        "deliveredAt" TIMESTAMP WITH TIME ZONE,
+        "status" character varying(50) DEFAULT 'PENDING',
+        "metadata" jsonb,
+        CONSTRAINT "PK_notifications" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_notifications_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
+        CONSTRAINT "FK_notifications_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
+      )
+    `);
+        await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS "knowledge_documents" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36666,7 +36816,7 @@ class InitialSchema1700000001 {
         "content" text NOT NULL,
         "type" character varying(100) NOT NULL,
         "source" character varying(500),
-        "embedding" vector(1536),
+        "embedding" text,
         "metadata" jsonb,
         "tags" text[],
         "isActive" boolean NOT NULL DEFAULT true,
@@ -36676,7 +36826,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "prompt_templates" (
+      CREATE TABLE IF NOT EXISTS "prompt_templates" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36699,7 +36849,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "hitl_requests" (
+      CREATE TABLE IF NOT EXISTS "hitl_requests" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36724,48 +36874,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "notifications" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        "deletedAt" TIMESTAMP WITH TIME ZONE,
-        "organizationId" uuid NOT NULL,
-        "userId" uuid NOT NULL,
-        "title" character varying(255) NOT NULL,
-        "message" text NOT NULL,
-        "type" "notification_type_enum" NOT NULL DEFAULT 'INFO',
-        "channel" "notification_channel_enum" NOT NULL DEFAULT 'IN_APP',
-        "isRead" boolean NOT NULL DEFAULT false,
-        "readAt" TIMESTAMP WITH TIME ZONE,
-        "data" jsonb,
-        "metadata" jsonb,
-        CONSTRAINT "PK_notifications" PRIMARY KEY ("id"),
-        CONSTRAINT "FK_notifications_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_notifications_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
-      )
-    `);
-        await queryRunner.query(`
-      CREATE TABLE "widget_analytics" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        "deletedAt" TIMESTAMP WITH TIME ZONE,
-        "organizationId" uuid NOT NULL,
-        "widgetId" uuid NOT NULL,
-        "event" character varying(100) NOT NULL,
-        "data" jsonb,
-        "sessionId" character varying(255),
-        "userId" character varying(255),
-        "ipAddress" character varying(45),
-        "userAgent" text,
-        "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_widget_analytics" PRIMARY KEY ("id"),
-        CONSTRAINT "FK_widget_analytics_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_widget_analytics_widget" FOREIGN KEY ("widgetId") REFERENCES "widgets"("id") ON DELETE CASCADE
-      )
-    `);
-        await queryRunner.query(`
-      CREATE TABLE "testing_sandboxes" (
+      CREATE TABLE IF NOT EXISTS "testing_sandboxes" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36785,7 +36894,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "test_scenarios" (
+      CREATE TABLE IF NOT EXISTS "test_scenarios" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36804,7 +36913,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "test_executions" (
+      CREATE TABLE IF NOT EXISTS "test_executions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36826,7 +36935,7 @@ class InitialSchema1700000001 {
       )
     `);
         await queryRunner.query(`
-      CREATE TABLE "subscriptions" (
+      CREATE TABLE IF NOT EXISTS "subscriptions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -36852,11 +36961,7 @@ class InitialSchema1700000001 {
         await queryRunner.query(`DROP TABLE IF EXISTS "test_executions"`);
         await queryRunner.query(`DROP TABLE IF EXISTS "test_scenarios"`);
         await queryRunner.query(`DROP TABLE IF EXISTS "testing_sandboxes"`);
-        await queryRunner.query(`DROP TABLE IF EXISTS "widget_analytics"`);
         await queryRunner.query(`DROP TABLE IF EXISTS "notifications"`);
-        await queryRunner.query(`DROP TABLE IF EXISTS "hitl_requests"`);
-        await queryRunner.query(`DROP TABLE IF EXISTS "prompt_templates"`);
-        await queryRunner.query(`DROP TABLE IF EXISTS "knowledge_documents"`);
         await queryRunner.query(`DROP TABLE IF EXISTS "workflow_executions"`);
         await queryRunner.query(`DROP TABLE IF EXISTS "tool_executions"`);
         await queryRunner.query(`DROP TABLE IF EXISTS "agent_executions"`);
@@ -36868,6 +36973,9 @@ class InitialSchema1700000001 {
         await queryRunner.query(`DROP TABLE IF EXISTS "ai_providers"`);
         await queryRunner.query(`DROP TABLE IF EXISTS "users"`);
         await queryRunner.query(`DROP TABLE IF EXISTS "organizations"`);
+        await queryRunner.query(`DROP TABLE IF EXISTS "knowledge_documents"`);
+        await queryRunner.query(`DROP TABLE IF EXISTS "prompt_templates"`);
+        await queryRunner.query(`DROP TABLE IF EXISTS "hitl_requests"`);
         await queryRunner.query(`DROP TYPE IF EXISTS "notification_channel_enum"`);
         await queryRunner.query(`DROP TYPE IF EXISTS "notification_type_enum"`);
         await queryRunner.query(`DROP TYPE IF EXISTS "hitl_priority_enum"`);
@@ -36878,42 +36986,63 @@ class InitialSchema1700000001 {
         await queryRunner.query(`DROP TYPE IF EXISTS "user_role_enum"`);
     }
     async createIndexes(queryRunner) {
-        await queryRunner.query(`CREATE INDEX "idx_organizations_slug" ON "organizations" ("slug")`);
-        await queryRunner.query(`CREATE INDEX "idx_organizations_plan" ON "organizations" ("plan")`);
-        await queryRunner.query(`CREATE INDEX "idx_organizations_active" ON "organizations" ("isActive")`);
-        await queryRunner.query(`CREATE INDEX "idx_users_org_email" ON "users" ("organizationId", "email")`);
-        await queryRunner.query(`CREATE INDEX "idx_users_role" ON "users" ("role")`);
-        await queryRunner.query(`CREATE INDEX "idx_users_active" ON "users" ("isActive")`);
-        await queryRunner.query(`CREATE INDEX "idx_users_last_login" ON "users" ("lastLoginAt")`);
-        await queryRunner.query(`CREATE INDEX "idx_agents_org_name" ON "agents" ("organizationId", "name")`);
-        await queryRunner.query(`CREATE INDEX "idx_agents_user" ON "agents" ("userId")`);
-        await queryRunner.query(`CREATE INDEX "idx_agents_active" ON "agents" ("isActive")`);
-        await queryRunner.query(`CREATE INDEX "idx_agents_public" ON "agents" ("isPublic")`);
-        await queryRunner.query(`CREATE INDEX "idx_tools_org_name" ON "tools" ("organizationId", "name")`);
-        await queryRunner.query(`CREATE INDEX "idx_tools_user" ON "tools" ("userId")`);
-        await queryRunner.query(`CREATE INDEX "idx_tools_type" ON "tools" ("type")`);
-        await queryRunner.query(`CREATE INDEX "idx_tools_active" ON "tools" ("isActive")`);
-        await queryRunner.query(`CREATE INDEX "idx_workflows_org_name" ON "workflows" ("organizationId", "name")`);
-        await queryRunner.query(`CREATE INDEX "idx_workflows_user" ON "workflows" ("userId")`);
-        await queryRunner.query(`CREATE INDEX "idx_workflows_status" ON "workflows" ("status")`);
-        await queryRunner.query(`CREATE INDEX "idx_workflows_active" ON "workflows" ("isActive")`);
-        await queryRunner.query(`CREATE INDEX "idx_agent_executions_org_created" ON "agent_executions" ("organizationId", "createdAt" DESC)`);
-        await queryRunner.query(`CREATE INDEX "idx_agent_executions_agent_status" ON "agent_executions" ("agentId", "status")`);
-        await queryRunner.query(`CREATE INDEX "idx_agent_executions_session" ON "agent_executions" ("sessionId")`);
-        await queryRunner.query(`CREATE INDEX "idx_tool_executions_org_created" ON "tool_executions" ("organizationId", "createdAt" DESC)`);
-        await queryRunner.query(`CREATE INDEX "idx_tool_executions_tool_status" ON "tool_executions" ("toolId", "status")`);
-        await queryRunner.query(`CREATE INDEX "idx_workflow_executions_org_created" ON "workflow_executions" ("organizationId", "createdAt" DESC)`);
-        await queryRunner.query(`CREATE INDEX "idx_workflow_executions_workflow_status" ON "workflow_executions" ("workflowId", "status")`);
-        await queryRunner.query(`CREATE INDEX "idx_agents_search" ON "agents" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`);
-        await queryRunner.query(`CREATE INDEX "idx_tools_search" ON "tools" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`);
-        await queryRunner.query(`CREATE INDEX "idx_workflows_search" ON "workflows" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`);
-        await queryRunner.query(`CREATE INDEX "idx_sessions_user_id" ON "sessions" ("userId")`);
-        await queryRunner.query(`CREATE INDEX "idx_sessions_expires_at" ON "sessions" ("expiresAt")`);
-        await queryRunner.query(`CREATE INDEX "idx_sessions_token" ON "sessions" ("sessionToken")`);
-        await queryRunner.query(`CREATE INDEX "idx_notifications_user_created" ON "notifications" ("userId", "createdAt" DESC)`);
-        await queryRunner.query(`CREATE INDEX "idx_notifications_read_status" ON "notifications" ("isRead", "createdAt" DESC)`);
-        await queryRunner.query(`CREATE INDEX "idx_widget_analytics_widget_timestamp" ON "widget_analytics" ("widgetId", "timestamp" DESC)`);
-        await queryRunner.query(`CREATE INDEX "idx_widget_analytics_event_timestamp" ON "widget_analytics" ("event", "timestamp" DESC)`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_organizations_slug" ON "organizations" ("slug")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_organizations_plan" ON "organizations" ("plan")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_organizations_active" ON "organizations" ("isActive")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_users_org_email" ON "users" ("organizationId", "email")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_users_role" ON "users" ("role")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_users_active" ON "users" ("isActive")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_users_last_login" ON "users" ("lastLoginAt")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agents_org_name" ON "agents" ("organizationId", "name")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agents_user" ON "agents" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agents_active" ON "agents" ("isActive")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agents_public" ON "agents" ("isPublic")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tools_org_name" ON "tools" ("organizationId", "name")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tools_user" ON "tools" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tools_type" ON "tools" ("type")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tools_active" ON "tools" ("isActive")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_workflows_org_name" ON "workflows" ("organizationId", "name")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_workflows_user" ON "workflows" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_workflows_status" ON "workflows" ("status")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_workflows_active" ON "workflows" ("isActive")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_widgets_org_name" ON "widgets" ("organizationId", "name")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_widgets_user" ON "widgets" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_widgets_type" ON "widgets" ("type")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_widgets_active" ON "widgets" ("isActive")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_sessions_user" ON "sessions" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_sessions_expires" ON "sessions" ("expiresAt")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_sessions_org" ON "sessions" ("organizationId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agent_executions_agent" ON "agent_executions" ("agentId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agent_executions_user" ON "agent_executions" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agent_executions_status" ON "agent_executions" ("status")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agent_executions_created" ON "agent_executions" ("createdAt")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tool_executions_tool" ON "tool_executions" ("toolId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tool_executions_user" ON "tool_executions" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tool_executions_status" ON "tool_executions" ("status")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_workflow_executions_workflow" ON "workflow_executions" ("workflowId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_workflow_executions_user" ON "workflow_executions" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_workflow_executions_status" ON "workflow_executions" ("status")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_notifications_user" ON "notifications" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_notifications_type" ON "notifications" ("type")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_notifications_status" ON "notifications" ("status")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_notifications_created" ON "notifications" ("createdAt")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_knowledge_documents_org" ON "knowledge_documents" ("organizationId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_knowledge_documents_user" ON "knowledge_documents" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_knowledge_documents_type" ON "knowledge_documents" ("type")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_prompt_templates_org" ON "prompt_templates" ("organizationId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_prompt_templates_user" ON "prompt_templates" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_prompt_templates_category" ON "prompt_templates" ("category")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_hitl_requests_org" ON "hitl_requests" ("organizationId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_hitl_requests_requester" ON "hitl_requests" ("requesterId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_hitl_requests_assignee" ON "hitl_requests" ("assigneeId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_hitl_requests_status" ON "hitl_requests" ("status")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_hitl_requests_priority" ON "hitl_requests" ("priority")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_testing_sandboxes_org" ON "testing_sandboxes" ("organizationId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_testing_sandboxes_user" ON "testing_sandboxes" ("userId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_testing_sandboxes_status" ON "testing_sandboxes" ("status")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_subscriptions_org" ON "subscriptions" ("organizationId")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_subscriptions_status" ON "subscriptions" ("status")`);
+        await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_subscriptions_plan" ON "subscriptions" ("plan")`);
     }
     async enableRLS(queryRunner) {
         const tables = [
@@ -36931,7 +37060,6 @@ class InitialSchema1700000001 {
             'hitl_requests',
             'prompt_templates',
             'knowledge_documents',
-            'widget_analytics',
             'testing_sandboxes',
             'test_scenarios',
             'test_executions',
@@ -36942,7 +37070,7 @@ class InitialSchema1700000001 {
         }
     }
 }
-exports.InitialSchema1700000001 = InitialSchema1700000001;
+exports.InitialSchema1700000000001 = InitialSchema1700000000001;
 
 
 /***/ }),
@@ -36956,12 +37084,63 @@ exports.InitialSchema1700000001 = InitialSchema1700000001;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.CreateRLSPolicies1700000002 = void 0;
-class CreateRLSPolicies1700000002 {
+exports.CreateRLSPolicies1700000000002 = void 0;
+class CreateRLSPolicies1700000000002 {
     constructor() {
-        this.name = 'CreateRLSPolicies1700000002';
+        this.name = 'CreateRLSPolicies1700000000002';
     }
     async up(queryRunner) {
+        await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE ROLE authenticated_user;
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+        await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE ROLE anonymous_user;
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+        await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE ROLE service_role;
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+        await queryRunner.query(`GRANT USAGE ON SCHEMA public TO authenticated_user`);
+        await queryRunner.query(`GRANT USAGE ON SCHEMA public TO anonymous_user`);
+        await queryRunner.query(`GRANT ALL ON SCHEMA public TO service_role`);
+        const tables = [
+            'organizations',
+            'users',
+            'agents',
+            'tools',
+            'workflows',
+            'widgets',
+            'agent_executions',
+            'tool_executions',
+            'workflow_executions',
+            'sessions',
+            'notifications',
+            'hitl_requests',
+            'prompt_templates',
+            'knowledge_documents',
+            'testing_sandboxes',
+            'test_scenarios',
+            'test_executions',
+            'subscriptions',
+            'ai_providers',
+        ];
+        for (const table of tables) {
+            await queryRunner.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${table}" TO authenticated_user`);
+            await queryRunner.query(`GRANT ALL ON "${table}" TO service_role`);
+        }
+        await queryRunner.query(`GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated_user`);
+        await queryRunner.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role`);
         await queryRunner.query(`
       CREATE POLICY "tenant_isolation_organizations" ON "organizations"
       FOR ALL TO authenticated_user
@@ -37029,11 +37208,6 @@ class CreateRLSPolicies1700000002 {
     `);
         await queryRunner.query(`
       CREATE POLICY "tenant_isolation_knowledge_documents" ON "knowledge_documents"
-      FOR ALL TO authenticated_user
-      USING ("organizationId" = current_setting('app.current_organization_id')::uuid)
-    `);
-        await queryRunner.query(`
-      CREATE POLICY "tenant_isolation_widget_analytics" ON "widget_analytics"
       FOR ALL TO authenticated_user
       USING ("organizationId" = current_setting('app.current_organization_id')::uuid)
     `);
@@ -37118,40 +37292,6 @@ class CreateRLSPolicies1700000002 {
         current_setting('app.current_user_role') IN ('SUPER_ADMIN', 'ADMIN', 'MANAGER')
       )
     `);
-        await queryRunner.query(`CREATE ROLE authenticated_user`);
-        await queryRunner.query(`CREATE ROLE anonymous_user`);
-        await queryRunner.query(`CREATE ROLE service_role`);
-        await queryRunner.query(`GRANT USAGE ON SCHEMA public TO authenticated_user`);
-        await queryRunner.query(`GRANT USAGE ON SCHEMA public TO anonymous_user`);
-        await queryRunner.query(`GRANT ALL ON SCHEMA public TO service_role`);
-        const tables = [
-            'organizations',
-            'users',
-            'agents',
-            'tools',
-            'workflows',
-            'widgets',
-            'agent_executions',
-            'tool_executions',
-            'workflow_executions',
-            'sessions',
-            'notifications',
-            'hitl_requests',
-            'prompt_templates',
-            'knowledge_documents',
-            'widget_analytics',
-            'testing_sandboxes',
-            'test_scenarios',
-            'test_executions',
-            'subscriptions',
-            'ai_providers',
-        ];
-        for (const table of tables) {
-            await queryRunner.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON "${table}" TO authenticated_user`);
-            await queryRunner.query(`GRANT ALL ON "${table}" TO service_role`);
-        }
-        await queryRunner.query(`GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated_user`);
-        await queryRunner.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role`);
     }
     async down(queryRunner) {
         const tables = [
@@ -37191,7 +37331,7 @@ class CreateRLSPolicies1700000002 {
         await queryRunner.query(`DROP ROLE IF EXISTS service_role`);
     }
 }
-exports.CreateRLSPolicies1700000002 = CreateRLSPolicies1700000002;
+exports.CreateRLSPolicies1700000000002 = CreateRLSPolicies1700000000002;
 
 
 /***/ }),
@@ -37205,10 +37345,10 @@ exports.CreateRLSPolicies1700000002 = CreateRLSPolicies1700000002;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.SeedInitialData1700000003 = void 0;
-class SeedInitialData1700000003 {
+exports.SeedInitialData1700000000003 = void 0;
+class SeedInitialData1700000000003 {
     constructor() {
-        this.name = 'SeedInitialData1700000003';
+        this.name = 'SeedInitialData1700000000003';
     }
     async up(queryRunner) {
         await queryRunner.query(`
@@ -37621,7 +37761,7 @@ Present your findings in a clear, structured format with actionable insights.',
         await queryRunner.query(`
       INSERT INTO "notifications" (
         "id", "organizationId", "userId", "title", "message", 
-        "type", "channel", "isRead", "createdAt", "updatedAt"
+        "type", "channel", "status", "createdAt", "updatedAt"
       )
       SELECT 
         uuid_generate_v4(),
@@ -37631,7 +37771,7 @@ Present your findings in a clear, structured format with actionable insights.',
         'Welcome to your AI agent platform! Your system has been initialized with sample data including agents, tools, and workflows. You can start building and deploying your AI solutions right away.',
         'INFO',
         'IN_APP',
-        false,
+        'PENDING',
         NOW(),
         NOW()
       FROM "organizations" o 
@@ -37653,7 +37793,177 @@ Present your findings in a clear, structured format with actionable insights.',
         await queryRunner.query(`DELETE FROM "organizations" WHERE "slug" = 'default-org'`);
     }
 }
-exports.SeedInitialData1700000003 = SeedInitialData1700000003;
+exports.SeedInitialData1700000000003 = SeedInitialData1700000000003;
+
+
+/***/ }),
+
+/***/ "./libs/database/src/migrations/004-fix-notification-schema.ts":
+/*!*********************************************************************!*\
+  !*** ./libs/database/src/migrations/004-fix-notification-schema.ts ***!
+  \*********************************************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.FixNotificationSchema1700000000004 = void 0;
+class FixNotificationSchema1700000000004 {
+    constructor() {
+        this.name = 'FixNotificationSchema1700000000004';
+    }
+    async up(queryRunner) {
+        const hasChannelColumn = await queryRunner.hasColumn('notification_preferences', 'channel');
+        if (hasChannelColumn) {
+            await queryRunner.query(`ALTER TABLE "notification_preferences" DROP COLUMN "channel"`);
+        }
+        const hasNotificationChannelType = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM pg_type 
+        WHERE typname = 'NotificationChannel'
+      );
+    `);
+        if (hasNotificationChannelType[0].exists) {
+            await queryRunner.query(`DROP TYPE "NotificationChannel" CASCADE`);
+        }
+        await queryRunner.query(`DROP TABLE IF EXISTS "notification_preferences"`);
+        await queryRunner.query(`
+      CREATE TABLE "notification_preferences" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "eventType" character varying(100) NOT NULL,
+        "type" "notification_type_enum" NOT NULL,
+        "isEnabled" boolean NOT NULL DEFAULT true,
+        "settings" jsonb,
+        "userId" uuid NOT NULL,
+        "organizationId" uuid NOT NULL,
+        CONSTRAINT "PK_notification_preferences" PRIMARY KEY ("id")
+      )
+    `);
+        await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_notification_preferences_user_org" 
+      ON "notification_preferences" ("userId", "organizationId")
+    `);
+        await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_notification_preferences_event_enabled" 
+      ON "notification_preferences" ("eventType", "isEnabled")
+    `);
+        await queryRunner.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "IDX_notification_preferences_unique" 
+      ON "notification_preferences" ("userId", "organizationId", "eventType", "type")
+    `);
+    }
+    async down(queryRunner) {
+        await queryRunner.query(`
+      CREATE TYPE "NotificationChannel" AS ENUM ('email', 'sms', 'push', 'webhook', 'in_app')
+    `);
+        await queryRunner.query(`
+      ALTER TABLE "notification_preferences" 
+      ADD COLUMN "channel" "NotificationChannel"
+    `);
+        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_notification_preferences_user_org"`);
+        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_notification_preferences_event_enabled"`);
+        await queryRunner.query(`DROP INDEX IF EXISTS "IDX_notification_preferences_unique"`);
+    }
+}
+exports.FixNotificationSchema1700000000004 = FixNotificationSchema1700000000004;
+
+
+/***/ }),
+
+/***/ "./libs/database/src/migrations/005-create-tool-templates.ts":
+/*!*******************************************************************!*\
+  !*** ./libs/database/src/migrations/005-create-tool-templates.ts ***!
+  \*******************************************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CreateToolTemplates1700000000005 = void 0;
+class CreateToolTemplates1700000000005 {
+    constructor() {
+        this.name = 'CreateToolTemplates1700000000005';
+    }
+    async up(queryRunner) {
+        await queryRunner.query(`
+      CREATE TABLE "tool_templates" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "name" character varying(255) NOT NULL,
+        "description" text,
+        "category" character varying(100) NOT NULL,
+        "endpoint" character varying(500) NOT NULL,
+        "method" character varying(10) NOT NULL DEFAULT 'POST',
+        "schema" jsonb NOT NULL,
+        "headers" jsonb,
+        "authentication" jsonb,
+        "tags" text,
+        "iconUrl" character varying(500),
+        "isActive" boolean NOT NULL DEFAULT true,
+        "isPublic" boolean NOT NULL DEFAULT false,
+        "templateRating" decimal(3,2) NOT NULL DEFAULT '0',
+        "templateRatingCount" integer NOT NULL DEFAULT '0',
+        "templateDownloads" integer NOT NULL DEFAULT '0',
+        "templateFeatured" boolean NOT NULL DEFAULT false,
+        "templateMetadata" jsonb,
+        "parentTemplateId" uuid,
+        "version" character varying(50) NOT NULL DEFAULT '1.0.0',
+        "metadata" jsonb,
+        "organizationId" uuid NOT NULL,
+        "userId" uuid NOT NULL,
+        CONSTRAINT "PK_tool_templates" PRIMARY KEY ("id")
+      )
+    `);
+        await queryRunner.query(`
+      CREATE INDEX "IDX_tool_templates_category_isPublic" ON "tool_templates" ("category", "isPublic")
+    `);
+        await queryRunner.query(`
+      CREATE INDEX "IDX_tool_templates_organizationId_isActive" ON "tool_templates" ("organizationId", "isActive")
+    `);
+        await queryRunner.query(`
+      CREATE INDEX "IDX_tool_templates_templateRating" ON "tool_templates" ("templateRating")
+    `);
+        await queryRunner.query(`
+      ALTER TABLE "tool_templates" ADD CONSTRAINT "FK_tool_templates_organization" 
+      FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+    `);
+        await queryRunner.query(`
+      ALTER TABLE "tool_templates" ADD CONSTRAINT "FK_tool_templates_user" 
+      FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+    `);
+        await queryRunner.query(`
+      ALTER TABLE "tool_templates" ADD CONSTRAINT "FK_tool_templates_parent" 
+      FOREIGN KEY ("parentTemplateId") REFERENCES "tool_templates"("id") ON DELETE SET NULL ON UPDATE NO ACTION
+    `);
+    }
+    async down(queryRunner) {
+        await queryRunner.query(`
+      ALTER TABLE "tool_templates" DROP CONSTRAINT "FK_tool_templates_parent"
+    `);
+        await queryRunner.query(`
+      ALTER TABLE "tool_templates" DROP CONSTRAINT "FK_tool_templates_user"
+    `);
+        await queryRunner.query(`
+      ALTER TABLE "tool_templates" DROP CONSTRAINT "FK_tool_templates_organization"
+    `);
+        await queryRunner.query(`
+      DROP INDEX "IDX_tool_templates_templateRating"
+    `);
+        await queryRunner.query(`
+      DROP INDEX "IDX_tool_templates_organizationId_isActive"
+    `);
+        await queryRunner.query(`
+      DROP INDEX "IDX_tool_templates_category_isPublic"
+    `);
+        await queryRunner.query(`
+      DROP TABLE "tool_templates"
+    `);
+    }
+}
+exports.CreateToolTemplates1700000000005 = CreateToolTemplates1700000000005;
 
 
 /***/ }),
@@ -37935,6 +38245,24 @@ var AgentEventType;
     AgentEventType["AI_PROVIDER_KEY_ROTATED"] = "ai_provider.key_rotated";
     AgentEventType["AI_PROVIDER_HEALTH_CHECK"] = "ai_provider.health_check";
     AgentEventType["AI_PROVIDER_STATUS_CHANGED"] = "ai_provider.status_changed";
+    AgentEventType["NOTIFICATION_SENT"] = "notification.sent";
+    AgentEventType["NOTIFICATION_FAILED"] = "notification.failed";
+    AgentEventType["NOTIFICATION_DELIVERED"] = "notification.delivered";
+    AgentEventType["NOTIFICATION_READ"] = "notification.read";
+    AgentEventType["KNOWLEDGE_DOCUMENT_UPLOADED"] = "knowledge.document.uploaded";
+    AgentEventType["KNOWLEDGE_DOCUMENT_PROCESSED"] = "knowledge.document.processed";
+    AgentEventType["KNOWLEDGE_DOCUMENT_DELETED"] = "knowledge.document.deleted";
+    AgentEventType["SESSION_CONTEXT_UPDATED"] = "session.context.updated";
+    AgentEventType["SESSION_RECOVERY_COMPLETED"] = "session.recovery.completed";
+    AgentEventType["USER_CREATED"] = "user.created";
+    AgentEventType["USER_UPDATED"] = "user.updated";
+    AgentEventType["USER_DELETED"] = "user.deleted";
+    AgentEventType["USER_LOGIN"] = "user.login";
+    AgentEventType["USER_LOGOUT"] = "user.logout";
+    AgentEventType["USER_BULK_ACTION"] = "user.bulk_action";
+    AgentEventType["ORGANIZATION_CREATED"] = "organization.created";
+    AgentEventType["ORGANIZATION_UPDATED"] = "organization.updated";
+    AgentEventType["ORGANIZATION_DELETED"] = "organization.deleted";
 })(AgentEventType || (exports.AgentEventType = AgentEventType = {}));
 
 
@@ -38052,6 +38380,93 @@ var APXExecutionState;
 
 /***/ }),
 
+/***/ "./libs/shared/src/enums/execution-status.enum.ts":
+/*!********************************************************!*\
+  !*** ./libs/shared/src/enums/execution-status.enum.ts ***!
+  \********************************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DocumentStatus = exports.PromptTemplateEventType = exports.ToolEventType = exports.NotificationPriority = exports.NotificationType = exports.SessionEventType = exports.ExecutionStatus = void 0;
+var ExecutionStatus;
+(function (ExecutionStatus) {
+    ExecutionStatus["PENDING"] = "PENDING";
+    ExecutionStatus["RUNNING"] = "RUNNING";
+    ExecutionStatus["COMPLETED"] = "COMPLETED";
+    ExecutionStatus["FAILED"] = "FAILED";
+    ExecutionStatus["CANCELLED"] = "CANCELLED";
+    ExecutionStatus["PAUSED"] = "PAUSED";
+    ExecutionStatus["TIMEOUT"] = "TIMEOUT";
+})(ExecutionStatus || (exports.ExecutionStatus = ExecutionStatus = {}));
+var SessionEventType;
+(function (SessionEventType) {
+    SessionEventType["SESSION_CREATED"] = "SESSION_CREATED";
+    SessionEventType["SESSION_UPDATED"] = "SESSION_UPDATED";
+    SessionEventType["SESSION_DESTROYED"] = "SESSION_DESTROYED";
+    SessionEventType["SESSION_EXPIRED"] = "SESSION_EXPIRED";
+    SessionEventType["SESSION_MEMORY_WARNING"] = "SESSION_MEMORY_WARNING";
+    SessionEventType["SESSION_MEMORY_LIMIT_EXCEEDED"] = "SESSION_MEMORY_LIMIT_EXCEEDED";
+    SessionEventType["SESSION_CROSS_MODULE_UPDATE"] = "SESSION_CROSS_MODULE_UPDATE";
+    SessionEventType["SESSION_RECOVERY_INITIATED"] = "SESSION_RECOVERY_INITIATED";
+    SessionEventType["SESSION_RECOVERY_COMPLETED"] = "SESSION_RECOVERY_COMPLETED";
+    SessionEventType["SESSION_CONTEXT_UPDATED"] = "SESSION_CONTEXT_UPDATED";
+    SessionEventType["SESSION_ANALYTICS_UPDATE"] = "SESSION_ANALYTICS_UPDATE";
+})(SessionEventType || (exports.SessionEventType = SessionEventType = {}));
+var NotificationType;
+(function (NotificationType) {
+    NotificationType["IN_APP"] = "IN_APP";
+    NotificationType["EMAIL"] = "EMAIL";
+    NotificationType["SMS"] = "SMS";
+    NotificationType["WEBHOOK"] = "WEBHOOK";
+    NotificationType["PUSH"] = "PUSH";
+})(NotificationType || (exports.NotificationType = NotificationType = {}));
+var NotificationPriority;
+(function (NotificationPriority) {
+    NotificationPriority["LOW"] = "LOW";
+    NotificationPriority["MEDIUM"] = "MEDIUM";
+    NotificationPriority["HIGH"] = "HIGH";
+    NotificationPriority["URGENT"] = "URGENT";
+    NotificationPriority["CRITICAL"] = "CRITICAL";
+})(NotificationPriority || (exports.NotificationPriority = NotificationPriority = {}));
+var ToolEventType;
+(function (ToolEventType) {
+    ToolEventType["TOOL_CREATED"] = "TOOL_CREATED";
+    ToolEventType["TOOL_UPDATED"] = "TOOL_UPDATED";
+    ToolEventType["TOOL_DELETED"] = "TOOL_DELETED";
+    ToolEventType["TOOL_EXECUTION_STARTED"] = "TOOL_EXECUTION_STARTED";
+    ToolEventType["TOOL_EXECUTION_COMPLETED"] = "TOOL_EXECUTION_COMPLETED";
+    ToolEventType["TOOL_EXECUTION_FAILED"] = "TOOL_EXECUTION_FAILED";
+    ToolEventType["TOOL_VALIDATION_STARTED"] = "TOOL_VALIDATION_STARTED";
+    ToolEventType["TOOL_VALIDATION_COMPLETED"] = "TOOL_VALIDATION_COMPLETED";
+})(ToolEventType || (exports.ToolEventType = ToolEventType = {}));
+var PromptTemplateEventType;
+(function (PromptTemplateEventType) {
+    PromptTemplateEventType["TEMPLATE_CREATED"] = "TEMPLATE_CREATED";
+    PromptTemplateEventType["TEMPLATE_UPDATED"] = "TEMPLATE_UPDATED";
+    PromptTemplateEventType["TEMPLATE_DELETED"] = "TEMPLATE_DELETED";
+    PromptTemplateEventType["TEMPLATE_PUBLISHED"] = "TEMPLATE_PUBLISHED";
+    PromptTemplateEventType["TEMPLATE_SHARED"] = "TEMPLATE_SHARED";
+    PromptTemplateEventType["TEMPLATE_FORKED"] = "TEMPLATE_FORKED";
+    PromptTemplateEventType["TEMPLATE_VERSION_CREATED"] = "TEMPLATE_VERSION_CREATED";
+    PromptTemplateEventType["TEMPLATE_RENDERED"] = "TEMPLATE_RENDERED";
+    PromptTemplateEventType["TEMPLATE_RATED"] = "TEMPLATE_RATED";
+    PromptTemplateEventType["TEMPLATE_IMPORTED"] = "TEMPLATE_IMPORTED";
+    PromptTemplateEventType["TEMPLATE_EXPORTED"] = "TEMPLATE_EXPORTED";
+})(PromptTemplateEventType || (exports.PromptTemplateEventType = PromptTemplateEventType = {}));
+var DocumentStatus;
+(function (DocumentStatus) {
+    DocumentStatus["UPLOADED"] = "UPLOADED";
+    DocumentStatus["PROCESSING"] = "PROCESSING";
+    DocumentStatus["PROCESSED"] = "PROCESSED";
+    DocumentStatus["FAILED"] = "FAILED";
+    DocumentStatus["DELETED"] = "DELETED";
+})(DocumentStatus || (exports.DocumentStatus = DocumentStatus = {}));
+
+
+/***/ }),
+
 /***/ "./libs/shared/src/enums/hitl.enum.ts":
 /*!********************************************!*\
   !*** ./libs/shared/src/enums/hitl.enum.ts ***!
@@ -38150,7 +38565,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PromptTemplateEventType = exports.EventType = exports.UserRole = exports.SessionEventType = exports.ConnectionStatus = exports.EventPriority = exports.EventTargetType = exports.WebSocketEventType = exports.HealthStatus = exports.DocumentStatus = exports.ApprovalStatus = exports.ExecutionStatus = exports.NotificationPriority = exports.NotificationType = exports.AgentEventType = void 0;
+exports.PromptTemplateEventType = exports.EventType = exports.UserRole = exports.SessionEventType = exports.ConnectionStatus = exports.EventPriority = exports.EventTargetType = exports.WebSocketEventType = exports.HealthStatus = exports.ApprovalStatus = exports.NotificationPriority = exports.NotificationType = exports.AgentEventType = void 0;
 var AgentEventType;
 (function (AgentEventType) {
     AgentEventType["AGENT_CREATED"] = "agent.created";
@@ -38232,15 +38647,6 @@ var NotificationPriority;
     NotificationPriority["HIGH"] = "HIGH";
     NotificationPriority["CRITICAL"] = "CRITICAL";
 })(NotificationPriority || (exports.NotificationPriority = NotificationPriority = {}));
-var ExecutionStatus;
-(function (ExecutionStatus) {
-    ExecutionStatus["PENDING"] = "PENDING";
-    ExecutionStatus["RUNNING"] = "RUNNING";
-    ExecutionStatus["COMPLETED"] = "COMPLETED";
-    ExecutionStatus["FAILED"] = "FAILED";
-    ExecutionStatus["CANCELLED"] = "CANCELLED";
-    ExecutionStatus["PAUSED"] = "PAUSED";
-})(ExecutionStatus || (exports.ExecutionStatus = ExecutionStatus = {}));
 var ApprovalStatus;
 (function (ApprovalStatus) {
     ApprovalStatus["PENDING"] = "PENDING";
@@ -38248,13 +38654,6 @@ var ApprovalStatus;
     ApprovalStatus["REJECTED"] = "REJECTED";
     ApprovalStatus["EXPIRED"] = "EXPIRED";
 })(ApprovalStatus || (exports.ApprovalStatus = ApprovalStatus = {}));
-var DocumentStatus;
-(function (DocumentStatus) {
-    DocumentStatus["UPLOADED"] = "UPLOADED";
-    DocumentStatus["PROCESSING"] = "PROCESSING";
-    DocumentStatus["PROCESSED"] = "PROCESSED";
-    DocumentStatus["FAILED"] = "FAILED";
-})(DocumentStatus || (exports.DocumentStatus = DocumentStatus = {}));
 var HealthStatus;
 (function (HealthStatus) {
     HealthStatus["HEALTHY"] = "HEALTHY";

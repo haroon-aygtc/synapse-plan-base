@@ -14,7 +14,8 @@ import { User } from './user.entity';
 import { Organization } from './organization.entity';
 import { TestingSandbox } from './testing-sandbox.entity';
 import { SandboxEvent } from './sandbox-event.entity';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 
 export interface SandboxRunMetrics {
   executionTime: number;
@@ -54,7 +55,7 @@ export interface SandboxRunConfig {
 @Index(['sandboxId', 'organizationId'])
 @Index(['organizationId', 'userId'])
 @Index(['organizationId', 'status'])
-@Index(['organizationId', 'targetType'])
+// @Index(['organizationId', 'targetType']) // Removed - targetType is inside config JSONB
 export class SandboxRun extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

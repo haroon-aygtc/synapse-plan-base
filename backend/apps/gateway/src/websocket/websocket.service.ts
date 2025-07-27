@@ -19,12 +19,13 @@ import {
 import {
   AgentEventType,
   WebSocketEventType,
-  EventTargetType,
+  EventTargetType,  
   EventPriority,
   APXMessageType,
   APXStreamState,
 } from '@shared/enums';
 import { v4 as uuidv4 } from 'uuid';
+import { ToolEventType } from '@shared/enums/execution-status.enum';
 
 @Injectable()
 export class WebSocketService implements OnModuleInit {
@@ -236,7 +237,7 @@ export class WebSocketService implements OnModuleInit {
       toolId?: string;
     },
     metadata?: Record<string, any>
-  ): Promise<void> {
+  ): Promise<void> {  
     const crossModuleEvent: ICrossModuleEvent = {
       sourceModule,
       targetModule,

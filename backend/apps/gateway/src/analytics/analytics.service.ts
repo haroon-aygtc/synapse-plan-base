@@ -10,7 +10,8 @@ import {
   Organization,
   User,
 } from '@database/entities';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 
 export interface DashboardStats {
   activeAgents: {

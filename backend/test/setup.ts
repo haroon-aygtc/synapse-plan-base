@@ -38,7 +38,7 @@ export const createTestModule = async (imports: any[] = [], providers: any[] = [
       }),
       CacheModule.register({
         isGlobal: true,
-        ttl: 300,
+          ttl: 300,
       }),
       ...imports,
     ],

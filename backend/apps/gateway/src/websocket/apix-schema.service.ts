@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
-import { APXMessageType, APXSecurityLevel, APXPermissionLevel } from '@shared/enums';
+import { APXMessageType, APXSecurityLevel, APXPermissionLevel } from '@shared/enums/apix-protocol.enum';
+
 import { IAPXMessage, IAPXValidationError, IAPXMessageSchema } from '@shared/interfaces';
 
 @Injectable()

@@ -3,7 +3,8 @@ import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Organization } from './organization.entity';
 import { APXSession } from './apix-session.entity';
-import { APXMessageType, APXExecutionState, APXStreamState } from '@shared/enums';
+import { APXMessageType, APXExecutionState, APXStreamState } from '@shared/enums/apix-protocol.enum';
+
 
 @Entity('apix_executions')
 @Index(['organizationId', 'executionType'])

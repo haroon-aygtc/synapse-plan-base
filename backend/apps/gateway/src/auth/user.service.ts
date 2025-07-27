@@ -9,7 +9,8 @@ import { Repository, FindOptionsWhere, Like, In } from 'typeorm';
 import { User } from '@database/entities';
 import { IUser, UserRole } from '@shared/interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { AgentEventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+
 import { getErrorMessage } from '@shared/utils/error-guards';
   
 interface CreateUserData {

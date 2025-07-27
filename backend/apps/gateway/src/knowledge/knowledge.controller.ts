@@ -19,7 +19,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
-import { UserRole } from '@shared/enums';
+import { UserRole } from '@shared/interfaces';
+
 import { KnowledgeService } from './knowledge.service';
 import { SecurityContext } from './knowledge-security.service';
 import { CreateDocumentDto, UpdateDocumentDto, SearchDocumentsDto } from './dto';

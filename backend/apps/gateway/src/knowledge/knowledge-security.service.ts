@@ -2,7 +2,8 @@ import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { KnowledgeDocument, DocumentVisibility } from '@database/entities';
-import { UserRole } from '@shared/enums';
+import { UserRole } from '@shared/interfaces';
+
 import * as crypto from 'crypto';
 
 export interface SecurityContext {

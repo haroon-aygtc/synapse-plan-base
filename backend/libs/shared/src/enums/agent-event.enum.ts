@@ -23,4 +23,32 @@ export enum AgentEventType {
   AI_PROVIDER_KEY_ROTATED = 'ai_provider.key_rotated',
   AI_PROVIDER_HEALTH_CHECK = 'ai_provider.health_check',
   AI_PROVIDER_STATUS_CHANGED = 'ai_provider.status_changed',
+
+  // Notification events
+  NOTIFICATION_SENT = 'notification.sent',
+  NOTIFICATION_FAILED = 'notification.failed',
+  NOTIFICATION_DELIVERED = 'notification.delivered',
+  NOTIFICATION_READ = 'notification.read',
+
+  // Knowledge events
+  KNOWLEDGE_DOCUMENT_UPLOADED = 'knowledge.document.uploaded',
+  KNOWLEDGE_DOCUMENT_PROCESSED = 'knowledge.document.processed',
+  KNOWLEDGE_DOCUMENT_DELETED = 'knowledge.document.deleted',
+
+  // Session events
+  SESSION_CONTEXT_UPDATED = 'session.context.updated',
+  SESSION_RECOVERY_COMPLETED = 'session.recovery.completed',
+  
+  // User events
+  USER_CREATED = 'user.created',
+  USER_UPDATED = 'user.updated',
+  USER_DELETED = 'user.deleted',
+  USER_LOGIN = 'user.login',
+  USER_LOGOUT = 'user.logout',
+  USER_BULK_ACTION = 'user.bulk_action',
+  
+  // Organization events
+  ORGANIZATION_CREATED = 'organization.created',
+  ORGANIZATION_UPDATED = 'organization.updated',
+  ORGANIZATION_DELETED = 'organization.deleted',
 }

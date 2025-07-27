@@ -10,7 +10,9 @@ import { SessionService } from '../session/session.service';
 import { WebSocketService } from '../websocket/websocket.service';
 import { HITLService } from '../hitl/hitl.service';
 import { ExecuteWorkflowDto } from './dto';
-import { ExecutionStatus, HITLRequestType, HITLRequestPriority } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+import { HITLRequestType, HITLRequestPriority } from '@shared/enums/hitl.enum';
+
 import { getErrorMessage, logSafeError } from '@shared/utils/error-guards';
 import { v4 as uuidv4 } from 'uuid';
 

@@ -9,7 +9,8 @@ import { Repository } from 'typeorm';
 import { Organization } from '@database/entities';
 import { IOrganization, SubscriptionPlan } from '@shared/interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { AgentEventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+
 
 interface CreateOrganizationData {
   name: string;

@@ -16,7 +16,8 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
-import { UserRole } from '@shared/enums';
+import { UserRole } from '@shared/interfaces';
+
 import { HITLService } from './hitl.service';
 import {
   CreateHITLRequestDto,

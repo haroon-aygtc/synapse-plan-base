@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 
 export class TestExecutionResponseDto {
   @ApiProperty()

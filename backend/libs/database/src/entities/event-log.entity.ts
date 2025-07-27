@@ -1,6 +1,7 @@
 import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
-import { AgentEventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+
 
 @Entity('event_logs')
 @Index(['organizationId', 'eventType', 'timestamp'])

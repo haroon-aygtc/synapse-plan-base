@@ -1,7 +1,8 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { Tool } from './tool.entity';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 
 @Entity('tool_executions')
 @Index(['organizationId', 'createdAt'])

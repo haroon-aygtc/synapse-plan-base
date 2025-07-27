@@ -4,7 +4,10 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Notification, NotificationDelivery } from '@database/entities';
-import { AgentEventType, NotificationType, ExecutionStatus, EventTargetType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+import { NotificationType, ExecutionStatus } from '@shared/enums/execution-status.enum';
+import { EventTargetType } from '@shared/enums';
+
 import { EmailDeliveryProvider } from './providers/email-delivery.provider';
 import { SmsDeliveryProvider } from './providers/sms-delivery.provider';
 import { WebhookDeliveryProvider } from './providers/webhook-delivery.provider';

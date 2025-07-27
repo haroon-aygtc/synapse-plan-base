@@ -12,7 +12,8 @@ import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Organization } from './organization.entity';
 import { TestingSandbox } from './testing-sandbox.entity';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 
 export interface TestExecutionMetrics {
   executionTime: number;

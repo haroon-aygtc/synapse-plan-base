@@ -3,7 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { KnowledgeDocument } from '@database/entities';
-import { DocumentStatus, AgentEventType as EventType } from '@shared/enums';
+import { DocumentStatus } from '@shared/enums/execution-status.enum';
+import { AgentEventType as EventType } from '@shared/enums/agent-event.enum';
+
 import { VectorSearchService } from './vector-search.service';
 import OpenAI from 'openai';
 import { ConfigService } from '@nestjs/config';

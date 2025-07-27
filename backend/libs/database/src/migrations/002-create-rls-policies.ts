@@ -1,9 +1,71 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateRLSPolicies1700000002 implements MigrationInterface {
-  name = 'CreateRLSPolicies1700000002';
+export class CreateRLSPolicies1700000000002 implements MigrationInterface {
+  name = 'CreateRLSPolicies1700000000002';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Create database roles for different access levels first
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE ROLE authenticated_user;
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE ROLE anonymous_user;
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+    await queryRunner.query(`
+      DO $$ BEGIN
+        CREATE ROLE service_role;
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+    `);
+
+    // Grant appropriate permissions
+    await queryRunner.query(`GRANT USAGE ON SCHEMA public TO authenticated_user`);
+    await queryRunner.query(`GRANT USAGE ON SCHEMA public TO anonymous_user`);
+    await queryRunner.query(`GRANT ALL ON SCHEMA public TO service_role`);
+
+    // Grant table permissions to authenticated users
+    const tables = [
+      'organizations',
+      'users',
+      'agents',
+      'tools',
+      'workflows',
+      'widgets',
+      'agent_executions',
+      'tool_executions',
+      'workflow_executions',
+      'sessions',
+      'notifications',
+      'hitl_requests',
+      'prompt_templates',
+      'knowledge_documents',
+      'testing_sandboxes',
+      'test_scenarios',
+      'test_executions',
+      'subscriptions',
+      'ai_providers',
+    ];
+
+    for (const table of tables) {
+      await queryRunner.query(
+        `GRANT SELECT, INSERT, UPDATE, DELETE ON "${table}" TO authenticated_user`
+      );
+      await queryRunner.query(`GRANT ALL ON "${table}" TO service_role`);
+    }
+
+    // Grant sequence permissions
+    await queryRunner.query(`GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated_user`);
+    await queryRunner.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role`);
+
     // Create RLS policies for multi-tenant isolation
 
     // Organizations - users can only see their own organization
@@ -104,12 +166,7 @@ export class CreateRLSPolicies1700000002 implements MigrationInterface {
       USING ("organizationId" = current_setting('app.current_organization_id')::uuid)
     `);
 
-    // Widget Analytics - can only see analytics in their organization
-    await queryRunner.query(`
-      CREATE POLICY "tenant_isolation_widget_analytics" ON "widget_analytics"
-      FOR ALL TO authenticated_user
-      USING ("organizationId" = current_setting('app.current_organization_id')::uuid)
-    `);
+
 
     // Testing Sandboxes - can only see sandboxes in their organization
     await queryRunner.query(`
@@ -213,50 +270,7 @@ export class CreateRLSPolicies1700000002 implements MigrationInterface {
       )
     `);
 
-    // Create database roles for different access levels
-    await queryRunner.query(`CREATE ROLE authenticated_user`);
-    await queryRunner.query(`CREATE ROLE anonymous_user`);
-    await queryRunner.query(`CREATE ROLE service_role`);
 
-    // Grant appropriate permissions
-    await queryRunner.query(`GRANT USAGE ON SCHEMA public TO authenticated_user`);
-    await queryRunner.query(`GRANT USAGE ON SCHEMA public TO anonymous_user`);
-    await queryRunner.query(`GRANT ALL ON SCHEMA public TO service_role`);
-
-    // Grant table permissions to authenticated users
-    const tables = [
-      'organizations',
-      'users',
-      'agents',
-      'tools',
-      'workflows',
-      'widgets',
-      'agent_executions',
-      'tool_executions',
-      'workflow_executions',
-      'sessions',
-      'notifications',
-      'hitl_requests',
-      'prompt_templates',
-      'knowledge_documents',
-      'widget_analytics',
-      'testing_sandboxes',
-      'test_scenarios',
-      'test_executions',
-      'subscriptions',
-      'ai_providers',
-    ];
-
-    for (const table of tables) {
-      await queryRunner.query(
-        `GRANT SELECT, INSERT, UPDATE, DELETE ON "${table}" TO authenticated_user`
-      );
-      await queryRunner.query(`GRANT ALL ON "${table}" TO service_role`);
-    }
-
-    // Grant sequence permissions
-    await queryRunner.query(`GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated_user`);
-    await queryRunner.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

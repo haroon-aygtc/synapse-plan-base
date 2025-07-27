@@ -45,7 +45,8 @@ import {
   DebugSessionDto,
   CollaborativeTestDto,
 } from './dto';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 import { SandboxEventType } from '@database/entities/sandbox-event.entity';
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
 import { v4 as uuidv4 } from 'uuid';

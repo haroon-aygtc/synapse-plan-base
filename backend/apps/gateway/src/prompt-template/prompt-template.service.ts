@@ -13,7 +13,8 @@ import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { PromptTemplate } from '@database/entities';
 import { CreatePromptTemplateDto, UpdatePromptTemplateDto } from './dto';
-import { PromptTemplateEventType } from '@shared/enums';
+import { PromptTemplateEventType } from '@shared/enums/execution-status.enum';
+
 
 @Injectable()
 export class PromptTemplateService {

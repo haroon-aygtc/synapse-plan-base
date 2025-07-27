@@ -14,7 +14,8 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { HITLRequestType, HITLRequestPriority, HITLDecisionType } from '@shared/enums';
+import { HITLRequestType, HITLRequestPriority, HITLDecisionType } from '@shared/enums/hitl.enum';
+
 
 class EscalationLevelDto {
   @ApiProperty()

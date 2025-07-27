@@ -7,7 +7,8 @@ import {
 } from 'typeorm';
 import { Organization } from '../entities/organization.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { AgentEventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+
 
 @EventSubscriber()
 export class OrganizationSubscriber implements EntitySubscriberInterface<Organization> {

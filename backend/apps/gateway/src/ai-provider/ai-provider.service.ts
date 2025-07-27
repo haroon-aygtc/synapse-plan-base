@@ -23,7 +23,8 @@ import {
   RoutingRule,
 } from '@database/entities/ai-provider.entity';
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 import { ProviderAdapterService } from './provider-adapter.service';
 import { ProviderRoutingService } from './provider-routing.service';
 import { ProviderHealthService } from './provider-health.service';
@@ -34,7 +35,8 @@ import {
   ProviderConfigDto,
   ProviderRoutingRuleDto,
 } from './dto';
-import { AgentEventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()

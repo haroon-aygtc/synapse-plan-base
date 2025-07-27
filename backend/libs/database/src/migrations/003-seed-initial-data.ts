@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class SeedInitialData1700000003 implements MigrationInterface {
-  name = 'SeedInitialData1700000003';
+export class SeedInitialData1700000000003 implements MigrationInterface {
+  name = 'SeedInitialData1700000000003';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create default organization
@@ -433,11 +433,11 @@ Present your findings in a clear, structured format with actionable insights.',
       ON CONFLICT DO NOTHING
     `);
 
-    // Create notification preferences for admin user
+    // Create welcome notification for admin user
     await queryRunner.query(`
       INSERT INTO "notifications" (
         "id", "organizationId", "userId", "title", "message", 
-        "type", "channel", "isRead", "createdAt", "updatedAt"
+        "type", "channel", "status", "createdAt", "updatedAt"
       )
       SELECT 
         uuid_generate_v4(),
@@ -447,7 +447,7 @@ Present your findings in a clear, structured format with actionable insights.',
         'Welcome to your AI agent platform! Your system has been initialized with sample data including agents, tools, and workflows. You can start building and deploying your AI solutions right away.',
         'INFO',
         'IN_APP',
-        false,
+        'PENDING',
         NOW(),
         NOW()
       FROM "organizations" o 

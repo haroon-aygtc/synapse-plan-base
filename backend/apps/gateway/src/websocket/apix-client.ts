@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { EventEmitter } from 'events';
-import { APXMessageType, APXSecurityLevel, APXPermissionLevel } from '@shared/enums';
+import { APXMessageType, APXSecurityLevel, APXPermissionLevel } from '@shared/enums/apix-protocol.enum';
+
 import { IAPXMessage } from '@shared/interfaces';
 import { v4 as uuidv4 } from 'uuid';
 

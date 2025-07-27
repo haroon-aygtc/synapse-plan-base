@@ -15,7 +15,9 @@ import {
   DocumentType,
   DocumentVisibility,
 } from '@database/entities';
-import { DocumentStatus, AgentEventType as EventType } from '@shared/enums';
+import { DocumentStatus } from '@shared/enums/execution-status.enum';
+import { AgentEventType as EventType } from '@shared/enums/agent-event.enum';
+
 import { CreateDocumentDto, UpdateDocumentDto, SearchDocumentsDto } from './dto';
 import { DocumentProcessingService } from './document-processing.service';
 import { VectorSearchService } from './vector-search.service';

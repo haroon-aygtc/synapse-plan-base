@@ -11,7 +11,8 @@ import {
 } from 'typeorm';
 import { User } from './user.entity';
 import { Organization } from './organization.entity';
-import { DocumentStatus } from '@shared/enums';
+import { ExecutionStatus, DocumentStatus } from '@shared/enums/execution-status.enum';
+
 
 export enum DocumentType {
   PDF = 'pdf',

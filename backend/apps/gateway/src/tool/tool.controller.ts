@@ -14,7 +14,8 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
-import { UserRole } from '@shared/enums';
+import { UserRole } from '@shared/interfaces';
+
 import { ToolService } from './tool.service';
 import { ToolExecutionEngine } from './tool-execution.engine';
 import { ToolTemplateService } from './tool-template.service';

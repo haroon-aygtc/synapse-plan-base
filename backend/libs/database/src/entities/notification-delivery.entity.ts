@@ -1,7 +1,8 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { Notification } from './notification.entity';
-import { NotificationType, ExecutionStatus } from '@shared/enums';
+import { NotificationType, ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 
 @Entity('notification_deliveries')
 @Index(['notificationId', 'type'])

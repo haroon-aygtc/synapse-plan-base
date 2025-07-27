@@ -8,7 +8,8 @@ import {
   TestWorkflowDto,
   ExecuteWorkflowDto,
 } from './dto';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 import { WorkflowExecutionEngine } from './workflow-execution.engine';
 import { safeErrorMessage, getSafeErrorInfo } from '@shared/utils/error-guards';
 

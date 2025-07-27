@@ -12,7 +12,8 @@ import { BaseEntity } from './base.entity';
 import { Widget } from './widget.entity';
 import { User } from './user.entity';
 import { Session } from './session.entity';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 
 export interface WidgetExecutionContext {
   userAgent: string;

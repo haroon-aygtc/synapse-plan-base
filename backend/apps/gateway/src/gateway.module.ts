@@ -40,7 +40,7 @@ import { MonitoringModule } from '@shared/modules/monitoring.module';
     // Cache - Using memory store for now, can be configured for Redis later
     CacheModule.register({
       isGlobal: true,
-      ttl: 300, // 5 minutes default TTL
+        ttl: 300, // 5 minutes default TTL
     }),
 
     // Rate Limiting

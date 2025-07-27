@@ -1,68 +1,156 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class InitialSchema1700000001 implements MigrationInterface {
-  name = 'InitialSchema1700000001';
+// Define enums locally to avoid import issues
+enum ExecutionStatus {
+  PENDING = 'PENDING',
+  RUNNING = 'RUNNING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+  TIMEOUT = 'TIMEOUT',
+}
+
+enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
+  DEVELOPER = 'DEVELOPER',
+  VIEWER = 'VIEWER',
+}
+
+enum SubscriptionPlan {
+  FREE = 'FREE',
+  STARTER = 'STARTER',
+  PROFESSIONAL = 'PROFESSIONAL',
+  ENTERPRISE = 'ENTERPRISE',
+}
+
+enum HITLStatus {
+  PENDING = 'PENDING',
+  IN_PROGRESS = 'IN_PROGRESS',
+  RESOLVED = 'RESOLVED',
+  ESCALATED = 'ESCALATED',
+  CANCELLED = 'CANCELLED',
+}
+
+enum HITLPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+enum NotificationType {
+  INFO = 'INFO',
+  SUCCESS = 'SUCCESS',
+  WARNING = 'WARNING',
+  ERROR = 'ERROR',
+  SYSTEM = 'SYSTEM',
+}
+
+enum NotificationChannel {
+  EMAIL = 'EMAIL',
+  SMS = 'SMS',
+  PUSH = 'PUSH',
+  WEBHOOK = 'WEBHOOK',
+  IN_APP = 'IN_APP',
+}
+
+export class InitialSchema1700000000001 implements MigrationInterface {
+  name = 'InitialSchema1700000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Create extensions
+    // Create extensions with IF NOT EXISTS
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "pg_trgm"`);
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "btree_gin"`);
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "pg_stat_statements"`);
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto"`);
 
-    // Create enums
+    // Create enums with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TYPE "user_role_enum" AS ENUM(
-        'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEVELOPER', 'VIEWER'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "user_role_enum" AS ENUM(
+          'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'DEVELOPER', 'VIEWER'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "subscription_plan_enum" AS ENUM(
-        'FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "subscription_plan_enum" AS ENUM(
+          'FREE', 'STARTER', 'PROFESSIONAL', 'ENTERPRISE'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "execution_status_enum" AS ENUM(
-        'PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED', 'TIMEOUT'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "execution_status_enum" AS ENUM(
+          'PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED', 'TIMEOUT'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "agent_event_enum" AS ENUM(
-        'CREATED', 'UPDATED', 'DELETED', 'EXECUTED', 'TESTED', 'DEPLOYED'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "agent_event_enum" AS ENUM(
+          'CREATED', 'UPDATED', 'DELETED', 'EXECUTED', 'TESTED', 'DEPLOYED'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "hitl_status_enum" AS ENUM(
-        'PENDING', 'IN_PROGRESS', 'RESOLVED', 'ESCALATED', 'CANCELLED'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "hitl_status_enum" AS ENUM(
+          'PENDING', 'IN_PROGRESS', 'RESOLVED', 'ESCALATED', 'CANCELLED'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "hitl_priority_enum" AS ENUM(
-        'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "hitl_priority_enum" AS ENUM(
+          'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "notification_type_enum" AS ENUM(
-        'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'SYSTEM'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "notification_type_enum" AS ENUM(
+          'INFO', 'SUCCESS', 'WARNING', 'ERROR', 'SYSTEM'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "notification_channel_enum" AS ENUM(
-        'EMAIL', 'SMS', 'PUSH', 'WEBHOOK', 'IN_APP'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "notification_channel_enum" AS ENUM(
+          'EMAIL', 'SMS', 'PUSH', 'WEBHOOK', 'IN_APP'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
     `);
 
-    // Organizations table
+    // Organizations table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "organizations" (
+      CREATE TABLE IF NOT EXISTS "organizations" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -82,9 +170,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // Users table
+    // Users table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "users" (
+      CREATE TABLE IF NOT EXISTS "users" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -111,9 +199,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // AI Providers table
+    // AI Providers table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "ai_providers" (
+      CREATE TABLE IF NOT EXISTS "ai_providers" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -133,9 +221,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // Agents table
+    // Agents table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "agents" (
+      CREATE TABLE IF NOT EXISTS "agents" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -162,9 +250,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // Tools table
+    // Tools table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "tools" (
+      CREATE TABLE IF NOT EXISTS "tools" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -189,9 +277,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // Workflows table
+    // Workflows table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "workflows" (
+      CREATE TABLE IF NOT EXISTS "workflows" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -215,9 +303,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // Widgets table
+    // Widgets table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "widgets" (
+      CREATE TABLE IF NOT EXISTS "widgets" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -248,9 +336,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // Sessions table
+    // Sessions table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "sessions" (
+      CREATE TABLE IF NOT EXISTS "sessions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -270,9 +358,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // Execution tables
+    // Agent Executions table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "agent_executions" (
+      CREATE TABLE IF NOT EXISTS "agent_executions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -281,15 +369,15 @@ export class InitialSchema1700000001 implements MigrationInterface {
         "agentId" uuid NOT NULL,
         "userId" uuid NOT NULL,
         "sessionId" uuid,
+        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
         "input" jsonb NOT NULL,
         "output" jsonb,
-        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
+        "error" text,
         "startedAt" TIMESTAMP WITH TIME ZONE,
         "completedAt" TIMESTAMP WITH TIME ZONE,
         "duration" integer,
         "tokensUsed" integer,
-        "cost" decimal(10,4),
-        "error" text,
+        "cost" decimal(10,6),
         "metadata" jsonb,
         CONSTRAINT "PK_agent_executions" PRIMARY KEY ("id"),
         CONSTRAINT "FK_agent_executions_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
@@ -299,8 +387,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
+    // Tool Executions table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "tool_executions" (
+      CREATE TABLE IF NOT EXISTS "tool_executions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -308,26 +397,27 @@ export class InitialSchema1700000001 implements MigrationInterface {
         "organizationId" uuid NOT NULL,
         "toolId" uuid NOT NULL,
         "userId" uuid NOT NULL,
-        "sessionId" uuid,
+        "agentExecutionId" uuid,
+        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
         "input" jsonb NOT NULL,
         "output" jsonb,
-        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
+        "error" text,
         "startedAt" TIMESTAMP WITH TIME ZONE,
         "completedAt" TIMESTAMP WITH TIME ZONE,
         "duration" integer,
-        "cost" decimal(10,4),
-        "error" text,
+        "cost" decimal(10,6),
         "metadata" jsonb,
         CONSTRAINT "PK_tool_executions" PRIMARY KEY ("id"),
         CONSTRAINT "FK_tool_executions_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_tool_executions_tool" FOREIGN KEY ("toolId") REFERENCES "tools"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_tool_executions_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_tool_executions_session" FOREIGN KEY ("sessionId") REFERENCES "sessions"("id") ON DELETE SET NULL
+        CONSTRAINT "FK_tool_executions_agent_execution" FOREIGN KEY ("agentExecutionId") REFERENCES "agent_executions"("id") ON DELETE SET NULL
       )
     `);
 
+    // Workflow Executions table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "workflow_executions" (
+      CREATE TABLE IF NOT EXISTS "workflow_executions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -335,28 +425,50 @@ export class InitialSchema1700000001 implements MigrationInterface {
         "organizationId" uuid NOT NULL,
         "workflowId" uuid NOT NULL,
         "userId" uuid NOT NULL,
-        "sessionId" uuid,
+        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
         "input" jsonb NOT NULL,
         "output" jsonb,
-        "status" "execution_status_enum" NOT NULL DEFAULT 'PENDING',
+        "error" text,
         "startedAt" TIMESTAMP WITH TIME ZONE,
         "completedAt" TIMESTAMP WITH TIME ZONE,
         "duration" integer,
-        "steps" jsonb DEFAULT '[]',
-        "currentStep" integer DEFAULT 0,
-        "error" text,
+        "steps" jsonb,
         "metadata" jsonb,
         CONSTRAINT "PK_workflow_executions" PRIMARY KEY ("id"),
         CONSTRAINT "FK_workflow_executions_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_workflow_executions_workflow" FOREIGN KEY ("workflowId") REFERENCES "workflows"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_workflow_executions_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_workflow_executions_session" FOREIGN KEY ("sessionId") REFERENCES "sessions"("id") ON DELETE SET NULL
+        CONSTRAINT "FK_workflow_executions_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
       )
     `);
 
-    // Knowledge Base tables
+    // Notifications table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "knowledge_documents" (
+      CREATE TABLE IF NOT EXISTS "notifications" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        "deletedAt" TIMESTAMP WITH TIME ZONE,
+        "organizationId" uuid NOT NULL,
+        "userId" uuid NOT NULL,
+        "type" "notification_type_enum" NOT NULL,
+        "channel" "notification_channel_enum" NOT NULL,
+        "title" character varying(255) NOT NULL,
+        "message" text NOT NULL,
+        "data" jsonb,
+        "readAt" TIMESTAMP WITH TIME ZONE,
+        "sentAt" TIMESTAMP WITH TIME ZONE,
+        "deliveredAt" TIMESTAMP WITH TIME ZONE,
+        "status" character varying(50) DEFAULT 'PENDING',
+        "metadata" jsonb,
+        CONSTRAINT "PK_notifications" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_notifications_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
+        CONSTRAINT "FK_notifications_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
+      )
+    `);
+
+    // Knowledge Base tables with IF NOT EXISTS
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS "knowledge_documents" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -367,7 +479,7 @@ export class InitialSchema1700000001 implements MigrationInterface {
         "content" text NOT NULL,
         "type" character varying(100) NOT NULL,
         "source" character varying(500),
-        "embedding" vector(1536),
+        "embedding" text,
         "metadata" jsonb,
         "tags" text[],
         "isActive" boolean NOT NULL DEFAULT true,
@@ -377,9 +489,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // Prompt Templates table
+    // Prompt Templates table with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "prompt_templates" (
+      CREATE TABLE IF NOT EXISTS "prompt_templates" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -402,9 +514,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // HITL (Human in the Loop) tables
+    // HITL (Human in the Loop) tables with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "hitl_requests" (
+      CREATE TABLE IF NOT EXISTS "hitl_requests" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -429,54 +541,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // Notifications table
+    // Testing Sandbox tables with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "notifications" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        "deletedAt" TIMESTAMP WITH TIME ZONE,
-        "organizationId" uuid NOT NULL,
-        "userId" uuid NOT NULL,
-        "title" character varying(255) NOT NULL,
-        "message" text NOT NULL,
-        "type" "notification_type_enum" NOT NULL DEFAULT 'INFO',
-        "channel" "notification_channel_enum" NOT NULL DEFAULT 'IN_APP',
-        "isRead" boolean NOT NULL DEFAULT false,
-        "readAt" TIMESTAMP WITH TIME ZONE,
-        "data" jsonb,
-        "metadata" jsonb,
-        CONSTRAINT "PK_notifications" PRIMARY KEY ("id"),
-        CONSTRAINT "FK_notifications_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_notifications_user" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE
-      )
-    `);
-
-    // Analytics and monitoring tables
-    await queryRunner.query(`
-      CREATE TABLE "widget_analytics" (
-        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-        "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        "deletedAt" TIMESTAMP WITH TIME ZONE,
-        "organizationId" uuid NOT NULL,
-        "widgetId" uuid NOT NULL,
-        "event" character varying(100) NOT NULL,
-        "data" jsonb,
-        "sessionId" character varying(255),
-        "userId" character varying(255),
-        "ipAddress" character varying(45),
-        "userAgent" text,
-        "timestamp" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_widget_analytics" PRIMARY KEY ("id"),
-        CONSTRAINT "FK_widget_analytics_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
-        CONSTRAINT "FK_widget_analytics_widget" FOREIGN KEY ("widgetId") REFERENCES "widgets"("id") ON DELETE CASCADE
-      )
-    `);
-
-    // Testing Sandbox tables
-    await queryRunner.query(`
-      CREATE TABLE "testing_sandboxes" (
+      CREATE TABLE IF NOT EXISTS "testing_sandboxes" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -497,7 +564,7 @@ export class InitialSchema1700000001 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "test_scenarios" (
+      CREATE TABLE IF NOT EXISTS "test_scenarios" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -517,7 +584,7 @@ export class InitialSchema1700000001 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "test_executions" (
+      CREATE TABLE IF NOT EXISTS "test_executions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -539,9 +606,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
       )
     `);
 
-    // Billing and subscription tables
+    // Billing and subscription tables with IF NOT EXISTS
     await queryRunner.query(`
-      CREATE TABLE "subscriptions" (
+      CREATE TABLE IF NOT EXISTS "subscriptions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
@@ -573,11 +640,7 @@ export class InitialSchema1700000001 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "test_executions"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "test_scenarios"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "testing_sandboxes"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "widget_analytics"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "notifications"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "hitl_requests"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "prompt_templates"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "knowledge_documents"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "workflow_executions"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "tool_executions"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "agent_executions"`);
@@ -589,6 +652,9 @@ export class InitialSchema1700000001 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE IF EXISTS "ai_providers"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "users"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "organizations"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "knowledge_documents"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "prompt_templates"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "hitl_requests"`);
 
     // Drop enums
     await queryRunner.query(`DROP TYPE IF EXISTS "notification_channel_enum"`);
@@ -603,99 +669,164 @@ export class InitialSchema1700000001 implements MigrationInterface {
 
   private async createIndexes(queryRunner: QueryRunner): Promise<void> {
     // Organizations indexes
-    await queryRunner.query(`CREATE INDEX "idx_organizations_slug" ON "organizations" ("slug")`);
-    await queryRunner.query(`CREATE INDEX "idx_organizations_plan" ON "organizations" ("plan")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_organizations_slug" ON "organizations" ("slug")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_organizations_plan" ON "organizations" ("plan")`);
     await queryRunner.query(
-      `CREATE INDEX "idx_organizations_active" ON "organizations" ("isActive")`
+      `CREATE INDEX IF NOT EXISTS "idx_organizations_active" ON "organizations" ("isActive")`
     );
 
     // Users indexes
     await queryRunner.query(
-      `CREATE INDEX "idx_users_org_email" ON "users" ("organizationId", "email")`
+      `CREATE INDEX IF NOT EXISTS "idx_users_org_email" ON "users" ("organizationId", "email")`
     );
-    await queryRunner.query(`CREATE INDEX "idx_users_role" ON "users" ("role")`);
-    await queryRunner.query(`CREATE INDEX "idx_users_active" ON "users" ("isActive")`);
-    await queryRunner.query(`CREATE INDEX "idx_users_last_login" ON "users" ("lastLoginAt")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_users_role" ON "users" ("role")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_users_active" ON "users" ("isActive")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_users_last_login" ON "users" ("lastLoginAt")`);
 
     // Agents indexes
     await queryRunner.query(
-      `CREATE INDEX "idx_agents_org_name" ON "agents" ("organizationId", "name")`
+      `CREATE INDEX IF NOT EXISTS "idx_agents_org_name" ON "agents" ("organizationId", "name")`
     );
-    await queryRunner.query(`CREATE INDEX "idx_agents_user" ON "agents" ("userId")`);
-    await queryRunner.query(`CREATE INDEX "idx_agents_active" ON "agents" ("isActive")`);
-    await queryRunner.query(`CREATE INDEX "idx_agents_public" ON "agents" ("isPublic")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agents_user" ON "agents" ("userId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agents_active" ON "agents" ("isActive")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_agents_public" ON "agents" ("isPublic")`);
 
     // Tools indexes
     await queryRunner.query(
-      `CREATE INDEX "idx_tools_org_name" ON "tools" ("organizationId", "name")`
+      `CREATE INDEX IF NOT EXISTS "idx_tools_org_name" ON "tools" ("organizationId", "name")`
     );
-    await queryRunner.query(`CREATE INDEX "idx_tools_user" ON "tools" ("userId")`);
-    await queryRunner.query(`CREATE INDEX "idx_tools_type" ON "tools" ("type")`);
-    await queryRunner.query(`CREATE INDEX "idx_tools_active" ON "tools" ("isActive")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tools_user" ON "tools" ("userId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tools_type" ON "tools" ("type")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_tools_active" ON "tools" ("isActive")`);
 
     // Workflows indexes
     await queryRunner.query(
-      `CREATE INDEX "idx_workflows_org_name" ON "workflows" ("organizationId", "name")`
+      `CREATE INDEX IF NOT EXISTS "idx_workflows_org_name" ON "workflows" ("organizationId", "name")`
     );
-    await queryRunner.query(`CREATE INDEX "idx_workflows_user" ON "workflows" ("userId")`);
-    await queryRunner.query(`CREATE INDEX "idx_workflows_status" ON "workflows" ("status")`);
-    await queryRunner.query(`CREATE INDEX "idx_workflows_active" ON "workflows" ("isActive")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_workflows_user" ON "workflows" ("userId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_workflows_status" ON "workflows" ("status")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_workflows_active" ON "workflows" ("isActive")`);
 
-    // Execution indexes for analytics
+    // Widgets indexes
     await queryRunner.query(
-      `CREATE INDEX "idx_agent_executions_org_created" ON "agent_executions" ("organizationId", "createdAt" DESC)`
+      `CREATE INDEX IF NOT EXISTS "idx_widgets_org_name" ON "widgets" ("organizationId", "name")`
     );
-    await queryRunner.query(
-      `CREATE INDEX "idx_agent_executions_agent_status" ON "agent_executions" ("agentId", "status")`
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_agent_executions_session" ON "agent_executions" ("sessionId")`
-    );
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_widgets_user" ON "widgets" ("userId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_widgets_type" ON "widgets" ("type")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_widgets_active" ON "widgets" ("isActive")`);
 
-    await queryRunner.query(
-      `CREATE INDEX "idx_tool_executions_org_created" ON "tool_executions" ("organizationId", "createdAt" DESC)`
-    );
-    await queryRunner.query(
-      `CREATE INDEX "idx_tool_executions_tool_status" ON "tool_executions" ("toolId", "status")`
-    );
+    // Sessions indexes
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_sessions_user" ON "sessions" ("userId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_sessions_expires" ON "sessions" ("expiresAt")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "idx_sessions_org" ON "sessions" ("organizationId")`);
 
+    // Executions indexes
     await queryRunner.query(
-      `CREATE INDEX "idx_workflow_executions_org_created" ON "workflow_executions" ("organizationId", "createdAt" DESC)`
+      `CREATE INDEX IF NOT EXISTS "idx_agent_executions_agent" ON "agent_executions" ("agentId")`
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_workflow_executions_workflow_status" ON "workflow_executions" ("workflowId", "status")`
-    );
-
-    // Full-text search indexes
-    await queryRunner.query(
-      `CREATE INDEX "idx_agents_search" ON "agents" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`
+      `CREATE INDEX IF NOT EXISTS "idx_agent_executions_user" ON "agent_executions" ("userId")`
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_tools_search" ON "tools" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`
+      `CREATE INDEX IF NOT EXISTS "idx_agent_executions_status" ON "agent_executions" ("status")`
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_workflows_search" ON "workflows" USING gin(to_tsvector('english', name || ' ' || COALESCE(description, '')))`
+      `CREATE INDEX IF NOT EXISTS "idx_agent_executions_created" ON "agent_executions" ("createdAt")`
     );
 
-    // Session indexes
-    await queryRunner.query(`CREATE INDEX "idx_sessions_user_id" ON "sessions" ("userId")`);
-    await queryRunner.query(`CREATE INDEX "idx_sessions_expires_at" ON "sessions" ("expiresAt")`);
-    await queryRunner.query(`CREATE INDEX "idx_sessions_token" ON "sessions" ("sessionToken")`);
-
-    // Notification indexes
     await queryRunner.query(
-      `CREATE INDEX "idx_notifications_user_created" ON "notifications" ("userId", "createdAt" DESC)`
+      `CREATE INDEX IF NOT EXISTS "idx_tool_executions_tool" ON "tool_executions" ("toolId")`
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_notifications_read_status" ON "notifications" ("isRead", "createdAt" DESC)`
+      `CREATE INDEX IF NOT EXISTS "idx_tool_executions_user" ON "tool_executions" ("userId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_tool_executions_status" ON "tool_executions" ("status")`
     );
 
-    // Analytics indexes
     await queryRunner.query(
-      `CREATE INDEX "idx_widget_analytics_widget_timestamp" ON "widget_analytics" ("widgetId", "timestamp" DESC)`
+      `CREATE INDEX IF NOT EXISTS "idx_workflow_executions_workflow" ON "workflow_executions" ("workflowId")`
     );
     await queryRunner.query(
-      `CREATE INDEX "idx_widget_analytics_event_timestamp" ON "widget_analytics" ("event", "timestamp" DESC)`
+      `CREATE INDEX IF NOT EXISTS "idx_workflow_executions_user" ON "workflow_executions" ("userId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_workflow_executions_status" ON "workflow_executions" ("status")`
+    );
+
+    // Notifications indexes
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_notifications_user" ON "notifications" ("userId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_notifications_type" ON "notifications" ("type")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_notifications_status" ON "notifications" ("status")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_notifications_created" ON "notifications" ("createdAt")`
+    );
+
+    // Knowledge documents indexes
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_knowledge_documents_org" ON "knowledge_documents" ("organizationId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_knowledge_documents_user" ON "knowledge_documents" ("userId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_knowledge_documents_type" ON "knowledge_documents" ("type")`
+    );
+
+    // Prompt templates indexes
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_prompt_templates_org" ON "prompt_templates" ("organizationId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_prompt_templates_user" ON "prompt_templates" ("userId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_prompt_templates_category" ON "prompt_templates" ("category")`
+    );
+
+    // HITL indexes
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_hitl_requests_org" ON "hitl_requests" ("organizationId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_hitl_requests_requester" ON "hitl_requests" ("requesterId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_hitl_requests_assignee" ON "hitl_requests" ("assigneeId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_hitl_requests_status" ON "hitl_requests" ("status")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_hitl_requests_priority" ON "hitl_requests" ("priority")`
+    );
+
+    // Testing sandbox indexes
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_testing_sandboxes_org" ON "testing_sandboxes" ("organizationId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_testing_sandboxes_user" ON "testing_sandboxes" ("userId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_testing_sandboxes_status" ON "testing_sandboxes" ("status")`
+    );
+
+    // Subscriptions indexes
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_subscriptions_org" ON "subscriptions" ("organizationId")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_subscriptions_status" ON "subscriptions" ("status")`
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_subscriptions_plan" ON "subscriptions" ("plan")`
     );
   }
 
@@ -716,7 +847,6 @@ export class InitialSchema1700000001 implements MigrationInterface {
       'hitl_requests',
       'prompt_templates',
       'knowledge_documents',
-      'widget_analytics',
       'testing_sandboxes',
       'test_scenarios',
       'test_executions',

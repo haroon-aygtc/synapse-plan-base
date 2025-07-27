@@ -3,7 +3,8 @@ import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Organization } from './organization.entity';
 import { Notification } from './notification.entity';
-import { NotificationType } from '@shared/enums';
+import { NotificationType } from '@shared/enums/execution-status.enum';
+
 
 @Entity('notification_templates')
 @Index(['organizationId', 'isActive'])

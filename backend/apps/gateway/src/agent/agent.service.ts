@@ -26,7 +26,9 @@ import {
   BatchTestAgentDto,
   TestType,
 } from './dto';
-import { AgentEventType, ExecutionStatus } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 import { ISessionContext } from '@shared/interfaces';
 import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';

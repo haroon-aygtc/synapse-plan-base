@@ -2,7 +2,8 @@ import { Entity, Column, ManyToOne, JoinColumn, Index, Unique } from 'typeorm';
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Organization } from './organization.entity';
-import { NotificationType } from '@shared/enums';
+import { NotificationType } from '@shared/enums/execution-status.enum';
+
 
 @Entity('notification_preferences')
 @Index(['userId', 'organizationId'])

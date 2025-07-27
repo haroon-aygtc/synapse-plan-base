@@ -6,7 +6,7 @@ import {
   ConflictException,
   ForbiddenException,
 } from '@nestjs/common';
-import { ExecutionStatus } from '@shared/enums/index';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In, Between } from 'typeorm';
 import { InjectQueue } from '@nestjs/bull';
@@ -19,7 +19,6 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   Widget,
   WidgetDeploymentInfo,
-  WidgetAnalyticsData,
 } from '@database/entities/widget.entity';
 import { WidgetConfiguration } from '@shared/interfaces';
 import { 

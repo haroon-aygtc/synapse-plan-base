@@ -81,16 +81,16 @@ export class User extends BaseEntity {
   sessions: Session[];
 
   @OneToMany(() => APXSession, (session) => session.user)
-  apixSessions: APXSession[] = [];
+  apixSessions: APXSession[];
 
   @OneToMany(() => APXExecution, (execution) => execution.user)
-  apixExecutions: APXExecution[] = [];
+  apixExecutions: APXExecution[];
 
   @OneToMany(() => AIProvider, (provider) => provider.user)
-  aiProviders: AIProvider[] = [];
+  aiProviders: AIProvider[];
 
   @OneToMany(() => ToolTemplate, (template) => template.user)
-  toolTemplates: ToolTemplate[] = [];
+  toolTemplates: ToolTemplate[];
 
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`;

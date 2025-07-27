@@ -23,11 +23,8 @@ import {
   IsEnum,
   IsArray,
 } from 'class-validator';
-import {
-  APXMessageType,
-  APXSecurityLevel,
-  APXPermissionLevel,
-} from '@shared/enums';
+import { APXMessageType, APXSecurityLevel, APXPermissionLevel } from '@shared/enums/apix-protocol.enum';
+
 import {
   IAPXMessage,
   IAPXMessageSchema,

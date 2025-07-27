@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, In } from 'typeorm';
 import { Tool, ToolExecution, Agent, Workflow } from '@database/entities';
 import { CreateToolDto, UpdateToolDto, TestToolDto } from './dto';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 import axios from 'axios';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AIProviderService } from '../ai-provider/ai-provider.service';

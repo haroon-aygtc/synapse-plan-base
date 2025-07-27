@@ -27,7 +27,9 @@ import {
   ICrossModuleEvent,
   ISessionContext,
 } from '@shared/interfaces';
-import { EventType, WebSocketEventType, EventTargetType, EventPriority, AgentEventType } from '@shared/enums';
+import { EventType, WebSocketEventType, EventTargetType, EventPriority } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+
 
 export interface ConnectionInfo extends IConnectionInfo {}
 export interface MessageProtocol extends IWebSocketMessage {}

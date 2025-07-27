@@ -3,7 +3,8 @@ import { BaseEntity } from './base.entity';
 import { Organization } from './organization.entity';
 import { User } from './user.entity';
 import { AIProvider } from './ai-provider.entity';
-import { ExecutionStatus } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 
 export enum ExecutionType {
   AGENT = 'agent',

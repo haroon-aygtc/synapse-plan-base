@@ -18,7 +18,10 @@ import {
   NotificationPreference,
   NotificationDelivery,
 } from '@database/entities';
-import { NotificationType, NotificationPriority, ExecutionStatus, EventType, AgentEventType } from '@shared/enums';
+import { NotificationType, NotificationPriority, ExecutionStatus } from '@shared/enums/execution-status.enum';
+import { EventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+
 import {
   CreateNotificationDto,
   CreateBulkNotificationDto,

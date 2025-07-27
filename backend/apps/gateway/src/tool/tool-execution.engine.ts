@@ -4,7 +4,9 @@ import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Tool, ToolExecution } from '@database/entities';
 import { ExecuteToolDto } from './dto';
-import { ExecutionStatus, HITLRequestType, HITLRequestPriority } from '@shared/enums';
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+import { HITLRequestType, HITLRequestPriority } from '@shared/enums/hitl.enum';
+
 import { HITLService } from '../hitl/hitl.service';
 import { AIProviderService } from '../ai-provider/ai-provider.service';
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';

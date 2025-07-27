@@ -26,7 +26,8 @@ import {
   CreateNotificationPreferenceDto,
   UpdateNotificationPreferenceDto,
 } from './dto';
-import { NotificationType, NotificationPriority } from '@shared/enums';
+import { NotificationType, NotificationPriority } from '@shared/enums/execution-status.enum';
+
 import { UserRole } from '@shared/interfaces';
 
 @ApiTags('notifications')

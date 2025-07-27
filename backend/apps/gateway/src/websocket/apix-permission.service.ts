@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { APXPermissionLevel, APXSecurityLevel, APXMessageType } from '@shared/enums';
+import { APXPermissionLevel, APXSecurityLevel, APXMessageType } from '@shared/enums/apix-protocol.enum';
+
 
 @Injectable()
 export class APXPermissionService {

@@ -11,7 +11,8 @@ import {
   IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { NotificationType } from '@shared/enums';
+import { NotificationType } from '@shared/enums/execution-status.enum';
+
 
 class TemplateVariableDto {
   @IsString()

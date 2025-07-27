@@ -10,7 +10,8 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { NotificationPriority, ExecutionStatus } from '@shared/enums';
+import { NotificationPriority, ExecutionStatus } from '@shared/enums/execution-status.enum';
+
 
 export class UpdateNotificationDto {
   @IsOptional()

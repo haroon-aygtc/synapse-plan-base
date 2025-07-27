@@ -4,13 +4,8 @@ import { User } from './user.entity';
 import { AgentExecution } from './agent-execution.entity';
 import { ToolExecution } from './tool-execution.entity';
 import { WorkflowExecution } from './workflow-execution.entity';
-import {
-  HITLRequestType,
-  HITLRequestStatus,
-  HITLRequestPriority,
-  HITLDecisionType,
-  HITLEscalationReason,
-} from '@shared/enums';
+import { HITLRequestType, HITLRequestStatus, HITLRequestPriority, HITLDecisionType, HITLEscalationReason } from '@shared/enums/hitl.enum';
+
 
 @Entity('hitl_requests')
 @Index(['organizationId', 'status'])

@@ -8,14 +8,9 @@ import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Organization } from '@database/entities';
-import {
-  APXMessageType,
-  APXStreamState,
-  APXExecutionState,
-  APXPermissionLevel,
-  APXSecurityLevel,
-  SessionEventType,
-} from '@shared/enums';
+import { APXMessageType, APXStreamState, APXExecutionState, APXPermissionLevel, APXSecurityLevel } from '@shared/enums/apix-protocol.enum';
+import { SessionEventType } from '@shared/enums/execution-status.enum';
+
 import {
   IAPXMessage,
   IAPXSessionCreated,

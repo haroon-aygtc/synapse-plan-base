@@ -3,12 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Agent, AgentExecution } from '@database/entities';
-import {
-  AgentEventType,
-  ExecutionStatus,
-  HITLRequestType,
-  HITLRequestPriority,
-} from '@shared/enums';
+
+import { ExecutionStatus } from '@shared/enums/execution-status.enum';
+import { HITLRequestType, HITLRequestPriority } from '@shared/enums/hitl.enum';
+
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
 import { WebSocketService } from '../websocket/websocket.service';
 import { SessionService } from '../session/session.service';
@@ -17,6 +15,7 @@ import { AIProviderService } from '../ai-provider/ai-provider.service';
 import { ProviderAdapterService } from '../ai-provider/provider-adapter.service';
 import { HITLService } from '../hitl/hitl.service';
 import { Injectable, Logger } from '@nestjs/common';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
 
 export interface AgentExecutionOptions {
   input: string;
@@ -78,16 +77,17 @@ export class AgentExecutionEngine {
 
     // Create execution record
     const execution = this.agentExecutionRepository.create({
-      id: executionId,
       agentId: agent.id,
       sessionId: options.sessionId || uuidv4(),
       input: options.input,
-      status: ExecutionStatus.RUNNING,
       context: options.context || {},
       metadata: options.metadata || {},
       organizationId,
       startedAt: new Date(),
     });
+    
+    // Set status after creation to avoid type issues
+    execution.status = ExecutionStatus.RUNNING;
 
     await this.agentExecutionRepository.save(execution);
 
@@ -105,7 +105,7 @@ export class AgentExecutionEngine {
     await this.websocketService.broadcastToOrganization(organizationId, 'agent_execution_started', {
       executionId,
       agentId: agent.id,
-      status: ExecutionStatus.RUNNING,
+      status: ExecutionStatus.RUNNING as ExecutionStatus,
     });
 
     try {

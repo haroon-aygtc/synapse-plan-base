@@ -2,7 +2,8 @@ import { Entity, Column, ManyToOne, JoinColumn, Index, OneToMany } from 'typeorm
 import { BaseEntity } from './base.entity';
 import { User } from './user.entity';
 import { Organization } from './organization.entity';
-import { APXSecurityLevel, APXPermissionLevel } from '@shared/enums';
+import { APXSecurityLevel, APXPermissionLevel } from '@shared/enums/apix-protocol.enum';
+
 import { APXExecution } from './apix-execution.entity';
 
 @Entity('apix_sessions')
@@ -13,10 +14,10 @@ export class APXSession extends BaseEntity {
   @Column({ type: 'varchar', length: 255, unique: true })
   sessionId: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'uuid' })
   userId: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'uuid' })
   organizationId: string;
 
   @Column({ type: 'enum', enum: APXSecurityLevel, default: APXSecurityLevel.PUBLIC })

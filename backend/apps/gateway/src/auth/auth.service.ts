@@ -16,7 +16,8 @@ import { OrganizationService } from './organization.service';
 import { RegisterDto, LoginDto, InviteUserDto } from './dto';
 import { IJwtPayload, IUser, ISession, UserRole, SubscriptionPlan } from '@shared/interfaces';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { AgentEventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+
 import { SessionService } from '../session/session.service';
 import { BillingService } from '../billing/billing.service';
 

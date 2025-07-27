@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { HealthService } from '@shared/health/health.service';
 import { HealthStatus } from '@shared/enums';
 
+
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {

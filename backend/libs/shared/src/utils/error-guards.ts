@@ -147,12 +147,12 @@ export function logSafeError(...args: unknown[]): void {
       stack: error instanceof Error ? error.stack : undefined,
     });
   } else {
-    logger.error(message, {
-      errorCode: code,
-      status,
-      context,
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+  logger.error(message, {
+    errorCode: code,
+    status,
+    context,
+    stack: error instanceof Error ? error.stack : undefined,
+  });
   }
 }
 

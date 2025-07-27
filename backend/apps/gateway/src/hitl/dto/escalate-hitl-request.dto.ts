@@ -1,6 +1,7 @@
 import { IsEnum, IsString, IsOptional, IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { HITLEscalationReason } from '@shared/enums';
+import { HITLEscalationReason } from '@shared/enums/hitl.enum';
+
 
 export class EscalateHITLRequestDto {
   @ApiProperty({ enum: HITLEscalationReason })

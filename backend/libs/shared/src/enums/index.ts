@@ -98,27 +98,11 @@ export enum NotificationPriority {
   CRITICAL = 'CRITICAL',
 }
 
-export enum ExecutionStatus {
-  PENDING = 'PENDING',
-  RUNNING = 'RUNNING',
-  COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED',
-  CANCELLED = 'CANCELLED',
-  PAUSED = 'PAUSED',
-}
-
 export enum ApprovalStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   EXPIRED = 'EXPIRED',
-}
-
-export enum DocumentStatus {
-  UPLOADED = 'UPLOADED',
-  PROCESSING = 'PROCESSING',
-  PROCESSED = 'PROCESSED',
-  FAILED = 'FAILED',
 }
 
 export enum HealthStatus {

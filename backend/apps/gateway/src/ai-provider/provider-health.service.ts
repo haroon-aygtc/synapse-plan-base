@@ -8,7 +8,8 @@ import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { AIProvider, AIProviderMetrics, ProviderStatus } from '@database/entities';
 import { ProviderAdapterService } from './provider-adapter.service';
-import { AgentEventType } from '@shared/enums';
+import { AgentEventType } from '@shared/enums/agent-event.enum';
+
   
 interface HealthCheckResult {
   providerId: string;
@@ -61,7 +62,7 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
     // Delay initialization to ensure database is ready
     setTimeout(async () => {
       try {
-        await this.initializeHealthMonitoring();
+    await this.initializeHealthMonitoring();
       } catch (error) {
         this.logger.warn('Failed to initialize health monitoring, will retry later', error);
       }
@@ -75,15 +76,15 @@ export class ProviderHealthService implements OnModuleInit, OnModuleDestroy {
 
   async initializeHealthMonitoring(): Promise<void> {
     try {
-      const activeProviders = await this.providerRepository.find({
-        where: { isActive: true, status: ProviderStatus.ACTIVE },
-      });
+    const activeProviders = await this.providerRepository.find({
+      where: { isActive: true, status: ProviderStatus.ACTIVE },
+    });
 
-      for (const provider of activeProviders) {
-        await this.startMonitoring(provider.id, provider.organizationId);
-      }
+    for (const provider of activeProviders) {
+      await this.startMonitoring(provider.id, provider.organizationId);
+    }
 
-      this.logger.log(`Started health monitoring for ${activeProviders.length} providers`);
+    this.logger.log(`Started health monitoring for ${activeProviders.length} providers`);
     } catch (error) {
       this.logger.warn('No active providers found or database not ready yet', error);
     }

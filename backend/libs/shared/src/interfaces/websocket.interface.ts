@@ -1,4 +1,5 @@
 import { AgentEventType, WebSocketEventType, EventTargetType, EventPriority } from '../enums';
+import { ToolEventType } from '../enums/execution-status.enum';
 
 export interface IWebSocketMessage {
   event: string;
@@ -13,7 +14,13 @@ export interface IWebSocketMessage {
   correlationId?: string;
   retryCount?: number;
 }
-
+  export interface IWebSocketMessage {
+  event: string;
+  payload: any;
+  timestamp: Date;
+  messageId: string;
+  userId?: string;
+}
 export interface IConnectionInfo {
   id: string;
   userId: string;
@@ -103,7 +110,7 @@ export interface IEventReplay {
 export interface ICrossModuleEvent {
   sourceModule: string;
   targetModule: string;
-  eventType: AgentEventType | WebSocketEventType;
+  eventType: AgentEventType | WebSocketEventType | ToolEventType;
   payload: any;
   context: {
     userId: string;

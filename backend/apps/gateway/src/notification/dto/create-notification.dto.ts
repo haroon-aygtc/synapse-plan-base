@@ -13,7 +13,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { NotificationType, NotificationPriority } from '@shared/enums';
+import { NotificationType, NotificationPriority } from '@shared/enums/execution-status.enum';
+
 
 class EmailDeliveryConfigDto {
   @IsArray()
