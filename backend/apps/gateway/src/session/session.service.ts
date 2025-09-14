@@ -1,10 +1,11 @@
 import {
   Injectable,
-  Logger,
   NotFoundException,
   UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
+import { CustomLoggerService } from '@shared/logger/logger.service';
+import { MonitoringService } from '@shared/monitoring/monitoring.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan, MoreThan } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -58,7 +59,7 @@ export interface SessionMemoryConfig {
 
 @Injectable()
 export class SessionService {
-  private readonly logger = new Logger(SessionService.name);
+  private readonly logger: CustomLoggerService;
   private readonly defaultTTL: number;
   private readonly memoryConfig: SessionMemoryConfig;
   private readonly redisPrefix = 'session:';
@@ -75,8 +76,10 @@ export class SessionService {
 
     private readonly configService: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    private readonly eventEmitter: EventEmitter2
+    private readonly eventEmitter: EventEmitter2,
+    private readonly monitoring: MonitoringService
   ) {
+    this.logger = new CustomLoggerService(this.configService, SessionService.name);
     this.defaultTTL = this.parseTimeToSeconds(this.configService.get('SESSION_TTL', '24h'));
     this.memoryConfig = {
       defaultLimit: this.configService.get('SESSION_MEMORY_LIMIT', 10485760), // 10MB
@@ -385,41 +388,41 @@ export class SessionService {
       executionState: session.executionState,
       workflowContext: session.workflowId
         ? {
-            workflowId: session.workflowId,
-            stepId: context.currentStep || '',
-            variables: context.workflowVariables || {},
-            state: context.workflowState || 'running',
-          }
+          workflowId: session.workflowId,
+          stepId: context.currentStep || '',
+          variables: context.workflowVariables || {},
+          state: context.workflowState || 'running',
+        }
         : undefined,
       agentContext: session.agentId
         ? {
-            agentId: session.agentId,
-            conversationId: context.conversationId || '',
-            memory: context.agentMemory || {},
-            toolCalls: context.toolCalls || [],
-          }
+          agentId: session.agentId,
+          conversationId: context.conversationId || '',
+          memory: context.agentMemory || {},
+          toolCalls: context.toolCalls || [],
+        }
         : undefined,
       toolContext: session.toolId
         ? {
-            toolId: session.toolId,
-            executionId: context.toolExecutionId || '',
-            parameters: context.toolParameters || {},
-            state: context.toolState || 'pending',
-          }
+          toolId: session.toolId,
+          executionId: context.toolExecutionId || '',
+          parameters: context.toolParameters || {},
+          state: context.toolState || 'pending',
+        }
         : undefined,
       knowledgeContext: session.knowledgeId
         ? {
-            searchHistory: context.searchHistory || [],
-            documentAccess: context.documentAccess || [],
-          }
+          searchHistory: context.searchHistory || [],
+          documentAccess: context.documentAccess || [],
+        }
         : undefined,
       hitlContext: session.hitlRequestId
         ? {
-            requestId: session.hitlRequestId,
-            approvalType: context.approvalType || '',
-            requestData: context.requestData || {},
-            status: context.approvalStatus || 'pending',
-          }
+          requestId: session.hitlRequestId,
+          approvalType: context.approvalType || '',
+          requestData: context.requestData || {},
+          status: context.approvalStatus || 'pending',
+        }
         : undefined,
     };
   }
@@ -476,25 +479,25 @@ export class SessionService {
       crossModuleData: session.crossModuleData || {},
       workflowState: session.workflowId
         ? {
-            workflowId: session.workflowId,
-            currentStep: session.recoveryData.currentStep || '',
-            completedSteps: session.recoveryData.completedSteps || [],
-            variables: session.recoveryData.workflowVariables || {},
-          }
+          workflowId: session.workflowId,
+          currentStep: session.recoveryData.currentStep || '',
+          completedSteps: session.recoveryData.completedSteps || [],
+          variables: session.recoveryData.workflowVariables || {},
+        }
         : undefined,
       agentState: session.agentId
         ? {
-            agentId: session.agentId,
-            conversationHistory: session.recoveryData.conversationHistory || [],
-            memory: session.recoveryData.agentMemory || {},
-          }
+          agentId: session.agentId,
+          conversationHistory: session.recoveryData.conversationHistory || [],
+          memory: session.recoveryData.agentMemory || {},
+        }
         : undefined,
       toolState: session.toolId
         ? {
-            toolId: session.toolId,
-            pendingExecutions: session.recoveryData.pendingExecutions || [],
-            results: session.recoveryData.toolResults || {},
-          }
+          toolId: session.toolId,
+          pendingExecutions: session.recoveryData.pendingExecutions || [],
+          results: session.recoveryData.toolResults || {},
+        }
         : undefined,
     };
 

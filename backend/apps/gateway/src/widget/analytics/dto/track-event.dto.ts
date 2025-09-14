@@ -1,17 +1,6 @@
 import { IsString, IsOptional, IsObject, IsEnum, IsNumber, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-
-export enum AnalyticsEventType {
-  VIEW = 'view',
-  INTERACTION = 'interaction',
-  CONVERSION = 'conversion',
-  ERROR = 'error',
-  CLICK = 'click',
-  SCROLL = 'scroll',
-  FORM_SUBMIT = 'form_submit',
-  SESSION_START = 'session_start',
-  SESSION_END = 'session_end',
-}
+import { AnalyticsEventType } from '@shared/enums';
 
 export class TrackEventDto {
   @ApiProperty({

@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { CustomLoggerService } from '@shared/logger/logger.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { SessionEventType } from '@shared/enums';
 
@@ -7,9 +9,14 @@ import { logSafeError } from '@shared/utils/error-guards';
 
 @Injectable()
 export class SessionEventHandler {
-  private readonly logger = new Logger(SessionEventHandler.name);
+  private readonly logger: CustomLoggerService;
 
-  constructor(private readonly websocketService: WebSocketService) {}
+  constructor(
+    private readonly websocketService: WebSocketService,
+    private readonly configService: ConfigService
+  ) {
+    this.logger = new CustomLoggerService(this.configService, SessionEventHandler.name);
+  }
 
   @OnEvent(SessionEventType.SESSION_CREATED)
   async handleSessionCreated(payload: {
@@ -39,7 +46,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session created event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session created event', error);
+      logSafeError(this.logger, 'Failed to handle session created event', error as string);
     }
   }
 
@@ -61,7 +68,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session updated event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session updated event', error);
+      logSafeError(this.logger, 'Failed to handle session updated event', error as string);
     }
   }
 
@@ -82,7 +89,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session expired event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session expired event', error);
+      logSafeError(this.logger, 'Failed to handle session expired event', error as string);
     }
   }
 
@@ -102,7 +109,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session destroyed event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session destroyed event', error);
+      logSafeError(this.logger, 'Failed to handle session destroyed event', error as string);
     }
   }
 
@@ -124,7 +131,7 @@ export class SessionEventHandler {
 
       this.logger.debug(`Session context updated event broadcasted: ${payload.sessionId}`);
     } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session context updated event', error);
+      logSafeError(this.logger, 'Failed to handle session context updated event', error as string);
     }
   }
 
@@ -150,7 +157,7 @@ export class SessionEventHandler {
         `Session memory warning: ${payload.sessionId} (${payload.memoryUsage}/${payload.memoryLimit} bytes)`
       );
     } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session memory warning', error);
+      logSafeError(this.logger, 'Failed to handle session memory warning', error as string);
     }
   }
 
@@ -176,7 +183,7 @@ export class SessionEventHandler {
         `Session memory limit exceeded: ${payload.sessionId} (${payload.memoryUsage}/${payload.memoryLimit} bytes)`
       );
     } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session memory limit exceeded', error);
+      logSafeError(this.logger, 'Failed to handle session memory limit exceeded', error as string);
     }
   }
 
@@ -206,7 +213,7 @@ export class SessionEventHandler {
         `Session cross-module update broadcasted: ${payload.sessionId} (${payload.moduleType})`
       );
     } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session cross-module update', error);
+      logSafeError(this.logger, 'Failed to handle session cross-module update', error as string);
     }
   }
 
@@ -228,52 +235,51 @@ export class SessionEventHandler {
 
       this.logger.log(`Session recovery initiated: ${payload.sessionId}`);
     } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session recovery initiated', error);
+      logSafeError(this.logger, 'Failed to handle session recovery initiated', error as string);
     }
-  }
 
-  @OnEvent(SessionEventType.SESSION_RECOVERY_COMPLETED)
-  async handleSessionRecoveryCompleted(payload: {
-    sessionId: string;
-    userId: string;
-    organizationId: string;
-    timestamp: Date;
-  }): Promise<void> {
-    try {
-      // Notify user of successful session recovery
-      await this.websocketService.sendSystemNotification(payload.organizationId, {
-        type: 'success',
-        title: 'Session Recovery Completed',
-        message: `Session ${payload.sessionId} has been successfully recovered.`,
-        timestamp: payload.timestamp,
-      });
-
-      this.logger.log(`Session recovery completed: ${payload.sessionId}`);
-    } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session recovery completed', error);
-    }
-  }
-
-  @OnEvent(SessionEventType.SESSION_ANALYTICS_UPDATE)
-  async handleSessionAnalyticsUpdate(payload: {
-    organizationId: string;
-    analytics: Record<string, any>;
-    timestamp: Date;
-  }): Promise<void> {
-    try {
-      // Broadcast analytics update to organization admins
-      await this.websocketService.broadcastToOrganization(
-        payload.organizationId,
-        'session_analytics_update',
-        {
-          analytics: payload.analytics,
+    @OnEvent(SessionEventType.SESSION_RECOVERY_COMPLETED)
+    async handleSessionRecoveryCompleted(payload: {
+      sessionId: string;
+      userId: string;
+      organizationId: string;
+      timestamp: Date;
+    }): Promise < void> {
+      try {
+        // Notify user of successful session recovery
+        await this.websocketService.sendSystemNotification(payload.organizationId, {
+          type: 'success',
+          title: 'Session Recovery Completed',
+          message: `Session ${payload.sessionId} has been successfully recovered.`,
           timestamp: payload.timestamp,
-        }
-      );
+        });
 
-      this.logger.debug(`Session analytics update broadcasted for org: ${payload.organizationId}`);
-    } catch (error) {
-      logSafeError(this.logger, 'Failed to handle session analytics update', error);
+        this.logger.log(`Session recovery completed: ${payload.sessionId}`);
+      } catch(error) {
+        logSafeError(this.logger, 'Failed to handle session recovery completed', error as string);
+      }
+    }
+
+    @OnEvent(SessionEventType.SESSION_ANALYTICS_UPDATE)
+    async handleSessionAnalyticsUpdate(payload: {
+      organizationId: string;
+      analytics: Record<string, any>;
+      timestamp: Date;
+    }): Promise < void> {
+      try {
+        // Broadcast analytics update to organization admins
+        await this.websocketService.broadcastToOrganization(
+          payload.organizationId,
+          'session_analytics_update',
+          {
+            analytics: payload.analytics,
+            timestamp: payload.timestamp,
+          }
+        );
+
+        this.logger.debug(`Session analytics update broadcasted for org: ${payload.organizationId}`);
+      } catch(error) {
+        logSafeError(this.logger, 'Failed to handle session analytics update', error as string);
+      }
     }
   }
-}

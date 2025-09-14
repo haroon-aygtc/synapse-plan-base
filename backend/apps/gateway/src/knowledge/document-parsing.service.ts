@@ -1,21 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { DocumentType } from '@database/entities';
 import * as crypto from 'crypto';
+import { Buffer } from 'buffer';
 import { firstValueFrom } from 'rxjs';
-
-// Note: In production, install cheerio: npm install cheerio @types/cheerio
-// For now, using a mock implementation
-const cheerio = {
-  load: (html: string) => ({
-    text: () => html.replace(/<[^>]*>/g, '').trim(),
-    remove: () => ({}),
-    first: () => ({ text: () => '', length: 0 }),
-    attr: () => undefined,
-    each: () => ({}),
-  }),
-};
+import * as cheerio from 'cheerio';
+import * as pdfParse from 'pdf-parse';
+import * as mammoth from 'mammoth';
+import * as franc from 'franc';
+import { CustomLoggerService } from '@shared/logger/logger.service';
+import { MonitoringService } from '@shared/monitoring/monitoring.service';
+import { logSafeError } from '@shared/utils/error-guards';
 
 export interface ParsedDocument {
   content: string;
@@ -34,18 +30,22 @@ export interface ParsedDocument {
 
 @Injectable()
 export class DocumentParsingService {
-  private readonly logger = new Logger(DocumentParsingService.name);
+  private readonly logger: CustomLoggerService;
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly httpService: HttpService
-  ) {}
+    private readonly httpService: HttpService,
+    private readonly monitoring: MonitoringService
+  ) {
+    this.logger = new CustomLoggerService(this.configService, DocumentParsingService.name);
+  }
 
   async parseDocumentFile(
     file: Express.Multer.File | Buffer,
     type: DocumentType,
     filename?: string
   ): Promise<ParsedDocument> {
+    const startTime = Date.now();
     const buffer = Buffer.isBuffer(file) ? file : file.buffer;
     const originalName = filename || (file as Express.Multer.File).originalname;
 
@@ -97,21 +97,61 @@ export class DocumentParsingService {
         language,
       };
 
+      const totalDuration = Date.now() - startTime;
+
+      // Record overall parsing metrics
+      this.monitoring.recordMetric({
+        name: 'document_parsing_total_duration',
+        value: totalDuration,
+        tags: {
+          document_type: type,
+          file_size: buffer.length.toString(),
+          word_count: wordCount.toString()
+        }
+      });
+
+      this.monitoring.recordMetric({
+        name: 'document_parsing_success',
+        value: 1,
+        tags: {
+          document_type: type,
+          language,
+          word_count: wordCount.toString()
+        }
+      });
+
       this.logger.log(
-        `Document parsed successfully: ${wordCount} words, ${characterCount} characters`
+        `Document parsed successfully: ${wordCount} words, ${characterCount} characters in ${totalDuration}ms`
       );
 
       return {
         content: this.cleanContent(content),
-        metadata: finalMetadata,
+        metadata: {
+          ...finalMetadata,
+          totalParsingDuration: totalDuration,
+        },
       };
     } catch (error) {
-      this.logger.error(`Failed to parse document: ${originalName}`, error);
+      const duration = Date.now() - startTime;
+
+      logSafeError(this.logger, error, `Failed to parse document: ${originalName}`);
+
+      this.monitoring.recordMetric({
+        name: 'document_parsing_error',
+        value: 1,
+        tags: {
+          document_type: type,
+          error_type: error instanceof Error ? error.constructor.name : 'Unknown',
+          duration: duration.toString()
+        }
+      });
+
       throw new Error(`Document parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   async parseURL(url: string): Promise<ParsedDocument> {
+    const startTime = Date.now();
     this.logger.log(`Parsing URL: ${url}`);
 
     try {
@@ -140,6 +180,28 @@ export class DocumentParsingService {
       const buffer = Buffer.from(response.data);
       const result = await this.parseDocumentFile(buffer, type, url);
 
+      const totalDuration = Date.now() - startTime;
+
+      // Record URL parsing metrics
+      this.monitoring.recordMetric({
+        name: 'url_parsing_duration',
+        value: totalDuration,
+        tags: {
+          content_type: contentType,
+          status_code: response.status.toString(),
+          content_length: buffer.length.toString()
+        }
+      });
+
+      this.monitoring.recordMetric({
+        name: 'url_parsing_success',
+        value: 1,
+        tags: {
+          content_type: contentType,
+          status_code: response.status.toString()
+        }
+      });
+
       // Add URL-specific metadata
       result.metadata = {
         ...result.metadata,
@@ -147,11 +209,26 @@ export class DocumentParsingService {
         scrapedAt: new Date(),
         contentType,
         statusCode: response.status,
+        urlParsingDuration: totalDuration,
       };
+
+      this.logger.log(`URL parsed successfully: ${url} in ${totalDuration}ms`);
 
       return result;
     } catch (error) {
-      this.logger.error(`Failed to parse URL: ${url}`, error);
+      const duration = Date.now() - startTime;
+
+      logSafeError(this.logger, error, `Failed to parse URL: ${url}`);
+
+      this.monitoring.recordMetric({
+        name: 'url_parsing_error',
+        value: 1,
+        tags: {
+          error_type: error instanceof Error ? error.constructor.name : 'Unknown',
+          duration: duration.toString()
+        }
+      });
+
       throw new Error(`URL parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -160,82 +237,265 @@ export class DocumentParsingService {
     buffer: Buffer,
     metadata: any
   ): Promise<{ content: string; metadata: any }> {
-    // In production, use a proper PDF parsing library like pdf-parse or pdf2pic
-    // For now, return placeholder implementation
-    this.logger.warn('PDF parsing not fully implemented - using placeholder');
+    try {
+      const startTime = Date.now();
 
-    return {
-      content: 'PDF content extraction not implemented. Please use a proper PDF parsing library.',
-      metadata: {
-        ...metadata,
-        pageCount: 1,
-        extractionMethod: 'placeholder',
-      },
-    };
+      // Parse PDF using pdf-parse library
+      const pdfData = await pdfParse(buffer, {
+        // Configuration options
+        max: 0, // No page limit
+        version: 'v1.10.100', // PDF.js version
+      });
+
+      const duration = Date.now() - startTime;
+
+      // Record metrics
+      this.monitoring.recordMetric({
+        name: 'pdf_parsing_duration',
+        value: duration,
+        tags: {
+          page_count: pdfData.numpages.toString(),
+          file_size: buffer.length.toString()
+        }
+      });
+
+      this.monitoring.recordMetric({
+        name: 'pdf_parsing_success',
+        value: 1,
+        tags: {
+          page_count: pdfData.numpages.toString(),
+          text_length: pdfData.text.length.toString()
+        }
+      });
+
+      this.logger.log(`PDF parsed successfully: ${pdfData.numpages} pages, ${pdfData.text.length} characters`);
+
+      return {
+        content: pdfData.text,
+        metadata: {
+          ...metadata,
+          pageCount: pdfData.numpages,
+          extractionMethod: 'pdf-parse',
+          pdfInfo: {
+            version: pdfData.version,
+            creator: pdfData.info?.Creator,
+            producer: pdfData.info?.Producer,
+            creationDate: pdfData.info?.CreationDate,
+            modificationDate: pdfData.info?.ModDate,
+          },
+          parsingDuration: duration,
+        },
+      };
+    } catch (error) {
+      logSafeError(this.logger, error, 'PDF parsing failed');
+
+      this.monitoring.recordMetric({
+        name: 'pdf_parsing_error',
+        value: 1,
+        tags: { error_type: error instanceof Error ? error.constructor.name : 'Unknown' }
+      });
+
+      throw new Error(`PDF parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   private async parseDocument(
     buffer: Buffer,
     metadata: any
   ): Promise<{ content: string; metadata: any }> {
-    // In production, use a proper document parsing library like mammoth for DOCX
-    this.logger.warn('Document parsing not fully implemented - using placeholder');
+    try {
+      const startTime = Date.now();
 
-    return {
-      content:
-        'Document content extraction not implemented. Please use a proper document parsing library.',
-      metadata: {
-        ...metadata,
-        extractionMethod: 'placeholder',
-      },
-    };
+      // Parse document using mammoth library (supports DOCX, DOC)
+      const result = await mammoth.extractRawText({ buffer });
+
+      const duration = Date.now() - startTime;
+
+      // Record metrics
+      this.monitoring.recordMetric({
+        name: 'document_parsing_duration',
+        value: duration,
+        tags: {
+          file_size: buffer.length.toString(),
+          text_length: result.value.length.toString()
+        }
+      });
+
+      this.monitoring.recordMetric({
+        name: 'document_parsing_success',
+        value: 1,
+        tags: {
+          text_length: result.value.length.toString(),
+          has_messages: result.messages.length > 0 ? 'true' : 'false'
+        }
+      });
+
+      // Log warnings if any
+      if (result.messages.length > 0) {
+        this.logger.warn(`Document parsing warnings: ${result.messages.length} messages`, JSON.stringify({
+          messages: result.messages.map((m: any) => m.message)
+        }));
+      }
+
+      this.logger.log(`Document parsed successfully: ${result.value.length} characters`);
+
+      return {
+        content: result.value,
+        metadata: {
+          ...metadata,
+          extractionMethod: 'mammoth',
+          parsingDuration: duration,
+          warnings: result.messages.map((m: any) => ({
+            message: m.message,
+            type: m.type,
+          })),
+        },
+      };
+    } catch (error) {
+      logSafeError(this.logger, error, 'Document parsing failed');
+
+      this.monitoring.recordMetric({
+        name: 'document_parsing_error',
+        value: 1,
+        tags: { error_type: error instanceof Error ? error.constructor.name : 'Unknown' }
+      });
+
+      throw new Error(`Document parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   private async parseHTML(
     html: string,
     metadata: any
   ): Promise<{ content: string; metadata: any }> {
-    // Simple HTML parsing without cheerio for now
-    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].trim() : '';
-    
-    const descriptionMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i);
-    const description = descriptionMatch ? descriptionMatch[1] : '';
-    
-    const authorMatch = html.match(/<meta[^>]*name=["']author["'][^>]*content=["']([^"']*)["'][^>]*>/i);
-    const author = authorMatch ? authorMatch[1] : '';
-    
-    const keywordsMatch = html.match(/<meta[^>]*name=["']keywords["'][^>]*content=["']([^"']*)["'][^>]*>/i);
-    const keywords = keywordsMatch ? keywordsMatch[1] : '';
+    try {
+      const startTime = Date.now();
 
-    // Remove HTML tags and extract text content
-    let content = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-      .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-      .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
-      .replace(/<[^>]*>/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+      // Parse HTML using cheerio
+      const $ = cheerio.load(html);
 
-    // Extract headings
-    const headingMatches = html.match(/<h[1-6][^>]*>([^<]*)<\/h[1-6]>/gi);
-    const headings = headingMatches ? headingMatches.map(h => h.replace(/<[^>]*>/g, '').trim()) : [];
+      // Remove unwanted elements
+      $('script, style, nav, footer, header, aside, noscript').remove();
 
-    return {
-      content,
-      metadata: {
-        ...metadata,
-        title,
-        description,
-        author,
-        keywords: keywords ? keywords.split(',').map((k: string) => k.trim()) : [],
-        headings,
-        extractionMethod: 'regex',
-      },
-    };
+      // Extract metadata
+      const title = $('title').first().text().trim();
+      const description = $('meta[name="description"]').attr('content') || '';
+      const author = $('meta[name="author"]').attr('content') || '';
+      const keywords = $('meta[name="keywords"]').attr('content') || '';
+      const ogTitle = $('meta[property="og:title"]').attr('content') || '';
+      const ogDescription = $('meta[property="og:description"]').attr('content') || '';
+
+      // Extract headings with hierarchy
+      const headings: Array<{ level: number; text: string }> = [];
+      $('h1, h2, h3, h4, h5, h6').each((_: any, element: any) => {
+        const $el = $(element);
+        const level = parseInt($el.prop('tagName').substring(1));
+        const text = $el.text().trim();
+        if (text) {
+          headings.push({ level, text });
+        }
+      });
+
+      // Extract links
+      const links: Array<{ text: string; href: string }> = [];
+      $('a[href]').each((_: any, element: any) => {
+        const $el = $(element);
+        const text = $el.text().trim();
+        const href = $el.attr('href');
+        if (text && href) {
+          links.push({ text, href });
+        }
+      });
+
+      // Extract images
+      const images: Array<{ alt: string; src: string }> = [];
+      $('img[src]').each((_: any, element: any) => {
+        const $el = $(element);
+        const alt = $el.attr('alt') || '';
+        const src = $el.attr('src') || '';
+        if (src) {
+          images.push({ alt, src });
+        }
+      });
+
+      // Extract main content (prioritize main, article, content areas)
+      let mainContent = '';
+      const mainSelectors = ['main', 'article', '[role="main"]', '.content', '#content', '.main-content'];
+
+      for (const selector of mainSelectors) {
+        const $main = $(selector);
+        if ($main.length > 0) {
+          mainContent = $main.text().trim();
+          break;
+        }
+      }
+
+      // Fallback to body if no main content found
+      if (!mainContent) {
+        mainContent = $('body').text().trim();
+      }
+
+      // Clean up content
+      const content = mainContent
+        .replace(/\s+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+      const duration = Date.now() - startTime;
+
+      // Record metrics
+      this.monitoring.recordMetric({
+        name: 'html_parsing_duration',
+        value: duration,
+        tags: {
+          html_length: html.length.toString(),
+          content_length: content.length.toString()
+        }
+      });
+
+      this.monitoring.recordMetric({
+        name: 'html_parsing_success',
+        value: 1,
+        tags: {
+          has_title: title ? 'true' : 'false',
+          heading_count: headings.length.toString(),
+          link_count: links.length.toString()
+        }
+      });
+
+      this.logger.log(`HTML parsed successfully: ${content.length} characters, ${headings.length} headings`);
+
+      return {
+        content,
+        metadata: {
+          ...metadata,
+          title: title || ogTitle,
+          description: description || ogDescription,
+          author,
+          keywords: keywords ? keywords.split(',').map((k: string) => k.trim()) : [],
+          headings,
+          links: links.slice(0, 50), // Limit to first 50 links
+          images: images.slice(0, 20), // Limit to first 20 images
+          extractionMethod: 'cheerio',
+          parsingDuration: duration,
+          structure: {
+            headingCount: headings.length,
+            linkCount: links.length,
+            imageCount: images.length,
+          },
+        },
+      };
+    } catch (error) {
+      logSafeError(this.logger, error, 'HTML parsing failed');
+
+      this.monitoring.recordMetric({
+        name: 'html_parsing_error',
+        value: 1,
+        tags: { error_type: error instanceof Error ? error.constructor.name : 'Unknown' }
+      });
+
+      throw new Error(`HTML parsing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   private async parseMarkdown(
@@ -397,34 +657,53 @@ export class DocumentParsingService {
   }
 
   private async detectLanguage(content: string): Promise<string> {
-    // Simple language detection based on common words
-    // In production, use a proper language detection library
-    const sample = content.toLowerCase().substring(0, 1000);
+    try {
+      // Use franc library for real language detection
+      const sample = content.substring(0, 10000); // Use more content for better accuracy
 
-    const englishWords = [
-      'the',
-      'and',
-      'or',
-      'but',
-      'in',
-      'on',
-      'at',
-      'to',
-      'for',
-      'of',
-      'with',
-      'by',
-    ];
-    const englishCount = englishWords.reduce((count, word) => {
-      return count + (sample.match(new RegExp(`\\b${word}\\b`, 'g')) || []).length;
-    }, 0);
+      if (sample.length < 10) {
+        return 'unknown';
+      }
 
-    // Simple heuristic - if we find many English words, assume English
-    if (englishCount > 5) {
-      return 'en';
+      const detectedLanguage = franc(sample);
+      const confidence = franc.all(sample);
+
+      // Get the most confident language
+      const bestMatch = confidence[0];
+      const language = bestMatch && bestMatch[1] > 0.5 ? bestMatch[0] : 'unknown';
+
+      // Record metrics
+      this.monitoring.recordMetric({
+        name: 'language_detection',
+        value: 1,
+        tags: {
+          detected_language: language,
+          confidence: bestMatch ? bestMatch[1].toString() : '0',
+          content_length: content.length.toString()
+        }
+      });
+
+      this.logger.debug(`Language detected: ${language} (confidence: ${bestMatch ? bestMatch[1] : 0})`);
+
+      return language;
+    } catch (error) {
+      logSafeError(this.logger, error, 'Language detection failed');
+
+      this.monitoring.recordMetric({
+        name: 'language_detection_error',
+        value: 1,
+        tags: { error_type: error instanceof Error ? error.constructor.name : 'Unknown' }
+      });
+
+      // Fallback to simple detection
+      const sample = content.toLowerCase().substring(0, 1000);
+      const englishWords = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'];
+      const englishCount = englishWords.reduce((count, word) => {
+        return count + (sample.match(new RegExp(`\\b${word}\\b`, 'g')) || []).length;
+      }, 0);
+
+      return englishCount > 5 ? 'en' : 'unknown';
     }
-
-    return 'unknown';
   }
 
   private cleanContent(content: string): string {

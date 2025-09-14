@@ -208,6 +208,9 @@ export * from './apix-protocol.enum';
 // Export HITL enums
 export * from './hitl.enum';
 
+// Export Analytics enums
+export * from './analytics.enum';
+
 // Prompt Template Event Type (alias for AgentEventType for backward compatibility)
 export enum PromptTemplateEventType {
   PROMPT_TEMPLATE_CREATED = 'prompt.template.created',

@@ -13,7 +13,7 @@ export interface Response<T> {
 export class ResponseInterceptor<T> implements NestInterceptor<T, Response<T>> {
   intercept(_context: ExecutionContext, next: CallHandler): Observable<Response<T>> {
     return next.handle().pipe(
-      map((data) => ({
+      map((data: any) => ({
         success: true,
         data,
         timestamp: new Date().toISOString(),

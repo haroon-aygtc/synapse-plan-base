@@ -1,4 +1,6 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { CustomLoggerService } from '@shared/logger/logger.service';
+import { MonitoringService } from '@shared/monitoring/monitoring.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, LessThan } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -43,7 +45,7 @@ export interface APXExecutionOptions {
 
 @Injectable()
 export class APXService implements OnModuleInit {
-  private readonly logger = new Logger(APXService.name);
+  private readonly logger: CustomLoggerService;
   private readonly defaultSessionTTL = this.parseTimeToSeconds(
     this.configService.get('SESSION_TTL', '24h')
   );
@@ -66,8 +68,11 @@ export class APXService implements OnModuleInit {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
     private readonly eventEmitter: EventEmitter2,
     private readonly sessionService: SessionService,
-    private readonly websocketService: WebSocketService
-  ) { }
+    private readonly websocketService: WebSocketService,
+    private readonly monitoring: MonitoringService
+  ) {
+    this.logger = new CustomLoggerService(this.configService, APXService.name);
+  }
 
   private parseTimeToSeconds(time: string): number {
     const [value, unit] = time.match(/(\d+)([smhd])/)?.slice(1) || [];

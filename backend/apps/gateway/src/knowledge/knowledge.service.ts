@@ -745,7 +745,7 @@ export class KnowledgeService {
         name: collectionData.name,
         description: collectionData.description,
         documentIds: collectionData.documentIds,
-        documentTitles: documents.map((d) => d.title),
+        documentTitles: documents.map((d: KnowledgeDocument) => d.title),
       }),
       tags: collectionData.tags || [],
       metadata: {

@@ -32,7 +32,7 @@ import { AgentEventType } from '@shared/enums/agent-event.enum';
 import { ExecutionStatus } from '@shared/enums/execution-status.enum';
 import { ISessionContext } from '@shared/interfaces';
 import { v4 as uuidv4 } from 'uuid';
-import { logSafeError } from '@shared/utils/error-guards';
+import { logSafeError, getErrorMessage } from '@shared/utils/error-guards';
 
 // ... rest of the file remains the same but without OpenAI import
 export interface AgentExecutionResult {
@@ -175,8 +175,8 @@ export class AgentService {
       return savedAgent;
     } catch (error) {
       const duration = Date.now() - startTime;
-      logSafeError(this.logger, error, 'Agent creation failed');
-      this.monitoring.recordError(error, 'AgentService.create', {
+      logSafeError(this.logger, error as string, 'Agent creation failed');
+      this.monitoring.recordError(error as string, 'AgentService.create', {
         userId,
         organizationId,
         duration
@@ -515,7 +515,7 @@ export class AgentService {
       // Update test result with error
       testResult.status = ExecutionStatus.FAILED;
       testResult.passed = false;
-      testResult.errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      testResult.errorMessage = getErrorMessage(error);
       testResult.metrics = {
         responseTime: executionTime,
         tokenUsage: 0,
@@ -531,8 +531,8 @@ export class AgentService {
         testId,
         passed: false,
         metrics: testResult.metrics,
-        actualOutput: { error: error instanceof Error ? error.message : 'Unknown error' },
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        actualOutput: { error: getErrorMessage(error) },
+        errorMessage: getErrorMessage(error),
       };
     }
   }

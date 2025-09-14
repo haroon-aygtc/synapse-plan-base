@@ -117,7 +117,7 @@ export class KnowledgeAnalyticsService {
 
     // Get average relevance for top documents
     const topDocumentsWithRelevance = await Promise.all(
-      topDocuments.map(async (doc) => {
+      topDocuments.map(async (doc: { id: any; title: any; accessCount: any; }) => {
         const avgRelevance = await this.feedbackRepository
           .createQueryBuilder('feedback')
           .select('AVG(feedback.relevanceScore)', 'avgRelevance')
@@ -174,7 +174,7 @@ export class KnowledgeAnalyticsService {
       total: parseInt(searches.total || '0'),
       successful: parseInt(searches.successful || '0'),
       averageLatency: parseFloat(searches.avg_latency || '0'),
-      topQueries: topQueries.map((q) => ({
+      topQueries: topQueries.map((q: { query: any; count: any; avg_score: any; }) => ({
         query: q.query,
         count: parseInt(q.count),
         averageScore: parseFloat(q.avg_score || '0'),
@@ -217,7 +217,7 @@ export class KnowledgeAnalyticsService {
       uniqueUsers: parseInt(usage.unique_users || '0'),
       totalTokensUsed: totalTokens,
       costEstimate,
-      peakUsageHours: hourlyUsage.map((h) => parseInt(h.hour)),
+      peakUsageHours: hourlyUsage.map((h: { hour: any; }) => parseInt(h.hour)),
     };
   }
 
@@ -326,7 +326,7 @@ export class KnowledgeAnalyticsService {
         .getRawMany();
 
       for (const org of activeOrgs) {
-        await this.generateDailyAnalyticsForOrg(org.organizationId, yesterday);
+        await this.generateDailyAnalyticsForOrg(org.organizationId as string, yesterday);
       }
 
       this.logger.log(`Generated daily analytics for ${activeOrgs.length} organizations`);
@@ -384,11 +384,11 @@ export class KnowledgeAnalyticsService {
     const analytics = this.analyticsRepository.create({
       date,
       organizationId,
-      searchCount: parseInt(searchStats.search_count || '0'),
+      searchCount: parseInt(searchStats.search_count as string || '0'),
       accessCount: parseInt(documentStats.access_count || '0'),
       uniqueUsers: parseInt(userStats.unique_users || '0'),
       averageRelevanceScore: parseFloat(relevanceStats?.avgRelevance || '0'),
-      averageLatency: parseFloat(searchStats.avg_latency || '0'),
+      averageLatency: parseFloat(searchStats.avg_latency as string || '0'),
       metrics: {
         generatedAt: new Date(),
         period: 'daily',
@@ -420,7 +420,7 @@ export class KnowledgeAnalyticsService {
       .getMany();
 
     const documentsWithRelevance = await Promise.all(
-      documents.map(async (doc) => {
+      documents.map(async (doc: { id: any; title: any; accessCount: any; lastAccessedAt: any; createdAt: any; }) => {
         const avgRelevance = await this.feedbackRepository
           .createQueryBuilder('feedback')
           .select('AVG(feedback.relevanceScore)', 'avgRelevance')
@@ -472,7 +472,7 @@ export class KnowledgeAnalyticsService {
       .orderBy('date', 'ASC')
       .getRawMany();
 
-    return trends.map((trend) => ({
+    return trends.map((trend: { date: any; search_count: any; successful_searches: any; avg_latency: any; }) => ({
       date: trend.date,
       searchCount: parseInt(trend.search_count),
       successRate: parseInt(trend.successful_searches) / parseInt(trend.search_count),

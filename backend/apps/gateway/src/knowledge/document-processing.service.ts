@@ -5,6 +5,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { KnowledgeDocument } from '@database/entities';
 import { DocumentStatus } from '@shared/enums/execution-status.enum';
 import { AgentEventType as EventType } from '@shared/enums/agent-event.enum';
+import { logSafeError } from '@shared/utils/error-guards';
 
 import { VectorSearchService } from './vector-search.service';
 import OpenAI from 'openai';
@@ -99,7 +100,7 @@ export class DocumentProcessingService {
       document.error = error instanceof Error ? error.message : 'Unknown error';
       await this.documentRepository.save(document);
 
-      this.logger.error(`Document processing failed: ${documentId}`, error instanceof Error ? error.stack : undefined);
+      logSafeError(this.logger, error as string, `Document processing failed: ${documentId}`);
       throw error;
     }
   }

@@ -9,7 +9,7 @@ export class MonitoringInterceptor implements NestInterceptor {
   constructor(
     private monitoringService: MonitoringService,
     private logger: CustomLoggerService
-  ) {}
+  ) { }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const startTime = Date.now();
@@ -35,7 +35,7 @@ export class MonitoringInterceptor implements NestInterceptor {
     });
 
     return next.handle().pipe(
-      tap((data) => {
+      tap((data: any) => {
         const duration = Date.now() - startTime;
         const statusCode = response.statusCode;
 
