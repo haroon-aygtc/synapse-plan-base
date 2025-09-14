@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { RolesGuard } from '@shared/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { UserRole } from '@shared/interfaces';
 
@@ -36,7 +36,7 @@ import {
 @Controller('hitl')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class HITLController {
-  constructor(private readonly hitlService: HITLService) {}
+  constructor(private readonly hitlService: HITLService) { }
 
   @Post('requests')
   @Roles(UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)

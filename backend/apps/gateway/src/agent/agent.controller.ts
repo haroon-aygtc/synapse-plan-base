@@ -26,7 +26,7 @@ import {
 } from '@nestjs/swagger';
 import { Observable, interval, map } from 'rxjs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { RolesGuard } from '@shared/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { UserRole } from '@shared/interfaces';
 import { AgentService } from './agent.service';
@@ -45,7 +45,7 @@ import { plainToClass } from 'class-transformer';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('agents')
 export class AgentController {
-  constructor(private readonly agentService: AgentService) {}
+  constructor(private readonly agentService: AgentService) { }
 
   @Post()
   @Roles(UserRole.DEVELOPER, UserRole.ORG_ADMIN, UserRole.SUPER_ADMIN)
@@ -159,9 +159,9 @@ export class AgentController {
     const timeRange =
       from && to
         ? {
-            from: new Date(from),
-            to: new Date(to),
-          }
+          from: new Date(from),
+          to: new Date(to),
+        }
         : undefined;
 
     return this.agentService.getStatistics(req.user.organizationId, timeRange);

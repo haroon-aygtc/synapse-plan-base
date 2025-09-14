@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ProviderType, ProviderConfig } from '@database/entities/ai-provider.entity';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import axios from 'axios';
 
 export interface ProviderRequest {
@@ -39,7 +41,10 @@ export interface ConnectionTestResult {
 export class ProviderAdapterService {
   private readonly logger = new Logger(ProviderAdapterService.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+  ) {}
 
   async executeRequest(
     providerType: ProviderType,
@@ -133,13 +138,29 @@ export class ProviderAdapterService {
   private async applyRateLimit(config: ProviderConfig, providerType: ProviderType): Promise<void> {
     if (!config.rateLimits) return;
 
-    // Simple in-memory rate limiting (in production, use Redis)
     const key = `rate_limit_${providerType}`;
     const now = Date.now();
-    const windowMs = 60 * 1000; // 1 minute window
+    const windowMs = config.rateLimits.windowMs || 60 * 1000; // 1 minute window
+    const maxRequests = config.rateLimits.maxRequests || 100;
 
-    // This is a simplified implementation
-    // In production, implement proper distributed rate limiting
+    try {
+      // Get current request count from cache
+      const currentCount = await this.cacheManager.get<number>(key) || 0;
+      
+      if (currentCount >= maxRequests) {
+        throw new Error(`Rate limit exceeded for provider ${providerType}. Max ${maxRequests} requests per ${windowMs}ms`);
+      }
+
+      // Increment counter
+      await this.cacheManager.set(key, currentCount + 1, windowMs);
+      
+      this.logger.debug(`Rate limit check passed for ${providerType}: ${currentCount + 1}/${maxRequests}`);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Rate limit exceeded')) {
+        throw error;
+      }
+      this.logger.warn(`Rate limiting check failed for ${providerType}:`, error);
+    }
   }
 
   async testConnection(

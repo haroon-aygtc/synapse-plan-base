@@ -9,7 +9,7 @@ import { Cache } from 'cache-manager';
 import { v4 as uuidv4 } from 'uuid';
 import { User, Organization } from '@database/entities';
 import { APXMessageType, APXStreamState, APXExecutionState, APXPermissionLevel, APXSecurityLevel } from '@shared/enums/apix-protocol.enum';
-import { SessionEventType } from '@shared/enums/execution-status.enum';
+import { SessionEventType } from '@shared/enums';
 
 import {
   IAPXMessage,
@@ -67,7 +67,7 @@ export class APXService implements OnModuleInit {
     private readonly eventEmitter: EventEmitter2,
     private readonly sessionService: SessionService,
     private readonly websocketService: WebSocketService
-  ) {}
+  ) { }
 
   private parseTimeToSeconds(time: string): number {
     const [value, unit] = time.match(/(\d+)([smhd])/)?.slice(1) || [];

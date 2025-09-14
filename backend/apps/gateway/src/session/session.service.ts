@@ -17,7 +17,7 @@ import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { Session, User, Organization } from '@database/entities';
 import { ISession, ISessionContext, ISessionAnalytics, ISessionRecovery } from '@shared/interfaces';
-import { SessionEventType } from '@shared/enums/execution-status.enum';
+import { SessionEventType } from '@shared/enums';
 
 import { logSafeError } from '@shared/utils/error-guards';
 

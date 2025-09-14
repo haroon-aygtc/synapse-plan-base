@@ -26,7 +26,7 @@ import {
 } from '@nestjs/swagger';
 import { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { RolesGuard } from '@shared/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { UserRole } from '@shared/interfaces';
 import { TestingSandboxService } from './testing-sandbox.service';
@@ -54,7 +54,7 @@ import { plainToClass } from 'class-transformer';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('testing-sandbox')
 export class TestingSandboxController {
-  constructor(private readonly testingSandboxService: TestingSandboxService) {}
+  constructor(private readonly testingSandboxService: TestingSandboxService) { }
 
   // Sandbox Management
   @Post()
@@ -513,9 +513,9 @@ export class TestingSandboxController {
     const timeRange =
       from && to
         ? {
-            from: new Date(from),
-            to: new Date(to),
-          }
+          from: new Date(from),
+          to: new Date(to),
+        }
         : undefined;
 
     return this.testingSandboxService.getAnalytics(id, req.user.organizationId, timeRange);

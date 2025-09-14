@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WidgetController } from './widget.controller';
 import { WidgetService } from './widget.service';
+import { WidgetRepositoryService } from './repositories/widget-repository.service';
 import { WidgetAnalyticsController } from './analytics/widget-analytics.controller';
 import { WidgetAnalyticsService } from './analytics/widget-analytics.service';
 import { AnalyticsProcessor } from './analytics/analytics.processor';
@@ -46,6 +47,7 @@ import { BullModule } from '@nestjs/bull';
   controllers: [WidgetController, WidgetAnalyticsController],
   providers: [
     WidgetService,
+    WidgetRepositoryService,
     WidgetAnalyticsService,
     AnalyticsProcessor,
     PrivacyService,
@@ -56,4 +58,4 @@ import { BullModule } from '@nestjs/bull';
   ],
   exports: [WidgetService, WidgetAnalyticsService],
 })
-export class WidgetModule {}
+export class WidgetModule { }

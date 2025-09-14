@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { SessionEventType } from '@shared/enums/execution-status.enum';
+import { SessionEventType } from '@shared/enums';
 
 import { WebSocketService } from '../websocket/websocket.service';
 import { logSafeError } from '@shared/utils/error-guards';

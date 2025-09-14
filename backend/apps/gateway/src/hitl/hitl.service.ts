@@ -6,7 +6,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Between, FindOptionsWhere, Not } from 'typeorm';
+import { Repository, In, Between } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { HITLRequest, HITLComment, HITLVote, User } from '@database/entities';
@@ -28,7 +28,6 @@ import {
 } from './dto';
 import { WebSocketService } from '../websocket/websocket.service';
 import { NotificationService } from '../notification/notification.service';
-import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class HITLService {
@@ -689,16 +688,16 @@ export class HITLService {
 
     // Calculate summary metrics
     const totalRequests = requests.length;
-    const pendingRequests = requests.filter((r) => r.status === HITLRequestStatus.PENDING).length;
-    const approvedRequests = requests.filter((r) => r.status === HITLRequestStatus.APPROVED).length;
-    const rejectedRequests = requests.filter((r) => r.status === HITLRequestStatus.REJECTED).length;
-    const expiredRequests = requests.filter((r) => r.status === HITLRequestStatus.EXPIRED).length;
+    const pendingRequests = requests.filter((r: { status: HITLRequestStatus; }) => r.status === HITLRequestStatus.PENDING).length;
+    const approvedRequests = requests.filter((r: { status: HITLRequestStatus; }) => r.status === HITLRequestStatus.APPROVED).length;
+    const rejectedRequests = requests.filter((r: { status: HITLRequestStatus; }) => r.status === HITLRequestStatus.REJECTED).length;
+    const expiredRequests = requests.filter((r: { status: HITLRequestStatus; }) => r.status === HITLRequestStatus.EXPIRED).length;
 
-    const completedRequests = requests.filter((r) => r.completedAt);
+    const completedRequests = requests.filter((r: { completedAt: any; }) => r.completedAt);
     const averageResponseTime =
       completedRequests.length > 0
         ? completedRequests.reduce(
-            (sum, r) => sum + (r.performanceMetrics?.responseTimeMs || 0),
+            (sum: any, r: { performanceMetrics: { responseTimeMs: any; }; }) => sum + (r.performanceMetrics?.responseTimeMs || 0),
             0
           ) / completedRequests.length
         : 0;
@@ -706,12 +705,12 @@ export class HITLService {
     const averageDecisionTime =
       completedRequests.length > 0
         ? completedRequests.reduce(
-            (sum, r) => sum + (r.performanceMetrics?.decisionTimeMs || 0),
+            (sum: any, r: { performanceMetrics: { decisionTimeMs: any; }; }) => sum + (r.performanceMetrics?.decisionTimeMs || 0),
             0
           ) / completedRequests.length
         : 0;
 
-    const escalatedRequests = requests.filter((r) => r.escalationLevel > 0).length;
+    const escalatedRequests = requests.filter((r: { escalationLevel: number; }) => r.escalationLevel > 0).length;
     const escalationRate = totalRequests > 0 ? (escalatedRequests / totalRequests) * 100 : 0;
 
     // Generate trends
@@ -878,9 +877,9 @@ export class HITLService {
     });
 
     const totalVotes = votes.length;
-    const approvalVotes = votes.filter((v) => v.vote === 'approve').length;
-    const rejectionVotes = votes.filter((v) => v.vote === 'reject').length;
-    const abstainVotes = votes.filter((v) => v.vote === 'abstain').length;
+    const approvalVotes = votes.filter((v: { vote: string; }) => v.vote === 'approve').length;
+    const rejectionVotes = votes.filter((v: { vote: string; }) => v.vote === 'reject').length;
+    const abstainVotes = votes.filter((v: { vote: string; }) => v.vote === 'abstain').length;
 
     request.votingData = {
       totalVotes,
@@ -888,7 +887,7 @@ export class HITLService {
       rejectionVotes,
       abstainVotes,
       requiredVotes: request.votingData?.requiredVotes || totalVotes,
-      voters: votes.map((v) => ({
+      voters: votes.map((v: { userId: any; vote: any; reason: any; createdAt: any; }) => ({
         userId: v.userId,
         vote: v.vote,
         reason: v.reason,
@@ -1191,7 +1190,7 @@ export class HITLService {
     }
 
     // Identify high escalation requests
-    const escalatedRequests = requests.filter((r) => r.escalationLevel > 0);
+    const escalatedRequests = requests.filter((r: { escalationLevel: number; }) => r.escalationLevel > 0);
     if (escalatedRequests.length > 0) {
       bottlenecks.push({
         type: 'High Escalation Rate',

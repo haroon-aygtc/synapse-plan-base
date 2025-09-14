@@ -1,12 +1,11 @@
+// path: /app/backend/apps/gateway/src/agent/agent-execution.engine.ts
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { Agent, AgentExecution } from '@database/entities';
-
 import { ExecutionStatus } from '@shared/enums/execution-status.enum';
 import { HITLRequestType, HITLRequestPriority } from '@shared/enums/hitl.enum';
-
 import { ExecutionType } from '@database/entities/ai-provider-execution.entity';
 import { WebSocketService } from '../websocket/websocket.service';
 import { SessionService } from '../session/session.service';
@@ -14,6 +13,7 @@ import { ToolService } from '../tool/tool.service';
 import { AIProviderService } from '../ai-provider/ai-provider.service';
 import { ProviderAdapterService } from '../ai-provider/provider-adapter.service';
 import { HITLService } from '../hitl/hitl.service';
+import { KnowledgeService } from '../knowledge/knowledge.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { AgentEventType } from '@shared/enums/agent-event.enum';
 
@@ -48,8 +48,6 @@ export interface AgentExecutionResult {
   metadata?: Record<string, unknown>;
 }
 
-// Removed unused interfaces - they can be added back when needed
-
 @Injectable()
 export class AgentExecutionEngine {
   private readonly logger = new Logger(AgentExecutionEngine.name);
@@ -63,7 +61,8 @@ export class AgentExecutionEngine {
     private readonly aiProviderService: AIProviderService,
     private readonly providerAdapter: ProviderAdapterService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly hitlService: HITLService
+    private readonly hitlService: HITLService,
+    private readonly knowledgeService: KnowledgeService
   ) {}
 
   async executeAgent(
@@ -86,9 +85,7 @@ export class AgentExecutionEngine {
       startedAt: new Date(),
     });
     
-    // Set status after creation to avoid type issues
     execution.status = ExecutionStatus.RUNNING;
-
     await this.agentExecutionRepository.save(execution);
 
     // Emit execution started event
@@ -186,11 +183,17 @@ export class AgentExecutionEngine {
             timestamp: new Date(),
           });
 
-          // Mock knowledge search for now since we don't have the actual implementation
-          const searchResults = {
-            results: [],
-            sources: [],
-          };
+          // Real knowledge search implementation
+          const searchResults = await this.knowledgeService.searchDocuments(
+            options.input,
+            {
+              sources: agent.knowledgeSources,
+              organizationId,
+              userId,
+              limit: 5,
+              threshold: 0.7,
+            }
+          );
 
           if (searchResults?.results?.length > 0) {
             knowledgeSearches.push({
@@ -585,6 +588,4 @@ export class AgentExecutionEngine {
       throw error;
     }
   }
-
-  // Removed unused calculateCost method - cost calculation is handled by the provider adapter
 }

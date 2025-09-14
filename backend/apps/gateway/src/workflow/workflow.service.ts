@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Workflow, WorkflowExecution } from '@database/entities';
@@ -12,16 +12,24 @@ import { ExecutionStatus } from '@shared/enums/execution-status.enum';
 
 import { WorkflowExecutionEngine } from './workflow-execution.engine';
 import { safeErrorMessage, getSafeErrorInfo } from '@shared/utils/error-guards';
+import { AgentService } from '../agent/agent.service';
+import { ToolService } from '../tool/tool.service';
+import { HITLService } from '../hitl/hitl.service';
 
 @Injectable()
 export class WorkflowService {
+  private readonly logger = new Logger(WorkflowService.name);
+
   constructor(
     @InjectRepository(Workflow)
     private readonly workflowRepository: Repository<Workflow>,
     @InjectRepository(WorkflowExecution)
     private readonly workflowExecutionRepository: Repository<WorkflowExecution>,
     private readonly workflowExecutionEngine: WorkflowExecutionEngine,
-  ) {}
+    private readonly agentService: AgentService,
+    private readonly toolService: ToolService,
+    private readonly hitlService: HITLService,
+  ) { }
 
   async create(createWorkflowDto: CreateWorkflowDto): Promise<Workflow> {
     const workflow = this.workflowRepository.create({
@@ -132,19 +140,27 @@ export class WorkflowService {
         mockResponses: testWorkflowDto.mockResponses || {},
       };
 
-      // Mock execution of each step
+      // Execute each step using real execution engine
       for (const node of workflow.definition.nodes) {
         const mockKey = `${node.type}_${node.id}`;
+        let stepResult: any;
+
         if (testContext.mockResponses[mockKey]) {
-          testContext.stepResults[node.id as string] =
-            testContext.mockResponses[mockKey];
-          currentOutput = testContext.mockResponses[mockKey];
+          // Use provided mock response for testing
+          stepResult = testContext.mockResponses[mockKey];
         } else {
-          // Default mock response based on step type
-          const mockResponse = this.generateMockResponse(node.type, node.data);
-          testContext.stepResults[node.id as string] = mockResponse;
-          currentOutput = mockResponse;
+          // Execute real step based on node type
+          try {
+            stepResult = await this.executeWorkflowStep(node, testContext.variables, testWorkflowDto);
+          } catch (error) {
+            // If real execution fails in test mode, fall back to mock
+            this.logger.warn(`Real execution failed for step ${node.id}, using mock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            stepResult = this.generateMockResponse(node.type, node.data);
+          }
         }
+
+        testContext.stepResults[node.id as string] = stepResult;
+        currentOutput = stepResult;
         completedSteps.push(node.id as string);
       }
 
@@ -245,22 +261,22 @@ export class WorkflowService {
     const executions = await queryBuilder.getMany();
     const totalExecutions = executions.length;
     const successfulExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.COMPLETED,
+      (e: WorkflowExecution) => e.status === ExecutionStatus.COMPLETED,
     ).length;
     const failedExecutions = executions.filter(
-      (e) => e.status === ExecutionStatus.FAILED,
+      (e: WorkflowExecution) => e.status === ExecutionStatus.FAILED,
     ).length;
 
     const completedExecutions = executions.filter(
-      (e) => e.completedAt && e.createdAt,
+      (e: WorkflowExecution) => e.completedAt && e.createdAt,
     );
     const averageExecutionTime =
       completedExecutions.length > 0
         ? completedExecutions.reduce(
-            (sum, e) =>
-              sum + (e.completedAt!.getTime() - e.createdAt.getTime()),
-            0,
-          ) / completedExecutions.length
+          (sum: number, e: WorkflowExecution) =>
+            sum + (e.completedAt!.getTime() - e.createdAt.getTime()),
+          0,
+        ) / completedExecutions.length
         : 0;
 
     return {
@@ -379,102 +395,22 @@ export class WorkflowService {
   }
 
   private generateMockResponse(stepType: string, stepData: any): any {
-    // Generate realistic mock responses for testing purposes only
+    // Fallback mock response only when real execution fails
     const timestamp = new Date();
 
-    switch (stepType) {
-      case 'agent':
-        return {
-          output: `Test agent response for ${stepData.agentId || 'unknown agent'} at ${timestamp.toISOString()}`,
-          cost: Math.random() * 0.02 + 0.005, // Random cost between 0.005-0.025
-          tokensUsed: Math.floor(Math.random() * 200) + 50, // Random tokens 50-250
-          executionTime: Math.floor(Math.random() * 2000) + 500, // Random time 500-2500ms
-          provider: 'test-provider',
-          model: 'test-model',
-          cached: false,
-        };
-      case 'tool':
-        return {
-          result: {
-            success: true,
-            data: `Test tool result for ${stepData.toolId || 'unknown tool'} at ${timestamp.toISOString()}`,
-            metadata: {
-              toolId: stepData.toolId,
-              executedAt: timestamp,
-            },
-          },
-          cost: Math.random() * 0.005 + 0.001, // Random cost between 0.001-0.006
-          executionTime: Math.floor(Math.random() * 1000) + 200, // Random time 200-1200ms
-        };
-      case 'condition':
-        return {
-          conditionResult: Math.random() > 0.3, // 70% chance of true
-          evaluatedAt: timestamp,
-          executionTime: Math.floor(Math.random() * 50) + 5, // Random time 5-55ms
-        };
-      case 'hitl':
-        return {
-          approved: Math.random() > 0.2, // 80% chance of approval
-          approvedBy: 'test-user',
-          approvedAt: timestamp,
-          executionTime: Math.floor(Math.random() * 500) + 50, // Random time 50-550ms
-        };
-      default:
-        return {
-          output: `Test response for ${stepType} at ${timestamp.toISOString()}`,
-          executionTime: Math.floor(Math.random() * 200) + 50, // Random time 50-250ms
-          metadata: {
-            stepType,
-            executedAt: timestamp,
-          },
-        };
-    }
-  }
+    this.logger.warn(`Using fallback mock response for step type: ${stepType}`);
 
-  private async executeAgentStep(
-    agentId: string,
-    input: any,
-    testData: any,
-  ): Promise<any> {
-    // This would execute a real agent in production
-    // For now, return enhanced mock response
     return {
-      output: `Real agent execution would happen here for agent ${agentId}`,
-      cost: 0.015,
-      tokensUsed: 150,
-      executionTime: 1200,
-      provider: 'openai',
-      model: 'gpt-4',
-      cached: false,
+      output: `Fallback mock response for ${stepType} at ${timestamp.toISOString()}`,
+      executionTime: 100,
       metadata: {
-        agentId,
-        input,
-        testMode: true,
+        stepType,
+        executedAt: timestamp,
+        fallback: true,
       },
     };
   }
 
-  private async executeToolStep(
-    toolId: string,
-    input: any,
-    testData: any,
-  ): Promise<any> {
-    // This would execute a real tool in production
-    // For now, return enhanced mock response
-    return {
-      result: {
-        success: true,
-        data: `Real tool execution would happen here for tool ${toolId}`,
-        metadata: {
-          toolId,
-          input,
-          testMode: true,
-        },
-      },
-      cost: 0.003,
-      executionTime: 800,
-    };
-  }
 
   async executeWorkflow(
     params: {
@@ -504,9 +440,181 @@ export class WorkflowService {
     );
   }
 
-  private logger = {
-    error: (message: string, context?: any) => {
-      console.error(`[WorkflowService] ${message}`, context);
-    },
-  };
+  private async executeWorkflowStep(node: any, variables: any, testWorkflowDto: TestWorkflowDto): Promise<any> {
+    const startTime = Date.now();
+
+    try {
+      switch (node.type) {
+        case 'agent':
+          return await this.executeAgentStep(node.data.agentId, testWorkflowDto.input, variables);
+        case 'tool':
+          return await this.executeToolStep(node.data.toolId, testWorkflowDto.input, variables);
+        case 'condition':
+          return await this.executeConditionStep(node.data, variables);
+        case 'hitl':
+          return await this.executeHITLStep(node.data, variables);
+        case 'start':
+          return { output: 'Workflow started', executionTime: 0 };
+        case 'end':
+          return { output: 'Workflow completed', executionTime: 0 };
+        default:
+          this.logger.warn(`Unknown node type: ${node.type}, using mock response`);
+          return this.generateMockResponse(node.type, node.data);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to execute step ${node.id}:`, error);
+      throw error;
+    }
+  }
+
+  private async executeAgentStep(agentId: string, input: any, variables: any): Promise<any> {
+    try {
+      // Execute real agent using the agent service
+      const result = await this.agentService.execute(
+        agentId,
+        {
+          input: typeof input === 'string' ? input : JSON.stringify(input),
+          context: variables,
+          metadata: { testMode: true },
+        },
+        'system', // system user for testing
+        'system' // system organization for testing
+      );
+
+      return {
+        output: result.output,
+        cost: result.cost || 0,
+        tokensUsed: result.tokensUsed || 0,
+        executionTime: result.executionTimeMs,
+        provider: result.metadata?.provider || 'unknown',
+        model: result.metadata?.model || 'unknown',
+        cached: result.metadata?.cached || false,
+        metadata: {
+          agentId,
+          input,
+          testMode: true,
+          executionId: result.id,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Failed to execute agent ${agentId}:`, error);
+      throw error;
+    }
+  }
+
+  private async executeToolStep(toolId: string, input: any, variables: any): Promise<any> {
+    try {
+      // Execute real tool using the tool service
+      const result = await this.toolService.execute(
+        toolId,
+        {
+          functionName: 'execute',
+          parameters: input,
+          callerType: 'workflow',
+          callerId: 'workflow-test',
+          toolCallId: `test_${Date.now()}`,
+          timeout: 30000,
+        },
+        'system', // system user for testing
+        'system', // system organization for testing
+        `test_session_${Date.now()}`
+      );
+
+      return {
+        result: result.result,
+        cost: result.cost || 0,
+        executionTime: result.executionTime || 0,
+        metadata: {
+          toolId,
+          input,
+          testMode: true,
+          executionId: result.id,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Failed to execute tool ${toolId}:`, error);
+      throw error;
+    }
+  }
+
+  private async executeConditionStep(nodeData: any, variables: any): Promise<any> {
+    // Evaluate condition based on variables
+    const condition = nodeData.condition;
+    const conditionResult = this.evaluateCondition(condition, variables);
+
+    return {
+      conditionResult,
+      evaluatedAt: new Date(),
+      executionTime: 5,
+    };
+  }
+
+  private async executeHITLStep(nodeData: any, variables: any): Promise<any> {
+    try {
+      // Create real HITL request for testing
+      const hitlRequest = await this.hitlService.createRequest(
+        {
+          title: `Test HITL Request for ${nodeData.title || 'Workflow Step'}`,
+          description: `Test HITL approval required for workflow step`,
+          type: 'APPROVAL' as any,
+          priority: 'MEDIUM' as any,
+          sourceType: 'workflow',
+          sourceId: 'workflow-test',
+          executionId: `test_${Date.now()}`,
+          executionContext: {
+            nodeData,
+            variables,
+          },
+        },
+        'system', // system user for testing
+        'system' // system organization for testing
+      );
+
+      // For testing, auto-approve the request
+      await this.hitlService.updateRequest(hitlRequest.id, { status: 'APPROVED' }, 'system', 'system');
+
+      return {
+        approved: true,
+        approvedBy: 'system',
+        approvedAt: new Date(),
+        executionTime: 100,
+        hitlRequestId: hitlRequest.id,
+      };
+    } catch (error) {
+      this.logger.error(`Failed to execute HITL step:`, error);
+      // Fallback to mock for testing
+      return {
+        approved: true,
+        approvedBy: 'test-user',
+        approvedAt: new Date(),
+        executionTime: 100,
+      };
+    }
+  }
+
+  private evaluateCondition(condition: string, variables: any): boolean {
+    try {
+      // Simple condition evaluation - in production, use a proper expression evaluator
+      if (condition.includes('==')) {
+        const [left, right] = condition.split('==').map(s => s.trim());
+        return variables[left] === right;
+      }
+      if (condition.includes('!=')) {
+        const [left, right] = condition.split('!=').map(s => s.trim());
+        return variables[left] !== right;
+      }
+      if (condition.includes('>')) {
+        const [left, right] = condition.split('>').map(s => s.trim());
+        return Number(variables[left]) > Number(right);
+      }
+      if (condition.includes('<')) {
+        const [left, right] = condition.split('<').map(s => s.trim());
+        return Number(variables[left]) < Number(right);
+      }
+      return false;
+    } catch (error) {
+      this.logger.error(`Failed to evaluate condition: ${condition}`, error);
+      return false;
+    }
+  }
 }

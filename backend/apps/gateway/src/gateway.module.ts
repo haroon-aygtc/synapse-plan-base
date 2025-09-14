@@ -1,3 +1,4 @@
+// path: /app/backend/apps/gateway/src/gateway.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
@@ -6,7 +7,6 @@ import { ThrottlerModule, ThrottlerModuleOptions } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule } from '@nestjs/bull';
-// import redisStore from 'cache-manager-ioredis';
 import { databaseConfig } from '@database/config';
 import { AuthModule } from './auth/auth.module';
 import { SessionModule } from './session/session.module';
@@ -37,10 +37,21 @@ import { MonitoringModule } from '@shared/modules/monitoring.module';
       useFactory: (): TypeOrmModuleOptions => databaseConfig(),
     }),
 
-    // Cache - Using memory store for now, can be configured for Redis later
-    CacheModule.register({
+    // Cache - Configurable cache store
+    CacheModule.registerAsync({
       isGlobal: true,
-        ttl: 300, // 5 minutes default TTL
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        ttl: configService.get('CACHE_TTL', 300), // 5 minutes default
+        max: configService.get('CACHE_MAX_ITEMS', 1000),
+        store: configService.get('CACHE_STORE', 'memory'), // memory, redis, etc.
+        ...(configService.get('CACHE_STORE') === 'redis' && {
+          host: configService.get('REDIS_HOST', 'localhost'),
+          port: configService.get('REDIS_PORT', 6379),
+          password: configService.get('REDIS_PASSWORD'),
+          db: configService.get('REDIS_CACHE_DB', 0),
+        }),
+      }),
     }),
 
     // Rate Limiting

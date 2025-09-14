@@ -14,7 +14,7 @@ const importMappings = {
   'NotificationType': '@shared/enums/execution-status.enum',
   'NotificationPriority': '@shared/enums/execution-status.enum',
   'DocumentStatus': '@shared/enums/execution-status.enum',
-  'SessionEventType': '@shared/enums/execution-status.enum',
+  'SessionEventType': '@shared/enums',
   'UserRole': '@shared/interfaces',
   'HITLRequestType': '@shared/enums/hitl.enum',
   'HITLRequestPriority': '@shared/enums/hitl.enum',
@@ -55,7 +55,7 @@ function fixImportsInFile(filePath: string): void {
           imports.forEach(imp => {
             const enumName = imp.replace(/\s+as\s+\w+/, '').trim();
             const mappedPath = importMappings[enumName as keyof typeof importMappings];
-            
+
             if (mappedPath) {
               if (!newImports[mappedPath]) {
                 newImports[mappedPath] = [];
@@ -87,11 +87,11 @@ function fixImportsInFile(filePath: string): void {
 
 function findAndFixFiles(dir: string): void {
   const files = fs.readdirSync(dir);
-  
+
   files.forEach(file => {
     const filePath = path.join(dir, file);
     const stat = fs.statSync(filePath);
-    
+
     if (stat.isDirectory() && !file.startsWith('.') && file !== 'node_modules') {
       findAndFixFiles(filePath);
     } else if (file.endsWith('.ts') && !file.endsWith('.d.ts')) {

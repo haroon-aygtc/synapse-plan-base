@@ -21,7 +21,7 @@ import {
   WidgetDeploymentInfo,
 } from '@database/entities/widget.entity';
 import { WidgetConfiguration } from '@shared/interfaces';
-import { 
+import {
   WidgetExecution,
   WidgetExecutionContext,
   WidgetExecutionInput,
@@ -29,12 +29,7 @@ import {
   WidgetExecutionMetrics
 } from '@database/entities/widget-execution.entity';
 import { WidgetAnalytics } from '@database/entities/widget-analytics.entity';
-import { Agent } from '@database/entities/agent.entity';
-import { Tool } from '@database/entities/tool.entity';
-import { Workflow } from '@database/entities/workflow.entity';
-import { User } from '@database/entities/user.entity';
-import { Organization } from '@database/entities/organization.entity';
-import { Session } from '@database/entities/session.entity';
+import { WidgetRepositoryService } from './repositories/widget-repository.service';
 import {
   CreateWidgetDto,
   UpdateWidgetDto,
@@ -67,24 +62,9 @@ export class WidgetService {
   private readonly maxExecutionsPerMinute: number;
 
   constructor(
-    @InjectRepository(Widget)
-    private widgetRepository: Repository<Widget>,
+    private readonly widgetRepositoryService: WidgetRepositoryService,
     @InjectRepository(WidgetExecution)
     private widgetExecutionRepository: Repository<WidgetExecution>,
-    @InjectRepository(WidgetAnalytics)
-    private widgetAnalyticsRepository: Repository<WidgetAnalytics>,
-    @InjectRepository(Agent)
-    private agentRepository: Repository<Agent>,
-    @InjectRepository(Tool)
-    private toolRepository: Repository<Tool>,
-    @InjectRepository(Workflow)
-    private workflowRepository: Repository<Workflow>,
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    @InjectRepository(Organization)
-    private organizationRepository: Repository<Organization>,
-    @InjectRepository(Session)
-    private sessionRepository: Repository<Session>,
     @InjectQueue('widget-processing')
     private widgetQueue: Queue,
     @Inject(CACHE_MANAGER)
@@ -126,12 +106,11 @@ export class WidgetService {
     );
 
     // Check for duplicate names within organization
-    const existingWidget = await this.widgetRepository.findOne({
-      where: {
-        name: createWidgetData.name,
-        organizationId: createWidgetData.organizationId,
-      },
-    });
+    const { data: existingWidgets } = await this.widgetRepositoryService.findWidgetsByOrganization(
+      createWidgetData.organizationId,
+      { page: 1, limit: 1, search: createWidgetData.name, sortBy: 'name', sortOrder: 'ASC' }
+    );
+    const existingWidget = existingWidgets.find(w => w.name === createWidgetData.name);
 
     if (existingWidget) {
       throw new ConflictException(
@@ -147,7 +126,7 @@ export class WidgetService {
     // Validate configuration
     this.validateConfiguration(configuration);
 
-    const widget = this.widgetRepository.create({
+    const savedWidget = await this.widgetRepositoryService.createWidget({
       name: createWidgetData.name,
       description: createWidgetData.description,
       type: createWidgetData.type,
@@ -177,8 +156,6 @@ export class WidgetService {
         geographicData: [],
       },
     });
-
-    const savedWidget = await this.widgetRepository.save(widget);
 
     // Cache widget for quick access
     await this.cacheManager.set(
@@ -221,54 +198,11 @@ export class WidgetService {
     sortBy: string;
     sortOrder: 'ASC' | 'DESC';
   }) {
-    const { organizationId, page, limit, search, type, isActive, sortBy, sortOrder } = options;
-
-    const queryBuilder = this.widgetRepository
-      .createQueryBuilder('widget')
-      .leftJoinAndSelect('widget.user', 'user')
-      .where('widget.organizationId = :organizationId', { organizationId });
-
-    if (search) {
-      queryBuilder.andWhere('(widget.name ILIKE :search OR widget.description ILIKE :search)', {
-        search: `%${search}%`,
-      });
-    }
-
-    if (type) {
-      queryBuilder.andWhere('widget.type = :type', { type });
-    }
-
-    if (isActive !== undefined) {
-      queryBuilder.andWhere('widget.isActive = :isActive', { isActive });
-    }
-
-    // Add sorting
-    const validSortFields = ['name', 'createdAt', 'updatedAt', 'usageCount', 'templateRating'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
-    queryBuilder.orderBy(`widget.${sortField}`, sortOrder);
-
-    // Add pagination
-    const offset = (page - 1) * limit;
-    queryBuilder.skip(offset).take(limit);
-
-    const [data, total] = await queryBuilder.getManyAndCount();
-
-    return {
-      data,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return this.widgetRepositoryService.findWidgetsByOrganization(options.organizationId, options);
   }
 
   async findOne(id: string, organizationId: string): Promise<Widget> {
-    const widget = await this.widgetRepository.findOne({
-      where: { id, organizationId },
-      relations: ['user', 'organization'],
-    });
+    const widget = await this.widgetRepositoryService.findWidgetById(id, organizationId);
 
     if (!widget) {
       throw new NotFoundException('Widget not found');
@@ -491,11 +425,11 @@ export class WidgetService {
     }
 
     const format = options.format || 'javascript';
-    
+
     if (!widget.deploymentInfo?.embedCode) {
       throw new BadRequestException('Widget deployment information not found');
     }
-    
+
     const code = widget.deploymentInfo.embedCode[format];
     const instructions = this.getEmbedInstructions(format, options);
 
@@ -1019,13 +953,13 @@ export class WidgetService {
       name: templateData.name,
       isTemplate: true,
     };
-    
+
     if (!templateData.isPublic) {
       whereClause.organizationId = organizationId;
     } else {
       whereClause.isPublicTemplate = true;
     }
-    
+
     const existingTemplate = await this.widgetRepository.findOne({
       where: whereClause,
     });
@@ -1406,22 +1340,16 @@ export class WidgetService {
     organizationId: string
   ): Promise<void> {
     let source: { userId: string; organizationId: string } | null = null;
-    
+
     switch (type) {
       case 'agent':
-        source = await this.agentRepository.findOne({
-          where: { id: sourceId, organizationId, isActive: true },
-        });
+        source = await this.widgetRepositoryService.validateAgentAccess(sourceId, organizationId);
         break;
       case 'tool':
-        source = await this.toolRepository.findOne({
-          where: { id: sourceId, organizationId, isActive: true },
-        });
+        source = await this.widgetRepositoryService.validateToolAccess(sourceId, organizationId);
         break;
       case 'workflow':
-        source = await this.workflowRepository.findOne({
-          where: { id: sourceId, organizationId, isActive: true },
-        });
+        source = await this.widgetRepositoryService.validateWorkflowAccess(sourceId, organizationId);
         break;
     }
 

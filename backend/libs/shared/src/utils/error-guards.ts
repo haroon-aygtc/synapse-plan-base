@@ -45,15 +45,15 @@ export function getErrorMessage(error: unknown): string {
   if (isErrorWithMessage(error)) {
     return error.message;
   }
-  
+
   if (typeof error === 'string') {
     return error;
   }
-  
+
   if (error instanceof Error) {
     return error.message;
   }
-  
+
   logger.warn('Unable to extract error message from unknown error type', { error });
   return 'An unexpected error occurred';
 }
@@ -65,11 +65,11 @@ export function getErrorCode(error: unknown): string {
   if (isErrorWithCode(error)) {
     return error.code;
   }
-  
+
   if (error instanceof Error && 'code' in error) {
     return (error as any).code;
   }
-  
+
   return 'UNKNOWN_ERROR';
 }
 
@@ -80,11 +80,11 @@ export function getErrorStatus(error: unknown): number {
   if (isErrorWithStatus(error)) {
     return error.status;
   }
-  
+
   if (error instanceof Error && 'status' in error) {
     return (error as any).status;
   }
-  
+
   return 500;
 }
 
@@ -96,40 +96,27 @@ export function getErrorStatus(error: unknown): number {
  * - logSafeError(logger, context, error)
  * - logSafeError(logger, error, context)
  */
-export function logSafeError(...args: unknown[]): void {
+export function logSafeError(error: unknown, context?: string): void;
+export function logSafeError(customLogger: Logger, error: unknown, context?: string): void;
+export function logSafeError(
+  errorOrLogger: unknown | Logger,
+  contextOrError?: string | unknown,
+  context?: string
+): void {
   let error: unknown;
-  let context: string | undefined;
-  let customLogger: any = logger;
+  let logContext: string | undefined;
+  let customLogger: Logger = logger;
 
-  // Parse arguments dynamically
-  for (const arg of args) {
-    if (arg instanceof Error || typeof arg === 'object' && arg !== null) {
-      // This is likely the error object
-      if (!error) {
-        error = arg;
-      }
-    } else if (typeof arg === 'string') {
-      // This is likely the context message
-      if (!context) {
-        context = arg;
-      }
-    } else if (arg && typeof arg === 'object' && 'error' in arg) {
-      // This might be a logger object
-      if (!customLogger || customLogger === logger) {
-        customLogger = arg;
-      }
-    }
+  // Handle overloaded function calls
+  if (errorOrLogger instanceof Logger) {
+    customLogger = errorOrLogger;
+    error = contextOrError;
+    logContext = context;
+  } else {
+    error = errorOrLogger;
+    logContext = typeof contextOrError === 'string' ? contextOrError : context;
   }
 
-  // If no error found, try to find it in the last argument
-  if (!error && args.length > 0) {
-    const lastArg = args[args.length - 1];
-    if (lastArg instanceof Error || (typeof lastArg === 'object' && lastArg !== null)) {
-      error = lastArg;
-    }
-  }
-
-  // If still no error, create a generic one
   if (!error) {
     error = new Error('Unknown error occurred');
   }
@@ -137,23 +124,13 @@ export function logSafeError(...args: unknown[]): void {
   const message = getErrorMessage(error);
   const code = getErrorCode(error);
   const status = getErrorStatus(error);
-  
-  // Use the custom logger if provided, otherwise use default logger
-  if (customLogger && typeof customLogger.error === 'function') {
-    customLogger.error(message, {
-      errorCode: code,
-      status,
-      context,
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-  } else {
-  logger.error(message, {
+
+  customLogger.error(message, {
     errorCode: code,
     status,
-    context,
+    context: logContext,
     stack: error instanceof Error ? error.stack : undefined,
   });
-  }
 }
 
 /**
@@ -162,9 +139,9 @@ export function logSafeError(...args: unknown[]): void {
 export function createErrorResponse(error: unknown, context?: string) {
   const message = getErrorMessage(error);
   const code = getErrorCode(error);
-  
+
   logSafeError(error, context);
-  
+
   return {
     success: false,
     error: {
@@ -179,17 +156,17 @@ export function createErrorResponse(error: unknown, context?: string) {
  * Create a standardized API error response with enhanced context
  */
 export function createApiErrorResponse(
-  error: unknown, 
-  statusCode: number, 
-  path: string, 
-  method: string, 
+  error: unknown,
+  statusCode: number,
+  path: string,
+  method: string,
   additionalData?: Record<string, any>
 ) {
   const message = getErrorMessage(error);
   const code = getErrorCode(error);
-  
+
   logSafeError(error, `API Error: ${method} ${path}`);
-  
+
   return {
     success: false,
     error: {
@@ -211,38 +188,38 @@ export function isRecoverableError(error: unknown): boolean {
   return recoverableErrors.some((type) => errorMessage.includes(type));
 }
 
-  export function safeErrorMessage(error: unknown): string {
-    try {
-      return getErrorMessage(error);
-    } catch (error) {
-      return 'An unexpected error occurred';
-    }
+export function safeErrorMessage(error: unknown): string {
+  try {
+    return getErrorMessage(error);
+  } catch (error) {
+    return 'An unexpected error occurred';
   }
+}
 
-    export function getSafeErrorInfo(error: unknown): { 
-      message: string; 
-      code: string; 
-      status: number; 
-      name: string;
-      stack?: string;
-    } {
-    try {
-      return {
-        message: getErrorMessage(error),
-        code: getErrorCode(error),
-        status: getErrorStatus(error),
-        name: error instanceof Error ? error.name : 'UnknownError',
-        stack: error instanceof Error ? error.stack : undefined,
-      };
-    } catch (error) {
-      return {  
-        message: 'An unexpected error occurred',
-        code: 'UNKNOWN_ERROR',
-        status: 500,
-        name: 'UnknownError',
-        stack: undefined,
-      };
-    }
+export function getSafeErrorInfo(error: unknown): {
+  message: string;
+  code: string;
+  status: number;
+  name: string;
+  stack?: string;
+} {
+  try {
+    return {
+      message: getErrorMessage(error),
+      code: getErrorCode(error),
+      status: getErrorStatus(error),
+      name: error instanceof Error ? error.name : 'UnknownError',
+      stack: error instanceof Error ? error.stack : undefined,
+    };
+  } catch (error) {
+    return {
+      message: 'An unexpected error occurred',
+      code: 'UNKNOWN_ERROR',
+      status: 500,
+      name: 'UnknownError',
+      stack: undefined,
+    };
   }
+}
 
 

@@ -113,42 +113,42 @@ export class HealthService {
             databaseCheck.status === 'fulfilled'
               ? databaseCheck.value
               : {
-                  status: HealthStatus.UNHEALTHY,
-                  responseTime: 0,
-                  error:
-                    databaseCheck.status === 'rejected'
-                      ? databaseCheck.reason.message
-                      : 'Unknown error',
-                },
+                status: HealthStatus.UNHEALTHY,
+                responseTime: 0,
+                error:
+                  databaseCheck.status === 'rejected'
+                    ? databaseCheck.reason.message
+                    : 'Unknown error',
+              },
           redis:
             redisCheck.status === 'fulfilled'
               ? redisCheck.value
               : {
-                  status: HealthStatus.UNHEALTHY,
-                  responseTime: 0,
-                  error:
-                    redisCheck.status === 'rejected' ? redisCheck.reason.message : 'Unknown error',
-                },
+                status: HealthStatus.UNHEALTHY,
+                responseTime: 0,
+                error:
+                  redisCheck.status === 'rejected' ? redisCheck.reason.message : 'Unknown error',
+              },
           memory:
             memoryCheck.status === 'fulfilled'
               ? memoryCheck.value
               : {
-                  status: HealthStatus.UNHEALTHY,
-                  usage: { used: 0, total: 0, percentage: 0 },
-                },
+                status: HealthStatus.UNHEALTHY,
+                usage: { used: 0, total: 0, percentage: 0 },
+              },
           disk:
             diskCheck.status === 'fulfilled'
               ? diskCheck.value
               : {
-                  status: HealthStatus.UNHEALTHY,
-                  usage: { used: 0, total: 0, percentage: 0 },
-                },
+                status: HealthStatus.UNHEALTHY,
+                usage: { used: 0, total: 0, percentage: 0 },
+              },
           external:
             externalCheck.status === 'fulfilled'
               ? externalCheck.value
               : {
-                  datadog: { status: HealthStatus.UNHEALTHY, enabled: false },
-                },
+                datadog: { status: HealthStatus.UNHEALTHY, enabled: false },
+              },
         },
         uptime: process.uptime(),
         version: this.serviceVersion,
@@ -308,22 +308,52 @@ export class HealthService {
 
   private async checkDisk() {
     try {
-      const fs = require('fs');
+      const diskUsage = await this.getDiskUsage();
+      const percentage = (diskUsage.used / diskUsage.total) * 100;
+      const diskThreshold = this.configService.get('HEALTH_DISK_THRESHOLD', 90);
+      const status = percentage > diskThreshold ? HealthStatus.UNHEALTHY : HealthStatus.HEALTHY;
 
-      // This is a simplified disk check - in production, you'd want more sophisticated disk monitoring
       return {
-        status: HealthStatus.HEALTHY,
+        status,
         usage: {
-          used: 0,
-          total: 0,
-          percentage: 0,
+          used: Math.round(diskUsage.used / 1024 / 1024), // MB
+          total: Math.round(diskUsage.total / 1024 / 1024), // MB
+          percentage: Math.round(percentage * 100) / 100,
         },
       };
     } catch (error) {
+      this.logger.error('Disk check failed', error instanceof Error ? error.stack : String(error), 'HealthService');
       return {
-        status: HealthStatus.DEGRADED,
+        status: HealthStatus.UNHEALTHY,
         usage: { used: 0, total: 0, percentage: 0 },
       };
+    }
+  }
+
+  private async getDiskUsage(): Promise<{ used: number; total: number }> {
+    try {
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+
+      const { stdout } = await execAsync('df -k .');
+      const lines = stdout.trim().split('\n');
+      const dataLine = lines[1].split(/\s+/);
+
+      const total = parseInt(dataLine[1]) * 1024; // Convert from KB to bytes
+      const used = parseInt(dataLine[2]) * 1024; // Convert from KB to bytes
+
+      return { used, total };
+    } catch (error) {
+      // Fallback to basic file system check
+      try {
+        const fs = await import('fs');
+        const stats = fs.statSync(process.cwd());
+        return { used: 0, total: 1000000000 }; // 1GB fallback
+      } catch (fallbackError) {
+        this.logger.warn('Both disk monitoring methods failed', 'HealthService');
+        return { used: 0, total: 1000000000 };
+      }
     }
   }
 

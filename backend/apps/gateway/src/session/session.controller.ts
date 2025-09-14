@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { RolesGuard } from '@shared/guards/roles.guard';
 import { Roles } from '@shared/decorators/roles.decorator';
 import { UserRole } from '@shared/interfaces';
 import { SessionService, CreateSessionDto, UpdateSessionDto } from './session.service';
@@ -24,7 +24,7 @@ import { SessionService, CreateSessionDto, UpdateSessionDto } from './session.se
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class SessionController {
-  constructor(private readonly sessionService: SessionService) {}
+  constructor(private readonly sessionService: SessionService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new session' })
@@ -148,9 +148,9 @@ export class SessionController {
     const timeRange =
       from && to
         ? {
-            from: new Date(from),
-            to: new Date(to),
-          }
+          from: new Date(from),
+          to: new Date(to),
+        }
         : undefined;
 
     return await this.sessionService.getSessionAnalytics(organizationId, timeRange);

@@ -1,16 +1,18 @@
+// path: /app/backend/apps/gateway/src/agent/agent.service.ts
 import {
   Injectable,
-  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Inject,
 } from '@nestjs/common';
+import { CustomLoggerService } from '@shared/logger/logger.service';
+import { MonitoringService } from '@shared/monitoring/monitoring.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject } from '@nestjs/common';
 import { Cache } from 'cache-manager';
 import { Agent, AgentExecution, AgentTestResult, PromptTemplate } from '@database/entities';
 import { AgentRepository } from '@database/repositories/agent.repository';
@@ -28,11 +30,11 @@ import {
 } from './dto';
 import { AgentEventType } from '@shared/enums/agent-event.enum';
 import { ExecutionStatus } from '@shared/enums/execution-status.enum';
-
 import { ISessionContext } from '@shared/interfaces';
-import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
+import { logSafeError } from '@shared/utils/error-guards';
 
+// ... rest of the file remains the same but without OpenAI import
 export interface AgentExecutionResult {
   id: string;
   output: string;
@@ -72,8 +74,7 @@ export interface AgentTestResultDto {
 
 @Injectable()
 export class AgentService {
-  private readonly logger = new Logger(AgentService.name);
-  private readonly openai: OpenAI;
+  private readonly logger: CustomLoggerService;
   private readonly cachePrefix = 'agent:';
 
   constructor(
@@ -91,11 +92,10 @@ export class AgentService {
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-    private readonly agentExecutionEngine: AgentExecutionEngine
+    private readonly agentExecutionEngine: AgentExecutionEngine,
+    private readonly monitoring: MonitoringService
   ) {
-    this.openai = new OpenAI({
-      apiKey: this.configService.get<string>('OPENAI_API_KEY'),
-    });
+    this.logger = new CustomLoggerService(this.configService, AgentService.name);
   }
 
   async create(
@@ -103,57 +103,86 @@ export class AgentService {
     userId: string,
     organizationId: string
   ): Promise<Agent> {
-    // Validate prompt template if provided
-    if (createAgentDto.promptTemplateId) {
-      const template = await this.promptTemplateRepository.findOne({
-        where: {
-          id: createAgentDto.promptTemplateId,
-          organizationId,
+    const startTime = Date.now();
+    try {
+      // Validate prompt template if provided
+      if (createAgentDto.promptTemplateId) {
+        const template = await this.promptTemplateRepository.findOne({
+          where: {
+            id: createAgentDto.promptTemplateId,
+            organizationId,
+          },
+        });
+        if (!template) {
+          throw new NotFoundException('Prompt template not found');
+        }
+      }
+
+      // Create agent entity
+      const agent = this.agentRepository.create({
+        ...createAgentDto,
+        userId,
+        organizationId,
+        version: createAgentDto.version || '1.0.0',
+        performanceMetrics: {
+          successRate: 0,
+          averageResponseTime: 0,
+          totalExecutions: 0,
+          errorRate: 0,
+          lastUpdated: new Date(),
         },
       });
-      if (!template) {
-        throw new NotFoundException('Prompt template not found');
-      }
+
+      const savedAgent = await this.agentRepository.save(agent);
+
+      // Cache the agent
+      await this.cacheAgent(savedAgent);
+
+      // Emit event
+      this.eventEmitter.emit(AgentEventType.AGENT_CREATED, {
+        agentId: savedAgent.id,
+        userId,
+        organizationId,
+        agentData: savedAgent,
+        timestamp: new Date(),
+      });
+
+      // Send real-time update
+      await this.websocketService.broadcastToOrganization(organizationId, 'agent_created', {
+        agent: savedAgent,
+        userId,
+      });
+
+      const duration = Date.now() - startTime;
+
+      // Add monitoring
+      this.monitoring.recordMetric({
+        name: 'agent_created',
+        value: 1,
+        tags: {
+          agent_id: savedAgent.id,
+          organization_id: organizationId,
+          success: 'true'
+        }
+      });
+
+      this.logger.logUserAction(userId, 'agent_created', 'agent', {
+        agentId: savedAgent.id,
+        organizationId,
+        duration
+      });
+
+      return savedAgent;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logSafeError(this.logger, error, 'Agent creation failed');
+      this.monitoring.recordError(error, 'AgentService.create', {
+        userId,
+        organizationId,
+        duration
+      });
+      throw error;
     }
-
-    // Create agent entity
-    const agent = this.agentRepository.create({
-      ...createAgentDto,
-      userId,
-      organizationId,
-      version: createAgentDto.version || '1.0.0',
-      performanceMetrics: {
-        successRate: 0,
-        averageResponseTime: 0,
-        totalExecutions: 0,
-        errorRate: 0,
-        lastUpdated: new Date(),
-      },
-    });
-
-    const savedAgent = await this.agentRepository.save(agent);
-
-    // Cache the agent
-    await this.cacheAgent(savedAgent);
-
-    // Emit event
-    this.eventEmitter.emit(AgentEventType.AGENT_CREATED, {
-      agentId: savedAgent.id,
-      userId,
-      organizationId,
-      agentData: savedAgent,
-      timestamp: new Date(),
-    });
-
-    // Send real-time update
-    await this.websocketService.broadcastToOrganization(organizationId, 'agent_created', {
-      agent: savedAgent,
-      userId,
-    });
-
-    this.logger.log(`Agent created: ${savedAgent.id} by user ${userId} in org ${organizationId}`);
-
-    return savedAgent;
   }
 
   async findAll(

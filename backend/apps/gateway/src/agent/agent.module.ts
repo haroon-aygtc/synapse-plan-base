@@ -11,6 +11,8 @@ import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { PromptTemplateModule } from '../prompt-template/prompt-template.module';
 import { AIProviderModule } from '../ai-provider/ai-provider.module';
 import { HITLModule } from '../hitl/hitl.module';
+import { CustomLoggerService } from '@shared/logger/logger.service';
+import { MonitoringService } from '@shared/monitoring/monitoring.service';
 
 @Module({
   imports: [
@@ -24,7 +26,7 @@ import { HITLModule } from '../hitl/hitl.module';
     HITLModule,
   ],
   controllers: [AgentController],
-  providers: [AgentService, AgentExecutionEngine],
+  providers: [AgentService, AgentExecutionEngine, CustomLoggerService, MonitoringService],
   exports: [AgentService, AgentExecutionEngine],
 })
-export class AgentModule {}
+export class AgentModule { }
